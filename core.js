@@ -105,9 +105,9 @@ export const fx = m => {
     multi: (k, l, o) => `<div class="col"><span>${l}</span><div class="chips">${o.map(([a, b]) => `<label class="chip"><input type="checkbox" data-km="${k}" value="${esc(a)}" ${(v(k) || []).includes(a) ? 'checked' : ''}>${esc(b)}</label>`).join('') || '<small>（空）</small>'}</div></div>`,
   };
 };
-export const form = (title, fields, obj = {}) => new Promise(res => {
+export const form = (title, fields, obj = {}, ext = {}) => new Promise(res => {
   const m = structuredClone(obj), f = fx(m); let done;
-  const s = sheet({ title, noBack: 1, model: () => m, save: () => {}, body: () => fields.map(([k, l, t = 'text', o]) => t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'multi' ? f.multi(k, l, o) : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ok: () => { done = 1; s.close(); res(m); } }, onClose: () => done || res(null) });
+  const s = sheet({ title, noBack: 1, model: () => m, save: () => {}, body: () => fields.map(([k, l, t = 'text', o]) => t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); } }, onClose: () => done || res(null) });
 });
 // 可折叠、长按拖拽排序的分组
 export const sec = (pk, list) => { const o = S.ui.order[pk] || [], ix = k => o.indexOf(k) + 1 || 99; return `<div class="secs" data-secs="${pk}">${list.filter(Boolean).sort((a, b) => ix(a[0]) - ix(b[0])).map(([k, t, h]) => `<div class="sec ${S.ui.fold[pk + k] ? 'fold' : ''}" data-sec="${esc(k)}"><div class="sec-h" data-a="fold" data-x="${esc(pk + k)}" data-lp="secDrag"><b>${t}</b>${I.chev}</div><div class="sec-b">${h}</div></div>`).join('')}</div>`; };
@@ -128,7 +128,7 @@ export function bind(R) {
   let lp, lpd;
   const hit = (e, a) => { const t = e.target.closest?.(`[data-${a}]`); if (!t || !R.contains(t)) return; const pg = pgOf(t), n = t.dataset[a], f = pg?.acts?.[n] || G[n]; f && (e.stopPropagation(), f(t.dataset.x, t, e, pg)); };
   R.addEventListener('click', e => lpd ? (lpd = 0) : hit(e, 'a'));
-  R.addEventListener('contextmenu', e => e.preventDefault());
+  R.addEventListener('contextmenu', e => e.target.closest('input,textarea,.bub,pre') || e.preventDefault());
   R.addEventListener('pointerdown', e => {
     lpd = 0; const t = e.target.closest('[data-lp]'); if (!t) return; const x = e.clientX, y = e.clientY; clearTimeout(lp);
     const end = () => { clearTimeout(lp); removeEventListener('pointermove', mv); removeEventListener('pointerup', end); removeEventListener('pointercancel', end); }, mv = ev => Math.hypot(ev.clientX - x, ev.clientY - y) > 8 && end();
@@ -170,7 +170,7 @@ export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };
 export const genImg = prompt => call('img', '生图', prompt, async p => { if (tav('img')) return slash('/sd quiet=true ' + prompt); const d = (await (await req(p, '/images/generations', { model: p.model, prompt, n: 1, size: p.size || '1024x1024' })).json()).data?.[0]; return d?.url || 'data:image/png;base64,' + d?.b64_json; });
 export const tts = (text, voice) => call('tts', '语音', text, async p => { if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`); new Audio(URL.createObjectURL(await (await req(p, '/audio/speech', { model: p.model, input: text, voice: voice || p.voice || 'alloy' })).blob())).play(); });
-export const models = async t => (await (await req(prof(t), '/models')).json()).data?.map(m => m.id) || [];
+export const models = async p => { const j = await (await req(p, '/models')).json(); return (j.data || j.models || j).map?.(m => m.id || m.name || m) || []; };
 
 /* ---------- 剧情上下文 / 世界书 ---------- */
 const strip = s => String(s || '').replace(/<[^>]*>/g, '').replace(/\n{3,}/g, '\n\n').trim();

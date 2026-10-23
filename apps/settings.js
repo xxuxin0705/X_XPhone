@@ -29,13 +29,16 @@ function api(t) {
     acts: {
       pick: id => { a.cur = id; save(); pg.re(); }, padd: () => pe(),
       pedit: async id => { const p = a.list.find(x => x.id == id), k = await menu([['e', '编辑'], ['c', '复制'], ['d', '删除', 'danger']], esc(p.name)); k == 'e' && pe(p); k == 'c' && a.list.push({ ...p, id: uid(), name: p.name + ' 副本' }); k == 'd' && a.list.splice(a.list.indexOf(p), 1); save(); pg.re(); },
-      pmod: async () => { try { toast('拉取中…'); const m = await menu((await models(t)).map(x => [x, esc(x)]), '选择模型'); m && (prof(t).model = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
+      pmod: async () => { try { toast('拉取中…'); const m = await menu((await models(prof(t))).map(x => [x, esc(x)]), '选择模型'); m && (prof(t).model = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
       test: async () => { toast('测试中…'); try { t == 'chat' ? toast('✓ ' + String(await llm('Reply in one short sentence.', '用一句话打个招呼', '测试')).slice(0, 40)) : t == 'img' ? (await genImg('a cute cat, pastel colors'), toast('✓ 生图成功')) : (await tts('你好呀，这是小手机的语音测试'), toast('✓ 已播放')); } catch (e) { toast('✗ ' + e.message); } },
     },
   });
   const pe = async (p = {}) => {
-    const r = await form(p.id ? '编辑配置' : '新增配置', [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型'],
-      ...(t == 'chat' ? [['temp', '温度', 'number', '0.9']] : t == 'img' ? [['size', '尺寸', 'text', '1024x1024']] : [['voice', '默认音色', 'text', 'alloy']])], p);
+    const r = await form(p.id ? '编辑配置' : '新增配置', [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型', 'pull', '填好地址和Key后点拉取'],
+      ...(t == 'chat' ? [['temp', '温度', 'number', '0.9']] : t == 'img' ? [['size', '尺寸', 'text', '1024x1024']] : [['voice', '默认音色', 'text', 'alloy']])], p, { pull: async (k, el, e, s) => {
+      const m = s.model(); if (!m.url) return toast('请先填写 API 地址');
+      try { toast('正在拉取模型…'); const l = await models(m); if (!l.length) return toast('没有拉到模型'); const x = await menu(l.map(v => [v, esc(v)]), `选择模型 · ${l.length}个`); x && (m.model = x, s.re()); } catch (er) { toast('拉取失败：' + er.message); }
+    } });
     if (!r) return; r.id ? Object.assign(p, r) : (r.id = uid(), a.list.push(r), a.cur ||= r.id); save(); pg.re();
   };
 }

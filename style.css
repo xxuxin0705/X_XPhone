@@ -8,7 +8,7 @@
 #stp svg{display:block}
 #stp img{max-width:none;margin:0}
 #stp p{margin:0}
-#stp :is(input,select,textarea){all:unset;box-sizing:border-box;display:block;min-width:0;max-width:62%;padding:7px 11px;border-radius:10px;background:rgba(127,127,127,.11);font:inherit;color:inherit;text-align:right;user-select:text}
+#stp :is(input,select,textarea){all:unset;box-sizing:border-box;display:block;min-width:0;max-width:62%;padding:7px 11px;border-radius:10px;background:rgba(127,127,127,.11);font:inherit;color:inherit;text-align:right;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
 #stp textarea{max-width:none;width:100%;min-height:84px;text-align:left;white-space:pre-wrap;line-height:1.5}
 #stp select{cursor:pointer}
 #stp input[type=range]{all:revert;accent-color:var(--ac);width:55%}
@@ -20,6 +20,7 @@
 .stp-scr{position:relative;height:100%;border-radius:49px;overflow:hidden;background:var(--wpi);isolation:isolate}
 .sb{position:absolute;inset:0 0 auto;height:46px;z-index:70;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;color:var(--tx);font-weight:600;font-size:15px;cursor:grab;transition:color .3s;text-shadow:0 1px 2px rgba(0,0,0,.08)}
 .sb-r{display:flex;align-items:center;gap:5px;font-size:13px}
+.off{display:grid;place-items:center;width:22px;height:22px;margin-left:3px;border-radius:50%;background:rgba(255,59,48,.9);color:#fff;cursor:pointer;box-shadow:0 2px 6px rgba(255,59,48,.35)}.off svg{width:13px;height:13px}
 .bat{width:25px;height:12px;border:1.5px solid currentColor;border-radius:4px;position:relative;opacity:.9}
 .bat::after{content:'';position:absolute;inset:1.5px 35% 1.5px 1.5px;background:currentColor;border-radius:1.5px}
 .isl{position:absolute;left:50%;top:11px;width:108px;height:31px;margin-left:-54px;border-radius:20px;background:#000}
@@ -111,6 +112,7 @@
 .col{display:flex;flex-direction:column;gap:7px;padding:11px 15px;border-top:.5px solid var(--ln)}
 .col>span{font-size:13px;color:#8e8e93}
 .col .seg{margin:0}
+.pull{flex:none;padding:6px 12px;border-radius:10px;background:var(--ac);color:#fff;font-size:13px;font-weight:600;cursor:pointer}
 .thumb{width:40px;height:40px;border-radius:12px;object-fit:cover}
 .seg{display:flex;gap:2px;margin:12px 14px;padding:3px;border-radius:12px;background:rgba(127,127,127,.12)}
 .seg button{all:unset;flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:13px;cursor:pointer;transition:.2s;white-space:nowrap}
@@ -350,3 +352,4 @@
   .stp-scr{border-radius:0}
   .isl{display:none}
 }
+#stp .row:has(.pull) input{flex:1;max-width:none}

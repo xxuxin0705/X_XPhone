@@ -5,7 +5,7 @@ import { openChat, syncStory } from './apps/chat.js';
 import './apps/settings.js';
 import { applyTheme } from './apps/theme.js';
 
-const SB = `<b class="sb-t"></b><span class="isl"></span><span class="sb-r"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" width="3" height="11" rx="1"/></svg>5G<i class="bat"></i></span>`;
+const SB = `<b class="sb-t"></b><span class="isl"></span><span class="sb-r"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" width="3" height="11" rx="1"/></svg>5G<i class="bat"></i><b class="off" data-a="off" title="关机"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v8M6.6 6.6a8 8 0 1 0 10.8 0"/></svg></b></span>`;
 const mobile = () => matchMedia('(max-width:520px)').matches;
 const place = (el, x, y) => { const r = el.getBoundingClientRect(); Object.assign(el.style, { left: Math.max(0, Math.min(innerWidth - r.width, x)) + 'px', top: Math.max(0, Math.min(innerHeight - r.height, y)) + 'px', right: 'auto', bottom: 'auto' }); };
 function drag(el, h, key, tap) {
@@ -31,6 +31,7 @@ function init() {
   document.body.insertAdjacentHTML('beforeend', `<div id="stp"><div class="stp-scr"><div class="sb">${SB}</div><div class="desk"></div><div class="stack"></div><div class="sheets"></div><div class="hb" data-a="home"></div></div></div><div id="stp-ball"></div><style id="stp-css"></style>`);
   Object.assign(ui, { root: $('#stp'), scr: $('#stp .stp-scr'), desk: $('#stp .desk'), stack: $('#stp .stack'), sheets: $('#stp .sheets') });
   G.home = () => top() ? home() : toggle(false);
+  G.off = () => { home(); toggle(false); };
   bind(ui.root); applyTheme(); initDesk(); show(); pos();
   drag(ui.root, $('#stp .sb'), 'win'); drag($('#stp-ball'), $('#stp-ball'), 'ball', () => toggle());
   ui.sheets.addEventListener('click', e => e.target == ui.sheets && ui.sheets.lastElementChild?._pg.close());
