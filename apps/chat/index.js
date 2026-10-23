@@ -13,8 +13,9 @@ const blank = (type, o) => ({ id: uid(), type, name: '', nick: '', real: '', rem
 const add = c => (D().chats.push(c), c);
 const find = (n, type) => n && D().chats.find(c => (!type || c.type == type) && [c.real, c.nick, c.remark, c.name, c.id].includes(n));
 export const isMe = n => !!n && ['me', '我', '用户', C().name1, D().me.nick].includes(n);
-const upsert = o => { const n = o.real || o.nick, c = find(o.real, 'p') || find(o.nick, 'p'); if (!c) return add(blank('p', { ...o, nick: o.nick || n, real: n })); ['nick', 'real', 'remark', 'sign'].forEach(k => o[k] && !c[k] && (c[k] = o[k])); return c; };
-const member = (g, n) => { const c = upsert({ real: n }); g.members.includes(c.id) || g.members.push(c.id); return c.id; };
+const upsert = o => { const n = o.real || o.nick, c = find(o.real, 'p') || find(o.nick, 'p'); if (!c) return add(blank('p', { ...o, nick: o.nick || n, real: n })); ['nick', 'real', 'remark', 'sign'].forEach(k => o[k] && !c[k] && (c[k] = o[k])); o.fr && (c.fr = 1); return c; };
+// 只是群成员、没加好友的人 fr=0：不进通讯录和消息列表
+const member = (g, n) => { const c = upsert({ real: n, fr: 0 }); g.members.includes(c.id) || g.members.push(c.id); return c.id; };
 const viewing = id => top()?.chat == id && ui.root.classList.contains('on');
 const sty = c => c?.cfg?.style || S.style;
 const stk = n => S.assets.sticker.find(s => s.name == n || (n && n.includes(s.name)))?.img || '';
@@ -31,7 +32,7 @@ function addMsg(ch, m) {
 }
 export function applyDelta(d, cur) {
   const out = []; d ||= {};
-  d.contacts?.forEach(c => (c.real || c.nick) && !isMe(c.real) && upsert(c));
+  d.contacts?.forEach(c => (c.real || c.nick) && !isMe(c.real) && upsert({ ...c, fr: 1 }));
   d.groups?.forEach(g => {
     if (!g.name) return; const x = find(g.name, 'g') || add(blank('g', { name: g.name }));
     g.no && (x.no = String(g.no)); g.notice && (x.notice = g.notice); g.owner && !isMe(g.owner) && (x.owner = member(x, g.owner));
@@ -50,9 +51,12 @@ const names = () => D().chats.map(c => c.type == 'g' ? `群「${c.name}」` : rn
 const GJ = '"groups":[{"name":"群名","owner":"群主真实姓名","admins":[],"members":["真实姓名"],"notice":"群公告"}]';
 export const SCAN = t => `【最新剧情】\n${t}\n\n任务：找出这段剧情里发生在线上（手机/社交软件）的事件并同步到小手机：发消息、加好友、拉群/进群、发朋友圈动态、转账、拍一拍等。已有：${names()}。剧情里没出现的不要编。
 只输出JSON：{"contacts":[{"real":"真实姓名","nick":"网名","sign":"签名"}],${GJ},"msgs":[{"chat":"私聊对象真实姓名或群名","from":"发送者真实姓名","type":"text","text":"内容"}],"posts":[{"author":"","text":""}]}，没有的项给空数组。`;
-const INIT = r => `任务：${r.mode == 'me' ? `按用户提供的信息生成${C().name1}手机里的联系人/群聊：${r.info}\n（同时参考人设与剧情保持一致）` : `根据人设、世界书和剧情，列出${C().name1}手机里应有的联系人和群聊（剧情里认识的人、所属的群体）。${r.info ? '补充要求：' + r.info : ''}`}
-数量：联系人 ${+r.n || 5} 个，群聊 ${+r.g || 0} 个。已有：${names()}，不要重复。给每人设计贴合人设的网名与签名；群聊给出群名、群主、管理员、成员、群公告。内容简洁。
-只输出JSON：{"contacts":[{"real":"","nick":"","remark":"","sign":""}],${GJ}}`;
+// 生成联系人：只要 {{user}} 视角（已加好友的人、{{user}}本人在里面的群），用短键名压缩输出以提速
+const CJ = '{"c":[{"n":"真实姓名","k":"网名","s":"个性签名(25字内)"}],"g":[{"n":"群名","o":"群主真实姓名","a":["管理员"],"m":["成员真实姓名"],"t":"群公告(40字内)"}]}';
+const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, sign: x.s ?? x.sign })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
+const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，数量按剧情实际需要，不要凑数。`}
+规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成），members 不用写${u}。不要包含${u}自己。已有：${names()}，不要重复。签名、公告都简短。
+只输出JSON：${CJ}`; };
 function replyP(ch) {
   const g = ch.type == 'g', me = meObj().nick, sk = S.assets.sticker.map(s => s.name).join('、');
   const hist = ch.msgs.slice(-30).map(m => `#${ch.msgs.indexOf(m)} ${m.f == 'me' ? me : m.f == 'sys' ? '系统' : rn(get(m.f))}: ${brief(m)}${m.t == 'transfer' && m.st ? `(${m.st})` : ''}`).join('\n');
@@ -107,9 +111,9 @@ function msgs(ch) {
 }
 // 已读回执：微信/QQ 文字，Kakao 未读显示黄色数字，LINE 显示 Read
 const rd = (m, ch) => { const st = sty(ch), g = ch.type == 'g', n = g ? ch.members.length : 1; return m.rd ? (st == 'kk' ? '' : `<em class="rd">${st == 'line' ? (g ? 'Read ' + n : 'Read') : g ? n + '人已读' : '已读'}</em>`) : `<em class="rd un">${st == 'kk' ? n : st == 'line' ? '' : '未读'}</em>`; };
-const list = () => [...D().chats].sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
+const list = () => D().chats.filter(c => c.fr !== 0 || c.msgs.length).sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
   const m = c.msgs.at(-1);
-  return `<div class="cl ${c.pin ? 'pin' : ''}" data-a="open" data-x="${c.id}" data-lp="clp"><div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${c.members.length + 1})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : c.type == 'g' ? c.notice : c.sign)}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
+  return `<div class="cl ${c.pin ? 'pin' : ''}" data-a="open" data-x="${c.id}" data-lp="clp"><div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${c.members.length + 1})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
 }).join('') || `<div class="empty"><p>还没有联系人 ✧</p>${btn('aiInit', '✨ AI 生成联系人', '', 'pri')}${btn('plus', '手动添加')}</div>`;
 const post = (p, fs) => {
   const a = p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' }, me = nm(meObj()), lk = p.likes.includes(me);
@@ -156,24 +160,32 @@ function openFeed(aid) { const st = aid && aid != 'me' ? sty(get(aid)) : S.style
 
 /* ---------- 添加联系人 ---------- */
 async function aiInit() {
-  const r = await form('AI 生成联系人', [['mode', '生成方式', 'sel', [['auto', '按剧情 / 世界书自动生成'], ['me', '按我提供的信息生成']]], ['info', '我的信息 / 补充要求（选“按我提供”时必填）', 'area', '例：3个大学室友，一个是学生会长，一个是暗恋我的学弟…'], ['n', '联系人个数', 'number'], ['g', '群聊个数', 'number']], { mode: 'auto', n: 5, g: 1 });
-  if (!r) return; if (r.mode == 'me' && !r.info?.trim()) return toast('请先填写你要提供的信息');
-  task('AI 正在生成联系人', async sg => { const d = json(await llm(await sysCtx(), INIT(r), '生成联系人', sg)); if (!d) throw Error('返回格式不对'); applyDelta(d); return `已添加 ${d.contacts?.length || 0} 位联系人 · ${d.groups?.length || 0} 个群`; });
+  const mode = await menu([['auto', '✨ 按剧情 / 世界书自动生成'], ['me', '✍️ 按我提供的信息生成']], 'AI 生成联系人'); if (!mode) return;
+  const r = mode == 'me' ? await form('按我提供的信息生成', [['info', '联系人信息', 'area', '例：3个大学室友，一个是学生会长，一个是暗恋我的学弟…'], ['n', '联系人个数', 'number'], ['g', '群聊个数', 'number']], { n: 3, g: 1 }) : {};
+  if (!r) return; if (mode == 'me' && !r.info?.trim()) return toast('请先填写联系人信息'); r.mode = mode;
+  task('AI 正在生成联系人', async sg => addContacts(json(await llm(await sysCtx(mode == 'me'), INIT(r), '生成联系人', sg))));
+}
+// 应用生成结果，并询问是否给新联系人填备注
+function addContacts(raw) {
+  if (!raw) throw Error('返回格式不对'); const d = unz(raw), old = new Set(D().chats.map(c => c.id)); applyDelta(d);
+  const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), ng = D().chats.filter(c => c.type == 'g' && !old.has(c.id)).length;
+  nw.length && setTimeout(async () => { const r = await form('给新联系人填备注？', nw.map(c => ['r' + c.id, `${esc(c.nick)}<small>（${esc(c.real)}）</small>`, 'text', '可留空']), {}); r && nw.forEach(c => r['r' + c.id]?.trim() && (c.remark = r['r' + c.id].trim())); saveD(); emit('chat'); }, 600);
+  return `已添加 ${nw.length} 位联系人 · ${ng} 个群`;
 }
 async function fromWi() {
   const es = []; for (const b of await wiBooks()) es.push(...Object.values((await loadBook(b))?.entries || {})); if (!es.length) return toast('没有读取到世界书条目');
   const i = await menu(es.map((e, i) => [i, esc(e.comment || e.key?.join(',') || '条目' + e.uid)]), '选择世界书条目'); if (i == null) return;
-  task('正在解析世界书条目', async sg => { const d = json(await llm('你是小手机数据整理器，只输出JSON。', `根据以下世界书条目，整理出其中的人物（联系人）或群体（群聊）：\n${es[i].content}\n只输出JSON：{"contacts":[{"real":"","nick":"","remark":"","sign":""}],${GJ}}`, '世界书解析', sg)); if (!d) throw Error('返回格式不对'); applyDelta(d); return `已添加 ${d.contacts?.length || 0} 位联系人 · ${d.groups?.length || 0} 个群`; });
+  task('正在解析世界书条目', async sg => addContacts(json(await llm('你是小手机数据整理器，只输出JSON。', `根据以下世界书条目，整理出${C().name1}手机里会有的联系人（${C().name1}认识的人）或${C().name1}所在的群聊，不包含${C().name1}自己：\n${es[i].content}\n只输出JSON：${CJ}`, '世界书解析', sg))));
 }
 
 /* ---------- 联系人 / 通讯录 ---------- */
 const PY = 'ABCDEFGHJKLMNOPQRSTWXYZ', PB = '阿八嚓哒妸发旮哈讥咔垃痳拏噢妑七呥扨它穵夕丫帀', COL = new Intl.Collator('zh-CN');
 const ini = s => { const c = [...String(s || '#')][0]; if (/[a-z]/i.test(c)) return c.toUpperCase(); if (!/[\u4e00-\u9fa5]/.test(c)) return '#'; let r = '#'; for (let i = 0; i < PB.length && COL.compare(c, PB[i]) >= 0; i++) r = PY[i]; return r; };
-const crow = (c, a = 'prof') => `<div class="cl" data-a="${a}" data-x="${c.id}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}</b><small>${esc(c.type == 'g' ? c.notice : c.sign)}</small></div></div>`;
+const crow = (c, a = 'prof') => `<div class="cl" data-a="${a}" data-x="${c.id}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}</b></div></div>`;
 const ent = (i, l, a, x = '') => `<div class="cl ent2" data-a="${a}" data-x="${x}"><i class="ei">${i}</i><div class="cl-m"><b>${l}</b></div><small>›</small></div>`;
 let ctab = 'grp';
 function contacts() {
-  const st = S.style, ps = D().chats.filter(c => c.type == 'p').sort((a, b) => COL.compare(nm(a), nm(b))), gs = D().chats.filter(c => c.type == 'g'), me = meObj();
+  const st = S.style, ps = D().chats.filter(c => c.type == 'p' && c.fr !== 0).sort((a, b) => COL.compare(nm(a), nm(b))), gs = D().chats.filter(c => c.type == 'g'), me = meObj();
   if (st == 'wx') {
     const by = {}; ps.forEach(c => (by[ini(nm(c))] ||= []).push(c)); const ks = Object.keys(by).sort((a, b) => a == '#' ? 1 : b == '#' ? -1 : a < b ? -1 : 1);
     return `<div class="ct-wx">${ent('👤', '新的朋友', 'plus')}${ent('👥', `群聊 <small>${gs.length}</small>`, 'groups')}${ks.map(k => `<h6 data-l="${k}">${k}</h6>${by[k].map(c => crow(c)).join('')}`).join('') || '<p class="empty">还没有联系人</p>'}<p class="ct-n">${ps.length} 位联系人</p></div><nav class="az">${[...PY.slice(0, 8), 'I', ...PY.slice(8, 19), 'U', 'V', ...PY.slice(19), '#'].map(k => `<b data-a="jump" data-x="${k}">${k}</b>`).join('')}</nav>`;

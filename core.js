@@ -19,7 +19,7 @@ const api = x => ({ src: 'tavern', cur: '', list: [], ...x });
 const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
-  ctxN: 15, timeout: 30, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
+  ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
     widget: [{ id: 'w1', name: '心情便签', sz: '2x2', html: '<div style="height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px"><b style="font:700 30px Georgia,serif">{{time}}</b><small>今天也要开心 ✧</small><small style="opacity:.6">{{date}} 周{{week}}</small></div>' }],
@@ -182,7 +182,7 @@ const tav = t => S.api[t].src == 'tavern';
 // 每次调用都有超时（聊天默认30秒，可在设置改）并可被任务取消
 async function call(t, desc, rq, fn, sg) {
   const p = prof(t), L = { t, desc, at: Date.now(), src: tav(t) ? '酒馆' : p?.name || '未配置', model: tav(t) ? '' : p?.model, req: String(rq).slice(0, 4000) };
-  const ac = new AbortController(), lim = t == 'chat' ? +S.timeout || 30 : 120, tm = setTimeout(() => ac.abort(Error(`超时（${lim}秒没有返回）`)), lim * 1e3);
+  const ac = new AbortController(), lim = +S.tmo || 300, tm = setTimeout(() => ac.abort(Error(`超时（${lim}秒没有返回）`)), lim * 1e3);
   sg?.addEventListener('abort', () => ac.abort(Error('已取消')));
   const stop = new Promise((_, rj) => ac.signal.addEventListener('abort', () => rj(ac.signal.reason)));
   try { if (!tav(t) && !p) throw Error('请先在 设置 中添加并选择API配置'); const r = await Promise.race([fn(p, ac.signal), stop]); L.ok = 1; L.res = typeof r == 'string' ? r.slice(0, 4000) : '[ok]'; return r; }
@@ -191,7 +191,7 @@ async function call(t, desc, rq, fn, sg) {
 const base = u => { u = String(u || '').trim().replace(/\/+$/, '').replace(/\/chat\/completions$/, ''); return /\/v\d[^/]*$/.test(u) ? u : u + '/v1'; };
 const req = async (p, path, body, signal) => { const r = await fetch(base(p.url) + path, { signal, method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(p.key && { Authorization: 'Bearer ' + p.key }) }, body: body && JSON.stringify(body) }); if (!r.ok) throw Error(`HTTP ${r.status} ${(await r.text()).slice(0, 200)}`); return r; };
 export const llm = (sys, user, desc = '聊天', sg) => call('chat', desc, user, async (p, sig) => tav('chat') ? C().generateRaw({ systemPrompt: sys, prompt: user })
-  : (await (await req(p, '/chat/completions', { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] }, sig)).json()).choices?.[0]?.message?.content || '', sg);
+  : (await (await req(p, '/chat/completions', { model: p.model, temperature: +p.temp || 0.9, ...(p.fast && { reasoning_effort: 'low' }), messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] }, sig)).json()).choices?.[0]?.message?.content || '', sg);
 export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/```(json)?/g, ''); const i = s.search(/[[{]/), j = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']')); try { return JSON.parse(s.slice(i, j + 1)); } catch { return null; } };
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };
 export const genImg = prompt => call('img', '生图', prompt, async (p, sig) => { if (tav('img')) return slash('/sd quiet=true ' + prompt); const d = (await (await req(p, '/images/generations', { model: p.model, prompt, n: 1, size: p.size || '1024x1024' }, sig)).json()).data?.[0]; return d?.url || 'data:image/png;base64,' + d?.b64_json; });
@@ -204,16 +204,20 @@ export const recent = (n = S.ctxN) => (C().chat || []).filter(m => !m.is_system)
 const wim = () => import('../../../world-info.js').catch(() => ({}));
 export const allBooks = async () => (await wim()).world_names || [];
 export async function wiBooks() { if (!S.wi.follow) return S.wi.books; const m = await wim(), c = C(), ch = c.characters?.[c.characterId]; return [...new Set([...(m.selected_world_info || []), ch?.data?.extensions?.world].filter(Boolean))]; }
-export const loadBook = async n => { const c = C(); try { return c.loadWorldInfo ? await c.loadWorldInfo(n) : await (await fetch('/api/worldinfo/get', { method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ name: n }) })).json(); } catch { return null; } };
+const BC = {};
+export const loadBook = async n => { const c = C(), h = BC[n]; if (h && Date.now() - h.t < 6e4) return h.d; try { return (BC[n] = { t: Date.now(), d: c.loadWorldInfo ? await c.loadWorldInfo(n) : await (await fetch('/api/worldinfo/get', { method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ name: n }) })).json() }).d; } catch { return null; } };
 export const entState = (b, e, ctx) => { const o = S.wi.ov[b + '/' + e.uid]; return o != null ? !!o : !e.disable && (e.constant || (e.key || []).some(k => k && ctx.includes(k))); };
 export async function wiText(ctx) { const o = []; for (const b of await wiBooks()) for (const e of Object.values((await loadBook(b))?.entries || {})) entState(b, e, ctx) && o.push(e.content); return o.join('\n\n'); }
-export async function sysCtx() {
-  const c = C(), ch = c.characters?.[c.characterId], r = recent(), d = D(), sub = s => (c.substituteParams?.(s || '') ?? s ?? '').trim();
+// 上下文长度预算（按约1分钟内生成调校）；lite=1 时跳过世界书、只取最近6条正文
+const cut = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
+export async function sysCtx(lite) {
+  const c = C(), ch = c.characters?.[c.characterId], d = D(), sub = (s, n = 1500) => cut((c.substituteParams?.(s || '') ?? s ?? '').trim(), n);
+  const r = cut((C().chat || []).filter(m => !m.is_system).slice(lite ? -6 : -S.ctxN).map(m => `${m.name}: ${cut(strip(m.mes), 800)}`).join('\n'), lite ? 2500 : 10000);
   return `你是“小手机”模拟器，扮演手机里的所有联系人与内容，言行贴合人设、世界观与当前剧情，只输出要求的JSON，不要任何多余文字。
 当前手机时间：${now().toLocaleString('zh-CN')}
 【用户】${c.name1}（手机昵称：${d.me.nick || c.name1}）${sub(c.powerUserSettings?.persona_description)}
-【主角色】${c.name2}\n${sub(ch?.description)}\n${sub(ch?.personality)}
-【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')))}
+【主角色】${c.name2}\n${sub(ch?.description, lite ? 1200 : 4000)}\n${sub(ch?.personality, 800)}
+${lite ? '' : `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')), 8000)}`}
 【正文剧情·最近${S.ctxN}条】\n${r}
 【手机联系人】${d.chats.map(x => x.type == 'g' ? `群「${x.name}」` : `${rn(x)}(网名${x.nick || '-'})`).join('、') || '无'}`;
 }

@@ -25,7 +25,7 @@ function api(t) {
     body: () => fx(a).seg('src', [['tavern', '酒馆当前配置'], ['custom', '自定义 API']]) + (a.src == 'tavern'
       ? `<p class="tip">${{ chat: '直接使用酒馆当前连接的 API 与模型。', img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`
       : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}</b><small>${esc(p.model || '未选模型')} · ${esc(p.url)}</small></span></div>`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除</p>${btn('padd', '＋ 新增配置')}${a.cur ? btn('pmod', '拉取模型列表') : ''}`)
-      + (t == 'chat' ? `<div class="card">${fx(a).inp('$timeout', '超时（秒）', 'number', '30')}</div><p class="tip">超过这个时间没返回就判定失败。想更快：选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
+      + (t == 'chat' ? `<div class="card">${fx(a).inp('$tmo', '超时（秒）', 'number', '300')}</div><p class="tip">默认5分钟没返回才判定失败。想更快：配置里开启「低思考模式」、选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
       + (t == 'img' ? `<div class="card">${fx(a).tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>` : '') + btn('test', '测试连接', '', 'pri'),
     acts: {
       pick: id => { a.cur = id; save(); pg.re(); }, padd: () => pe(),
@@ -36,7 +36,7 @@ function api(t) {
   });
   const pe = async (p = {}) => {
     const r = await form(p.id ? '编辑配置' : '新增配置', [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型', 'pull', '填好地址和Key后点拉取'],
-      ...(t == 'chat' ? [['temp', '温度', 'number', '0.9']] : t == 'img' ? [['size', '尺寸', 'text', '1024x1024']] : [['voice', '默认音色', 'text', 'alloy']])], p, { pull: async (k, el, e, s) => {
+      ...(t == 'chat' ? [['temp', '温度', 'number', '0.9'], ['fast', '低思考模式（更快，个别接口不支持就关掉）', 'tog']] : t == 'img' ? [['size', '尺寸', 'text', '1024x1024']] : [['voice', '默认音色', 'text', 'alloy']])], p, { pull: async (k, el, e, s) => {
       const m = s.model(); if (!m.url) return toast('请先填写 API 地址');
       try { toast('正在拉取模型…'); const l = await models(m); if (!l.length) return toast('没有拉到模型'); const x = await menu(l.map(v => [v, esc(v)]), `选择模型 · ${l.length}个`); x && (m.model = x, s.re()); } catch (er) { toast('拉取失败：' + er.message); }
     } });
