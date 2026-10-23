@@ -192,6 +192,14 @@ const base = u => { u = String(u || '').trim().replace(/\/+$/, '').replace(/\/ch
 const req = async (p, path, body, signal) => { const r = await fetch(base(p.url) + path, { signal, method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(p.key && { Authorization: 'Bearer ' + p.key }) }, body: body && JSON.stringify(body) }); if (!r.ok) throw Error(`HTTP ${r.status} ${(await r.text()).slice(0, 200)}`); return r; };
 export const llm = (sys, user, desc = '聊天', sg) => call('chat', desc, user, async (p, sig) => tav('chat') ? C().generateRaw({ systemPrompt: sys, prompt: user })
   : (await (await req(p, '/chat/completions', { model: p.model, temperature: +p.temp || 0.9, ...(p.fast && { reasoning_effort: 'low' }), messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] }, sig)).json()).choices?.[0]?.message?.content || '', sg);
+// 机器翻译：只给“我”写的文字用，走酒馆自带翻译接口（谷歌/必应同时发，谁先回用谁，8秒上限）；绝不调用聊天模型，不花 API 额度
+export async function mt(text, to) {
+  const c = C(), h = { ...(c.getRequestHeaders?.() || {}), 'Content-Type': 'application/json' }, ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8e3);
+  const one = (u, lang) => fetch(u, { method: 'POST', headers: h, body: JSON.stringify({ text, lang }), signal: ac.signal }).then(async r => { const s = (await r.text()).trim(); if (!r.ok || !s || s[0] == '<' || s == text) throw 0; return s; });
+  try { return await Promise.any([one('/api/translate/google', to), one('/api/translate/bing', { 'zh-CN': 'zh-Hans', 'zh-TW': 'zh-Hant' }[to] || to)]); }
+  catch { throw Error('机翻失败：酒馆翻译服务暂时不可用'); }
+  finally { clearTimeout(tm); ac.abort(); }
+}
 export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/```(json)?/g, ''); const i = s.search(/[[{]/), j = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']')); try { return JSON.parse(s.slice(i, j + 1)); } catch { return null; } };
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };
 export const genImg = prompt => call('img', '生图', prompt, async (p, sig) => { if (tav('img')) return slash('/sd quiet=true ' + prompt); const d = (await (await req(p, '/images/generations', { model: p.model, prompt, n: 1, size: p.size || '1024x1024' }, sig)).json()).data?.[0]; return d?.url || 'data:image/png;base64,' + d?.b64_json; });

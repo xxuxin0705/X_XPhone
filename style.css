@@ -98,6 +98,9 @@
 .pg-back svg,.pg-r svg{width:23px;height:23px}
 .pg-t{flex:1;text-align:center;font-weight:600;font-size:16.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
 .pg-t small{display:block;font-size:10.5px;font-weight:400;opacity:.55}
+.chat .pg-t b{font-size:16px;font-weight:600}
+.pg-t .typ{opacity:1;color:var(--sac,var(--ac));font-size:11px}.typ i{font-style:normal;animation:blink 1.2s infinite}.typ i:nth-child(2){animation-delay:.2s}.typ i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
 .pg-r{min-width:30px;display:flex;justify-content:flex-end;gap:8px}
 .pg-b{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:6px 14px 34px;scrollbar-width:none}
 .pg-b::-webkit-scrollbar{display:none}
@@ -166,7 +169,7 @@
 .tk .spin{border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin .8s linear infinite}
 .tk.ok>i{background:#34c759}.tk.err>i{background:#ff3b30}.tk.ok,.tk.err{cursor:pointer}
 @keyframes spin{to{transform:rotate(360deg)}}
-.stp-toast{position:absolute;top:58px;left:50%;transform:translateX(-50%);z-index:99;max-width:84%;padding:8px 16px;border-radius:20px;background:rgba(28,28,30,.85);backdrop-filter:blur(10px);color:#fff;font-size:13px;text-align:center;animation:tin .3s}
+.stp-toast{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);z-index:99;max-width:84%;padding:8px 16px;border-radius:20px;background:rgba(28,28,30,.85);backdrop-filter:blur(10px);color:#fff;font-size:13px;text-align:center;animation:tin .3s}
 @keyframes tin{from{opacity:0;transform:translate(-50%,-10px)}}
 
 /* ---------- 聊天风格变量 ---------- */
@@ -257,12 +260,12 @@
 .st-kk .ib .go{color:#3b2a1a;background:#fee500}
 .ib .go svg{width:18px;height:18px}
 .go .s2,.go.has .s1{display:none}.go.has .s2{display:block}
-.pan{display:none;grid-template-columns:repeat(4,1fr);gap:14px;max-height:230px;overflow:auto;padding:14px 14px 24px;margin-top:-14px;background:var(--hb)}
-.pan.on{display:grid}
-.pan .tip{grid-column:1/-1}
+.pan{display:none;max-height:250px;overflow:auto;padding:0 12px 24px;margin-top:-14px;background:var(--hb)}
+.pan.on{display:block}
 .tl{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11.5px;color:#888;cursor:pointer}
 .tl i{width:56px;height:56px;border-radius:16px;background:var(--b1);display:grid;place-items:center;font-size:23px;font-style:normal}
-.sk{cursor:pointer}.sk img{width:64px;height:64px;object-fit:contain;border-radius:8px}
+.sk{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}.sk img{width:62px;height:62px;object-fit:contain;border-radius:10px}.sk small{font-size:10px;color:#999;max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sk.add{width:62px;height:62px;border-radius:12px;border:1.5px dashed rgba(127,127,127,.4);justify-content:center;font-size:22px;color:#aaa}
 
 /* ---------- 聊天设置 ---------- */
 .mem{display:flex;gap:10px;align-items:center;padding:8px 15px;border-top:.5px solid var(--ln)}
@@ -401,3 +404,40 @@
 #stp .nc-r input{flex:1;max-width:none;background:none;text-align:left;padding:6px 4px}
 .nc-g{margin:12px 4px 4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.nc-g small{width:100%;color:#999;font-size:12px}
 .nc-g span{padding:5px 11px;border-radius:14px;background:var(--cd);font-size:12.5px}
+
+/* ---------- 聊天交互：翻译折叠 / 表情回应 / 引用 / 正在输入 / 拍一拍抖动 / 表情面板 ---------- */
+.tz{margin-top:6px}
+.tz b{display:inline-flex;align-items:center;gap:3px;padding:1px 9px;border-radius:9px;background:rgba(127,127,127,.14);font-size:11px;font-weight:500;opacity:.75;cursor:pointer}
+.tz b::before{content:'文';font-size:10px;font-weight:700;opacity:.8}
+.tz p{display:none;margin:6px 0 0!important;padding-top:6px;border-top:1px dashed rgba(127,127,127,.3);font-size:13.5px;opacity:.85;line-height:1.5}
+.tz.open p{display:block}
+.tp{display:block;font-size:11px;opacity:.6;margin-top:3px}
+.stk0{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 16px;border-radius:16px;background:rgba(127,127,127,.1)}
+.stk0 b{font:500 17px/1.3 sans-serif}.stk0 small{font-size:11px;opacity:.6}
+.rx{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.me .rx{justify-content:flex-end}
+.rp{display:inline-flex;align-items:center;gap:3px;padding:2px 8px 2px 6px;border-radius:12px;background:var(--cd,#fff);box-shadow:0 1px 4px rgba(0,0,0,.1);font-size:13px;cursor:pointer}
+.rp small{font-size:10.5px;color:#999}
+.rp.mine{box-shadow:0 0 0 1.5px var(--sac,var(--ac))}
+.qt{margin-top:4px;max-width:100%;padding:5px 9px;border-radius:6px;background:rgba(0,0,0,.06);color:#888;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dark .qt{background:rgba(255,255,255,.08)}
+.qbar{display:none;align-items:center;gap:8px;padding:7px 12px 0;background:var(--hb);font-size:12px;color:#888}
+.qbar.on{display:flex}.qbar span{flex:1;min-width:0;padding:5px 9px;border-radius:7px;background:rgba(0,0,0,.06);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qbar b{font-size:18px;cursor:pointer;padding:0 4px}
+.sys b{color:#576b95;font-weight:500;cursor:pointer;margin-left:4px}
+.sys.pat{color:#8a8a8a}
+.typing .bub{display:flex;gap:4px;align-items:center;padding:13px 14px}
+.typing .bub i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35;animation:dot 1.2s infinite}
+.typing .bub i:nth-child(2){animation-delay:.15s}.typing .bub i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,60%,100%{transform:none;opacity:.35}30%{transform:translateY(-4px);opacity:.8}}
+.stp-scr.shk{animation:shk .55s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes shk{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px) rotate(-.4deg)}40%,60%{transform:translateX(4px) rotate(.4deg)}}
+.ptabs{position:sticky;top:0;z-index:1;display:flex;gap:6px;padding:10px 0 8px;background:var(--hb)}
+.ptabs b{padding:5px 12px;border-radius:14px;font-size:12.5px;font-weight:500;color:#888;cursor:pointer}
+.ptabs b.on{background:var(--b1);color:var(--t1);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 8px;padding-top:4px}
+.pgrid.emo{grid-template-columns:repeat(8,1fr);gap:4px}
+.pgrid.emo i{font-style:normal;font-size:24px;text-align:center;padding:4px 0;border-radius:8px;cursor:pointer}
+.pgrid.emo i:active{background:rgba(127,127,127,.15)}
+.pgrid.tools{padding-top:14px}
+.mem b small{font-size:10px;padding:0 5px;border-radius:5px;background:color-mix(in srgb,var(--ac) 15%,transparent);color:var(--ac);margin-left:4px}

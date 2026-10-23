@@ -1,6 +1,6 @@
 // 小手机 · 设置：API（聊天/生图/TTS）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
 import { C, S, D, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, llm, genImg, tts, models, prof, LOG, saveLog, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
-import { syncStory } from '../chat/index.js';
+import { syncStory } from '../chat/chat.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
