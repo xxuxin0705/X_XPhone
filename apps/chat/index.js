@@ -1,5 +1,5 @@
 // 小手机 · 聊天：消息列表 / 私聊群聊 / 动态（朋友圈·QQ空间·推特式）/ 我
-import { C, S, D, saveD, esc, uid, $, ui, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, byId, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, home, wiBooks, loadBook, sleep, merge, APPS } from '../core.js';
+import { C, S, D, saveD, esc, uid, $, ui, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, byId, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, home, task, wiBooks, loadBook, sleep, merge, APPS } from '../../core.js';
 
 const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', tr: false, trMine: false, lang: '', inj: false };
 const STY = [['wx', '仿微信'], ['qq', '仿QQ'], ['kk', '仿KakaoTalk'], ['line', '仿LINE']];
@@ -49,7 +49,8 @@ const names = () => D().chats.map(c => c.type == 'g' ? `群「${c.name}」` : rn
 const GJ = '"groups":[{"name":"群名","owner":"群主真实姓名","admins":[],"members":["真实姓名"],"notice":"群公告"}]';
 export const SCAN = t => `【最新剧情】\n${t}\n\n任务：找出这段剧情里发生在线上（手机/社交软件）的事件并同步到小手机：发消息、加好友、拉群/进群、发朋友圈动态、转账、拍一拍等。已有：${names()}。剧情里没出现的不要编。
 只输出JSON：{"contacts":[{"real":"真实姓名","nick":"网名","sign":"签名"}],${GJ},"msgs":[{"chat":"私聊对象真实姓名或群名","from":"发送者真实姓名","type":"text","text":"内容"}],"posts":[{"author":"","text":""}]}，没有的项给空数组。`;
-const INIT = () => `任务：根据人设、世界书和剧情，列出${C().name1}手机里应有的联系人和群聊（剧情里认识的人、所属的群体）。已有：${names()}，不要重复。给每人设计贴合人设的网名与签名；群聊给出群名、群主、管理员、成员、群公告。
+const INIT = r => `任务：${r.mode == 'me' ? `按用户提供的信息生成${C().name1}手机里的联系人/群聊：${r.info}\n（同时参考人设与剧情保持一致）` : `根据人设、世界书和剧情，列出${C().name1}手机里应有的联系人和群聊（剧情里认识的人、所属的群体）。${r.info ? '补充要求：' + r.info : ''}`}
+数量：联系人 ${+r.n || 5} 个，群聊 ${+r.g || 0} 个。已有：${names()}，不要重复。给每人设计贴合人设的网名与签名；群聊给出群名、群主、管理员、成员、群公告。内容简洁。
 只输出JSON：{"contacts":[{"real":"","nick":"","remark":"","sign":""}],${GJ}}`;
 function replyP(ch) {
   const g = ch.type == 'g', me = meObj().nick, sk = S.assets.sticker.map(s => s.name).join('、');
@@ -70,7 +71,7 @@ async function gen(ch) {
     for (const m of ms) { ch.type == 'p' && (m.from = ''); const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
   } catch (e) { toast('生成失败：' + e.message); } finally { busy = 0; emit('chat'); }
 }
-export async function syncStory(t) { try { applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步'))).forEach(([ch, x]) => notify(ch, x)); } catch (e) { toast('剧情同步失败：' + e.message); } }
+export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 const trans = async (x, ch) => { try { x.tr = String(await llm('你是翻译器，只输出译文。', `翻译成${x.f == 'me' ? ch.cfg.lang || '英语' : '中文'}：\n${x.c}`, '翻译')).trim(); x.trShow = 1; saveD(); emit('chat'); } catch (e) { toast(e.message); } };
 const push = (ch, m) => { const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); ch.cfg.trMine && ch.cfg.lang && x.t == 'text' && trans(x, ch); return x; };
 on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('.pg-t', t.el).innerHTML = t.title()) : t.re(); });
@@ -105,7 +106,7 @@ function msgs(ch) {
 const list = () => [...D().chats].sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
   const m = c.msgs.at(-1);
   return `<div class="cl ${c.pin ? 'pin' : ''}" data-a="open" data-x="${c.id}" data-lp="clp"><div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${c.members.length + 1})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : c.type == 'g' ? c.notice : c.sign)}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
-}).join('') || `<div class="empty"><p>还没有联系人 ✧</p>${btn('aiInit', '✨ AI识别剧情联系人', '', 'pri')}${btn('plus', '手动添加')}</div>`;
+}).join('') || `<div class="empty"><p>还没有联系人 ✧</p>${btn('aiInit', '✨ AI 生成联系人', '', 'pri')}${btn('plus', '手动添加')}</div>`;
 const post = (p, fs) => {
   const a = p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' }, me = nm(meObj()), lk = p.likes.includes(me);
   return `<article class="po"><img class="av" src="${esc(avOf(a))}" data-a="pfeed" data-x="${p.a}"><div class="po-m"><b class="po-n">${esc(nm(a))}</b>${fs == 'tw' ? `<small class="po-h">@${esc(a.nick || a.real)} · ${ago(p.ts)}</small>` : ''}<p>${esc(p.c)}</p>${p.url ? `<img class="po-i" src="${esc(p.url)}">` : p.imgd ? `<div class="picd">🖼 ${esc(p.imgd)}</div>` : ''}
@@ -133,15 +134,14 @@ const stCls = (el, c) => { const keep = el.classList.contains('in'); el.classNam
 /* ---------- 动态操作（主页动态和个人动态共用） ---------- */
 const P = id => D().posts.find(p => p.id == id);
 async function genFeed(aid) {
-  toast('正在刷新动态…'); const who = aid && aid != 'me' ? rn(get(aid)) : '';
-  try { applyDelta({ posts: json(await llm(await sysCtx(), `为${who || '联系人们（挑2-3位）'}生成${who ? 2 : 3}条贴合人设与当前剧情的${FN[S.style]}动态，可附带其他联系人的点赞和评论，可以提到${meObj().nick}。\n只输出JSON：{"posts":[{"author":"真实姓名","text":"","img":"配图画面描述(可空)","likes":["名字"],"comments":[{"from":"名字","text":""}]}]}`, '生成动态'))?.posts }); }
-  catch (e) { toast('生成失败：' + e.message); }
+  const who = aid && aid != 'me' ? rn(get(aid)) : '';
+  task('正在生成动态', async sg => { const ps = json(await llm(await sysCtx(), `为${who || '联系人们（挑2-3位）'}生成${who ? 2 : 3}条贴合人设与当前剧情的${FN[S.style]}动态，可附带其他联系人的点赞和评论，可以提到${meObj().nick}。\n只输出JSON：{"posts":[{"author":"真实姓名","text":"","img":"配图画面描述(可空)","likes":["名字"],"comments":[{"from":"名字","text":""}]}]}`, '生成动态', sg))?.posts; if (!ps) throw Error('返回格式不对'); applyDelta({ posts: ps }); return `新增 ${ps.length} 条动态`; });
 }
 const FA = {
   like: id => { const p = P(id), me = nm(meObj()); p.likes = p.likes.includes(me) ? p.likes.filter(x => x != me) : [...p.likes, me]; saveD(); emit('chat'); },
   cmt: async id => {
     const p = P(id), r = await form('评论', [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c }); saveD(); emit('chat'); if (p.a == 'me') return;
-    try { json(await llm(await sysCtx(), `${rn(get(p.a))}发了动态：“${p.c}”\n评论区：${p.cm.map(c => c.f + '：' + c.c).join('；')}\n请生成${rn(get(p.a))}（以及可能路过的联系人）对最新评论的回复1-2条。只输出JSON：{"comments":[{"from":"名字","text":""}]}`, '动态评论'))?.comments?.forEach(c => p.cm.push({ f: c.from, c: c.text })); saveD(); emit('chat'); } catch (e) { toast(e.message); }
+    task('等待评论回复', async sg => { json(await llm(await sysCtx(), `${rn(get(p.a))}发了动态：“${p.c}”\n评论区：${p.cm.map(c => c.f + '：' + c.c).join('；')}\n请生成${rn(get(p.a))}（以及可能路过的联系人）对最新评论的回复1-2条。只输出JSON：{"comments":[{"from":"名字","text":""}]}`, '动态评论', sg))?.comments?.forEach(c => p.cm.push({ f: c.from, c: c.text })); saveD(); emit('chat'); return '收到回复'; });
   },
   pfeed: id => openFeed(id), myfeed: () => openFeed('me'),
   pdel: id => { D().posts = D().posts.filter(p => p.id != id); saveD(); emit('chat'); },
@@ -151,11 +151,15 @@ const FA = {
 function openFeed(aid) { const st = aid && aid != 'me' ? sty(get(aid)) : S.style; page({ title: FN[st], aid, live: 1, cls: 'feedpg st-' + st, right: () => `<b data-a="fgen">${I.spark}</b>${aid == 'me' ? `<b data-a="post">${I.cam}</b>` : ''}`, body: () => feed(aid, st), acts: FA }); }
 
 /* ---------- 添加联系人 ---------- */
-async function aiInit() { toast('AI 正在读取剧情与世界书…'); try { const d = json(await llm(await sysCtx(), INIT(), '识别联系人')); applyDelta(d); toast(`已同步：${d?.contacts?.length || 0} 位联系人，${d?.groups?.length || 0} 个群`); } catch (e) { toast('识别失败：' + e.message); } }
+async function aiInit() {
+  const r = await form('AI 生成联系人', [['mode', '生成方式', 'sel', [['auto', '按剧情 / 世界书自动生成'], ['me', '按我提供的信息生成']]], ['info', '我的信息 / 补充要求（选“按我提供”时必填）', 'area', '例：3个大学室友，一个是学生会长，一个是暗恋我的学弟…'], ['n', '联系人个数', 'number'], ['g', '群聊个数', 'number']], { mode: 'auto', n: 5, g: 1 });
+  if (!r) return; if (r.mode == 'me' && !r.info?.trim()) return toast('请先填写你要提供的信息');
+  task('AI 正在生成联系人', async sg => { const d = json(await llm(await sysCtx(), INIT(r), '生成联系人', sg)); if (!d) throw Error('返回格式不对'); applyDelta(d); return `已添加 ${d.contacts?.length || 0} 位联系人 · ${d.groups?.length || 0} 个群`; });
+}
 async function fromWi() {
   const es = []; for (const b of await wiBooks()) es.push(...Object.values((await loadBook(b))?.entries || {})); if (!es.length) return toast('没有读取到世界书条目');
-  const i = await menu(es.map((e, i) => [i, esc(e.comment || e.key?.join(',') || '条目' + e.uid)]), '选择世界书条目'); if (i == null) return; toast('正在解析条目…');
-  try { applyDelta(json(await llm('你是小手机数据整理器，只输出JSON。', `根据以下世界书条目，整理出其中的人物（联系人）或群体（群聊）：\n${es[i].content}\n只输出JSON：{"contacts":[{"real":"","nick":"","remark":"","sign":""}],${GJ}}`, '世界书解析'))); toast('已添加'); } catch (e) { toast(e.message); }
+  const i = await menu(es.map((e, i) => [i, esc(e.comment || e.key?.join(',') || '条目' + e.uid)]), '选择世界书条目'); if (i == null) return;
+  task('正在解析世界书条目', async sg => { const d = json(await llm('你是小手机数据整理器，只输出JSON。', `根据以下世界书条目，整理出其中的人物（联系人）或群体（群聊）：\n${es[i].content}\n只输出JSON：{"contacts":[{"real":"","nick":"","remark":"","sign":""}],${GJ}}`, '世界书解析', sg)); if (!d) throw Error('返回格式不对'); applyDelta(d); return `已添加 ${d.contacts?.length || 0} 位联系人 · ${d.groups?.length || 0} 个群`; });
 }
 
 /* ---------- 聊天 App ---------- */
@@ -171,7 +175,7 @@ reg({
       ...FA, aiInit, tab: (x, t, e, pg) => { tab = x; pg.re(); }, open: id => openChat(id),
       clp: async id => { const c = get(id), k = await menu([['pin', c.pin ? '取消置顶' : '置顶聊天'], ['read', '标为已读'], ['del', c.type == 'g' ? '删除群聊' : '删除联系人', 'danger']], esc(nm(c))); k == 'pin' && (c.pin = !c.pin); k == 'read' && (c.unread = 0); k == 'del' && await ok('确定删除？聊天记录也会清除') && rm(c); saveD(); emit('chat'); },
       plus: async () => {
-        const k = await menu([['f', '👤 添加好友'], ['g', '👥 发起群聊'], ['ai', '✨ AI识别剧情联系人'], ['wi', '📖 从世界书添加']]);
+        const k = await menu([['f', '👤 添加好友'], ['g', '👥 发起群聊'], ['ai', '✨ AI 生成联系人'], ['wi', '📖 从世界书添加']]);
         if (k == 'f') { const r = await form('添加好友', [['av', '头像', 'img'], ['nick', '昵称（网名）'], ['real', '真实姓名'], ['remark', '备注'], ['sign', '个性签名']]); r && (r.nick || r.real) && add(blank('p', r)); }
         if (k == 'g') { const r = await form('发起群聊', [['av', '群头像', 'img'], ['name', '群名'], ['notice', '群公告', 'area'], ['members', '选择成员', 'multi', D().chats.filter(c => c.type == 'p').map(c => [c.id, nm(c)])]]); r?.name && add(blank('g', { ...r, members: r.members || [] })); }
         k == 'ai' && await aiInit(); k == 'wi' && await fromWi(); saveD(); emit('chat');

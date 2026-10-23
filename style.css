@@ -158,6 +158,14 @@
 #stp .fd-n{max-width:none;width:100%;text-align:center;background:none;font-size:20px;font-weight:600}
 .fd-g{display:grid;grid-template-columns:repeat(3,1fr);gap:18px 8px;padding:10px}
 .fd-g span{font-size:11.5px}
+.tasks{position:absolute;top:6px;left:14px;right:14px;z-index:95;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.tk{display:flex;align-items:center;gap:9px;height:36px;padding:0 8px 0 12px;border-radius:18px;background:rgba(0,0,0,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#fff;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);pointer-events:auto;animation:tin .3s}
+.tk span{flex:1;min-width:0;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tk time{opacity:.55;font-size:12px;font-variant-numeric:tabular-nums}
+.tk b{padding:3px 10px;border-radius:10px;background:rgba(255,255,255,.16);font-size:12px;cursor:pointer}
+.tk>i{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font:700 12px sans-serif}
+.tk .spin{border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin .8s linear infinite}
+.tk.ok>i{background:#34c759}.tk.err>i{background:#ff3b30}.tk.ok,.tk.err{cursor:pointer}
+@keyframes spin{to{transform:rotate(360deg)}}
 .stp-toast{position:absolute;top:58px;left:50%;transform:translateX(-50%);z-index:99;max-width:84%;padding:8px 16px;border-radius:20px;background:rgba(28,28,30,.85);backdrop-filter:blur(10px);color:#fff;font-size:13px;text-align:center;animation:tin .3s}
 @keyframes tin{from{opacity:0;transform:translate(-50%,-10px)}}
 

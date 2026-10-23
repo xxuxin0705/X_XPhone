@@ -19,7 +19,7 @@ const api = x => ({ src: 'tavern', cur: '', list: [], ...x });
 const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
-  ctxN: 15, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
+  ctxN: 15, timeout: 30, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
     widget: [{ id: 'w1', name: '心情便签', sz: '2x2', html: '<div style="height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px"><b style="font:700 30px Georgia,serif">{{time}}</b><small>今天也要开心 ✧</small><small style="opacity:.6">{{date}} 周{{week}}</small></div>' }],
@@ -85,6 +85,14 @@ export const back = () => { const o = stack.pop(); o && close(o); };
 export const home = () => { while (stack.length) back(); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };
+// 任务进度条：转圈 + 计时 + 取消，结束后显示成功/失败结果
+export function task(title, fn) {
+  const ac = new AbortController(), t0 = Date.now(), el = Object.assign(document.createElement('div'), { className: 'tk' });
+  el.innerHTML = `<i class="spin"></i><span>${esc(title)}…</span><time>0s</time><b>取消</b>`; ui.tasks?.append(el);
+  const iv = setInterval(() => $('time', el).textContent = ((Date.now() - t0) / 1e3 | 0) + 's', 1e3); $('b', el).onclick = e => { e.stopPropagation(); ac.abort(); };
+  const fin = (ok, msg) => { clearInterval(iv); el.className = 'tk ' + (ok ? 'ok' : 'err'); el.innerHTML = `<i>${ok ? '✓' : '!'}</i><span>${esc(msg)}</span><time>${(Date.now() - t0) / 1e3 | 0}s</time>`; el.onclick = () => el.remove(); setTimeout(() => el.remove(), ok ? 4000 : 10000); ok || emit('badge'); };
+  return fn(ac.signal).then(m => (fin(1, m || title + ' · 完成'), m), e => fin(0, ac.signal.aborted ? '已取消' : '失败：' + (e?.message || e)));
+}
 export const toast = s => { const t = Object.assign(document.createElement('div'), { className: 'stp-toast', textContent: s }); ui.scr?.append(t); setTimeout(() => t.remove(), 2400); };
 export const menu = (items, title = '') => new Promise(res => {
   let done; const s = sheet({ title, noBack: 1, cls: 'mnu', body: () => items.map(([k, l, c = '']) => `<button class="mi ${c}" data-a="pick" data-x="${esc(k)}">${l}</button>`).join('') + '<button class="mi cancel" data-a="pick">取消</button>', acts: { pick: x => { done = 1; s.close(); res(x ?? null); } }, onClose: () => done || res(null) });
@@ -170,18 +178,22 @@ export const LOG = (() => { try { return JSON.parse(localStorage.stp_log || '[]'
 export const saveLog = () => { try { localStorage.stp_log = JSON.stringify(LOG.slice(0, 50)); } catch { } };
 export const prof = t => S.api[t].list.find(p => p.id == S.api[t].cur);
 const tav = t => S.api[t].src == 'tavern';
-async function call(t, desc, rq, fn) {
+// 每次调用都有超时（聊天默认30秒，可在设置改）并可被任务取消
+async function call(t, desc, rq, fn, sg) {
   const p = prof(t), L = { t, desc, at: Date.now(), src: tav(t) ? '酒馆' : p?.name || '未配置', model: tav(t) ? '' : p?.model, req: String(rq).slice(0, 4000) };
-  try { if (!tav(t) && !p) throw Error('请先在 设置 中添加并选择API配置'); const r = await fn(p); L.ok = 1; L.res = typeof r == 'string' ? r.slice(0, 4000) : '[ok]'; return r; }
-  catch (e) { L.res = String(e?.message || e); throw e; } finally { L.ms = Date.now() - L.at; LOG.unshift(L); LOG.length > 100 && LOG.pop(); saveLog(); }
+  const ac = new AbortController(), lim = t == 'chat' ? +S.timeout || 30 : 120, tm = setTimeout(() => ac.abort(Error(`超时（${lim}秒没有返回）`)), lim * 1e3);
+  sg?.addEventListener('abort', () => ac.abort(Error('已取消')));
+  const stop = new Promise((_, rj) => ac.signal.addEventListener('abort', () => rj(ac.signal.reason)));
+  try { if (!tav(t) && !p) throw Error('请先在 设置 中添加并选择API配置'); const r = await Promise.race([fn(p, ac.signal), stop]); L.ok = 1; L.res = typeof r == 'string' ? r.slice(0, 4000) : '[ok]'; return r; }
+  catch (e) { L.res = String(e?.message || e); throw e; } finally { clearTimeout(tm); L.ms = Date.now() - L.at; LOG.unshift(L); LOG.length > 100 && LOG.pop(); saveLog(); }
 }
 const base = u => { u = String(u || '').trim().replace(/\/+$/, '').replace(/\/chat\/completions$/, ''); return /\/v\d[^/]*$/.test(u) ? u : u + '/v1'; };
-const req = async (p, path, body) => { const r = await fetch(base(p.url) + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(p.key && { Authorization: 'Bearer ' + p.key }) }, body: body && JSON.stringify(body) }); if (!r.ok) throw Error(`HTTP ${r.status} ${(await r.text()).slice(0, 200)}`); return r; };
-export const llm = (sys, user, desc = '聊天') => call('chat', desc, user, async p => tav('chat') ? C().generateRaw({ systemPrompt: sys, prompt: user })
-  : (await (await req(p, '/chat/completions', { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] })).json()).choices?.[0]?.message?.content || '');
+const req = async (p, path, body, signal) => { const r = await fetch(base(p.url) + path, { signal, method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(p.key && { Authorization: 'Bearer ' + p.key }) }, body: body && JSON.stringify(body) }); if (!r.ok) throw Error(`HTTP ${r.status} ${(await r.text()).slice(0, 200)}`); return r; };
+export const llm = (sys, user, desc = '聊天', sg) => call('chat', desc, user, async (p, sig) => tav('chat') ? C().generateRaw({ systemPrompt: sys, prompt: user })
+  : (await (await req(p, '/chat/completions', { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] }, sig)).json()).choices?.[0]?.message?.content || '', sg);
 export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/```(json)?/g, ''); const i = s.search(/[[{]/), j = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']')); try { return JSON.parse(s.slice(i, j + 1)); } catch { return null; } };
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };
-export const genImg = prompt => call('img', '生图', prompt, async p => { if (tav('img')) return slash('/sd quiet=true ' + prompt); const d = (await (await req(p, '/images/generations', { model: p.model, prompt, n: 1, size: p.size || '1024x1024' })).json()).data?.[0]; return d?.url || 'data:image/png;base64,' + d?.b64_json; });
+export const genImg = prompt => call('img', '生图', prompt, async (p, sig) => { if (tav('img')) return slash('/sd quiet=true ' + prompt); const d = (await (await req(p, '/images/generations', { model: p.model, prompt, n: 1, size: p.size || '1024x1024' }, sig)).json()).data?.[0]; return d?.url || 'data:image/png;base64,' + d?.b64_json; });
 export const tts = (text, voice) => call('tts', '语音', text, async p => { if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`); new Audio(URL.createObjectURL(await (await req(p, '/audio/speech', { model: p.model, input: text, voice: voice || p.voice || 'alloy' })).blob())).play(); });
 export const models = async p => { const j = await (await req(p, '/models')).json(); return (j.data || j.models || j).map?.(m => m.id || m.name || m) || []; };
 

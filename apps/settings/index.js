@@ -1,6 +1,6 @@
 // 小手机 · 设置：API（聊天/生图/TTS）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
-import { C, S, D, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, llm, genImg, tts, models, prof, LOG, saveLog, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit } from '../core.js';
-import { syncStory } from './chat.js';
+import { C, S, D, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, llm, genImg, tts, models, prof, LOG, saveLog, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
+import { syncStory } from '../chat/index.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
@@ -25,12 +25,13 @@ function api(t) {
     body: () => fx(a).seg('src', [['tavern', '酒馆当前配置'], ['custom', '自定义 API']]) + (a.src == 'tavern'
       ? `<p class="tip">${{ chat: '直接使用酒馆当前连接的 API 与模型。', img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`
       : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}</b><small>${esc(p.model || '未选模型')} · ${esc(p.url)}</small></span></div>`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除</p>${btn('padd', '＋ 新增配置')}${a.cur ? btn('pmod', '拉取模型列表') : ''}`)
+      + (t == 'chat' ? `<div class="card">${fx(a).inp('$timeout', '超时（秒）', 'number', '30')}</div><p class="tip">超过这个时间没返回就判定失败。想更快：选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
       + (t == 'img' ? `<div class="card">${fx(a).tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>` : '') + btn('test', '测试连接', '', 'pri'),
     acts: {
       pick: id => { a.cur = id; save(); pg.re(); }, padd: () => pe(),
       pedit: async id => { const p = a.list.find(x => x.id == id), k = await menu([['e', '编辑'], ['c', '复制'], ['d', '删除', 'danger']], esc(p.name)); k == 'e' && pe(p); k == 'c' && a.list.push({ ...p, id: uid(), name: p.name + ' 副本' }); k == 'd' && a.list.splice(a.list.indexOf(p), 1); save(); pg.re(); },
       pmod: async () => { try { toast('拉取中…'); const m = await menu((await models(prof(t))).map(x => [x, esc(x)]), '选择模型'); m && (prof(t).model = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
-      test: async () => { toast('测试中…'); try { t == 'chat' ? toast('✓ ' + String(await llm('Reply in one short sentence.', '用一句话打个招呼', '测试')).slice(0, 40)) : t == 'img' ? (await genImg('a cute cat, pastel colors'), toast('✓ 生图成功')) : (await tts('你好呀，这是小手机的语音测试'), toast('✓ 已播放')); } catch (e) { toast('✗ ' + e.message); } },
+      test: () => task('测试连接中', async sg => t == 'chat' ? '✓ ' + String(await llm('Reply in one short sentence.', '用一句话打个招呼', '测试', sg)).slice(0, 30) : t == 'img' ? (await genImg('a cute cat, pastel colors'), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试'), '✓ 已播放')),
     },
   });
   const pe = async (p = {}) => {
