@@ -66,6 +66,7 @@ export const I = {
   spark: sv('<path d="M12 2l2.2 6.3 6.3 2.2-6.3 2.2L12 19l-2.2-6.3-6.3-2.2 6.3-2.2zM19 15l.9 2.1 2.1.9-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>', 'fill="currentColor"'),
   cam: sv('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   chat: sv('<path d="M4 5h16v11H9l-5 4z"/>'), star: sv('<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>'),
+  book: sv('<rect x="4" y="3" width="15" height="18" rx="2.5"/><circle cx="11.5" cy="10" r="2.5"/><path d="M7.5 16.5c.8-1.8 2.2-2.6 4-2.6s3.2.8 4 2.6M21 7v3M21 13v3"/>'),
   user: sv('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.4-6.5 8-6.5s7 2 8 6.5"/>'), wave: sv('<path d="M6 9v6M10 6v12M14 9v6M18 11v2"/>'),
 };
 

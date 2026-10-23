@@ -1,8 +1,9 @@
 // 小手机 · 聊天：消息列表 / 私聊群聊 / 动态（朋友圈·QQ空间·推特式）/ 我
 import { C, S, D, saveD, esc, uid, $, ui, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, byId, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, home, task, wiBooks, loadBook, sleep, merge, APPS } from '../../core.js';
 
-const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', tr: false, trMine: false, lang: '', inj: false };
+const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', tr: false, trMine: false, lang: '', inj: false, read: true };
 const STY = [['wx', '仿微信'], ['qq', '仿QQ'], ['kk', '仿KakaoTalk'], ['line', '仿LINE']];
+const TN = { wx: '微信', qq: '消息', kk: '聊天', line: '聊天' }, CN = { wx: '通讯录', qq: '联系人', kk: '联系人', line: '联系人' };
 const FS = { wx: 'wx', qq: 'qq', kk: 'tw', line: 'tw' }, FN = { wx: '朋友圈', qq: 'QQ空间', kk: '动态', line: '动态' };
 const EMO = '❤️ 👍 😂 😮 😢 🥳 🙏 😡'.split(' ');
 
@@ -59,13 +60,14 @@ function replyP(ch) {
 【聊天记录】\n${hist || '（空）'}
 请继续这段手机聊天${g ? '，让群成员根据各自人设自然互动（可多人发言、互相接话）' : `，你扮演${rn(ch)}回复${me}`}。像真人发消息：口语化、短句、可连发1-5条，符合人设与当前剧情。${ch.cfg.tr ? `\n角色使用${ch.cfg.lang || '外语'}，text用该语言，并在tr字段附中文翻译。` : ''}
 type可选：text文字 / sticker表情包(text填表情描述${sk ? '，可用：' + sk : ''}) / img图片(text填画面描述) / voice语音(text填说的话) / transfer转账(amount金额) / accept收下对方转账 / pat拍一拍(text填被拍的人) / react给某条消息贴表情(i填#序号，text填一个emoji)。
+如果按人设此刻会“已读不回”，msgs 可以为空数组。
 只输出JSON：{"msgs":[{"from":"发送者真实姓名","type":"text","text":"","tr":"","amount":0,"i":0}]}`;
 }
 
 /* ---------- 生成 ---------- */
 let busy = 0;
 async function gen(ch) {
-  if (busy) return toast('对方正在输入中…'); busy = ch.id; emit('chat');
+  if (busy) return toast('对方正在输入中…'); busy = ch.id; ch.msgs.forEach(m => m.f == 'me' && (m.rd = 1)); saveD(); emit('chat');
   try {
     const d = json(await llm(await sysCtx(), replyP(ch), '聊天回复')), ms = d?.msgs || (Array.isArray(d) && d); if (!ms) throw Error('返回格式不对，可到 设置→调用日志 查看');
     for (const m of ms) { ch.type == 'p' && (m.from = ''); const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
@@ -97,12 +99,14 @@ function msgs(ch) {
     else {
       const mine = m.f == 'me', c = mine ? me : get(m.f) || { nick: '已删除' }, same = !gap && p?.f == m.f && p.t != 'pat' && p.t != 'sys';
       const tag = g && !mine ? (ch.owner == m.f ? '<em class="own">群主</em>' : ch.admins.includes(m.f) ? '<em class="adm">管理员</em>' : '') + (ch.titles[m.f] ? `<em>${esc(ch.titles[m.f])}</em>` : '') : '';
-      o += `<div class="msg ${mine ? 'me' : ''} ${same ? 'same' : ''}" data-lp="mlp" data-x="${i}">${avH(c, ch, m.f)}<div class="mc">${!mine && !(same && cf.cont) ? `<div class="mn">${tag}${esc(nm(c))}</div>` : ''}<div class="mr"><div class="bub b-${m.t}">${body(m, i)}${m.tr && (cf.tr || m.trShow) ? `<div class="tr">${esc(m.tr)}</div>` : ''}</div><span class="mt">${m.inj ? '<i class="ij">↪</i>' : ''}<time>${hm(new Date(m.ts))}</time></span></div>${m.re?.length ? `<div class="re">${m.re.join('')}</div>` : ''}</div></div>`;
+      o += `<div class="msg ${mine ? 'me' : ''} ${same ? 'same' : ''}" data-lp="mlp" data-x="${i}">${avH(c, ch, m.f)}<div class="mc">${!mine && !(same && cf.cont) ? `<div class="mn">${tag}${esc(nm(c))}</div>` : ''}<div class="mr"><div class="bub b-${m.t}">${body(m, i)}${m.tr && (cf.tr || m.trShow) ? `<div class="tr">${esc(m.tr)}</div>` : ''}</div><span class="mt">${m.inj ? '<i class="ij">↪</i>' : ''}${mine && cf.read ? rd(m, ch) : ''}<time>${hm(new Date(m.ts))}</time></span></div>${m.re?.length ? `<div class="re">${m.re.join('')}</div>` : ''}</div></div>`;
     }
     p = m;
   });
   return `${bub ? `<style>${bub.css}</style>` : ''}<div class="cv">${o || '<div class="sys">还没有消息，打个招呼吧 ✧</div>'}</div>`;
 }
+// 已读回执：微信/QQ 文字，Kakao 未读显示黄色数字，LINE 显示 Read
+const rd = (m, ch) => { const st = sty(ch), g = ch.type == 'g', n = g ? ch.members.length : 1; return m.rd ? (st == 'kk' ? '' : `<em class="rd">${st == 'line' ? (g ? 'Read ' + n : 'Read') : g ? n + '人已读' : '已读'}</em>`) : `<em class="rd un">${st == 'kk' ? n : st == 'line' ? '' : '未读'}</em>`; };
 const list = () => [...D().chats].sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
   const m = c.msgs.at(-1);
   return `<div class="cl ${c.pin ? 'pin' : ''}" data-a="open" data-x="${c.id}" data-lp="clp"><div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${c.members.length + 1})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : c.type == 'g' ? c.notice : c.sign)}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
@@ -128,7 +132,7 @@ const meP = () => {
     ['s', '默认风格', f.seg('$style', STY) + '<p class="tip">决定新聊天样式与动态页：微信→朋友圈 / QQ→空间 / Kakao·LINE→推特式动态。单个聊天可在聊天设置里单独改。</p>'],
     ['d', '我的动态', btn('myfeed', '查看我的' + FN[S.style])]])}`;
 };
-const tabs = tab => { const u = D().chats.reduce((a, c) => a + (c.unread || 0), 0); return `<nav class="tabs">${[['list', '消息', I.chat], ['feed', FN[S.style], I.star], ['me', '我', I.user]].map(([k, l, i]) => `<button data-a="tab" data-x="${k}" class="${tab == k ? 'on' : ''}">${i}<span>${l}</span>${k == 'list' && u ? `<i class="badge">${u}</i>` : ''}</button>`).join('')}</nav>`; };
+const tabs = tab => { const u = D().chats.reduce((a, c) => a + (c.unread || 0), 0); return `<nav class="tabs">${[['list', TN[S.style], I.chat], ['ct', CN[S.style], I.book], ['feed', FN[S.style], I.star], ['me', '我', I.user]].map(([k, l, i]) => `<button data-a="tab" data-x="${k}" class="${tab == k ? 'on' : ''}">${i}<span>${l}</span>${k == 'list' && u ? `<i class="badge">${u}</i>` : ''}</button>`).join('')}</nav>`; };
 const stCls = (el, c) => { const keep = el.classList.contains('in'); el.className = `pg ${c}${keep ? ' in' : ''}`; };
 
 /* ---------- 动态操作（主页动态和个人动态共用） ---------- */
@@ -162,17 +166,46 @@ async function fromWi() {
   task('正在解析世界书条目', async sg => { const d = json(await llm('你是小手机数据整理器，只输出JSON。', `根据以下世界书条目，整理出其中的人物（联系人）或群体（群聊）：\n${es[i].content}\n只输出JSON：{"contacts":[{"real":"","nick":"","remark":"","sign":""}],${GJ}}`, '世界书解析', sg)); if (!d) throw Error('返回格式不对'); applyDelta(d); return `已添加 ${d.contacts?.length || 0} 位联系人 · ${d.groups?.length || 0} 个群`; });
 }
 
+/* ---------- 联系人 / 通讯录 ---------- */
+const PY = 'ABCDEFGHJKLMNOPQRSTWXYZ', PB = '阿八嚓哒妸发旮哈讥咔垃痳拏噢妑七呥扨它穵夕丫帀', COL = new Intl.Collator('zh-CN');
+const ini = s => { const c = [...String(s || '#')][0]; if (/[a-z]/i.test(c)) return c.toUpperCase(); if (!/[\u4e00-\u9fa5]/.test(c)) return '#'; let r = '#'; for (let i = 0; i < PB.length && COL.compare(c, PB[i]) >= 0; i++) r = PY[i]; return r; };
+const crow = (c, a = 'prof') => `<div class="cl" data-a="${a}" data-x="${c.id}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}</b><small>${esc(c.type == 'g' ? c.notice : c.sign)}</small></div></div>`;
+const ent = (i, l, a, x = '') => `<div class="cl ent2" data-a="${a}" data-x="${x}"><i class="ei">${i}</i><div class="cl-m"><b>${l}</b></div><small>›</small></div>`;
+let ctab = 'grp';
+function contacts() {
+  const st = S.style, ps = D().chats.filter(c => c.type == 'p').sort((a, b) => COL.compare(nm(a), nm(b))), gs = D().chats.filter(c => c.type == 'g'), me = meObj();
+  if (st == 'wx') {
+    const by = {}; ps.forEach(c => (by[ini(nm(c))] ||= []).push(c)); const ks = Object.keys(by).sort((a, b) => a == '#' ? 1 : b == '#' ? -1 : a < b ? -1 : 1);
+    return `<div class="ct-wx">${ent('👤', '新的朋友', 'plus')}${ent('👥', `群聊 <small>${gs.length}</small>`, 'groups')}${ks.map(k => `<h6 data-l="${k}">${k}</h6>${by[k].map(c => crow(c)).join('')}`).join('') || '<p class="empty">还没有联系人</p>'}<p class="ct-n">${ps.length} 位联系人</p></div><nav class="az">${[...PY.slice(0, 8), 'I', ...PY.slice(8, 19), 'U', 'V', ...PY.slice(19), '#'].map(k => `<b data-a="jump" data-x="${k}">${k}</b>`).join('')}</nav>`;
+  }
+  if (st == 'qq') {
+    const by = {}; ps.forEach(c => (by[c.grp || '我的好友'] ||= []).push(c));
+    return `${ent('👤', '新朋友', 'plus')}${ent('🔔', '群通知', 'groups')}<div class="seg ct-seg">${[['grp', '分组'], ['fr', '好友'], ['gp', '群聊']].map(([k, l]) => `<button data-a="ctab" data-x="${k}" class="${ctab == k ? 'on' : ''}">${l}</button>`).join('')}</div>`
+      + (ctab == 'grp' ? Object.entries(by).map(([k, l]) => `<details class="qg" open><summary><b>${esc(k)}</b><small>${l.length}/${l.length}</small></summary>${l.map(c => crow(c)).join('')}</details>`).join('') : (ctab == 'fr' ? ps : gs).map(c => crow(c, ctab == 'gp' ? 'open' : 'prof')).join('')) || '<p class="empty">空空如也</p>';
+  }
+  return `<div class="cl ct-me" data-a="tab" data-x="me"><img class="av" src="${esc(avOf(me))}"><div class="cl-m"><b>${esc(me.nick)}</b><small>${esc(me.sign || '设置状态消息')}</small></div></div><h6>群聊 ${gs.length}</h6>${gs.map(c => crow(c, 'open')).join('')}<h6>好友 ${ps.length}</h6>${ps.map(c => crow(c)).join('') || '<p class="tip">还没有好友，点右上角添加</p>'}`;
+}
+function prof(id) {
+  const c = get(id), g = c.type == 'g';
+  page({ title: '', cls: 'profpg', live: 1, body: () => `<div class="pf"><img class="av" src="${esc(avOf(c))}"><div><b>${esc(nm(c))}</b>${c.remark && c.nick ? `<small>昵称：${esc(c.nick)}</small>` : ''}${c.real && !g ? `<small>真实姓名：${esc(c.real)}</small>` : ''}<small>${g ? '群号：' + c.no : '账号：' + esc(c.nick || c.id)}</small></div></div>
+<div class="card">${c.sign || c.notice ? `<div class="row"><span>${g ? '群公告' : '个性签名'}</span><small>${esc(g ? c.notice : c.sign)}</small></div>` : ''}${g ? `<div class="row"><span>群成员</span><small>${c.members.length + 1} 人</small></div>` : `<div class="row"><span>分组</span><small>${esc(c.grp || '我的好友')}</small></div>`}</div>
+${btn('pchat', g ? '进入群聊' : '发消息', '', 'pri')}${g ? '' : btn('pfd', '查看' + FN[sty(c)])}${btn('pset', '资料与聊天设置')}`,
+    acts: { pchat: () => { back(); openChat(id); }, pfd: () => openFeed(id), pset: () => cset(c) } });
+}
+
 /* ---------- 聊天 App ---------- */
 let tab = 'list';
 reg({
   id: 'chat', name: '聊天', icon: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.5 4C5.4 4 2 6.8 2 10.2c0 1.9 1 3.6 2.7 4.7L4 17.5l3-1.6c.8.2 1.6.3 2.5.3 4.1 0 7.5-2.8 7.5-6.2S13.6 4 9.5 4z"/><path opacity=".8" d="M22 14.6c0-2.3-1.7-4.3-4.2-5.2l.1.9c0 4-3.7 7.2-8.4 7.4 1.1 1.4 3.1 2.3 5.3 2.3.6 0 1.2-.1 1.8-.2l2.4 1.2-.5-2c1.4-1 2.5-2.6 2.5-4.4z"/></svg>',
   open: () => page({
-    cls: 'chatapp', live: 1, model: () => D().me, title: () => ({ list: '消息', feed: FN[S.style], me: '我' })[tab],
-    right: () => tab == 'list' ? `<b data-a="plus">${I.plus}</b>` : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
-    body: () => tab == 'list' ? list() : tab == 'feed' ? feed() : meP(), foot: () => tabs(tab), after: el => stCls(el, 'chatapp st-' + S.style),
+    cls: 'chatapp', live: 1, model: () => D().me, title: () => ({ list: TN[S.style], ct: CN[S.style], feed: FN[S.style], me: '我' })[tab],
+    right: () => tab == 'list' || tab == 'ct' ? `<b data-a="plus">${I.plus}</b>` : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
+    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => tabs(tab), after: el => stCls(el, 'chatapp st-' + S.style),
     onChange: k => k == '$style' && emit('chat'),
     acts: {
-      ...FA, aiInit, tab: (x, t, e, pg) => { tab = x; pg.re(); }, open: id => openChat(id),
+      ...FA, aiInit, tab: (x, t, e, pg) => { tab = x; pg.re(); }, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
+      groups: () => page({ title: '群聊', body: () => D().chats.filter(c => c.type == 'g').map(c => crow(c, 'open')).join('') || '<p class="empty">还没有群聊</p>', acts: { open: id => (back(), openChat(id)) } }),
+      jump: (x, t, e, pg) => { const b = $('.pg-b', pg.el), s = $(`[data-l="${x}"]`, b); s && (b.scrollTop += (s.getBoundingClientRect().top - b.getBoundingClientRect().top) * b.offsetHeight / b.getBoundingClientRect().height); }, open: id => openChat(id),
       clp: async id => { const c = get(id), k = await menu([['pin', c.pin ? '取消置顶' : '置顶聊天'], ['read', '标为已读'], ['del', c.type == 'g' ? '删除群聊' : '删除联系人', 'danger']], esc(nm(c))); k == 'pin' && (c.pin = !c.pin); k == 'read' && (c.unread = 0); k == 'del' && await ok('确定删除？聊天记录也会清除') && rm(c); saveD(); emit('chat'); },
       plus: async () => {
         const k = await menu([['f', '👤 添加好友'], ['g', '👥 发起群聊'], ['ai', '✨ AI 生成联系人'], ['wi', '📖 从世界书添加']]);
@@ -236,12 +269,13 @@ function cset(ch) {
     title: g ? '群聊信息' : '聊天信息', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
     body: () => sec('cset', [
       ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
-        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('voice', 'TTS音色', 'text', '可留空')],
+        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('voice', 'TTS音色', 'text', '可留空')],
       g && ['mem', `群成员 · ${ch.members.length + 1}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}</b><input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${btn('madd', '＋ 邀请成员')}`],
       ['tr', '翻译', f.tog('cfg.tr', '显示对方消息的翻译') + f.inp('cfg.lang', '对方语言', 'text', '如：韩语 / 日语') + f.tog('cfg.trMine', '把我的消息译成对方语言')],
       ['look', '美化', f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],
+      ['rd', '聊天', f.tog('cfg.read', '显示已读 / 未读') + '<p class="tip">开启后你的消息会显示已读状态：对方开始回复时变为已读；角色也可能“已读不回”。</p>'],
       ['link', '正文联动', f.tog('cfg.inj', '整个聊天注入正文') + `<p class="tip">${S.mode == 'linked' ? '开启后角色在正文里会知道这段手机聊天；也可长按单条消息选择“注入正文”。' : '当前为线上模式：手机内容不会传回正文（可在 设置→联动模式 切换）。'}</p>`],
       ['dz', '更多', btn('clr', '清空聊天记录', '', 'danger') + btn('rm', g ? '删除并退出群聊' : '删除联系人', '', 'danger')]]),
     acts: {
