@@ -125,9 +125,22 @@ export async function pickImg(max) { const k = await menu([['f', '从相册上�
 /* ---------- 事件委托：data-a 点击 / data-lp 长按 / data-k 绑定 ---------- */
 function set(pg, k, val) { const g = k[0] == '$', m = g || !pg?.model ? S : pg.model(); setP(m, g ? k.slice(1) : k, val); g || !pg?.model ? save() : (pg.save || saveD)(); pg?.onChange?.(k, val); emit('cfg', g ? k.slice(1) : k); }
 export function bind(R) {
-  let lp, lpd;
+  let lp, lpd, swp = 0;
+  // 右滑返回：任意页面横向右滑，跟手移动，松手超过30%宽度或快速滑动即返回上一级
+  R.addEventListener('pointerdown', e => {
+    const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('input,textarea,select')) return;
+    const x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), w = pg.el.offsetWidth, sc = pg.el.getBoundingClientRect().width / w || 1; let on = 0, dx = 0;
+    const end = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
+    const mv = ev => {
+      dx = (ev.clientX - x0) / sc; const dy = (ev.clientY - y0) / sc;
+      if (!on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) return end(); if (dx < 12 || dx < Math.abs(dy) * 1.5) return; on = 1; pg.el.style.transition = 'none'; getSelection()?.removeAllRanges(); }
+      pg.el.style.transform = `translateX(${Math.max(0, dx)}px)`;
+    };
+    const up = () => { end(); if (!on) return; swp = Date.now(); pg.el.style.transition = pg.el.style.transform = ''; (dx > w * .3 || dx / (Date.now() - t0) > .45) && back(); };
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  });
   const hit = (e, a) => { const t = e.target.closest?.(`[data-${a}]`); if (!t || !R.contains(t)) return; const pg = pgOf(t), n = t.dataset[a], f = pg?.acts?.[n] || G[n]; f && (e.stopPropagation(), f(t.dataset.x, t, e, pg)); };
-  R.addEventListener('click', e => lpd ? (lpd = 0) : hit(e, 'a'));
+  R.addEventListener('click', e => Date.now() - swp < 400 ? e.stopPropagation() : lpd ? (lpd = 0) : hit(e, 'a'));
   R.addEventListener('contextmenu', e => e.target.closest('input,textarea,.bub,pre') || e.preventDefault());
   R.addEventListener('pointerdown', e => {
     lpd = 0; const t = e.target.closest('[data-lp]'); if (!t) return; const x = e.clientX, y = e.clientY; clearTimeout(lp);

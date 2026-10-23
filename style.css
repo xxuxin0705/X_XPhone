@@ -90,6 +90,7 @@
 
 /* ---------- 页面 / 通用组件 ---------- */
 .stack{position:absolute;inset:0;z-index:20;pointer-events:none}
+.pg,.pg-b{touch-action:pan-y}
 .pg{position:absolute;inset:0;padding-top:46px;display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s cubic-bezier(.25,.9,.3,1);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
 .pg.in{transform:none}
 .pg-h{flex:none;display:flex;align-items:center;gap:6px;height:46px;padding:0 12px}
