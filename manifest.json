@@ -1,11 +1,11 @@
 {
-    "display_name": "小手机 Mini Phone",
-    "loading_order": 100,
-    "requires": [],
-    "optional": [],
-    "js": "index.js",
-    "css": "style.css",
-    "author": "Claude",
-    "version": "1.0.0",
-    "homePage": ""
+  "display_name": "小手机 Phone",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "you",
+  "version": "1.0.0",
+  "homePage": ""
 }
