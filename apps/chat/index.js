@@ -1,5 +1,5 @@
 // 小手机 · 聊天：消息列表 / 私聊群聊 / 动态（朋友圈·QQ空间·推特式）/ 我
-import { C, S, D, saveD, esc, uid, $, ui, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, byId, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, home, task, wiBooks, loadBook, sleep, merge, APPS } from '../../core.js';
+import { C, S, D, saveD, esc, uid, $, ui, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, byId, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, home, task, sheet, wiBooks, loadBook, sleep, merge, APPS } from '../../core.js';
 
 const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', tr: false, trMine: false, lang: '', inj: false, read: true };
 const STY = [['wx', '仿微信'], ['qq', '仿QQ'], ['kk', '仿KakaoTalk'], ['line', '仿LINE']];
@@ -52,8 +52,8 @@ const GJ = '"groups":[{"name":"群名","owner":"群主真实姓名","admins":[],
 export const SCAN = t => `【最新剧情】\n${t}\n\n任务：找出这段剧情里发生在线上（手机/社交软件）的事件并同步到小手机：发消息、加好友、拉群/进群、发朋友圈动态、转账、拍一拍等。已有：${names()}。剧情里没出现的不要编。
 只输出JSON：{"contacts":[{"real":"真实姓名","nick":"网名","sign":"签名"}],${GJ},"msgs":[{"chat":"私聊对象真实姓名或群名","from":"发送者真实姓名","type":"text","text":"内容"}],"posts":[{"author":"","text":""}]}，没有的项给空数组。`;
 // 生成联系人：只要 {{user}} 视角（已加好友的人、{{user}}本人在里面的群），用短键名压缩输出以提速
-const CJ = '{"c":[{"n":"真实姓名","k":"网名","s":"个性签名(25字内)"}],"g":[{"n":"群名","o":"群主真实姓名","a":["管理员"],"m":["成员真实姓名"],"t":"群公告(40字内)"}]}';
-const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, sign: x.s ?? x.sign })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
+const CJ = '{"c":[{"n":"真实姓名","k":"网名","r":"备注(USER会怎么备注TA，如：哥/班长/沈学长)","s":"个性签名(25字内)"}],"g":[{"n":"群名","o":"群主真实姓名","a":["管理员"],"m":["成员真实姓名"],"t":"群公告(40字内)"}]}';
+const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, remark: x.r ?? x.remark, sign: x.s ?? x.sign })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
 const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，数量按剧情实际需要，不要凑数。`}
 规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成），members 不用写${u}。不要包含${u}自己。已有：${names()}，不要重复。签名、公告都简短。
 只输出JSON：${CJ}`; };
@@ -169,8 +169,17 @@ async function aiInit() {
 function addContacts(raw) {
   if (!raw) throw Error('返回格式不对'); const d = unz(raw), old = new Set(D().chats.map(c => c.id)); applyDelta(d);
   const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), ng = D().chats.filter(c => c.type == 'g' && !old.has(c.id)).length;
-  nw.length && setTimeout(async () => { const r = await form('给新联系人填备注？', nw.map(c => ['r' + c.id, `${esc(c.nick)}<small>（${esc(c.real)}）</small>`, 'text', '可留空']), {}); r && nw.forEach(c => r['r' + c.id]?.trim() && (c.remark = r['r' + c.id].trim())); saveD(); emit('chat'); }, 600);
+  const gs = D().chats.filter(c => c.type == 'g' && !old.has(c.id)); nw.length && setTimeout(() => review(nw, gs), 500);
   return `已添加 ${nw.length} 位联系人 · ${ng} 个群`;
+}
+// 新联系人确认卡：展示网名 / 真实姓名，备注默认填 AI 生成的、可直接改
+function review(nw, gs) {
+  const m = Object.fromEntries(nw.map(c => [c.id, c.remark || ''])), s = sheet({
+    cls: 'rv', noBack: 1, model: () => m, save: () => {}, title: `<b>✨ 新增 ${nw.length} 位联系人</b><small>确认一下备注吧，AI 已经帮你填好，可以直接改</small>`,
+    body: () => nw.map(c => `<div class="nc"><img class="av" src="${esc(avOf({ ...c, remark: '' }))}"><div class="nc-m"><div class="nc-n"><b>${esc(c.nick || c.real)}</b><em>网名</em></div><small>真实姓名 · ${esc(c.real || '—')}</small><label class="nc-r"><i>备注</i><input data-k="${c.id}" value="${esc(m[c.id])}" placeholder="不填就显示网名"></label></div></div>`).join('')
+      + (gs.length ? `<div class="nc-g"><small>同时加入的群聊</small>${gs.map(g => `<span>👥 ${esc(g.name)}</span>`).join('')}</div>` : '') + btn('ok', '完成', '', 'pri'),
+    acts: { ok: () => s.close() }, onClose: () => { nw.forEach(c => c.remark = ($(`[data-k="${c.id}"]`, s.el)?.value ?? m[c.id] ?? '').trim()); saveD(); emit('chat'); },
+  });
 }
 async function fromWi() {
   const es = []; for (const b of await wiBooks()) es.push(...Object.values((await loadBook(b))?.entries || {})); if (!es.length) return toast('没有读取到世界书条目');

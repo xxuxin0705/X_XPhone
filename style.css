@@ -384,3 +384,20 @@
 .pf{display:flex;gap:16px;align-items:center;padding:20px 18px;margin-bottom:14px;border-radius:20px;background:var(--cd)}
 .pf .av{width:72px;height:72px}
 .pf b{display:block;font-size:21px;margin-bottom:4px}.pf small{display:block;color:#999;font-size:12.5px}
+
+/* ---------- 新联系人确认卡 ---------- */
+.sheet.rv .pg-h{height:auto;padding:10px 20px 2px}
+.rv .pg-t{text-align:left;white-space:normal}.rv .pg-t b{display:block;font-size:19px}.rv .pg-t small{font-size:12.5px;opacity:.55;margin-top:3px}
+.nc{display:flex;gap:13px;align-items:flex-start;margin:10px 2px;padding:14px;border-radius:20px;background:var(--cd);box-shadow:0 2px 10px rgba(0,0,0,.04);animation:tin .35s both}
+.nc:nth-child(2){animation-delay:.05s}.nc:nth-child(3){animation-delay:.1s}.nc:nth-child(4){animation-delay:.15s}
+.nc .av{width:52px;height:52px;border-radius:16px;flex:none}
+.nc-m{flex:1;min-width:0}
+.nc-n{display:flex;align-items:center;gap:6px}.nc-n b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nc-n em{flex:none;font-style:normal;font-size:10px;padding:1px 7px;border-radius:8px;background:color-mix(in srgb,var(--ac) 15%,transparent);color:var(--ac)}
+.nc-m>small{display:block;margin:3px 0 9px;font-size:12.5px;color:#999}
+.nc-r{display:flex;align-items:center;gap:8px;padding:4px 4px 4px 10px;border-radius:13px;background:rgba(127,127,127,.09);border:1.5px solid transparent;transition:.2s}
+.nc-r:focus-within{border-color:var(--ac);background:var(--cd)}
+.nc-r i{flex:none;font-style:normal;font-size:12px;font-weight:600;color:var(--ac)}
+#stp .nc-r input{flex:1;max-width:none;background:none;text-align:left;padding:6px 4px}
+.nc-g{margin:12px 4px 4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.nc-g small{width:100%;color:#999;font-size:12px}
+.nc-g span{padding:5px 11px;border-radius:14px;background:var(--cd);font-size:12.5px}
