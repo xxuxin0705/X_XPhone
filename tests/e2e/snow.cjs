@@ -50,5 +50,13 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 倾斜手机：雪人和照片不动
   const pos = () => E(`(() => { const s = lk.lockFx().state(); return [s.ox, s.sm.x, s.sm.cx].join(); })()`); const p0 = await pos();
   await E(`dispatchEvent(Object.assign(new Event('deviceorientation'), { gamma: 30, beta: 0 })); lk.lockFx().advance(1, 20)`); ok(await pos() == p0 && await E(`lk.lockFx().state().tiltT`) > .5, '倾斜手机：雪人和画面固定不动（只有落雪的风向变）');
+  // 打开手机的第一帧就是锁屏照片，不能先黑一下
+  const lum = `(() => { const c = document.querySelector('.lk-bg canvas'); if (!c || !c.width) return -1; const t = document.createElement('canvas'); t.width = 40; t.height = 80; const g = t.getContext('2d'); g.drawImage(c, 0, 0, 40, 80); const d = g.getImageData(0, 0, 40, 80).data; let a = 0; for (let i = 0; i < d.length; i += 4) a += d[i] + d[i + 1] + d[i + 2]; return a / (d.length / 4) / 3; })()`;
+  const ref = await E(lum), ball = `(() => { const b = document.querySelector('#stp-ball'); b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 5, clientY: 5 })); dispatchEvent(new PointerEvent('pointerup', { clientX: 5, clientY: 5 })); })()`;
+  const reopen = () => E(`new Promise(r => { ${ball}; requestAnimationFrame(() => r([document.querySelector('#stp').classList.contains('on'), ${lum}])); })`);
+  await E(`document.querySelector('#stp .off').click()`); await W(450); ok(await E(`!document.querySelector('#stp').classList.contains('on') && lk.isLocked()`), '关机后锁屏已经提前锁好、画好');
+  let [on1, l1] = await reopen(); ok(on1 && ref > 25 && l1 > ref * .7, `再打开时第一帧就是雪夜照片（亮度 ${l1 | 0} / 正常 ${ref | 0}）`);
+  await E('lk.unlock()'); await W(700); await E(`document.querySelector('#stp .off').click()`); await W(450);
+  let [on2, l2] = await reopen(); ok(on2 && await E('lk.isLocked()') && l2 > ref * .7, `解锁后关机再开：第一帧也直接是锁屏（亮度 ${l2 | 0}）`);
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })();

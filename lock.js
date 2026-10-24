@@ -93,10 +93,12 @@ export function lock(preview) {
   el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock"><small class="lk-date"></small><b class="lk-time"></b>${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
 <div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${hintText(preview)}</span></div></div><div class="lk-auth" hidden></div>`;
   wallpaper(); clock(); clearInterval(iv); iv = setInterval(() => locked && visible() && clock(), 1e3);
-  if (fx?.interactive) { const h = $('.lk-hint span', el); h.textContent = '轻点圣诞树和雪人 · 雪地上可以写字'; setTimeout(() => locked && h.isConnected && (h.textContent = hintText(preview)), 3800); }
+  visible() && tip(preview);
   swipe(preview);
   const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑用备用密码'), 1600); });
 }
+// 第一次看到锁屏时提示一下能怎么玩
+const tip = preview => { if (!fx?.interactive) return; const h = $('.lk-hint span', el); h.textContent = '轻点圣诞树和雪人 · 雪地上可以写字'; clearTimeout(tip.t); tip.t = setTimeout(() => locked && h.isConnected && (h.textContent = hintText(preview)), 3800); };
 const hintText = preview => preview ? '预览 · 从底部上滑退出' : fpOn() ? '按住指纹解锁' : '从底部向上滑动解锁';
 // 动态锁屏可以互动（雪地写字、点圣诞树…）：从屏幕底部上滑才是解锁；其他地方的触摸交给场景
 function swipe(preview) {
@@ -140,4 +142,5 @@ export function unlock() {
   setTimeout(() => { if (locked) return; fx?.stop(); fx = null; el.hidden = true; el.innerHTML = ''; vurl && URL.revokeObjectURL(vurl); vurl = ''; }, 480);
 }
 // 手机收起 / 关机时调用：下次打开就是锁屏状态，而且锁屏重新开始（写的字、亮的灯都恢复原样）
-export const relock = () => S.lock.on && lock();
+// fresh：收起 / 关机时传 true，锁屏重新开始并提前画好；打开时只在还没锁上时才锁（不重新初始化，打开就是现成的锁屏）
+export const relock = fresh => { if (!S.lock.on) return; if (fresh || !locked) return lock(); clock(); tip(); };

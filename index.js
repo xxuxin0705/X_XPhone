@@ -19,7 +19,7 @@ function drag(el, h, key, tap) {
 }
 const pos = () => [[ui.root, 'win'], [$('#stp-ball'), 'ball']].forEach(([el, k]) => { el.style.left = el.style.top = el.style.right = el.style.bottom = ''; S.pos[k] && place(el, ...S.pos[k]); });
 // 收起手机 = 熄屏：开了锁屏的话，下次打开先看到锁屏
-const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || relock(); $('#stp-ball').classList.remove('dot'); tick(); } else relock(); };
+const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || relock(); $('#stp-ball').classList.remove('dot'); tick(); } else was && setTimeout(() => ui.root.classList.contains('on') || relock(true), 320); }; // 等收起动画结束再把锁屏重置好、画好
 function tick() { $('.sb-t', ui.root).textContent = hm(now()); ui.root.classList.contains('on') && !ui.desk.classList.contains('edit') && renderDesk(); }
 function show() {
   $('#stp-ball').hidden = S.show != 'float'; $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', S.scale || 1); ui.root.style.setProperty('--fz', S.fz || .92);

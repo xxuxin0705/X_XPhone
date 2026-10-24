@@ -32,7 +32,11 @@ const vgrad = (x, y0, y1, stops) => { const g = x.createLinearGradient(0, y0, 0,
 // 底图里的坐标（照片像素）：雪人位置、树的轮廓、树顶、彩灯挂点（从照片里树枝积雪的亮边挑出来的）、雪人身上的小光点
 const META = {"W":1282,"H":1585,"sm":{"x":551.4,"y":928.3,"w":379.3,"h":371.7},"star":[430,342],"tree":[[430,345],[560,640],[665,1100],[430,1130],[190,1105],[320,640]],"bulbs":[[628,1081],[363,1079],[608,1076],[563,1076],[534,1075],[471,1063],[440,1056],[409,1053],[607,1053],[519,1050],[582,1048],[499,1045],[644,1037],[458,1036],[390,1032],[519,1017],[475,1012],[335,998],[298,995],[408,991],[383,980],[614,976],[329,975],[236,975],[488,970],[267,960],[474,955],[301,953],[586,953],[244,947],[498,946],[356,946],[560,942],[344,935],[383,928],[244,924],[451,922],[419,909],[635,907],[229,906],[490,900],[613,897],[275,889],[322,887],[627,886],[412,882],[528,876],[496,875],[624,853],[340,851],[563,847],[580,846],[378,845],[275,839],[320,837],[593,835],[350,835],[293,832],[505,821],[557,815],[531,814],[384,786],[582,782],[455,781],[424,779],[309,779],[496,776],[568,771],[418,758],[518,746],[454,731],[349,726],[536,722],[482,695],[554,693],[305,690],[323,690],[536,682],[376,682],[405,680],[315,674],[454,669],[422,664],[385,637],[495,626],[510,605],[491,605],[541,602],[352,599],[436,593],[525,578],[445,564],[366,564],[481,549],[438,526],[452,499],[491,496],[458,471],[457,453],[454,424],[422,401],[432,379]],"spark":[[0.46,0.265],[0.463,0.265],[0.334,0.339],[0.609,0.354],[0.575,0.363],[0.549,0.374],[0.607,0.41],[0.332,0.583],[0.437,0.641],[0.458,0.651],[0.455,0.657],[0.604,0.658],[0.385,0.681],[0.631,0.69],[0.422,0.704],[0.464,0.719],[0.642,0.725],[0.509,0.736],[0.326,0.744],[0.703,0.76],[0.645,0.773],[0.218,0.775],[0.216,0.777],[0.467,0.783],[0.5,0.787],[0.656,0.787],[0.574,0.793],[0.64,0.801],[0.203,0.808],[0.203,0.81],[0.71,0.817],[0.72,0.818],[0.72,0.821],[0.219,0.825],[0.639,0.838],[0.689,0.845],[0.266,0.849],[0.646,0.857],[0.558,0.865],[0.518,0.867],[0.303,0.868],[0.244,0.88],[0.21,0.882],[0.249,0.891],[0.259,0.894],[0.216,0.899],[0.257,0.902],[0.264,0.902],[0.278,0.902],[0.282,0.907],[0.686,0.91],[0.263,0.913],[0.241,0.914],[0.245,0.915],[0.261,0.915],[0.243,0.917],[0.678,0.917],[0.272,0.918],[0.273,0.922],[0.234,0.923],[0.26,0.926],[0.248,0.929],[0.281,0.931],[0.272,0.934],[0.249,0.937],[0.286,0.939],[0.509,0.942],[0.277,0.943],[0.284,0.946],[0.282,0.949],[0.417,0.953],[0.574,0.968]]};
 const IMG = {}; let imgP;
-const loadImgs = () => imgP ||= Promise.all([['bg', 'snownight.webp'], ['sm', 'snowman.webp']].map(([k, f]) => new Promise(res => { const i = new Image(); i.decoding = 'async'; i.onload = () => { IMG[k] = i; res(); }; i.onerror = () => res(); i.src = new URL('./assets/' + f, import.meta.url).href; })));
+// 插件一加载就开始下载并解码照片，打开锁屏时直接就有，不会先黑一下
+const loadImgs = () => imgP ||= Promise.all([['bg', 'snownight.webp'], ['sm', 'snowman.webp']].map(([k, f]) => new Promise(res => { const i = new Image(); i.decoding = 'async'; const done = () => { IMG[k] = i; res(); }; i.onload = () => (i.decode ? i.decode().then(done, done) : done()); i.onerror = () => res(); i.src = new URL('./assets/' + f, import.meta.url).href; })));
+typeof Image == 'function' && typeof document != 'undefined' && setTimeout(loadImgs, 0);
+// 生成一次就一直用的素材：冰晶、霜花、雪人变色贴图
+const CACHE = {};
 // 只给雪人身体里发光的部分（亮处）上色，帽子围巾不变
 const glowTints = img => { try {
   const w = img.naturalWidth, h = img.naturalHeight, b = cnv(w, h), x = b.getContext('2d'); x.drawImage(img, 0, 0); const d = x.getImageData(0, 0, w, h), a = d.data;
@@ -210,8 +214,10 @@ const snownight = {
     if (!small) try { s.gl = grooves(W, H - s.y0, Math.min(k, 2)); s.gl?.geo(W, s.y0, H - s.y0, s.hz); } catch { s.gl = null; }
     // 霜和冰晶：开屏后再生成，不拖慢第一帧
     s.frostF = 0; s.wipe = cnv(W, H); s.wx = s.wipe.getContext('2d'); s.fdirty = 1; s.crys = [];
-    !small && setTimeout(() => { if (s.dead) return; s.crys = [crystal(Math.round(200 * k), 7), crystal(Math.round(200 * k), 12), crystal(Math.round(200 * k), 31)].map(c => [c, blurC(c, 3 * k), blurC(c, 9 * k)]); s.frost = frostLayers(W, H, .5); s.fc = cnv(W * .5, H * .5); }, 80);
-    loadImgs().then(() => { if (s.dead) return; s.ready = 1; if (IMG.sm && !small) s.smTint = glowTints(IMG.sm); });
+    const extras = () => { if (s.dead) return; s.crys = CACHE['c' + k] ||= [crystal(Math.round(200 * k), 7), crystal(Math.round(200 * k), 12), crystal(Math.round(200 * k), 31)].map(c => [c, blurC(c, 3 * k), blurC(c, 9 * k)]); s.frost = CACHE['f' + W + 'x' + H] ||= frostLayers(W, H, .5); s.fc = cnv(W * .5, H * .5); };
+    !small && (CACHE['c' + k] ? extras() : setTimeout(extras, 400));
+    const prep = () => { s.ready = 1; if (IMG.sm && !small) s.smTint = CACHE.tint ||= glowTints(IMG.sm); };
+    if (IMG.bg) { prep(); s.fadeIn = 1; } else loadImgs().then(() => { if (!s.dead) { prep(); s.fadeIn = 1; } });
     if (!small) { s.ori = e => { if (e.gamma != null) s.tiltT = clamp(e.gamma / 35, -1, 1); }; s.mot = e => { const a = e.acceleration || e.accelerationIncludingGravity; if (!a) return; const m = Math.hypot(a.x || 0, a.y || 0, a.z || 0) - (e.acceleration ? 0 : 9.8); m > 13 && snownight.globe(s); }; addEventListener('deviceorientation', s.ori); addEventListener('devicemotion', s.mot); }
     return s;
   },
@@ -249,7 +255,7 @@ const snownight = {
       if (Math.hypot(x - s.star.x, y - s.star.y) < s.star.r * 1.8 && s.mode) { for (let i = 0; i < 40; i++) { const a = rnd(0, TAU), v = rnd(30, 160); s.sparks.push({ x: s.star.x, y: s.star.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, l: rnd(.6, 1.4), c: Math.random() < .5 ? 1 : (Math.random() * 5 | 0) + 2 }); } return true; }
       if (this.onSm(s, x, y)) { this.poke(s); return true; }
       if (this.onTree(s, x, y)) { this.toggleTree(s); return true; }
-      if (y < s.ground) { if (s.t - (s.lastTap || -9) < .35) { this.globe(s); s.lastTap = -9; } else s.lastTap = s.t; return true; }
+      if (y < s.ground) { const n = performance.now(); if (n - (s.lastTap || 0) < 380) { this.globe(s); s.lastTap = 0; } else s.lastTap = n; return true; }
       return false;
     }
   },
@@ -396,7 +402,9 @@ export function mountScene(cv, key, opts = {}) {
   const dpr = Math.min(opts.dpr || globalThis.devicePixelRatio || 1, S.dpr || 2), step = 1 / Math.min(opts.fps || 60, S.fps || 60);
   const size = () => { const w = cv.clientWidth || cv.width, h = cv.clientHeight || cv.height; if (w == W && h == H && st) return; st && S.stop?.(st); W = w; H = h; cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); st = S.init(W, H, dpr); };
   const frame = dt => { size(); t += dt; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); S.draw(ctx, t, dt, W, H, st); };
-  const loop = now => { if (dead) return; raf = requestAnimationFrame(loop); const dt = last ? Math.min(.1, (now - last) / 1e3) : 0; last = now; if (document.hidden || !cv.isConnected || opts.active && !opts.active() || !cv.clientWidth) return; acc += dt; if (acc < step * .9) return; frame(Math.min(.05, acc)); acc = 0; };
+  let shown = 0; // 上一帧是否在屏幕上；刚变可见时立刻画，不等节流
+  const loop = now => { if (dead) return; raf = requestAnimationFrame(loop); const dt = last ? Math.min(.1, (now - last) / 1e3) : 0; last = now; if (document.hidden || !cv.isConnected || opts.active && !opts.active() || !cv.clientWidth) return shown = 0; acc += dt; if (shown && acc < step * .9) return; frame(shown ? Math.min(.05, acc) : 0); acc = 0; shown = 1; };
+  cv.clientWidth && frame(0); // 挂上就先画一帧，不等下一次刷新
   raf = requestAnimationFrame(loop);
   return {
     interactive: !!S.interactive && !opts.fps,

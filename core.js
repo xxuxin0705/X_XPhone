@@ -20,6 +20,7 @@ const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', text: '' }, media: {},
+  stk: { src: 'sogou', id: '', key: '', gk: '', auto: true, recent: [] },
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
@@ -582,3 +583,45 @@ export function notify(ch, m) {
   b.onclick = () => { b.remove(); emit('open-chat', ch.id); }; document.body.append(b);
   setTimeout(() => b.classList.add('in'), 30); setTimeout(() => { b.classList.remove('in'); setTimeout(() => b.remove(), 500); }, 5000);
 }
+
+/* ---------- 表情包搜索：像微信「搜索表情」那样，输入关键词出一排表情图 ---------- */
+// sogou / baidu：接口盒子（apihz.cn）的免费表情接口，没填自己的 ID / Key 时用它公开的测试号（大家共用，每分钟有次数限制）
+// giphy：要自己的免费 Key，英文关键词效果最好
+export const STKP = [['sogou', '搜狗表情'], ['baidu', '百度表情'], ['giphy', 'GIPHY']];
+const STK_PUB = '88888888', stkC = new Map();
+const stkUrl = (src, q, pg) => {
+  const c = S.stk, w = encodeURIComponent(q.slice(0, 10));
+  if (src == 'giphy') return `https://api.giphy.com/v1/stickers/search?api_key=${encodeURIComponent(c.gk)}&q=${encodeURIComponent(q)}&limit=24&offset=${(pg - 1) * 24}&lang=zh-CN&rating=pg-13`;
+  const id = c.id || STK_PUB, key = c.key || STK_PUB;
+  return `https://cn.apihz.cn/api/img/apihzbqb${src == 'baidu' ? 'baidu' : 'sougou'}.php?id=${encodeURIComponent(id)}&key=${encodeURIComponent(key)}&words=${w}&page=${pg}${src == 'baidu' ? '&limit=24' : ''}`;
+};
+const stkParse = (src, j) => {
+  if (src == 'giphy') { if (j.meta?.status && j.meta.status != 200) throw Error(j.meta.msg || 'GIPHY 出错'); return (j.data || []).map(d => ({ img: d.images?.fixed_width?.url || d.images?.original?.url, thumb: d.images?.fixed_width_small?.url || d.images?.fixed_width?.url })).filter(x => x.img); }
+  if (j.code != 200 && !Array.isArray(j.res)) throw Error(j.msg || '表情接口出错');
+  return (j.res || []).map(x => typeof x == 'string' ? x : x?.url || x?.img || x?.src || x?.thumb).filter(u => /^https?:/.test(u || '')).map(u => ({ img: u.replace(/^http:/, 'https:'), thumb: u.replace(/^http:/, 'https:') }));
+};
+// 取 JSON：先直连；被跨域拦了就试 TauriTavern 的原生请求，再试酒馆的 /proxy/
+async function getJ(url, signal) {
+  let r = null;
+  try { r = await fetch(url, { signal, referrerPolicy: 'no-referrer' }); }
+  catch (e) {
+    if (signal?.aborted) throw e;
+    const tf = globalThis.__TAURI__?.http?.fetch; if (tf) try { r = await tf(url, { method: 'GET' }); } catch { r = null; }
+    r ||= await xf(url, { signal });
+  }
+  await chk(r); return r.json();
+}
+export async function stkSearch(q, pg = 1, signal) {
+  q = String(q || '').trim(); if (!q) return [];
+  const src = S.stk.src == 'giphy' && !S.stk.gk ? 'sogou' : S.stk.src, k = [src, q, pg].join('|');
+  if (stkC.has(k)) return stkC.get(k);
+  const order = src == 'giphy' ? ['giphy'] : [src, src == 'sogou' ? 'baidu' : 'sogou']; let err;
+  for (const s of order) {
+    try { const L = stkParse(s, await getJ(stkUrl(s, q, pg), signal)); if (L.length || s == order.at(-1)) { stkC.set(k, L); return L; } }
+    catch (e) { if (signal?.aborted) throw e; err = e; }
+  }
+  throw err || Error('没搜到');
+}
+// AI 发的 [表情包:关键词]：库里没有就在线搜一张（取前几张里随机一张，存进消息里，之后不会变）
+export const stkFind = q => stkSearch(String(q || '').replace(/[（()）【】\[\]「」"“”]/g, '').trim()).then(L => L.length ? L[Math.random() * Math.min(4, L.length) | 0].img : '', () => null); // null＝网络出错，下次还会再试
+export const stkRecent = q => { q = String(q || '').trim(); if (!q) return; const r = S.stk.recent; S.stk.recent = [q, ...r.filter(x => x != q)].slice(0, 12); save(); };

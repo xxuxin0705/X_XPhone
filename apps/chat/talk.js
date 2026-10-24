@@ -1,4 +1,5 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
+import { stkSearch, stkFind, stkRecent, save } from '../../core.js';
 import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname } from './data.js';
 import { openFeed } from './chat.js';
@@ -42,7 +43,7 @@ function replyP(ch, patNow) {
 请继续这段手机聊天${g ? '，让群成员按各自人设自然互动、互相接话' : `，你扮演${rn(ch)}回复${me}`}。像真人发消息：口语、短句，一次1-5条，符合人设与当前剧情。
 【输出格式】每条消息单独一行：${g ? '「真实姓名: 内容」' : '直接写内容'}。不要写${me}的话，不要任何解释。按人设此刻会“已读不回”就什么都不输出。
 【可用标签】（单独一行，前面同样写名字）
-[表情包:描述] 发表情包${sk ? `（优先用：${sk}）` : ''}
+[表情包:关键词] 发表情包${S.stk.auto ? '，关键词写 2~6 个字，像在微信里搜表情那样（如：摸摸头、无语、开心到转圈、晚安）' : ''}${sk ? `（优先用：${sk}）` : ''}
 [语音:要说的话]　[图片:画面描述]　[转账:金额|备注]　[收款]（收下${me}的转账）
 [表情回应:emoji] 给${me}刚才的消息贴表情，表情要符合此刻的真实态度；也可 [表情回应:emoji|消息片段] 指定哪条
 [引用:消息片段] 正文　引用某条消息来回复
@@ -77,11 +78,55 @@ on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('
 /* ---------- 渲染 ---------- */
 export const tT = ts => { const d = new Date(ts); return (d.toDateString() == now().toDateString() ? '' : `${d.getMonth() + 1}月${d.getDate()}日 `) + hm(d); };
 const avH = (c, ch, id) => { const fr = S.assets.frame.find(a => a.id == ch.cfg.frame)?.img; return `<div class="avw" data-a="avc" data-x="${id}"><img class="av" src="${esc(avOf(c))}">${fr ? `<img class="frm" src="${esc(fr)}">` : ''}</div>`; };
+// 表情包消息没有图（AI 发的、库里没有）：按描述在线搜一张补上；每条只搜一次
+const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !S.stk.auto || !m.c) return; stkTry.add(m); stkFind(m.c).then(u => { stkDone.add(m); u ? m.img = u : u === '' && (m.sk = 1); saveD(); emit('chat'); }); };
+const HOT = ['摸摸头', '开心', '无语', '哭哭', '晚安', '爱你', '生气', '加油', '震惊', '委屈', '贴贴', '哈哈哈'];
+// 搜索表情页（仿微信）：输入关键词 → 一排表情图 → 点一下预览 → 发送 / 添加到表情
+export function stkPage(send) {
+  let q = '', L = [], st = '', err = '', pg = 1, more = true, ac = null, tm = 0, pv = -1;
+  const out = () => {
+    if (!q) return `${S.stk.recent.length ? `<div class="sks-h"><span>最近搜索</span><b data-a="skclr">清空</b></div><div class="sks-ch">${S.stk.recent.map(x => `<b data-a="skq" data-x="${esc(x)}">${esc(x)}</b>`).join('')}</div>` : ''}<div class="sks-h"><span>大家都在搜</span></div><div class="sks-ch">${HOT.map(x => `<b data-a="skq" data-x="${x}">${x}</b>`).join('')}</div>`;
+    const tabs = `<div class="sks-tab"><b class="on">全部表情</b></div>`;
+    if (st == 'ld' && !L.length) return tabs + `<div class="sks-st"><i class="spin"></i>正在搜索</div>`;
+    if (err && !L.length) return tabs + `<div class="sks-st">${esc(err)}<small>可以在 设置 → 表情包搜索 里换一个来源</small><b data-a="skre">重试</b></div>`;
+    if (!L.length) return tabs + `<div class="sks-st">没有找到「${esc(q)}」相关的表情</div>`;
+    return tabs + `<div class="sks-g">${L.map((x, i) => `<div class="sks-i" data-a="skp" data-x="${i}"><img src="${esc(x.thumb || x.img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('bad')"></div>`).join('')}</div>${st == 'ld' ? '<div class="sks-st sm"><i class="spin"></i></div>' : more ? '<div class="sks-more" data-a="skmore">加载更多</div>' : ''}`;
+  };
+  const draw = () => { const o = $('.sks-out', P.el); o && (o.innerHTML = out()); };
+  const go = async (k, next) => {
+    k = String(k ?? q).trim(); clearTimeout(tm); if (!next) { ac?.abort(); q = k; L = []; pg = 1; more = true; err = ''; }
+    const ip = $('.sks-ip', P.el); ip && ip.value != q && (ip.value = q); $('.sks-bar', P.el)?.classList.toggle('has', !!q);
+    if (!q) { st = ''; return draw(); }
+    st = 'ld'; draw(); const a = ac = new AbortController(), want = q;
+    try { const r = await stkSearch(q, pg, a.signal); if (a != ac) return; L = next ? [...L, ...r] : r; more = r.length >= 8; next || stkRecent(want); }
+    catch (e) { if (a != ac || a.signal.aborted) return; err = '搜索失败：' + e.message; }
+    st = ''; draw();
+  };
+  const P = page({
+    title: '搜索表情', cls: 'skspg',
+    body: () => `<div class="sks-bar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input class="sks-ip" placeholder="搜索表情" enterkeyhint="search" autocomplete="off"><b data-a="skx">×</b></div><div class="sks-out">${out()}</div><div class="sks-pv" hidden></div>`,
+    after: el => {
+      const ip = $('.sks-ip', el);
+      ip.oninput = () => { $('.sks-bar', el).classList.toggle('has', !!ip.value); clearTimeout(tm); tm = setTimeout(() => !ip.value.trim() || ip.value.trim() == q ? !ip.value.trim() && go('') : go(ip.value), 650); };
+      ip.onkeydown = e => { if (e.key == 'Enter' && !e.isComposing) { e.preventDefault(); go(ip.value); ip.blur(); } };
+      setTimeout(() => ip.focus({ preventScroll: true }), 350);
+    },
+    acts: {
+      skq: x => go(x), skre: () => go(), skmore: () => { if (st == 'ld') return; pg++; go(q, 1); },
+      skx: () => { go(''); $('.sks-ip', P.el).focus(); },
+      skclr: () => { S.stk.recent = []; save(); draw(); },
+      skp: i => { pv = +i; const x = L[pv], b = $('.sks-pv', P.el); b.hidden = false; b.innerHTML = `<div class="sks-pc"><img src="${esc(x.img)}" referrerpolicy="no-referrer"><nav><b data-a="skfav">添加到表情</b><b class="pri" data-a="sksend">发送</b></nav></div>`; b.onclick = e => e.target == b && (b.hidden = true); },
+      sksend: () => { const x = L[pv]; if (!x) return; back(); send({ t: 'sticker', c: q, img: x.img }); },
+      skfav: () => { const x = L[pv]; if (!x) return; S.assets.sticker.push({ id: uid(), name: q, img: x.img }); save(); toast('已添加到表情包'); $('.sks-pv', P.el).hidden = true; },
+    },
+  });
+  return P;
+}
 const fold = (i, txt, lab, open) => `<div class="tz ${open ? 'open' : ''}"><b data-a="tz" data-x="${i}">${open ? '收起' + lab : lab}</b><p>${esc(txt)}</p></div>`;
 function body(m, i, cf) {
   const tzo = !!cf.trOpen != !!m.tz; // m.tz 记录这条是否被手动翻转过
   switch (m.t) {
-    case 'sticker': return m.img ? `<img class="stk" src="${esc(m.img)}">` : `<div class="stk0"><b>${['(｡•ᴗ•｡)', '(๑•̀ㅂ•́)و', '(っ˘ω˘ς)', '( ˘•ω•˘ )', '(ﾉ´ヮ`)ﾉ'][m.c.length % 5]}</b><small>${esc(m.c)}</small></div>`;
+    case 'sticker': (m.img || stkFill(m)); return m.img ? `<img class="stk" src="${esc(m.img)}" referrerpolicy="no-referrer" onerror="this.classList.add('bad')">` : `<div class="stk0 ${stkTry.has(m) && !stkDone.has(m) ? 'ld' : ''}"><b>${['(｡•ᴗ•｡)', '(๑•̀ㅂ•́)و', '(っ˘ω˘ς)', '( ˘•ω•˘ )', '(ﾉ´ヮ`)ﾉ'][m.c.length % 5]}</b><small>${esc(m.c)}</small></div>`;
     case 'img': return m.url ? `<img class="pic" src="${esc(m.url)}">` : `<div class="picd">🖼 ${esc(m.c)}</div>`;
     case 'voice': return `<div class="vc" data-a="play" data-x="${i}">${I.wave}${Math.max(1, Math.ceil(m.c.length / 4))}″</div>${m.open ? `<div class="vt">${esc(m.c)}</div>` : ''}${m.tr && m.open ? fold(i, m.tr, '翻译', tzo) : ''}`;
     case 'transfer': return `<div class="tf ${m.st ? 'done' : ''}" data-a="tf" data-x="${i}"><b>¥${(+m.amt).toFixed(2)}</b><small>${esc(m.st || m.c || (m.f == 'me' ? '待对方收款' : '请收款'))}</small><i>转账</i></div>`;
@@ -113,7 +158,7 @@ export function openChat(id) {
   const ch = get(id); if (!ch) return; if (top()?.cls != 'chatapp') { home(); APPS.chat.open(); } ch.unread = 0; saveD();
   const cf = ch.cfg, cls = () => `chat st-${sty(ch)} ${ch.type == 'g' ? 'grp' : ''} ${cf.dark ? 'dark' : ''} sh-${cf.shape || 'def'} av-${cf.avs || 'def'} ${cf.showAv ? '' : 'noav'} ${cf.cont ? 'cont' : ''}`;
   let ptab = 'stk', q = null;
-  const panHtml = k => k == 'stk' ? `<div class="ptabs">${[['stk', '★ 表情包'], ['emo', '😀 Emoji']].map(([a, l]) => `<b data-a="ptab" data-x="${a}" class="${ptab == a ? 'on' : ''}">${l}</b>`).join('')}</div><div class="pgrid ${ptab}">${ptab == 'emo' ? EMOJI.map(e => `<i data-a="emo" data-x="${e}">${e}</i>`).join('') : S.assets.sticker.map((s, i) => `<div class="sk" data-a="sk" data-x="${i}"><img src="${esc(s.img)}"><small>${esc(s.name)}</small></div>`).join('') + '<div class="sk add" data-a="skadd">＋<small>添加</small></div>'}</div>`
+  const panHtml = k => k == 'stk' ? `<div class="ptabs">${`<b class="psrch" data-a="stks" title="搜索表情"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></b>` + [['stk', '★ 表情包'], ['emo', '😀 Emoji']].map(([a, l]) => `<b data-a="ptab" data-x="${a}" class="${ptab == a ? 'on' : ''}">${l}</b>`).join('')}</div><div class="pgrid ${ptab}">${ptab == 'emo' ? EMOJI.map(e => `<i data-a="emo" data-x="${e}">${e}</i>`).join('') : S.assets.sticker.map((s, i) => `<div class="sk" data-a="sk" data-x="${i}"><img src="${esc(s.img)}" loading="lazy" referrerpolicy="no-referrer"><small>${esc(s.name)}</small></div>`).join('') + '<div class="sk add" data-a="skadd">＋<small>添加</small></div>'}</div>`
     : `<div class="pgrid tools">${[['pimg', '相册', '🖼'], ['pai', 'AI生图', '🎨'], ['ptf', '转账', '¥'], ['ppat', '拍一拍', '👋'], ['pvo', '语音', '🎙'], ['pgen', '让TA回复', '✨']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${i}</i>${l}</div>`).join('')}</div>`;
   const pan = k => { const p = $('.pan', pg.el), on = p.dataset.k != k || !p.classList.contains('on'); p.dataset.k = k; p.classList.toggle('on', on); p.innerHTML = panHtml(k); };
   const qbar = () => { const b = $('.qbar', pg.el), m = q != null && ch.msgs[q]; b.innerHTML = m ? `<span>${esc(who(ch, m.f))}：${esc(brief(m)).slice(0, 40)}</span><b data-a="qx">×</b>` : ''; b.classList.toggle('on', !!m); };
@@ -135,6 +180,7 @@ export function openChat(id) {
       pan, cset: () => cset(ch), qx: () => { q = null; qbar(); },
       ptab: x => { ptab = x; $('.pan', pg.el).innerHTML = panHtml('stk'); },
       emo: e => { const ip = $('.ip', pg.el); ip.value += e; ip.oninput(); },
+      stks: () => { $('.pan', pg.el).classList.remove('on'); stkPage(m => push(ch, m)); },
       sk: i => { const s = S.assets.sticker[i]; push(ch, { t: 'sticker', c: s.name, img: s.img }); },
       skadd: async () => { const r = await form('添加表情包', [['name', '描述（AI 按描述发送）'], ['img', '图片', 'img']]); if (!r?.img) return; S.assets.sticker.push({ id: uid(), name: r.name || '表情', img: r.img }); C().saveSettingsDebounced(); $('.pan', pg.el).innerHTML = panHtml('stk'); },
       pimg: () => tool(async () => { const u = await pickImg(800); u && push(ch, { t: 'img', c: '图片', url: u }); }),
