@@ -91,7 +91,11 @@ export const countNow = id => mine(id) ? mine(id).items.length : id.startsWith('
 let warmP = null; export const warm = () => bq || warmP || (warmP = loadBqb().then(() => emit('stk'), () => { }).finally(() => warmP = null), 0);
 // 旧版默认的几组（大家觉得不好看）换成新的软萌默认组；自己加过 / 删过的不动
 const OLD = 'hoyoverse-hi3,b049,bilibili,b010';
-export const stkMig = () => { const c = S.stk; if (c.v >= 2) return; c.v = 2; c.packs.join() == OLD && (c.packs = ['f-pets', 'f-face', 'f-love', 'hoyoverse-hi3']); c.mine ||= []; save(); };
+export const DEFP = ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'];
+export const stkMig = () => { const c = S.stk; if (c.v >= 3) return; c.mine ||= [];
+  if (!c.v || c.v < 2) c.packs.join() == OLD && (c.packs = [...DEFP]);
+  ['qq', 'weibo', 'tieba'].forEach(id => c.packs.includes(id) || c.packs.push(id)); // v3：QQ / 微博 / 贴吧表情默认内置
+  c.v = 3; save(); };
 export const has = id => S.stk.packs.includes(id);
 export const addPack = id => { if (!has(id)) { S.stk.packs.push(id); save(); emit('stk'); } };
 export const rmPack = id => { S.stk.packs = S.stk.packs.filter(x => x != id); save(); emit('stk'); };
@@ -114,7 +118,7 @@ export async function localSearch(q, n = 80) {
   for (const p of S.stk.mine) pool.push(...p.items.map(x => ({ ...x, k: p.id })));
   for (const x of S.assets.sticker) pool.push({ l: x.name, img: x.img, k: 'fav' });
   try { const b = await loadBqb(); for (const id in b) pool.push(...b[id].items); } catch { /* 表情库连不上时只搜内置的 */ }
-  return pool.map(x => ({ x, s: score(x.l, q, sy) })).filter(o => o.s > 0).map(o => ({ ...o, s: o.s + bonus(o.x.k) + (o.x.sm ? -8 : 0) + (o.x.a ? 2 : 0) }))
+  return pool.map(x => ({ x, s: Math.max(score(x.l, q, sy), x.d ? score(x.d, q, sy) * .85 : 0) })).filter(o => o.s > 0).map(o => ({ ...o, s: o.s + bonus(o.x.k) + (o.x.sm ? -8 : 0) + (o.x.a ? 2 : 0) }))
     .sort((a, b) => b.s - a.s).slice(0, n).map(o => ({ ...o.x, sc: o.s }));
 }
 // 搜表情包组：名字对上，或者组里有对上的表情
@@ -191,7 +195,7 @@ export function packPage(id, send) {
     body: () => { const m = packMeta(id); if (!m) return ''; return `<div class="sp-ban">${coverH(id, 'sp-bi')}</div><div class="sp-hd"><div><b>${esc(m.name)}</b><small>${esc(m.desc)}</small><small class="src">来自 ${m.from}${countNow(id) ? ` · ${countNow(id)} 个表情` : ''}</small></div>${addBtn(id)}</div><div class="sp-gw">${grid()}</div>${mine(id) ? '<p class="sp-cr">长按单个表情可以移到前面或删除</p>' : ''}<div class="sks-pv" hidden></div>`; },
     acts: {
       spadd: x => tog(x, P), spp: i => preview(P, pk.items[i], send), spre: () => load(),
-      splp: async i => { const p = mine(id); if (!p) return; const k = await menu([['top', '移到前面'], ['del', '删除', 'danger']]); if (!k) return; const [x] = p.items.splice(i, 1); k == 'top' ? p.items.unshift(x) : drop(x); save(); emit('stk'); load(); },
+      splp: async i => { const p = mine(id); if (!p) return; const k = await menu([['top', '移到前面'], ['ren', '改名字'], ['del', '删除', 'danger']], p.items[i]?.d || p.items[i]?.l); if (!k) return; if (k == 'ren') return renItem(p.items[i], load); const [x] = p.items.splice(i, 1); k == 'top' ? p.items.unshift(x) : drop(x); save(); emit('stk'); load(); },
       spown: async () => { const p = mine(id), k = await menu([['add', '继续添加表情'], ['ren', '重命名'], ['rm', '删除这一组', 'danger']], p.name); if (!k) return;
         if (k == 'add') return importTo(p, () => { emit('stk'); load(); });
         if (k == 'ren') { const r = await form('重命名', [['n', '名字']], { n: p.name }); r?.n && (p.name = r.n, save(), emit('stk'), P.re()); return; }
@@ -280,26 +284,78 @@ export function stkPage(send) {
 /* ---------- 我自己导入的表情包组 ---------- */
 const nameOf = n => String(n || '').replace(/\.[^.]+$/, '').replace(/^[\d_\-\s]+/, '').replace(/[_-]+/g, ' ').trim().slice(0, 16);
 // 往一个组里加表情：相册多选 / 图片链接（每行「名字 链接」或只有链接）
-async function importTo(p, done) {
-  const k = await menu([['f', '从相册选多张图'], ['u', '粘贴图片链接']], '添加到「' + p.name + '」'); if (!k) return;
-  let add = [];
-  if (k == 'u') {
-    const r = await form('粘贴图片链接', [['t', '每行一个：名字 + 空格 + 链接（名字可以不写）', 'area', '摸摸头 https://xx.com/a.gif\nhttps://xx.com/b.png']]); if (!r?.t) return;
-    add = r.t.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const m = l.match(/^(.*?)\s*(https?:\/\/\S+)$/); return m && { l: m[1].trim() || nameOf(m[2].split('/').pop().split('?')[0]), img: m[2] }; }).filter(Boolean);
-  } else {
-    const fs = await new Promise(r => { const i = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', multiple: true }); i.onchange = () => r([...i.files]); i.click(); });
-    if (!fs.length) return; toast(`正在导入 ${fs.length} 张…`);
-    for (const f of fs) { try { add.push({ l: nameOf(f.name), img: await putMedia(await readImg(f, 360), 'stk') }); } catch { } }
+// 从一段文字里找出表情链接和说明：一行一个，支持「链接（说明）」「说明 链接」「只有链接」；没有链接的第一行当组名
+// 说明只从文字里取（括号里的、前面的字），不会调用任何 API
+const URLRE = /https?:\/\/[^\s（()）"'<>，,、]+/g;
+export const shortName = d => { d = String(d || '').trim(); const q = d.match(/配文\s*[“"「『]([^”"」』]+)/) || d.match(/[“"「『]([^”"」』]{1,12})[”"」』]/); const t = (q ? q[1] : d).replace(/[“”"「」『』（）()]/g, '').replace(/[。！!～~，,…]+$/, '').trim(); return t.length > 10 ? t.slice(0, 10) + '…' : t; };
+export function parseLinks(text) {
+  let title = ''; const items = [], seen = new Set();
+  for (let line of String(text || '').split(/\r?\n/)) {
+    line = line.replace(/HYPERLINK\s+"[^"]*"/gi, '').trim(); if (!line) continue;
+    const us = [...line.matchAll(URLRE)];
+    if (!us.length) { title ||= line.replace(/^[#*\-\s]+|[:：\s]+$/g, '').slice(0, 20); continue; }
+    us.forEach((m, k) => {
+      const img = m[0].replace(/[。.,，;；]+$/, ''); if (seen.has(img)) return; seen.add(img);
+      const after = line.slice(m.index + m[0].length, us[k + 1]?.index ?? line.length), before = k ? '' : line.slice(0, m.index);
+      const d = ((after.match(/^\s*[（(]([\s\S]*?)(?:[）)]\s*$|$)/) || [])[1] || after.replace(/^[\s|｜:：\-—]+/, '') || before.replace(/[\s|｜:：\-—]+$/, '').replace(/^[\d.、\s]+/, '')).trim();
+      items.push({ l: shortName(d), d, img });
+    });
   }
+  return { title, items };
+}
+// docx 是个 zip：在浏览器里解开 word/document.xml，只取正文文字（不需要任何库，也不上传）
+async function docxText(buf) {
+  const v = new DataView(buf), u8 = new Uint8Array(buf); let e = buf.byteLength - 22; while (e >= 0 && v.getUint32(e, true) != 0x06054b50) e--; if (e < 0) throw Error('不是有效的 docx 文件');
+  let o = v.getUint32(e + 16, true); const n = v.getUint16(e + 10, true), td = new TextDecoder();
+  for (let k = 0; k < n; k++) {
+    const meth = v.getUint16(o + 10, true), cs = v.getUint32(o + 20, true), nl = v.getUint16(o + 28, true), xl = v.getUint16(o + 30, true), cl = v.getUint16(o + 32, true), lo = v.getUint32(o + 42, true), name = td.decode(u8.subarray(o + 46, o + 46 + nl));
+    o += 46 + nl + xl + cl; if (name != 'word/document.xml') continue;
+    const st = lo + 30 + v.getUint16(lo + 26, true) + v.getUint16(lo + 28, true), raw = u8.subarray(st, st + cs);
+    const xml = meth == 0 ? td.decode(raw) : await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    const ent = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+    return xml.split(/<\/w:p>/).map(p => ent([...p.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)].map(m => m[1]).join(''))).join('\n');
+  }
+  throw Error('docx 里没有正文');
+}
+export async function fileText(f) {
+  if (/\.docx$/i.test(f.name)) return docxText(await f.arrayBuffer());
+  const t = await f.text(); return /\.html?$/i.test(f.name) ? t.replace(/<br\s*\/?>|<\/(p|div|li|tr)>/gi, '\n').replace(/<[^>]+>/g, ' ') : t;
+}
+// 导入链接页：可以直接粘贴（每行一个），也可以选一个文件（docx / txt / md / json / html）自动把里面的链接挑出来
+function linkPage(p, isNew, done) {
+  let res = { title: '', items: [] };
+  const prev = () => `<p class="lk-n">${res.items.length ? `识别到 <b>${res.items.length}</b> 个表情${res.items.filter(x => !x.l).length ? `（${res.items.filter(x => !x.l).length} 个没有说明，导入后可以长按改名字）` : ''}` : '还没有识别到链接'}</p><div class="sp-g lk-g">${res.items.slice(0, 40).map(x => `<div class="sks-i">${imgH({ img: x.img })}${x.l ? `<small>${esc(x.l)}</small>` : ''}</div>`).join('')}</div>`;
+  const parse = () => { res = parseLinks($('.lk-ta', P.el).value); const n = $('.lk-name', P.el); n && !n.dataset.e && res.title && (n.value = res.title); $('.lk-pv', P.el).innerHTML = prev(); $('.lk-go', P.el).textContent = res.items.length ? `导入 ${res.items.length} 个` : '导入'; };
+  const P = open({
+    title: '导入表情链接', cls: 'skspg lkpg',
+    body: () => `${isNew ? `<label class="lk-f"><span>组名</span><input class="lk-name" placeholder="比如：呆猫八条（文件第一行是名字会自动填）" value="${esc(p.name || '')}"></label>` : ''}
+<div class="lk-f col"><span>每行一个链接，后面可以用括号写说明</span><textarea class="lk-ta" placeholder="https://xx.com/a.jpg（小猫举手配文“收到”）&#10;https://xx.com/b.gif 哭哭&#10;摸摸头 https://xx.com/c.png"></textarea></div>
+<div class="lk-bt"><button class="btn" data-a="lkfile">从文件里提取链接</button><button class="btn pri lk-go" data-a="lkgo">导入</button></div><div class="lk-pv">${prev()}</div>
+<p class="sp-cr">支持 Word（.docx）、txt、md、json、html 文件。说明只从文件里的文字读取（括号里的、链接前面的字），不会调用你的 API。</p>`,
+    after: el => { const ta = $('.lk-ta', el); ta.oninput = parse; const n = $('.lk-name', el); n && (n.oninput = () => n.dataset.e = 1); },
+    acts: {
+      lkfile: async () => { const f = await pickFile('.docx,.txt,.md,.json,.html,.htm,.csv,text/plain'); if (!f) return; try { const t = await fileText(f), r = parseLinks(t); if (!r.items.length) return toast('这个文件里没有找到图片链接'); const ta = $('.lk-ta', P.el); ta.value = r.items.map(x => x.img + (x.d ? `（${x.d}）` : '')).join('\n'); const n = $('.lk-name', P.el); n && !n.dataset.e && (n.value = r.title || nameOf(f.name)); parse(); toast(`从文件里找到 ${r.items.length} 个链接`); } catch (e) { toast('读取文件失败：' + e.message); } },
+      lkgo: () => { if (!res.items.length) return toast('还没有识别到链接'); const n = $('.lk-name', P.el); n && (p.name = n.value.trim() || res.title || p.name || '我的表情包'); p.items.push(...res.items); save(); back(); toast(`已导入 ${res.items.length} 个表情`); done?.(); },
+    },
+  });
+}
+// 往一个组里加表情：直接上传图片（相册多选），或者导入链接
+async function importTo(p, done, isNew) {
+  const k = await menu([['f', '上传图片（可以多选）'], ['l', '导入链接（粘贴，或从文件里提取）']], isNew ? '导入表情包组' : '添加到「' + p.name + '」'); if (!k) return;
+  if (k == 'l') return linkPage(p, isNew, done);
+  if (isNew) { const r = await form('给这组起个名字', [['n', '组名', 'text', '比如：小哭猫、奶龙']]); if (!r) return; p.name = r.n?.trim() || '我的表情包'; }
+  const fs = await new Promise(r => { const i = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', multiple: true }); i.onchange = () => r([...i.files]); i.click(); });
+  if (!fs.length) return; toast(`正在导入 ${fs.length} 张…`); const add = [];
+  for (const f of fs) { try { add.push({ l: nameOf(f.name), img: await putMedia(await readImg(f, 360), 'stk') }); } catch { } }
   if (!add.length) return toast('没有可以导入的图片');
   p.items.push(...add); save(); toast(`已导入 ${add.length} 个表情`); done?.();
 }
 export async function importPack(then) {
-  const r = await form('导入表情包组', [['n', '给这组起个名字', 'text', '比如：小哭猫、奶龙']]); if (!r) return;
-  const p = { id: 'c_' + uid(), name: r.n?.trim() || '我的表情包', items: [] };
-  await importTo(p); if (!p.items.length) return;
-  S.stk.mine.push(p); S.stk.packs.unshift(p.id); save(); emit('stk'); then?.(p.id);
+  const p = { id: 'c_' + uid(), name: '', items: [] };
+  await importTo(p, () => { if (!p.items.length) return; S.stk.mine.push(p); S.stk.packs.unshift(p.id); save(); emit('stk'); then?.(p.id); }, 1);
 }
+// 给表情改名字（AI 发表情时按名字和说明来挑）
+export const renItem = async (x, then) => { if (!x) return; const r = await form('改名字', [['l', '名字（显示在表情下面）'], ['d', '说明（可空，AI 按这个挑表情）', 'area']], { l: x.l || '', d: x.d || '' }); if (!r) return; x.l = r.l.trim(); x.d = r.d.trim(); save(); emit('stk'); then?.(); };
 export const rmMine = id => { const p = mine(id); if (!p) return; drop(p.items); S.stk.mine = S.stk.mine.filter(x => x.id != id); rmPack(id); };
 
 /* ---------- 我的表情（仿微信）：添加的单个表情 / 聊天面板中的整套表情 ---------- */
@@ -309,7 +365,7 @@ export function favPage() {
     body: () => `<div class="sp-g">${S.assets.sticker.map((x, i) => `<div class="sks-i" data-a="fvm" data-lp="fvm" data-x="${i}">${imgH({ img: x.img })}</div>`).join('')}<div class="sks-i add" data-a="fvadd">＋</div></div><p class="sp-cr">点一下或长按：移到前面 / 删除</p>`,
     acts: {
       fvm: async i => { const k = await menu([['top', '移到前面'], ['del', '删除', 'danger']], S.assets.sticker[i]?.name); if (!k) return; const [x] = S.assets.sticker.splice(i, 1); k == 'top' ? S.assets.sticker.unshift(x) : drop(x); save(); emit('stk'); P.reb(); },
-      fvadd: async () => { const p = { name: '我的表情', items: [] }; await importTo(p); p.items.forEach(x => S.assets.sticker.push({ id: uid(), name: x.l, img: x.img })); save(); emit('stk'); P.reb(); },
+      fvadd: () => { const p = { name: '我的表情', items: [] }; importTo(p, () => { p.items.forEach(x => S.assets.sticker.push({ id: uid(), name: x.l || '表情', img: x.img })); save(); emit('stk'); P.reb(); }); },
     },
   });
 }

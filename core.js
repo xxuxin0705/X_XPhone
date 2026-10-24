@@ -20,7 +20,7 @@ const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', text: '' }, media: {},
-  stk: { v: 2, packs: ['f-pets', 'f-face', 'f-love', 'hoyoverse-hi3'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
+  stk: { v: 3, packs: ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
@@ -353,12 +353,23 @@ export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const R = route
   return readAI(r, cx, o);
 }, sg, R.raw ? null : R.st ? { name: '酒馆 · ' + (R.st.name || '连接配置'), model: R.st.model || '', _st: 1 } : R.p, !!R.raw); };
 // 机器翻译：只给“我”写的文字用，走酒馆自带翻译接口（谷歌/必应同时发，谁先回用谁，8秒上限）；绝不调用聊天模型，不花 API 额度
+// 机翻：只用酒馆自带的翻译接口（不调用聊天模型）。先谷歌，不行再必应；不支持的接口记下来以后不再请求，
+// 请求时暂时静音酒馆的红色「后端错误」弹窗（TauriTavern 没有必应接口，会弹 Unsupported translate provider）
+const MTP = [['google', l => l], ['bing', l => ({ 'zh-CN': 'zh-Hans', 'zh-TW': 'zh-Hant' }[l] || l)]], mtBad = new Set();
+const quiet = async f => { const t = globalThis.toastr, e = t?.error, w = t?.warning; if (t) t.error = t.warning = () => {}; try { return await f(); } finally { if (t) { t.error = e; t.warning = w; } } };
 export async function mt(text, to) {
-  const c = C(), h = { ...(c.getRequestHeaders?.() || {}), 'Content-Type': 'application/json' }, ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8e3);
-  const one = (u, lang) => fetch(u, { method: 'POST', headers: h, body: JSON.stringify({ text, lang }), signal: ac.signal }).then(async r => { const s = (await r.text()).trim(); if (!r.ok || !s || s[0] == '<' || s == text) throw 0; return s; });
-  try { return await Promise.any([one('/api/translate/google', to), one('/api/translate/bing', { 'zh-CN': 'zh-Hans', 'zh-TW': 'zh-Hant' }[to] || to)]); }
-  catch { throw Error('机翻失败：酒馆翻译服务暂时不可用'); }
-  finally { clearTimeout(tm); ac.abort(); }
+  text = String(text ?? ''); if (!/[\p{L}]/u.test(text)) return text; // 只有符号、数字、表情的不用翻（比如「??」）
+  const c = C(), h = { ...(c.getRequestHeaders?.() || {}), 'Content-Type': 'application/json' };
+  for (const [p, lf] of MTP) {
+    if (mtBad.has(p)) continue;
+    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8e3);
+    try {
+      const r = await quiet(() => fetch('/api/translate/' + p, { method: 'POST', headers: h, body: JSON.stringify({ text, lang: lf(to) }), signal: ac.signal })), s = (await r.text()).trim();
+      if (!r.ok) { (r.status == 404 || /unsupported|not found/i.test(s)) && mtBad.add(p); continue; }
+      if (s && s[0] != '<') return s; // 翻出来和原文一样也算成功（专有名词、语气词）
+    } catch { } finally { clearTimeout(tm); }
+  }
+  throw Error('机翻暂时不可用');
 }
 export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/```(json)?/g, ''); const i = s.search(/[[{]/), j = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']')); try { return JSON.parse(s.slice(i, j + 1)); } catch { return null; } };
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };

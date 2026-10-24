@@ -1,5 +1,5 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
-import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine } from './sticker.js';
+import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
 import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname } from './data.js';
 import { openFeed } from './chat.js';
@@ -34,7 +34,7 @@ export function parseReply(raw, ch) {
   return out;
 }
 function replyP(ch, patNow) {
-  const g = ch.type == 'g', me = meObj().nick, sk = S.assets.sticker.map(s => s.name).join('、'), lang = ch.cfg.lang;
+  const g = ch.type == 'g', me = meObj().nick, sk = [...new Set([...S.assets.sticker.map(s => s.name), ...S.stk.mine.flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
   const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : brief(m)}${m.q ? `（引用了：${m.q.c}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
   const tl = g ? ch.members.map(get).filter(c => c?.cfg?.lang).map(c => `${rn(c)}用${lname(c.cfg.lang)}`) : lang ? [`${rn(ch)}用${lname(lang)}`] : [];
   return `【当前聊天】${g ? `群聊「${ch.name}」 群主:${ch.owner ? rn(get(ch.owner)) : me} 管理员:${ch.admins.map(i => rn(get(i))).join('、') || '无'}\n成员：${ch.members.map(i => { const c = get(i); return `${rn(c)}(网名${c.nick}${ch.titles[i] ? '，头衔' + ch.titles[i] : ''})`; }).join('、')}${ch.notice ? '\n群公告：' + ch.notice : ''}` : `与${rn(ch)}（网名${ch.nick}）的私聊`}
@@ -70,7 +70,7 @@ export async function gen(ch) {
 }
 const push = (ch, m) => {
   const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); ch.cfg.auto && later(ch); // 默认不自动回复：想发几条发几条，发完点右下角 ✦ 让对方回
-  if (ch.cfg.trMine && ch.cfg.lang && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, ch.cfg.lang).then(t => { x.orig = x.c; x.c = t; }).catch(e => toast('翻译失败：' + e.message)).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
+  if (ch.cfg.trMine && ch.cfg.lang && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, ch.cfg.lang).then(t => { t != x.c && (x.orig = x.c, x.c = t); }).catch(() => { }).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
   return x;
 };
 on('stk', () => { const el = ui.stack?.querySelector('.pg.chat'), o = el?._pg; o?.pan && (o.pkC && Object.keys(o.pkC).forEach(k => k.startsWith('c_') && delete o.pkC[k]), $('.pan.on', el) && o.pan('stk', 1)); }); // 表情包组增删后刷新聊天里的表情面板
@@ -161,7 +161,8 @@ export function openChat(id) {
         if (k == 'top') { S.stk.packs = [id, ...S.stk.packs.filter(x => x != id)]; C().saveSettingsDebounced(); return pan('stk', 1); }
         if (mine(id) && !await ok(`删除「${packMeta(id).name}」？自己导入的表情会一起删掉`)) return; mine(id) ? rmMine(id) : rmPack(id); pan('stk', 1); },
       flp: async i => { const L = S.assets.sticker, k = await menu([['top', '移到前面'], ['del', '删除', 'danger']], L[i]?.name); if (!k) return; const [x] = L.splice(i, 1); k == 'top' ? L.unshift(x) : drop(x); C().saveSettingsDebounced(); pan('stk', 1); },
-      pklp: async i => { const x = pkC[ptab]?.items[i], own = mine(ptab); if (!x) return; const k = await menu([['fav', '添加到「我的表情」'], ...(own ? [['top', '移到前面'], ['del', '删除', 'danger']] : [])], x.l); if (!k) return;
+      pklp: async i => { const x = pkC[ptab]?.items[i], own = mine(ptab); if (!x) return; const k = await menu([['fav', '添加到「我的表情」'], ...(own ? [['top', '移到前面'], ['ren', '改名字'], ['del', '删除', 'danger']] : [])], x.d || x.l); if (!k) return;
+        if (k == 'ren') return renItem(own.items[i], () => { delete pkC[ptab]; pan('stk', 1); });
         if (k == 'fav') { S.assets.sticker.unshift({ id: uid(), name: x.l || '表情', img: x.img }); C().saveSettingsDebounced(); return toast('已添加到「我的表情」'); }
         const [y] = own.items.splice(i, 1); k == 'top' ? own.items.unshift(y) : drop(y); C().saveSettingsDebounced(); delete pkC[ptab]; pan('stk', 1); },
       pstore: () => storePage(m => { push(ch, m); }),
@@ -190,7 +191,7 @@ export function openChat(id) {
           if (m.tr || m.orig) m.tz = !m.tz;
           else if (!mine) return toast('对方的翻译会随回复一起生成：在聊天设置里选好对方语言即可');
           else if (!ch.cfg.lang) return toast('先在聊天设置里选择对方说的语言');
-          else { m.tp = 1; emit('chat'); try { const t = await mt(m.c, ch.cfg.lang); m.orig = m.c; m.c = t; m.tz = !ch.cfg.trOpen; } catch (e) { toast(e.message); } m.tp = 0; }
+          else { m.tp = 1; emit('chat'); try { const t = await mt(m.c, ch.cfg.lang); if (t != m.c) { m.orig = m.c; m.c = t; m.tz = !ch.cfg.trOpen; } else toast('这句不用翻译'); } catch (e) { toast('机翻暂时不可用，稍后再试'); } m.tp = 0; }
         }
         k == 'inj' && (m.inj = !m.inj); k == 'tts' && tts(m.c, get(m.f)?.voice, get(m.f)?.sex).catch(e => fail('朗读失败：' + e.message)); k == 'copy' && navigator.clipboard?.writeText(m.c);
         k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && drop(ch.msgs.splice(i, 1)); k == 'regen' && (drop(ch.msgs.splice(+i + (mine ? 1 : 0))), gen(ch));

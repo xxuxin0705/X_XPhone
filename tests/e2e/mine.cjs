@@ -35,24 +35,42 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR
   // 2. 导入自己的表情包组（粘贴链接）
   await E(`document.querySelector('.pan .pbar [data-a=pstore]').click()`); await W(600);
   await E(`document.querySelector('.spstore .sp-imp').click()`); await W(400);
-  await p.fill('.sheet.in [data-k=n]', '小哭猫'); await p.press('.sheet.in [data-k=n]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(400);
-  ok(/从相册选多张图,粘贴图片链接/.test(await items()), '导入方式：从相册多选 / 粘贴链接'); await pick('u');
-  await p.fill('.sheet.in [data-k=t]', '哭哭 https://img.test/a.gif\nhttps://img.test/抱抱.png\n乱写的一行'); await E(`document.querySelector('.sheet.in [data-k=t]').dispatchEvent(new Event('change', { bubbles: true }))`); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(800);
-  const mp = await E(`JSON.stringify(core.S.stk.mine.map(p => [p.name, p.items.map(x => x.l + '|' + x.img)]))`);
-  ok(/小哭猫/.test(mp) && /哭哭\|https:\/\/img\.test\/a\.gif/.test(mp) && /抱抱\|https:\/\/img\.test\/抱抱\.png/.test(mp) && !/乱写/.test(mp), '导入成功：两张图，名字取自前面写的字或文件名 ' + mp);
+  ok(/上传图片（可以多选）,导入链接/.test(await items()), '导入方式只有两种：上传图片 / 导入链接'); await pick('l'); await W(400);
+  ok(await E(`!!document.querySelector('.lkpg.in .lk-ta') && !!document.querySelector('.lkpg [data-a=lkfile]')`), '导入链接页：可以粘贴，也可以从文件里提取');
+  const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('.lkpg [data-a=lkfile]').click()`)]);
+  await fc.setFiles(path.join(__dirname, '../fixtures/stickers.docx')); await W(800);
+  const ta = await E(`document.querySelector('.lkpg .lk-ta').value`);
+  ok(ta.split('\n').length == 4 && /cat1\.jpg（小猫手里拿红包配文“九九成稀罕物）/.test(ta) && !/HYPERLINK/.test(ta), 'Word 文件：挑出 4 个链接和括号里的说明（不重复、不带域代码）');
+  ok(await E(`document.querySelector('.lkpg .lk-name').value`) == '呆猫测试', '文件第一行没有链接的字自动当组名');
+  const pv = await E(`[...document.querySelectorAll('.lkpg .lk-g small')].map(x => x.textContent).join('|')`);
+  ok(pv == '九九成稀罕物|小猫躲在墙边偷看|收到', '名字从说明里取：有配文用配文，没有就用说明 ' + pv);
+  ok(/识别到 4 个表情（1 个没有说明/.test(await E(`document.querySelector('.lkpg .lk-n').textContent`)), '没有说明的会提示导入后可以改名字');
+  await p.screenshot({ path: path.join(OUT, 'mine_b.png') });
+  await E(`document.querySelector('.lkpg [data-a=lkgo]').click()`); await W(600);
+  const mp = await E(`JSON.stringify(core.S.stk.mine.map(p => [p.name, p.items.map(x => x.l + '|' + x.d)]))`);
+  ok(/呆猫测试/.test(mp) && /收到\|小猫举手配文“收到”/.test(mp), '导入成功：名字 + 完整说明都存下了 ' + mp.slice(0, 120));
   const id = await E(`core.S.stk.mine[0].id`);
   ok(await E(`core.S.stk.packs[0]`) == id && await E(`!!document.querySelector('.sppg.in')`), '导入的组排在面板最前面，并打开详情');
-  await p.screenshot({ path: path.join(OUT, 'mine_b.png') });
-  await lp('.sppg .sks-i[data-x="1"]'); await pick('top'); ok(await E(`core.S.stk.mine[0].items[0].l`) == '抱抱', '详情里长按自己的表情：移到前面');
+  ok((await E(`sk.localSearch('稀罕').then(L => L[0]?.l)`)) == '九九成稀罕物', '说明里的字也能搜到，AI 发表情时也会用上');
+  await lp('.sppg .sks-i[data-x="3"]'); ok(/移到前面,改名字,删除/.test(await items()), '长按自己导入的表情：移到前面 / 改名字 / 删除'); await pick('ren');
+  await p.fill('.sheet.in [data-k=l]', '委屈'); await p.press('.sheet.in [data-k=l]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(400);
+  ok(await E(`core.S.stk.mine[0].items[3].l`) == '委屈', '没说明的表情改了名字');
+  await lp('.sppg .sks-i[data-x="1"]'); await pick('top'); ok(await E(`core.S.stk.mine[0].items[0].l`) == '小猫躲在墙边偷看', '移到前面');
+  // 直接粘贴链接（每行一个）
+  await E(`void sk.importPack()`); await W(400); await pick('l'); await W(400);
+  await p.fill('.lkpg .lk-name', '小哭猫'); await E(`document.querySelector('.lkpg .lk-name').dispatchEvent(new Event('input'))`);
+  await p.fill('.lkpg .lk-ta', '哭哭 https://img.test/a.gif\nhttps://img.test/b.png（抱抱）\n乱写的一行'); await E(`document.querySelector('.lkpg .lk-ta').dispatchEvent(new Event('input'))`); await W(200);
+  await E(`document.querySelector('.lkpg [data-a=lkgo]').click()`); await W(500);
+  ok(await E(`JSON.stringify(core.S.stk.mine.find(p => p.name == '小哭猫')?.items.map(x => x.l))`) == '["哭哭","抱抱"]', '直接粘贴：一行一个，说明写前面或括号里都行');
+  await E(`core.back()`); await W(300);
   // 3. 我的表情页
-  await E(`document.querySelector('.sppg .pg-back, .sppg [data-a=back]').click()`); await W(400);
   await E(`document.querySelector('.spstore [data-a=spmine]').click()`); await W(500);
   const rowsT = await E(`[...document.querySelectorAll('.spmine .sp-row b:first-child')].map(b => b.textContent).join()`);
-  ok(/添加的单个表情/.test(rowsT) && /小哭猫/.test(rowsT) && /比心贴贴/.test(rowsT), '我的表情：单个表情 + 聊天面板中的整套表情 ' + rowsT);
+  ok(/添加的单个表情/.test(rowsT) && /小哭猫/.test(rowsT) && /呆猫测试/.test(rowsT) && /比心贴贴/.test(rowsT), '我的表情：单个表情 + 聊天面板中的整套表情 ' + rowsT);
   await p.screenshot({ path: path.join(OUT, 'mine_c.png') });
   await E(`document.querySelector('.spmine [data-a=mrm][data-x=f-face]').click()`); await W(300); ok(!(await E(`core.S.stk.packs.includes('f-face')`)), '「移除」：整套表情从面板拿掉');
   await E(`document.querySelector('.spmine [data-a=mrm][data-x="${id}"]').click()`); await W(300); await pick('y');
-  ok(!(await E(`core.S.stk.mine.length`)), '自己导入的组：确认后整组删除');
+  ok(await E(`core.S.stk.mine.length`) == 1, '自己导入的组：确认后整组删除');
   await E(`document.querySelector('.spmine [data-a=mfav]').click()`); await W(400);
   ok(await E(`document.querySelectorAll('.pg.in .sp-g .sks-i:not(.add)').length`) == 3, '「添加的单个表情」页能看到全部');
   await E(`core.home()`); await W(300);
@@ -72,5 +90,19 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR
   // 5. 正文同步：加好友带语言
   await E(`(() => { const c = core.C(); c.chat.push({ mes: '剧情……\\n<手机>\\n加好友|佐藤遥|haru|日语\\n</手机>', is_user: false }); chat.inlineSync(c.chat.length - 1); })()`); await W(300);
   ok(await E(`core.D().chats.find(c => c.real == '佐藤遥')?.cfg.lang`) == 'ja', '正文里「加好友|佐藤遥|haru|日语」：聊天设置的语言就是日语');
+  // 6. 机翻：先谷歌；谷歌能用就不碰必应（TauriTavern 没有必应接口，一碰就弹红色「后端错误」）
+  const tr = []; let gDown = false;
+  await ctx.route(/\/api\/translate\//, r => { const u = r.request().url(); tr.push(u.split('/').pop()); if (/bing/.test(u)) { E(`window.toastr?.error?.('Unsupported translate provider: bing')`).catch(() => {}); return r.fulfill({ status: 404, body: 'Not found: Unsupported translate provider: bing' }); } gDown ? r.fulfill({ status: 500, body: 'err' }) : r.fulfill({ status: 200, body: 'こんにちは' }); });
+  await E(`window._te = 0; window.toastr = { error() { window._te++; }, warning() {} }`);
+  ok(await E(`core.mt('你好', 'ja')`) == 'こんにちは' && tr.join() == 'google', '谷歌能用：只请求谷歌，不请求必应');
+  tr.length = 0; ok(await E(`core.mt('??', 'ja')`) == '??' && !tr.length, '「??」这种只有符号的：不请求、不报错');
+  gDown = true; tr.length = 0; const r1 = await E(`core.mt('你好', 'ja').then(x => x, e => 'ERR')`);
+  ok(r1 == 'ERR' && tr.join() == 'google,bing' && await E(`window._te`) == 0, '谷歌挂了才试必应；必应不支持时红色报错被拦下');
+  tr.length = 0; await E(`core.mt('再见', 'ja').catch(() => 0)`); ok(tr.join() == 'google', '必应不支持记下来，之后不再请求');
+  await E(`(async () => { core.home(); window._c2 = dt.add(dt.blank('p', { real: '佐藤', fr: 1 })); _c2.cfg.lang = 'ja'; _c2.cfg.trMine = true; talk.openChat(_c2.id); })()`); await W(600);
+  await p.fill('.chat .ip', '你好'); await E(`document.querySelector('.chat .ip').dispatchEvent(new Event('input'))`); await p.click('.chat .go'); await W(800);
+  ok(await E(`_c2.msgs.at(-1).c`) == '你好' && !(await E(`[...document.querySelectorAll('.stp-toast')].some(t => /翻译/.test(t.textContent))`)), '机翻失败：消息照常发出（原文），不弹「翻译失败」');
+  gDown = false; await p.fill('.chat .ip', '早上好'); await E(`document.querySelector('.chat .ip').dispatchEvent(new Event('input'))`); await p.click('.chat .go'); await W(800);
+  ok(await E(`_c2.msgs.at(-1).c + '|' + _c2.msgs.at(-1).orig`) == 'こんにちは|早上好', '能翻的时候：发出去是日语，原文收在「文」里');
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

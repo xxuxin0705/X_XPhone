@@ -13,7 +13,7 @@ const ALL = {
   ct: ['e2e/ct.cjs', '四种风格的通讯录和加好友页、搜索、推荐'],
   snow: ['e2e/snow.cjs', '锁屏雪夜：照片底图、点树亮灯、雪地写字、雪人、抖雪、结霜、底部上滑解锁、打开第一帧不黑屏'],
   stk: ['e2e/stk.cjs', '表情包：面板图标栏、表情商店、表情包组详情、搜索（可爱风优先）、AI 表情配图、线路兜底；翻译按钮、Kakao 未读 1'],
-  mine: ['e2e/mine.cjs', '我的表情：长按移到前面 / 删除、移除整组、导入自己的表情包；动态页真实姓名 + @网名 + 换封面；加好友带语言'],
+  mine: ['e2e/mine.cjs', '我的表情：长按管理、导入表情包（上传图片 / 链接，可从 Word 等文件提取）；动态页真实姓名 + 换封面；加好友带语言；机翻不再报错'],
   prov: ['e2e/prov.cjs', '生图 / 语音服务商页：迁移、切换、快选拉取、Fish 网页接口、ElevenLabs'],
 };
 const pick = process.argv.slice(2).filter(k => ALL[k]), keys = pick.length ? pick : Object.keys(ALL);

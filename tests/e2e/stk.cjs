@@ -34,7 +34,7 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   // 1. 表情面板
   await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(500);
   const icons = await E(`[...document.querySelectorAll('.pan.on .pbar .pi')].map(b => b.dataset.x || b.dataset.a)`);
-  ok(JSON.stringify(icons) == JSON.stringify(['stks', 'emo', 'fav', 'f-pets', 'f-face', 'f-love', 'hoyoverse-hi3', 'pstore']), '旧版默认的几组自动换成软萌新组：萌宠动起来、软萌小脸、比心贴贴、崩坏3 ' + icons);
+  ok(JSON.stringify(icons) == JSON.stringify(['stks', 'emo', 'fav', 'f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3', 'pstore']), '旧版默认的几组自动换成软萌新组，并内置 QQ / 微博 / 贴吧表情 ' + icons);
   ok(/萌宠动起来/.test(await E(`document.querySelector('.pan .ph').textContent`)) && await E(`document.querySelectorAll('.pan .pgrid .sk').length`) > 50, '默认打开「萌宠动起来」');
   ok(await E(`[...document.querySelectorAll('.pan .pgrid .sk small')].map(s => s.textContent).slice(0, 3).join()`) == '猫猫,开心猫,笑嘻嘻猫', '表情下面有中文名字');
   ok(/fluent-emoji-3d\/1\.1\.0\/files\/assets\/1f431\.webp/.test(await E(`document.querySelector('.pan .pgrid .sk img').src`)), '面板里是静态 3D 小图');
@@ -136,7 +136,7 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   await E(`document.querySelector('.chat .pg-b').scrollTop = 1e5`); await p.screenshot({ path: path.join(OUT, 'stk_g.png') }); await E(`core.S.style = 'wx'`);
   // 10. 设置页
   await E(`core.home(); core.APPS.settings.open()`); await W(500);
-  ok(/6 组/.test(await E(`document.querySelector('[data-a=stkp]').textContent`)), '设置首页「表情包」显示已添加组数');
+  ok(/9 组/.test(await E(`document.querySelector('[data-a=stkp]').textContent`)), '设置首页「表情包」显示已添加组数');
   await E(`document.querySelector('[data-a=stkp]').click()`); await W(500);
   ok(/熊猫头/.test(await E(`document.querySelector('.pg.in:last-child').textContent`)) && await E(`!!document.querySelector('[data-k="stk.cute"]:checked')`), '设置页：我的表情包组列表、「偏可爱风」默认打开');
   await p.screenshot({ path: path.join(OUT, 'stk_h.png') });

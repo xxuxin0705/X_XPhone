@@ -823,3 +823,13 @@
 .sp-ar{opacity:.35;font-size:20px}.sp-mv{padding:4px 10px;font-weight:500;opacity:.5;cursor:pointer}
 .sks-i.add{font-size:26px;opacity:.45;border:1.5px dashed rgba(127,127,127,.35);background:none}
 .pg-r .txt{font-weight:500;font-size:calc(14px*var(--fz,1))}
+/* 导入表情链接 */
+.lkpg .pg-b{padding-top:10px}
+.lk-f{display:flex;align-items:center;gap:10px;margin-bottom:12px}.lk-f.col{flex-direction:column;align-items:stretch;gap:6px}
+.lk-f span{flex:none;font-size:calc(13px*var(--fz,1));opacity:.6}
+#stp .lk-f input{flex:1;max-width:none;text-align:left}
+#stp .lk-ta{min-height:150px;font-size:calc(12.5px*var(--fz,1));line-height:1.55;word-break:break-all}
+.lk-bt{display:flex;gap:8px}.lk-bt .btn{flex:1;margin:0}
+.lk-n{margin:14px 2px 8px!important;font-size:calc(13px*var(--fz,1));opacity:.7}.lk-n b{color:#07c160}
+.lk-g .sks-i{position:relative;flex-direction:column}.lk-g .sks-i small{position:absolute;left:0;right:0;bottom:0;padding:1px 3px;background:rgba(0,0,0,.4);color:#fff;font-size:calc(10px*var(--fz,1));text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lk-bt .btn{width:auto}.lk-bt .btn.pri{background:#07c160;color:#fff}
