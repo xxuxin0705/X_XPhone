@@ -15,6 +15,8 @@ export const get = id => {
 };
 export const blank = (type, o) => ({ id: uid(), type, name: '', nick: '', real: '', remark: '', sign: '', sex: '', av: '', voice: '', ps: '', msgs: [], cfg: { ...CFG }, members: [], admins: [], titles: {}, owner: '', no: type == 'g' ? String(1e8 + Math.random() * 9e8 | 0) : '', notice: '', pin: 0, unread: 0, ...o });
 export const add = c => (D().chats.push(c), c);
+// 群人数：没在剧情里出现的成员不单独生成，只记总人数（显示时取「已知成员+我」和总人数里大的那个）
+export const gsz = g => Math.max(+g?.size || 0, (g?.members?.length || 0) + 1);
 export const find = (n, type) => n && D().chats.find(c => (!type || c.type == type) && [c.real, c.nick, c.remark, c.name, c.id].includes(n));
 export const isMe = n => !!n && ['me', '我', '用户', C().name1, D().me.nick].includes(n);
 // lang：AI 生成联系人时给的默认翻译语言，写进聊天设置 cfg.lang（已有设置不覆盖）
@@ -51,6 +53,7 @@ export function applyDelta(d, cur) {
     if (!g.name) return; const x = find(g.name, 'g') || add(blank('g', { name: g.name }));
     g.no && (x.no = String(g.no)); g.notice && (x.notice = g.notice); g.owner && !isMe(g.owner) && (x.owner = member(x, g.owner));
     g.admins?.forEach(n => { if (isMe(n)) return; const i = member(x, n); x.admins.includes(i) || x.admins.push(i); }); g.members?.forEach(n => isMe(n) || member(x, n));
+    +g.size > 0 && (x.size = +g.size); Object.entries(g.titles || {}).forEach(([n, t]) => { if (!t || isMe(n)) return; (x.titles ||= {})[member(x, n)] = t; });
   });
   d.msgs?.forEach(m => { const ch = cur || find(m.chat) || upsert({ real: isMe(m.from) ? m.chat : m.from }), x = ch && addMsg(ch, m); x && out.push([ch, x]); });
   d.posts?.forEach(p => {

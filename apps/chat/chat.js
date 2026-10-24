@@ -1,6 +1,6 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
 import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
-import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
+import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 export { openChat, applyDelta };
 
@@ -14,7 +14,7 @@ export const SCAN = t => `【最新剧情】\n${t}\n\n任务：找出这段剧�
 //       ② 自动关思考 ③ 世界书 / 正文只取够用的长度 ④ 限制数量、签名公告写短
 const LF = u => `【输出格式】不要JSON、不要解释、不要编号，每行一条，字段用 | 分隔：
 人|真实姓名|网名|备注|性别|拍一拍后缀|语言|个性签名
-群|群名|群主真实姓名|管理员(逗号分隔，没有就空着)|成员真实姓名(逗号分隔，不写${u})|群公告
+群|群名|群主真实姓名|管理员(逗号分隔，没有就空着)|成员(逗号分隔，格式「名字:群头衔」，没头衔就只写名字，不写${u})|群人数(数字，含没写出来的人)|群公告
 字段说明：
 · 网名＝TA自己在社交软件上起的昵称，要像真实中文互联网上的人，按性格来，同一批人风格要拉开：
   - 软萌 / 爱卖萌：叠字、小动物、零食，常带颜文字或小符号，如「软糖不软ᐟ」「芋泥啵啵(｡･ω･｡)」「小熊不吃香菜ʕ•ᴥ•ʔ」「桃桃乌龙.」
@@ -28,12 +28,19 @@ const LF = u => `【输出格式】不要JSON、不要解释、不要编号，�
 · 性别写 男 或 女
 · 拍一拍后缀＝别人拍TA时显示在「拍了拍TA」后面的那句，要有网感、有梗，像微信里真有人设置的那样，按人设来编（中二的就中二，高冷的可以只有一个「。」），20字内。风格参考（别照抄）：「的存款+1」「的木鱼功德+1」「并留下了小猫脚印🐾」「说：500万，离开我儿子」「的小脑瓜然后变成猪」「发现没拍到ōÓ」「的肩膀叫了声富婆💰」「的肚子duangduang」「被反手一巴掌打翻在地」「的次数太多，已拍死」。不要写「的头发」「的肩膀」这种平淡的
 · 语言＝TA平时发消息用的语言，按剧情里TA实际怎么说话判断：说中文就写 中文；只有剧情里TA确实用外语交流才写 日语 / 英语 / 韩语 等
+· 群头衔：贴合人设和群氛围，有梗一点，如「班长」「摸鱼大师」「人间扫描仪」「本群最靓的仔」，不是每个人都要有
 · 签名15字内；群公告25字内。先写完所有「人」再写「群」
 示例：
 人|沈知遥|晚风与你|遥遥🐟|男|的存款+1|中文|今天也在图书馆
-群|高三(2)班|林老师||沈知遥,周小满|周五前交志愿表`;
-const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，按剧情实际需要（联系人一般不超过12个、群聊不超过4个），不要凑数。`}
-规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成）。不要包含${u}自己。已有：${names()}，不要重复。
+群|高三(2)班|林老师|沈知遥|沈知遥:班长,周小满:摸鱼大师,林老师:班主任|42|周五前交志愿表`;
+const INIT = r => { const c = C(), u = c.name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊。`}
+【联系人】＝${u}认识、已经加了好友的人：
+  ① 一定先列出角色卡里的主要角色（${c.name2}；如果角色卡是世界观 / 多人卡，就是卡里写到的主要人物）——他们和${u}关系最近，必须在联系人里；
+  ② 再列剧情 / 世界书里和${u}有来往的NPC。一般不超过12个，不要凑数。
+【群聊】＝${u}本人加入了的群（${u}不在的群不要生成），一般不超过4个：
+  · 群成员只写世界书 / 剧情里有名有姓的角色和NPC，可以包括${u}不认识、没加好友的人；
+  · 没提到名字的路人（比如班里其他同学）一律不要编名字，用「群人数」体现，比如40人的班群就写 40。
+不要包含${u}自己。已有：${names()}，不要重复。
 直接按格式输出，不需要分析或推理过程。
 ${LF(u)}`; };
 const sp = s => String(s || '').split(/[,，、;；\s]+/).map(x => x.trim()).filter(x => x && !/^(无|空|没有|-+|—+|null)$/i.test(x));
@@ -47,7 +54,10 @@ export const pline = l => {
   if (/^(人|联系人|好友)$/.test(k) && f[1] && f.length <= 6) return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: f[3] || '', sex: (String(f[4]).match(/[男女]/) || [''])[0], sign: f[5] || '' }] }; // 旧的 6 段格式
   if (/^(人|联系人|好友)$/.test(k) && f[1]) { const lg = langOf(f[6]), sign = lg == null && f.length <= 7 ? f.slice(6).join('|') : f.slice(7).join('|'); // 模型漏写语言时第 7 段当签名
     return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: nil(f[3]), sex: (String(f[4]).match(/[男女]/) || [''])[0], ps: (f[5] || '').replace(/^拍了拍\S*?(?=的|并|，)/, ''), lang: lg || '', sign: nil(sign) }] }; }
-  if (/^(群|群聊)$/.test(k) && f[1]) { const o = sp(f[2])[0]; return { groups: [{ name: f[1], owner: o, admins: sp(f[3]), members: sp(f[4]), notice: f.slice(5).join('|') }] }; }
+  if (/^(群|群聊)$/.test(k) && f[1]) { // 成员可写「名字:头衔」或「名字(头衔)」；第 6 段是数字就是群人数（旧格式第 6 段直接是公告）
+    const o = sp(f[2])[0], num = /^\d+\s*人?$/.test(String(f[5] || '').trim()), titles = {};
+    const members = String(f[4] || '').split(/[,，、;；]+/).map(t => { t = t.trim(); const m = t.match(/^(.+?)\s*[:：（(]\s*([^)）]*?)\s*[)）]?$/), n = (m ? m[1] : t).trim(); m && m[2] && (titles[n] = m[2]); return n; }).filter(n => n && !/^(无|空|-+)$/.test(n));
+    return { groups: [{ name: f[1], owner: o, admins: sp(f[3]), members, titles, size: num ? parseInt(f[5]) : 0, notice: (num ? f.slice(6) : f.slice(5)).join('|').trim() }] }; }
   return null;
 };
 // 兼容模型仍然输出 JSON（旧短键 / 长键都认）
@@ -61,6 +71,7 @@ const STOPW = /(设定|世界|规则|地点|地图|学校|学院|城市|国家|�
 const cutS = (s, n) => (s = String(s || '').replace(/\s+/g, ' ').trim()).length > n ? s.slice(0, n) + '…' : s;
 export async function people() {
   const out = [], seen = new Set(), add = (n, b = '', sex = '') => { n = String(n || '').replace(/[【】\[\]《》「」『』()（）★☆♡♥✦·\s]/g, '').trim(); if (!n || n.length > 10 || seen.has(n) || isMe(n)) return; seen.add(n); out.push({ n, b, sex }); };
+  STOPW.test(C().name2 || '') || add(C().name2, '角色卡主要角色'); // 主要角色排第一
   for (const bk of await wiBooks()) for (const e of Object.values((await loadBook(bk))?.entries || {})) {
     if (e.disable) continue; const t = String(e.comment || e.key?.[0] || '').trim(), c = String(e.content || '');
     const nm2 = c.match(/(?:姓名|名字|全名|角色名|Name)\s*[:：]\s*([^\n，,。;；|/]{2,10})/i)?.[1], human = nm2 || (/性别|年龄|身高|性格|外貌|生日|身份/.test(c) && t && t.length <= 10 && !STOPW.test(t));
@@ -80,7 +91,7 @@ async function contactSys(P) {
 ${wi}
 【最近剧情】${cutS((c.chat || []).filter(m => !m.is_system).slice(-6).map(m => `${m.name}: ${cutS(strip(m.mes), 260)}`).join('\n'), 1500)}`;
 }
-const quickP = (P, r) => { const u = C().name1; return `${r?.mode == 'me' ? `按这段信息生成${u}的联系人：${r.info}\n` : ''}从下面这些人里挑出${u}认识、会加好友的人（不超过12个），直接输出，不要分析：\n${P.map(p => p.n + (p.sex ? `（${p.sex}）` : '')).join('、') || C().name2}\n${LF(u)}\n群可以不写。`; };
+const quickP = (P, r) => { const u = C().name1; return `${r?.mode == 'me' ? `按这段信息生成${u}的联系人：${r.info}\n` : ''}从下面这些人里挑出${u}认识、会加好友的人（不超过12个，角色卡主要角色「${C().name2}」一定要有），直接输出，不要分析：\n${P.map(p => p.n + (p.sex ? `（${p.sex}）` : '')).join('、') || C().name2}\n${LF(u)}\n群可以不写。`; };
 // o: { lim 截止毫秒, bk 备用请求启动毫秒, quick: {sys, prompt}, people }（数字可调，测试用）
 export const GC = { review: null }; // 测试钩子：直接拿到暂存结果
 export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
@@ -88,7 +99,7 @@ export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
   // 先放进暂存区，用户在确认卡里点「添加」之后才真正进手机
   const st = { c: [], g: [] }, seen = new Set(), size = () => st.c.length + st.g.length;
   const put = x => { x?.contacts?.forEach(c => { const n = c.real || c.nick, k = 'p:' + n, ex = n && (find(c.real, 'p') || find(c.nick, 'p')); if (!n || seen.has(k) || isMe(n) || ex && ex.fr !== 0) return; seen.add(k); st.c.push({ real: n, r0: n, nick: c.nick || n, remark: c.remark || '', sex: c.sex || '', ps: c.ps || '', lang: c.lang || '', sign: c.sign || '', av: '' }); });
-    x?.groups?.forEach(g => { const k = 'g:' + g.name; if (!g.name || seen.has(k) || find(g.name, 'g')) return; seen.add(k); st.g.push({ ...g, owner: g.owner || '', admins: [...(g.admins || [])], members: [...(g.members || [])], notice: g.notice || '', no: String(1e8 + Math.random() * 9e8 | 0), av: '' }); }); };
+    x?.groups?.forEach(g => { const k = 'g:' + g.name; if (!g.name || seen.has(k) || find(g.name, 'g')) return; seen.add(k); st.g.push({ ...g, owner: g.owner || '', admins: [...(g.admins || [])], members: [...(g.members || [])], titles: { ...(g.titles || {}) }, size: +g.size || 0, notice: g.notice || '', no: String(1e8 + Math.random() * 9e8 | 0), av: '' }); }); };
   let got = 0, settle, alive = 0, lastErr, bkOn = 0, how = ''; const fin = new Promise(r => settle = r), drafts = [], t0 = Date.now();
   const stopAll = () => ac.abort(), cancel = () => { stopAll(); settle('cancel'); }; sg?.aborted ? cancel() : sg?.addEventListener('abort', cancel);
   const count = () => `已收到 ${size()} 个`;
@@ -122,7 +133,7 @@ let msel = null;
 const vis = () => D().chats.filter(c => c.fr !== 0 || c.msgs.length);
 const list = () => vis().sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
   const m = c.msgs.at(-1);
-  return `<div class="cl ${c.pin ? 'pin' : ''} ${msel ? 'msel' : ''} ${msel?.has(c.id) ? 'on' : ''}" data-a="open" data-x="${c.id}" data-lp="clp">${msel ? '<i class="ck"></i>' : ''}<div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${c.members.length + 1})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
+  return `<div class="cl ${c.pin ? 'pin' : ''} ${msel ? 'msel' : ''} ${msel?.has(c.id) ? 'on' : ''}" data-a="open" data-x="${c.id}" data-lp="clp">${msel ? '<i class="ck"></i>' : ''}<div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${gsz(c)})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
 }).join('') || `<div class="empty"><p>还没有联系人 ✧</p>${btn('aiInit', '✨ AI 生成联系人', '', 'pri')}${btn('plus', '手动添加')}</div>`;
 const post = (p, fs) => {
   const a = p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' }, me = nm(meObj()), lk = p.likes.includes(me);
@@ -189,6 +200,7 @@ function review(st) {
   const cav = c => c.av || avOf({ nick: c.nick || c.real }), gav = g => g.av || defAv(g.name);
   const sumC = c => [c.remark && `备注 ${c.remark}`, c.real, c.sex, c.lang && `说${lname(c.lang)}`].filter(Boolean).join(' · ');
   const sumG = g => [`群主 ${g.owner && !isMe(g.owner) ? R(g.owner) : u}`, g.admins.length && `管理员 ${g.admins.map(R).join('、')}`].filter(Boolean).join(' · ');
+  const fri = n => st.c.some((c, i) => keep.has('c' + i) && (c.r0 == n || c.real == n)) || (find(n, 'p') && find(n, 'p').fr !== 0); // 这个人是不是好友
   const opt = (L, v) => L.map(([a, b]) => `<option value="${esc(a)}" ${a == v ? 'selected' : ''}>${esc(b)}</option>`).join('');
   const F = (f, l, v, cls = '', ph = '') => `<label class="rk-f ${cls}"><span>${l}</span><input data-f="${f}" value="${esc(v)}" placeholder="${esc(ph)}"></label>`;
   const T = (f, l, v, pre = '', ph = '') => `<label class="rk-f w"><span>${l}</span><div class="rk-ta">${pre ? `<em>${pre}</em>` : ''}<textarea data-f="${f}" rows="1" placeholder="${esc(ph)}">${esc(v)}</textarea></div></label>`;
@@ -200,15 +212,16 @@ ${T('ps', '拍一拍后缀', c.ps, '拍了拍TA', '可留空')}${T('sign', '个�
   const edG = (g) => `<div class="rk-ed"><div class="rk-avb" data-av><img src="${esc(gav(g))}"><small>换群头像</small></div><div class="rk-g">
 ${F('name', '群名', g.name)}${F('no', '群号', g.no)}
 <label class="rk-f w"><span>群主</span><select data-f="owner">${opt([['', `我（${u}）`], ...g.members.filter(n => !isMe(n)).map(n => [n, R(n)])], isMe(g.owner) ? '' : g.owner)}</select></label>
-<div class="rk-f w"><span>成员 · 点名字设为 / 取消管理员，× 移出群</span><div class="rk-ch">${g.members.filter(n => !isMe(n)).map(n => `<b class="${g.admins.includes(n) ? 'ad' : ''}" data-adm="${esc(n)}">${g.admins.includes(n) ? '★ ' : ''}${esc(R(n))}<i data-out="${esc(n)}">×</i></b>`).join('') || '<small>没有成员</small>'}</div></div>
+<label class="rk-f"><span>群人数（含没列出来的人）</span><input data-f="size" type="number" value="${esc(gsz(g))}"></label><div></div>
+<div class="rk-f w"><span>有名有姓的成员 · ★ 切换管理员，× 移出群</span><div class="rk-ms">${g.members.filter(n => !isMe(n)).map(n => `<div class="rk-mr"><b>${esc(R(n))}${fri(n) ? '' : '<em>非好友</em>'}</b><input data-tt="${esc(n)}" value="${esc(g.titles?.[n] || '')}" placeholder="群头衔"><i data-adm="${esc(n)}" class="${g.admins.includes(n) ? 'on' : ''}">★</i><i data-out="${esc(n)}">×</i></div>`).join('') || '<small>没有成员</small>'}</div>${gsz(g) > g.members.length + 1 ? `<small class="rk-more">还有 ${gsz(g) - g.members.length - 1} 位群成员没在剧情里出现，默认折叠</small>` : ''}</div>
 ${T('notice', '群公告', g.notice, '', '可留空')}</div></div>`;
   const row = ([id, x]) => { const g = id[0] == 'g';
     return `<div class="rk ${keep.has(id) ? 'on' : ''} ${open == id ? 'op' : ''}" data-pk="${id}"><div class="rk-h" data-tg><i class="rk-ck" data-ck></i><img class="av ${g ? 'gav' : ''}" src="${esc(g ? gav(x) : cav(x))}"><div class="rk-m">
-<b>${esc(g ? x.name : x.nick || x.real)}${g ? `<small> · ${x.members.length + 1}人</small>` : ''}</b><small data-sum>${esc(g ? sumG(x) : sumC(x))}</small>${(g ? x.notice : x.ps) ? `<small class="rk-p">${esc(g ? '公告 · ' + x.notice : '拍了拍TA' + x.ps)}</small>` : ''}</div><i class="rk-ar">›</i></div>${open == id ? (g ? edG(x) : edC(x)) : ''}</div>`; };
+<b>${esc(g ? x.name : x.nick || x.real)}${g ? `<small> · ${gsz(x)}人</small>` : ''}</b><small data-sum>${esc(g ? sumG(x) : sumC(x))}</small>${(g ? x.notice : x.ps) ? `<small class="rk-p">${esc(g ? '公告 · ' + x.notice : '拍了拍TA' + x.ps)}</small>` : ''}</div><i class="rk-ar">›</i></div>${open == id ? (g ? edG(x) : edC(x)) : ''}</div>`; };
   const finish = ok => {
     if (done) return; done = 1;
     if (!ok) { drop(items.map(x => x[1].av)); return toast('已取消，这次生成的都没有添加'); }
-    const C2 = st.c.filter((c, i) => keep.has('c' + i)), G = st.g.filter((g, i) => keep.has('g' + i)).map(g => ({ ...g, owner: isMe(g.owner) ? '' : R(g.owner), admins: g.admins.map(R), members: g.members.map(R) }));
+    const C2 = st.c.filter((c, i) => keep.has('c' + i)), G = st.g.filter((g, i) => keep.has('g' + i)).map(g => ({ ...g, owner: isMe(g.owner) ? '' : R(g.owner), admins: g.admins.map(R), members: g.members.map(R), titles: Object.fromEntries(Object.entries(g.titles || {}).filter(([n, t]) => t && g.members.includes(n)).map(([n, t]) => [R(n), t])) }));
     applyDelta({ contacts: C2.map(c => ({ ...c, nick: c.nick || c.real })), groups: G });
     C2.forEach(c => { const x = find(c.real, 'p'); x && (Object.assign(x, { nick: c.nick || c.real, remark: c.remark, sex: c.sex, ps: c.ps, sign: c.sign }), c.av && (x.av = c.av), (x.cfg ||= {}).lang = c.lang); }); // 以确认卡为准
     G.forEach(g => { const x = find(g.name, 'g'); x && (x.no = g.no || x.no, g.av && (x.av = g.av)); });
@@ -226,7 +239,8 @@ ${T('notice', '群公告', g.notice, '', '可留空')}</div></div>`;
       const grow = t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
       el.querySelectorAll('textarea').forEach(grow); sync();
       if (el._rk) return; el._rk = 1; // 事件只绑一次（展开 / 收起会重绘内容）
-      el.addEventListener('input', e => { const f = e.target.dataset?.f, r = e.target.closest('[data-pk]'); if (!f || !r) return; const x = byId[r.dataset.pk]; x[f] = e.target.value; e.target.tagName == 'TEXTAREA' && grow(e.target);
+      el.addEventListener('input', e => { const tt = e.target.dataset?.tt, r0 = e.target.closest('[data-pk]'); if (tt != null && r0) return void ((byId[r0.dataset.pk].titles ||= {})[tt] = e.target.value.trim());
+        const f = e.target.dataset?.f, r = e.target.closest('[data-pk]'); if (!f || !r) return; const x = byId[r.dataset.pk]; x[f] = e.target.value; e.target.tagName == 'TEXTAREA' && grow(e.target);
         const sm = $('[data-sum]', r); sm && (sm.textContent = r.dataset.pk[0] == 'g' ? sumG(x) : sumC(x)); const b = $('.rk-m b', r); f == (r.dataset.pk[0] == 'g' ? 'name' : 'nick') && b && (b.firstChild.textContent = e.target.value); });
       el.addEventListener('change', e => { const f = e.target.dataset?.f, r = e.target.closest('[data-pk]'); if (!f || !r) return; byId[r.dataset.pk][f] = e.target.value; e.target.tagName == 'SELECT' && s.reb(); });
       el.addEventListener('click', async e => {
@@ -272,7 +286,7 @@ function contacts() {
 function prof(id) {
   const c = get(id), g = c.type == 'g';
   page({ title: '', cls: 'profpg', live: 1, body: () => `<div class="pf"><img class="av" src="${esc(avOf(c))}"><div><b>${esc(nm(c))}</b>${c.remark && c.nick ? `<small>昵称：${esc(c.nick)}</small>` : ''}${c.real && !g ? `<small>真实姓名：${esc(c.real)}</small>` : ''}<small>${g ? '群号：' + c.no : '账号：' + esc(c.nick || c.id)}</small></div></div>
-<div class="card">${c.sign || c.notice ? `<div class="row"><span>${g ? '群公告' : '个性签名'}</span><small>${esc(g ? c.notice : c.sign)}</small></div>` : ''}${g ? `<div class="row"><span>群成员</span><small>${c.members.length + 1} 人</small></div>` : `<div class="row"><span>分组</span><small>${esc(c.grp || '我的好友')}</small></div>`}</div>
+<div class="card">${c.sign || c.notice ? `<div class="row"><span>${g ? '群公告' : '个性签名'}</span><small>${esc(g ? c.notice : c.sign)}</small></div>` : ''}${g ? `<div class="row"><span>群成员</span><small>${gsz(c)} 人</small></div>` : `<div class="row"><span>分组</span><small>${esc(c.grp || '我的好友')}</small></div>`}</div>
 ${btn('pchat', g ? '进入群聊' : '发消息', '', 'pri')}${g ? '' : btn('pfd', '查看' + FN[sty(c)])}${btn('pset', '资料与聊天设置')}`,
     acts: { pchat: () => { back(); openChat(id); }, pfd: () => openFeed(id), pset: () => cset(c) } });
 }
