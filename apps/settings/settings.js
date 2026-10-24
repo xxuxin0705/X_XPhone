@@ -74,6 +74,7 @@ function api(t) {
       ? `<p class="tip">${{ chat: '直接使用酒馆当前连接的 API 与模型。', img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`
       : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}${t == 'chat' ? '' : `<em class="pv">${esc(pn(t, p.prov))}</em>`}</b><small>${esc(p.model || p.voice || '未选模型')}${p.url ? ' · ' + esc(p.url) : ''}</small></span></div>`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除</p>${btn('padd', '＋ 新增' + (t == 'chat' ? '配置' : '渠道'))}${p && (t == 'chat' || (p.prov || 'openai') == 'openai') ? btn('pmod', '拉取模型列表') : ''}`
         + (t == 'tts' && p ? `<h6>兜底音色 · ${esc(p.name || pn(t, p.prov))}</h6><div class="card">${fx(a).inp(`list.${i}.vm`, '男声兜底', 'text', '男性联系人没绑音色时用')}${fx(a).inp(`list.${i}.vf`, '女声兜底', 'text', '女性联系人没绑音色时用')}</div><p class="tip">联系人没有绑定专属音色时，按联系人性别调用这里的男 / 女兜底音色；性别不明就用配置里的默认音色。联系人的性别和音色在「聊天信息」里改。</p>` : ''))
+      + (t == 'chat' && a.list.length ? `<h6>生成用模型</h6><div class="card">${fx(a).sel('aux', '生成联系人 / 剧情同步', [['', '跟聊天模型一样'], ...a.list.map(p => [p.id, (p.name || '未命名') + (p.model ? ' · ' + p.model : '')])])}</div><p class="tip">生成联系人、剧情同步、世界书解析、生图提示词这类「列清单」的活不需要思考。像 glm-5.3-flash 这种强制思考、关不掉的模型，会先想上万字再输出（日志里的「模型思考中 N字」就是它，不是联系人内容）。这里另选一个不思考的模型（同一个公益站里的非思考模型就行），会快很多；聊天回复仍用上面的模型。</p>` : '')
       + (t == 'chat' ? `<div class="card">${fx(a).inp('$tmo', '超时（秒）', 'number', '300')}</div><p class="tip">连续这么久没收到任何数据才判定失败（流式输出时边收边计时，默认5分钟）。想更快：开「低思考模式」、选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
       + (t == 'img' ? `<div class="card">${fx(a).tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>` : '') + btn('test', '测试连接', '', 'pri'); },
     acts: {
@@ -107,7 +108,7 @@ function link() {
     body: () => { const f = fx(S); return sec('link', [
       ['m', '模式', f.seg('mode', [['linked', '正文联动'], ['online', '线上模式']]) + `<p class="tip">${S.mode == 'linked' ? '正文联动：正文里的线上事件会同步到手机；你确认“注入正文”的手机聊天（聊天设置或长按消息），角色在正文里也会知道。' : '线上模式：只有正文影响手机，手机里发生的事不会传回正文。'}<br>两种模式下，正文出现发消息 / 拉群 / 加好友等线上内容，都会在手机里弹出并显示。</p>`],
       ['t', '时间', f.seg('time', [['story', '跟随剧情'], ['real', '现实时间']]) + `<p class="tip">当前手机时间：${now().toLocaleString('zh-CN')}</p>` + btn('rt', '从剧情重新识别时间')],
-      ['s', '同步', f.tog('scan', '检测到线上关键词时自动同步') + f.tog('notify', '新消息弹窗') + f.area('kw', '触发关键词（正则）') + btn('sync', '立即同步最新一条剧情', '', 'pri')]]); },
+      ['s', '同步', f.tog('scan', '正文出现发消息 / 拉群等线上事件时，自动同步到手机（每次额外调用一次 API，默认关）') + f.tog('notify', '新消息弹窗') + f.area('kw', '触发关键词（正则）') + btn('sync', '立即同步最新一条剧情', '', 'pri')]]); },
     acts: {
       rt: (x, t, e, pg) => { scanTime(recent()); pg.re(); toast('已从剧情识别'); },
       sync: () => { const m = C().chat?.findLast(m => !m.is_user && !m.is_system); m ? (toast('同步中…'), syncStory(m.mes)) : toast('还没有剧情'); },
@@ -141,7 +142,7 @@ function disp() {
 
 // 调用日志：一开始调用就出现（蓝色·进行中，实时计时 + 收到的内容），结束后原地变成功 / 失败；进行中的可以直接中止
 const lkey = (l, i) => l.id || 'i' + i, lfind = x => LOG.find((l, i) => lkey(l, i) == x);
-const lstate = l => l.run ? (String(l.res).startsWith('（思考中') ? `思考中 · ${l.th || 0}字` : l.res ? `接收中 · ${l.res.length}字` : '等待返回…') : l.ok ? '成功' : '失败';
+const lstate = l => l.run ? (String(l.res).startsWith('（模型正在思考') ? `模型思考中 · ${l.th || 0}字` : l.res ? `接收中 · ${l.res.length}字` : '等待返回…') : l.ok ? '成功' : '失败';
 const lrow = (l, i) => `<div class="log ${l.run ? 'run' : l.ok ? '' : 'err'}" data-a="lx" data-x="${lkey(l, i)}"><div><em>${T[l.t]}</em><b>${esc(l.desc)}</b><small>${new Date(l.at).toLocaleTimeString()} · ${l.run ? `<time data-t="${l.at}">${(Date.now() - l.at) / 1e3 | 0}s</time>` : l.ms + 'ms'}</small></div><div><small>${esc(l.src)} ${esc(l.model || '')} · <span class="ls">${lstate(l)}</span></small>${l.run ? `<i class="lstop" data-a="lstop" data-x="${l.id}">中止</i>` : ''}</div>${l.open ? `<pre>▸ 请求\n${esc(l.req)}\n\n▸ 返回${l.run ? '（实时）' : ''}\n${esc(l.res || (l.run ? '…' : ''))}</pre>` : ''}</div>`;
 function logs() {
   const pg = page({

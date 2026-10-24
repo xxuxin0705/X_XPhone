@@ -21,6 +21,7 @@ const LF = u => `【输出格式】不要JSON、不要解释、不要编号，�
 群|高三(2)班|林老师||沈知遥,周小满|周五前交志愿表`;
 const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，按剧情实际需要（联系人一般不超过12个、群聊不超过4个），不要凑数。`}
 规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成）。不要包含${u}自己。已有：${names()}，不要重复。
+直接按格式输出，不需要分析或推理过程。
 ${LF(u)}`; };
 const sp = s => String(s || '').split(/[,，、;；\s]+/).map(x => x.trim()).filter(x => x && !/^(无|空|没有|-+|—+|null)$/i.test(x));
 // 解析一行：人|… 或 群|…
@@ -37,7 +38,7 @@ export async function genContacts(sys, prompt, desc, sg, prog) {
   const old = new Set(D().chats.map(c => c.id)); let done = 0, np = 0, ng = 0, raw = '', err;
   const eat = (txt, end) => { const ls = String(txt).split('\n'), n = end ? ls.length : ls.length - 1; for (; done < n; done++) { const d = pline(ls[done]); d && (applyDelta(d), d.contacts ? np++ : ng++); } (np || ng) && prog?.(`已收到 ${np} 人 · ${ng} 群`); };
   try {
-    raw = await llm(sys, prompt, desc, sg, { fast: 1, onText: t => eat(t), onThink: n => np + ng || prog?.(`思考中… ${n}字`) });
+    raw = await llm(sys, prompt, desc, sg, { fast: 1, aux: 1, onText: t => eat(t), onThink: n => np + ng || prog?.(`模型思考中 ${n}字`) });
     eat(raw, 1); if (!np && !ng) { const j = json(raw); j && applyDelta(unz(j)); }
   } catch (e) { err = e; }
   const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), gs = D().chats.filter(c => c.type == 'g' && !old.has(c.id));
@@ -46,7 +47,7 @@ export async function genContacts(sys, prompt, desc, sg, prog) {
   if (!nw.length && !gs.length) throw Error(String(raw).trim() ? '没有识别到新的联系人（可能都已存在，或返回格式不对，可在调用日志查看）' : '模型返回为空');
   return `已添加 ${nw.length} 位联系人 · ${gs.length} 个群`;
 }
-export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
+export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1 }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 
 /* ---------- 渲染 ---------- */
 const ago = ts => { const s = (now() - ts) / 6e4; return s < 1 ? '刚刚' : s < 60 ? (s | 0) + '分钟前' : s < 1440 ? (s / 60 | 0) + '小时前' : tT(ts); };

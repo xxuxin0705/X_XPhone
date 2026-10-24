@@ -17,7 +17,7 @@ export const merge = (t, d) => { for (const k in d) if (t[k] === undefined) t[k]
 /* ---------- 状态：S 全局设置（extensionSettings） / D() 当前聊天的手机数据（chatMetadata） ---------- */
 const api = x => ({ src: 'tavern', cur: '', list: [], ...x });
 const DEF = {
-  api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: true, notify: true,
+  api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', gest: '', wp: 'cathedral', video: '', text: '' }, media: {},
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
@@ -31,7 +31,7 @@ const DEF = {
   },
 };
 export let S = DEF;
-export const initS = () => (S = merge(C().extensionSettings.st_phone ??= {}, DEF));
+export const initS = () => { S = merge(C().extensionSettings.st_phone ??= {}, DEF); if ((S.ver | 0) < 2) { S.scan = false; S.ver = 2; save(); } return S; }; // v2：剧情自动同步改为默认关闭（老用户也关掉一次）
 export const save = () => C().saveSettingsDebounced();
 const BLANK = { chats: [], posts: [], me: { nick: '', sign: '', av: '', cover: '', wallet: 520 }, plot: null };
 export const D = () => merge((C().chatMetadata ??= {}).st_phone ??= {}, BLANK);
@@ -250,8 +250,8 @@ export const stopCall = id => RUN.get(id)?.abort(Error('已手动中止'));
 export const prof = t => S.api[t].list.find(p => p.id == S.api[t].cur);
 const tav = t => S.api[t].src == 'tavern';
 // 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
-async function call(t, desc, rq, fn, sg) {
-  const p = prof(t), L = { id: uid(), t, desc, at: Date.now(), run: 1, src: tav(t) ? '酒馆' : p?.name || '未配置', model: tav(t) ? '' : p?.model || p?.voice || '', req: String(rq).slice(0, 4000), res: '' };
+async function call(t, desc, rq, fn, sg, pO) {
+  const T = !pO && tav(t), p = pO || prof(t), L = { id: uid(), t, desc, at: Date.now(), run: 1, src: T ? '酒馆' : p?.name || '未配置', model: T ? '' : p?.model || p?.voice || '', req: String(rq).slice(0, 4000), res: '' };
   LOG.unshift(L); LOG.length > 100 && LOG.pop(); saveLog(); logUp(1);
   const ac = new AbortController(), lim = +S.tmo || 300; let tm; RUN.set(L.id, ac);
   const kick = () => { clearTimeout(tm); tm = setTimeout(() => ac.abort(Error(`超时（${lim}秒没有收到任何返回）`)), lim * 1e3); }; kick();
@@ -259,7 +259,7 @@ async function call(t, desc, rq, fn, sg) {
   const stop = new Promise((_, rj) => ac.signal.aborted ? rj(ac.signal.reason) : ac.signal.addEventListener('abort', () => rj(ac.signal.reason)));
   const cx = { kick, part: (s, th) => { kick(); L.res = String(s).slice(-4000); L.th = th || 0; logUp(); } };
   try {
-    if (!tav(t) && !p) throw Error('请先在 设置 中添加并选择配置');
+    if (!T && !p) throw Error('请先在 设置 中添加并选择配置');
     const r = await Promise.race([fn(p, ac.signal, cx), stop]); L.ok = 1;
     L.res = typeof r == 'string' ? (r.startsWith('data:') ? '[图片数据]' : r.slice(0, 4000)) : r == null ? '[完成]' : '[ok]'; return r;
   } catch (e) { const m = String(e?.message || e); L.res = (L.res ? L.res + '\n\n' : '') + '✗ ' + m; throw e instanceof Error ? e : Error(m); }
@@ -295,7 +295,7 @@ async function readAI(r, cx, o) {
     l = l.trim(); if (!l.startsWith('data:')) return; sse = 1; const d = l.slice(5).trim(); if (!d || d == '[DONE]') return;
     let j; try { j = JSON.parse(d); } catch { return; } if (j.error) throw Error(j.error.message || JSON.stringify(j.error));
     const c = j.choices?.[0], dl = c?.delta || c?.message || {}, rs = dl.reasoning_content || dl.reasoning || '';
-    rs && (th += rs.length, o.onThink?.(th)); dl.content && (out += dl.content, o.onText?.(out)); cx.part(out || `（思考中… ${th}字）`, th);
+    rs && (th += rs.length, o.onThink?.(th)); dl.content && (out += dl.content, o.onText?.(out)); cx.part(out || `（模型正在思考，已经想了 ${th} 字。这是模型内部的思考过程，不是返回结果，也不会加进手机；想完才开始输出）`, th);
   };
   for (;;) {
     const { done, value } = await rd.read(); if (done) break; cx.kick();
@@ -306,15 +306,16 @@ async function readAI(r, cx, o) {
   let j; try { j = JSON.parse(all); } catch { throw Error('返回格式无法识别：' + all.slice(0, 200)); }
   if (j.error) throw Error(j.error.message || JSON.stringify(j.error)); return pick(j);
 }
-// o.fast 本次强制低思考；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
-export const llm = (sys, user, desc = '聊天', sg, o = {}) => call('chat', desc, user, async (p, sig, cx) => {
-  if (tav('chat')) return C().generateRaw({ systemPrompt: sys, prompt: user });
+// o.fast 本次强制低思考；o.aux 用「生成用模型」（生成联系人 / 剧情同步等，没设就用聊天模型）；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
+export const auxProf = () => S.api.chat.aux && S.api.chat.list.find(p => p.id == S.api.chat.aux) || null;
+export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const ap = o.aux ? auxProf() : null; return call('chat', desc, user, async (p, sig, cx) => {
+  if (!ap && tav('chat')) return C().generateRaw({ systemPrompt: sys, prompt: user });
   const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], ...(!p.nostream && { stream: true }) };
   const x = p.fast || o.fast ? noThink(p.model) : null; let r;
   try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
   catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }
   return readAI(r, cx, o);
-}, sg);
+}, sg, ap); };
 // 机器翻译：只给“我”写的文字用，走酒馆自带翻译接口（谷歌/必应同时发，谁先回用谁，8秒上限）；绝不调用聊天模型，不花 API 额度
 export async function mt(text, to) {
   const c = C(), h = { ...(c.getRequestHeaders?.() || {}), 'Content-Type': 'application/json' }, ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8e3);
@@ -437,7 +438,7 @@ const TAGP = 'Convert the image description into concise comma-separated English
 export async function genImg(prompt, sg) {
   const p = prof('img'), own = !tav('img') && p;
   if (own && p.tag && ['nai', 'sd', 'comfy'].includes(p.prov) && /[一-龥]/.test(prompt)) {
-    try { prompt = String(await llm(TAGP, prompt, '生图提示词', sg, { fast: 1 })).replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/\s*[,，]?\s*\n+\s*/g, ', ').replace(/^[\s,]+|[\s,]+$/g, '') || prompt; } catch (e) { if (sg?.aborted) throw e; }
+    try { prompt = String(await llm(TAGP, prompt, '生图提示词', sg, { fast: 1, aux: 1 })).replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/\s*[,，]?\s*\n+\s*/g, ', ').replace(/^[\s,]+|[\s,]+$/g, '') || prompt; } catch (e) { if (sg?.aborted) throw e; }
   }
   own && p.pre?.trim() && (prompt = p.pre.trim().replace(/,\s*$/, '') + ', ' + prompt);
   return call('img', '生图', prompt, async (p, sig) => {

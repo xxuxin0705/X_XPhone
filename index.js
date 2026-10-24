@@ -44,7 +44,11 @@ function init() {
   c.eventSource.on(E.CHAT_CHANGED, () => { home(); renderDesk(); syncInject(); tick(); setTimeout(() => gc(), 800); });
   E.CHAT_DELETED && c.eventSource.on(E.CHAT_DELETED, name => gc(new Set(), String(name).replace(/\.jsonl$/, ''))); // 整个聊天被删：它独占的图片也删掉
   E.GROUP_CHAT_DELETED && c.eventSource.on(E.GROUP_CHAT_DELETED, name => gc(new Set(), String(name).replace(/\.jsonl$/, '')));
-  c.eventSource.on(E.MESSAGE_RECEIVED, id => { const m = C().chat?.[id]; if (!m || m.is_user || m.is_system) return; scanTime(m.mes); S.scan && new RegExp(S.kw).test(m.mes) && syncStory(m.mes); });
+  // 只对 AI 正常生成的新回复做处理：打开聊天时的开场白、切换 swipe、扩展 / 指令插入的消息都不算
+  c.eventSource.on(E.MESSAGE_RECEIVED, (id, type) => {
+    const m = C().chat?.[id]; if (!m || m.is_user || m.is_system || (type && type != 'normal')) return;
+    scanTime(m.mes); S.scan && new RegExp(S.kw).test(m.mes) && syncStory(m.mes); // 自动同步默认关闭；手机里回复时本来就会读取最近的正文
+  });
   setInterval(tick, 3e4); tick(); syncInject(); relock();
   // 锁屏时钟字体（加载不到就用系统衬线体）
   document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&display=swap">');
