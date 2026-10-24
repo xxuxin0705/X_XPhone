@@ -1,10 +1,12 @@
 // 聊天 · 表情包：表情商店（免费表情库）/ 表情包组 / 搜索表情 / AI 发表情自动配图
 // 全部用公开免费的图片源，不会调用你自己的任何 API（聊天模型、生图都不会用）：
+//   · 微软 Fluent Emoji（MIT）：软萌的 3D / 动态表情，走 npm 镜像（@lobehub/fluent-emoji-*）
+//   · 你自己导入的表情包组（相册里的图 / 图片链接）：图片存在酒馆里
 //   · ChineseBQB（github.com/zhaoolee/ChineseBQB）：作者开放的表情包数据源，图片在 zhaoolee.com，备用线路 jsDelivr
 //   · Waline 表情预设（github.com/walinejs/emojis）：图片走 npm 镜像 CDN（国内 npmmirror，备用 unpkg / jsDelivr）
 //   · 网络表情（搜狗 / 百度表情，apihz.cn 免费接口；GIPHY 要自己的免费 Key）：只在库里不够时补充
-import { S, save, esc, $, page, back, toast, ok, uid, getJ, emit } from '../../core.js';
-import { WL } from './sticker-data.js';
+import { S, save, esc, $, page, back, toast, ok, uid, getJ, emit, menu, form, pickFile, readImg, putMedia, drop } from '../../core.js';
+import { WL, FL } from './sticker-data.js';
 
 /* ---------- 图片线路：一个打不开自动换下一个 ---------- */
 globalThis.__stkAlt ||= img => { const a = (img.dataset.alt || '').split('|').filter(Boolean); if (!a.length) return img.classList.add('bad'); img.dataset.alt = a.slice(1).join('|'); img.src = a[0]; };
@@ -13,15 +15,16 @@ export const imgH = (x, cls = '', extra = '') => `<img class="${cls}" src="${esc
 /* ---------- 精选表情包组：顺序＝推荐顺序；tier 1 精选（可爱风优先）、2 更多表情 ---------- */
 const BQ = 'https://zhaoolee.com/ChineseBQB/', BQJ = 'https://cdn.jsdelivr.net/gh/zhaoolee/ChineseBQB@master/';
 const WLB = ['https://registry.npmmirror.com/@waline/emojis/1.4.0/files/', 'https://unpkg.com/@waline/emojis@1.4.0/', 'https://cdn.jsdelivr.net/npm/@waline/emojis@1.4.0/'];
-const CUR = [ // [id, 名字, 一句话介绍, tier]；b+编号 = ChineseBQB 分类，其余 = Waline 表情
-  ['hoyoverse-hi3', '崩坏3 · Q版', '女武神们的软萌 Q 版表情', 1], ['b049', '猫咪日常', '猫猫的日常小剧场', 1], ['b010', '是喵星人啦', '喵星人的一百种心情', 1], ['bilibili', 'B站小电视', '哔哩哔哩经典小电视', 1],
-  ['b060', '奇妙猫', '眼里有星河的奇妙猫', 1], ['b006', '仓鼠', '圆滚滚的仓鼠', 1], ['b009', '熊本熊', '熊本熊的日常', 1], ['noto', '动态小黄脸', '会动的圆脸小黄人', 1],
-  ['b011', '狗狗', '狗勾们', 1], ['b057', '开心鸭', '每天都很开心的鸭子', 1], ['b055', '全是心心', '比心、爱心、心心', 1], ['b098', '间谍过家家', '阿尼亚和她的一家', 1],
-  ['b026', '小幺鸡', '戏很多的小鸡', 1], ['b007', '胖虎', '圆滚滚的老虎', 1], ['b108', '企鹅家族', 'Pingu 企鹅一家', 1], ['b109', '负鼠', '会装死的负鼠', 1],
-  ['b065', '旅行青蛙', '出门旅行的呱', 1], ['b054', '猫眼三姐妹', '猫猫三连', 1], ['b031', '沙雕企鹅', '有点沙雕的企鹅', 1], ['bmoji', 'B站小黄脸', '哔哩哔哩小黄脸', 1],
-  ['b014', '小猪', '猪猪', 1], ['b052', '杰尼龟', '杰尼杰尼', 1], ['b036', '皮卡丘', '皮卡皮卡', 1], ['b056', '哆啦A梦', '蓝胖子', 1],
-  ['b002', '可爱女孩纸', '可爱的女孩纸', 1], ['b003', '可爱男孩纸', '可爱的男孩纸', 1], ['b106', '芙莉莲', '葬送的芙莉莲', 1], ['b071', '辉夜大小姐', '辉夜大小姐想让我告白', 1],
-  ['b076', '萌萝莉', '萌萌的小萝莉', 1], ['b012', '鹦鹉', '会说话的鹦鹉', 1], ['b027', '乌龟', '慢吞吞', 1], ['b029', '鸽子', '咕咕咕', 1],
+const CUR = [ // [id, 名字, 一句话介绍, tier]；f- = Fluent 动态表情，b+编号 = ChineseBQB 分类，其余 = Waline 表情
+  ['f-pets', '萌宠动起来', '会动的软萌小动物：猫猫、狗狗、兔兔、仓鼠…', 1], ['f-face', '软萌小脸', '会动的 3D 圆脸，各种心情都有', 1], ['f-love', '比心贴贴', '爱心、比心、撒花、奶茶，会动的', 1], ['hoyoverse-hi3', '崩坏3 · Q版', '女武神们的软萌 Q 版表情', 1],
+  ['bilibili', 'B站小电视', '哔哩哔哩经典小电视', 1], ['noto', '动态小黄脸', 'Google 的会动圆脸', 1], ['bmoji', 'B站小黄脸', '哔哩哔哩小黄脸', 1],
+  ['b049', '猫咪日常', '猫猫的日常小剧场', 2], ['b010', '是喵星人啦', '喵星人的一百种心情', 2], ['b060', '奇妙猫', '眼里有星河的奇妙猫', 2], ['b006', '仓鼠', '圆滚滚的仓鼠', 2], ['b009', '熊本熊', '熊本熊的日常', 2],
+  ['b011', '狗狗', '狗勾们', 2], ['b057', '开心鸭', '每天都很开心的鸭子', 2], ['b055', '全是心心', '比心、爱心、心心', 2], ['b098', '间谍过家家', '阿尼亚和她的一家', 2],
+  ['b026', '小幺鸡', '戏很多的小鸡', 2], ['b007', '胖虎', '圆滚滚的老虎', 2], ['b108', '企鹅家族', 'Pingu 企鹅一家', 2], ['b109', '负鼠', '会装死的负鼠', 2],
+  ['b065', '旅行青蛙', '出门旅行的呱', 2], ['b054', '猫眼三姐妹', '猫猫三连', 2], ['b031', '沙雕企鹅', '有点沙雕的企鹅', 2],
+  ['b014', '小猪', '猪猪', 2], ['b052', '杰尼龟', '杰尼杰尼', 2], ['b036', '皮卡丘', '皮卡皮卡', 2], ['b056', '哆啦A梦', '蓝胖子', 2],
+  ['b002', '可爱女孩纸', '可爱的女孩纸', 2], ['b003', '可爱男孩纸', '可爱的男孩纸', 2], ['b106', '芙莉莲', '葬送的芙莉莲', 2], ['b071', '辉夜大小姐', '辉夜大小姐想让我告白', 2],
+  ['b076', '萌萝莉', '萌萌的小萝莉', 2], ['b012', '鹦鹉', '会说话的鹦鹉', 2], ['b027', '乌龟', '慢吞吞', 2], ['b029', '鸽子', '咕咕咕', 2],
   ['b015', '熊猫头', '金馆长熊猫头，斗图必备', 2], ['b001', '滑稽', '滑稽大佬', 2], ['b034', '白色小人', '白色小人，量大管饱', 2], ['b004', '假笑男孩', '假笑男孩', 2],
   ['b023', '表情符号', 'Emoji 表情', 2], ['b035', '猫和老鼠', '汤姆和杰瑞', 2], ['b048', '海绵宝宝', '海绵宝宝和派大星', 2], ['b013', '小猪佩奇', '社会人小猪佩奇', 2],
   ['b061', '柯南', '名侦探柯南', 2], ['b090', '美少女战士', '代表月亮消灭你', 2], ['b080', '鬼灭之刃', '鬼灭之刃', 2], ['b084', '刺客伍六七', '刺客伍六七', 2],
@@ -32,10 +35,15 @@ const CUR = [ // [id, 名字, 一句话介绍, tier]；b+编号 = ChineseBQB 分
   ['alus', '阿鲁', '阿鲁系列经典表情', 2], ['tieba', '贴吧泡泡', '百度贴吧经典泡泡', 2], ['qq', 'QQ经典表情', 'QQ 动态经典表情', 2], ['weibo', '微博表情', '微博经典表情', 2],
   ['wechat', '微信小黄脸', '微信经典小黄脸', 2], ['feishu', '飞书表情', '飞书表情', 2],
 ];
-export const packMeta = id => { const c = CUR.find(x => x[0] == id); return c && { id, name: c[1], desc: c[2], tier: c[3], bqb: id[0] == 'b' && /^b\d+$/.test(id), from: /^b\d+$/.test(id) ? 'ChineseBQB' : 'Waline' }; };
+export const mine = id => S.stk.mine.find(p => p.id == id);
+export const packMeta = id => { const m = mine(id); if (m) return { id, name: m.name, desc: `我导入的 · ${m.items.length} 个`, tier: 0, from: '我导入的', own: 1 }; const c = CUR.find(x => x[0] == id); return c && { id, name: c[1], desc: c[2], tier: c[3], from: /^b\d+$/.test(id) ? 'ChineseBQB' : id.startsWith('f-') ? 'Fluent Emoji' : 'Waline' }; };
 export const featured = t => CUR.filter(c => c[3] == t).map(c => c[0]);
 
 /* ---------- 表情数据：Waline 是内置清单；ChineseBQB 读它公开的索引（一次，缓存一周） ---------- */
+// Fluent：面板里用静态 3D 图（小），发出去用会动的版本
+const FLV = { 3: '1.1.0' }, flPkg = c => { const m = c.split('-')[0]; return m < '1f469' ? 1 : m < '1f620' ? 2 : m < '1f9a0' ? 3 : 4; };
+const flU = (pkg, ver, c) => [`https://registry.npmmirror.com/@lobehub/${pkg}/${ver}/files/assets/${c}.webp`, `https://cdn.jsdelivr.net/npm/@lobehub/${pkg}@${ver}/assets/${c}.webp`];
+const flItems = d => FL[d].map(([c, l]) => { const a = flU('fluent-emoji-anim-' + flPkg(c), '1.0.0', c), t = flU('fluent-emoji-3d', FLV[3], c); return { l, th: t[0], img: a[0], alt: [a[1], t[0], t[1]], k: 'f-' + d }; });
 const wlUrl = (d, it, k) => WLB[k] + d + '/' + WL[d].p + encodeURIComponent(it) + '.' + WL[d].t;
 const wlItems = d => WL[d].i.map(x => { const [it, l] = Array.isArray(x) ? x : [x, x]; return { l, img: wlUrl(d, it, 0), alt: [wlUrl(d, it, 1), wlUrl(d, it, 2)], sm: WL[d].s, k: d }; });
 let bq = null, bqP = null;
@@ -71,14 +79,19 @@ export function loadBqb() {
 // 一个表情包组的完整信息（名字、封面、全部表情）
 export async function pack(id) {
   const m = packMeta(id); if (!m) return null;
+  if (m.own) { const p = mine(id); return { ...m, items: p.items.map(x => ({ ...x, k: id })), cover: p.items[0]?.img || '' }; }
+  if (id.startsWith('f-')) { const items = flItems(id.slice(2)); return { ...m, items, cover: items[0].th, coverAlt: [items[0].alt[2]] }; }
   if (WL[id]) { const items = wlItems(id), c = WL[id].c; return { ...m, items, cover: wlUrl(id, c, 0), coverAlt: [wlUrl(id, c, 1), wlUrl(id, c, 2)], sm: WL[id].s }; }
   const b = (await loadBqb())[id]; return b ? { ...m, items: b.items, cover: b.cover, coverAlt: [] } : { ...m, items: [], cover: '' };
 }
 // 不用等网络就能显示的封面（Waline 内置；ChineseBQB 已缓存时也有）
-export const coverNow = id => WL[id] ? { th: wlUrl(id, WL[id].c, 0), alt: [wlUrl(id, WL[id].c, 1)] } : bq?.[id] ? { th: bq[id].cover } : null;
-export const countNow = id => WL[id] ? WL[id].i.length : bq?.[id]?.items.length;
+export const coverNow = id => mine(id) ? (mine(id).items[0] ? { th: mine(id).items[0].img } : null) : id.startsWith('f-') && FL[id.slice(2)] ? (x => ({ th: x.th, alt: [x.alt[2]] }))(flItems(id.slice(2))[0]) : WL[id] ? { th: wlUrl(id, WL[id].c, 0), alt: [wlUrl(id, WL[id].c, 1)] } : bq?.[id] ? { th: bq[id].cover } : null;
+export const countNow = id => mine(id) ? mine(id).items.length : id.startsWith('f-') ? FL[id.slice(2)]?.length : WL[id] ? WL[id].i.length : bq?.[id]?.items.length;
 // 面板第一次打开时把 ChineseBQB 的封面准备好（有缓存就是瞬间的），好了刷新一下面板
 let warmP = null; export const warm = () => bq || warmP || (warmP = loadBqb().then(() => emit('stk'), () => { }).finally(() => warmP = null), 0);
+// 旧版默认的几组（大家觉得不好看）换成新的软萌默认组；自己加过 / 删过的不动
+const OLD = 'hoyoverse-hi3,b049,bilibili,b010';
+export const stkMig = () => { const c = S.stk; if (c.v >= 2) return; c.v = 2; c.packs.join() == OLD && (c.packs = ['f-pets', 'f-face', 'f-love', 'hoyoverse-hi3']); c.mine ||= []; save(); };
 export const has = id => S.stk.packs.includes(id);
 export const addPack = id => { if (!has(id)) { S.stk.packs.push(id); save(); emit('stk'); } };
 export const rmPack = id => { S.stk.packs = S.stk.packs.filter(x => x != id); save(); emit('stk'); };
@@ -92,11 +105,14 @@ const SYN = [['开心', '高兴', '快乐', '哈哈', '笑', '嘻嘻', '乐', '�
   ['傲娇', '哼', '才不', '得意', '嫌弃'], ['撒娇', '求求', '拜托', '可怜', '委屈'], ['吃瓜', '围观', '看戏', '嗑瓜子'], ['打你', '揍', '打脸', '敲打', '锤']];
 const syn = q => [...new Set(SYN.filter(g => g.some(w => q.includes(w) || w.includes(q))).flat())].filter(w => w != q);
 const score = (l, q, sy) => { if (!l) return 0; if (l == q) return 120; if (l.includes(q)) return 100 + 20 * q.length / l.length; if (sy.some(w => w.length > 1 ? l.includes(w) : l == w)) return 60; const cs = [...new Set(q)], hit = cs.filter(c => l.includes(c)).length; return q.length > 1 && hit / cs.length >= .6 ? 30 * hit / cs.length : 0; };
-const bonus = id => (has(id) ? 30 : 0) + ((i => i < 0 ? 0 : CUR[i][3] == 1 ? 20 - i * .25 : 4 - i * .05)(CUR.findIndex(c => c[0] == id)));
+const bonus = id => (id == 'fav' ? 40 : has(id) ? 30 : 0) + (id.startsWith('f-') ? 6 : 0) + ((i => i < 0 ? 0 : CUR[i][3] == 1 ? 20 - i * .25 : 4 - i * .05)(CUR.findIndex(c => c[0] == id)));
 export async function localSearch(q, n = 80) {
   q = String(q || '').trim(); if (!q) return [];
   const sy = syn(q), pool = [];
+  for (const d of Object.keys(FL)) pool.push(...flItems(d));
   for (const d of Object.keys(WL)) pool.push(...wlItems(d));
+  for (const p of S.stk.mine) pool.push(...p.items.map(x => ({ ...x, k: p.id })));
+  for (const x of S.assets.sticker) pool.push({ l: x.name, img: x.img, k: 'fav' });
   try { const b = await loadBqb(); for (const id in b) pool.push(...b[id].items); } catch { /* 表情库连不上时只搜内置的 */ }
   return pool.map(x => ({ x, s: score(x.l, q, sy) })).filter(o => o.s > 0).map(o => ({ ...o, s: o.s + bonus(o.x.k) + (o.x.sm ? -8 : 0) + (o.x.a ? 2 : 0) }))
     .sort((a, b) => b.s - a.s).slice(0, n).map(o => ({ ...o.x, sc: o.s }));
@@ -106,7 +122,7 @@ export async function packSearch(q) {
   q = String(q || '').trim(); if (!q) return [];
   const hit = new Map(); CUR.forEach(c => (c[1].includes(q) || c[2].includes(q)) && hit.set(c[0], 100));
   (await localSearch(q, 200)).forEach(x => hit.set(x.k, (hit.get(x.k) || 0) + 1));
-  return [...hit.entries()].sort((a, b) => b[1] - a[1] || bonus(b[0]) - bonus(a[0])).map(e => e[0]);
+  return [...hit.entries()].filter(e => packMeta(e[0])).sort((a, b) => b[1] - a[1] || bonus(b[0]) - bonus(a[0])).map(e => e[0]);
 }
 
 /* ---------- 网络表情（补充）：搜狗 / 百度（apihz.cn 免费接口）、GIPHY（要 Key） ---------- */
@@ -168,12 +184,18 @@ const closeAll = () => { while (st.length) back(); };
 export function packPage(id, send) {
   let pk = null;
   const grid = () => !pk ? '<div class="sks-st"><i class="spin"></i>正在打开表情包</div>' : !pk.items.length ? '<div class="sks-st">这个表情包暂时打不开，请稍后再试<b data-a="spre">重试</b></div>'
-    : `<div class="sp-g ${pk.sm ? 'sm' : ''}">${pk.items.map((x, i) => `<div class="sks-i" data-a="spp" data-x="${i}">${imgH(x)}</div>`).join('')}</div>`;
+    : `<div class="sp-g ${pk.sm ? 'sm' : ''}">${pk.items.map((x, i) => `<div class="sks-i" data-a="spp" data-lp="splp" data-x="${i}">${imgH(x)}</div>`).join('')}</div>`;
   const P = open({
     title: '', cls: 'skspg sppg',
-    body: () => { const m = packMeta(id); return `<div class="sp-ban">${coverH(id, 'sp-bi')}</div><div class="sp-hd"><div><b>${esc(m.name)}</b><small>${esc(m.desc)}</small><small class="src">来自 ${m.from}${countNow(id) ? ` · ${countNow(id)} 个表情` : ''}</small></div>${addBtn(id)}</div><div class="sp-gw">${grid()}</div><div class="sks-pv" hidden></div>`; },
+    right: () => mine(id) ? '<b class="txt" data-a="spown">管理</b>' : '',
+    body: () => { const m = packMeta(id); if (!m) return ''; return `<div class="sp-ban">${coverH(id, 'sp-bi')}</div><div class="sp-hd"><div><b>${esc(m.name)}</b><small>${esc(m.desc)}</small><small class="src">来自 ${m.from}${countNow(id) ? ` · ${countNow(id)} 个表情` : ''}</small></div>${addBtn(id)}</div><div class="sp-gw">${grid()}</div>${mine(id) ? '<p class="sp-cr">长按单个表情可以移到前面或删除</p>' : ''}<div class="sks-pv" hidden></div>`; },
     acts: {
       spadd: x => tog(x, P), spp: i => preview(P, pk.items[i], send), spre: () => load(),
+      splp: async i => { const p = mine(id); if (!p) return; const k = await menu([['top', '移到前面'], ['del', '删除', 'danger']]); if (!k) return; const [x] = p.items.splice(i, 1); k == 'top' ? p.items.unshift(x) : drop(x); save(); emit('stk'); load(); },
+      spown: async () => { const p = mine(id), k = await menu([['add', '继续添加表情'], ['ren', '重命名'], ['rm', '删除这一组', 'danger']], p.name); if (!k) return;
+        if (k == 'add') return importTo(p, () => { emit('stk'); load(); });
+        if (k == 'ren') { const r = await form('重命名', [['n', '名字']], { n: p.name }); r?.n && (p.name = r.n, save(), emit('stk'), P.re()); return; }
+        if (await ok(`删除「${p.name}」？里面的 ${p.items.length} 个表情也会删掉`)) { rmMine(id); back(); } },
       ...pvActs(() => P, send),
     },
   });
@@ -194,11 +216,12 @@ export function storePage(send) {
     title: () => `<div class="sp-tabs">${[[1, '精选表情'], [2, '更多表情']].map(([k, l]) => `<b data-a="sptab" data-x="${k}" class="${tab == k ? 'on' : ''}">${l}</b>`).join('')}</div>`, cls: 'skspg spstore',
     body: () => {
       const L = featured(tab);
-      return `<div class="sks-bar fake" data-a="spq">${SRCH}<span>搜索表情</span></div>${tab == 1 ? `<div class="sp-car">${L.slice(0, 6).map(id => `<div class="sp-cc" data-a="spo" data-x="${id}">${coverH(id, 'sp-ci')}<b>${esc(packMeta(id).name)}</b></div>`).join('')}</div>` : ''}<h6 class="sp-h">${tab == 1 ? '精选' : '经典斗图'}</h6><div class="sp-list">${L.map(row).join('')}</div><p class="sp-cr">表情来自开源免费的 ChineseBQB 和 Waline 表情库，不会用到你的 API。</p>`;
+      return `<div class="sks-bar fake" data-a="spq">${SRCH}<span>搜索表情</span></div>${tab == 1 ? `<div class="sp-car">${L.slice(0, 6).map(id => `<div class="sp-cc" data-a="spo" data-x="${id}">${coverH(id, 'sp-ci')}<b>${esc(packMeta(id).name)}</b></div>`).join('')}</div>` : ''}<div class="sp-imp" data-a="spimp"><b>＋ 导入我自己的表情包</b><small>从相册选一组图，或粘贴图片链接，做成一整组</small></div><h6 class="sp-h">${tab == 1 ? '精选' : '经典斗图'}</h6><div class="sp-list">${L.map(row).join('')}</div><p class="sp-cr">表情来自免费开源的 Fluent Emoji、Waline、ChineseBQB 表情库，不会用到你的 API。</p>`;
     },
+    right: () => '<b class="txt" data-a="spmine">我的表情</b>',
     acts: {
       sptab: k => { tab = +k; P.re(); }, spo: id => packPage(id, send), spadd: id => tog(id, P),
-      spq: () => stkPage(send),
+      spq: () => stkPage(send), spmine: () => minePage(send), spimp: () => importPack(id => packPage(id, send)),
     },
   });
   loadBqb().then(() => P.el.isConnected && P.reb(), () => { });
@@ -251,6 +274,56 @@ export function stkPage(send) {
     },
   });
   P.reb = draw; // 添加 / 移除表情包后刷新按钮状态，不清空输入框
+  return P;
+}
+
+/* ---------- 我自己导入的表情包组 ---------- */
+const nameOf = n => String(n || '').replace(/\.[^.]+$/, '').replace(/^[\d_\-\s]+/, '').replace(/[_-]+/g, ' ').trim().slice(0, 16);
+// 往一个组里加表情：相册多选 / 图片链接（每行「名字 链接」或只有链接）
+async function importTo(p, done) {
+  const k = await menu([['f', '从相册选多张图'], ['u', '粘贴图片链接']], '添加到「' + p.name + '」'); if (!k) return;
+  let add = [];
+  if (k == 'u') {
+    const r = await form('粘贴图片链接', [['t', '每行一个：名字 + 空格 + 链接（名字可以不写）', 'area', '摸摸头 https://xx.com/a.gif\nhttps://xx.com/b.png']]); if (!r?.t) return;
+    add = r.t.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const m = l.match(/^(.*?)\s*(https?:\/\/\S+)$/); return m && { l: m[1].trim() || nameOf(m[2].split('/').pop().split('?')[0]), img: m[2] }; }).filter(Boolean);
+  } else {
+    const fs = await new Promise(r => { const i = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', multiple: true }); i.onchange = () => r([...i.files]); i.click(); });
+    if (!fs.length) return; toast(`正在导入 ${fs.length} 张…`);
+    for (const f of fs) { try { add.push({ l: nameOf(f.name), img: await putMedia(await readImg(f, 360), 'stk') }); } catch { } }
+  }
+  if (!add.length) return toast('没有可以导入的图片');
+  p.items.push(...add); save(); toast(`已导入 ${add.length} 个表情`); done?.();
+}
+export async function importPack(then) {
+  const r = await form('导入表情包组', [['n', '给这组起个名字', 'text', '比如：小哭猫、奶龙']]); if (!r) return;
+  const p = { id: 'c_' + uid(), name: r.n?.trim() || '我的表情包', items: [] };
+  await importTo(p); if (!p.items.length) return;
+  S.stk.mine.push(p); S.stk.packs.unshift(p.id); save(); emit('stk'); then?.(p.id);
+}
+export const rmMine = id => { const p = mine(id); if (!p) return; drop(p.items); S.stk.mine = S.stk.mine.filter(x => x.id != id); rmPack(id); };
+
+/* ---------- 我的表情（仿微信）：添加的单个表情 / 聊天面板中的整套表情 ---------- */
+export function favPage() {
+  const P = open({
+    title: '添加的单个表情', cls: 'skspg',
+    body: () => `<div class="sp-g">${S.assets.sticker.map((x, i) => `<div class="sks-i" data-a="fvm" data-lp="fvm" data-x="${i}">${imgH({ img: x.img })}</div>`).join('')}<div class="sks-i add" data-a="fvadd">＋</div></div><p class="sp-cr">点一下或长按：移到前面 / 删除</p>`,
+    acts: {
+      fvm: async i => { const k = await menu([['top', '移到前面'], ['del', '删除', 'danger']], S.assets.sticker[i]?.name); if (!k) return; const [x] = S.assets.sticker.splice(i, 1); k == 'top' ? S.assets.sticker.unshift(x) : drop(x); save(); emit('stk'); P.reb(); },
+      fvadd: async () => { const p = { name: '我的表情', items: [] }; await importTo(p); p.items.forEach(x => S.assets.sticker.push({ id: uid(), name: x.l, img: x.img })); save(); emit('stk'); P.reb(); },
+    },
+  });
+}
+export function minePage(send) {
+  const P = open({
+    title: '我的表情', cls: 'skspg spmine',
+    body: () => `<h6 class="sp-h">我添加的表情</h6><div class="sp-list"><div class="sp-row" data-a="mfav"><i class="sp-ic ico">♡</i><div><b>添加的单个表情</b><small>${S.assets.sticker.length} 个</small></div><span class="sp-ar">›</span></div><div class="sp-row" data-a="mimp"><i class="sp-ic ico">＋</i><div><b>导入表情包组</b><small>相册里的图 / 图片链接，做成一整组</small></div><span class="sp-ar">›</span></div></div>
+<h6 class="sp-h">聊天面板中的整套表情</h6><div class="sp-list">${S.stk.packs.map((id, i) => packMeta(id) ? `<div class="sp-row" data-a="spo" data-x="${id}">${coverH(id, 'sp-ic')}<div><b>${esc(packMeta(id).name)}</b><small>${esc(packMeta(id).from)}</small></div>${i ? `<b class="sp-mv" data-a="mup" data-x="${i}">↑</b>` : ''}<b class="sp-add" data-a="mrm" data-x="${id}">移除</b></div>` : '').join('') || '<p class="sp-cr">还没有添加表情包</p>'}</div><div class="sks-go" data-a="mstore">去表情商店 ›</div>`,
+    acts: {
+      mfav: () => favPage(), mimp: () => importPack(id => { P.reb(); packPage(id, send); }), mstore: () => storePage(send), spo: id => packPage(id, send),
+      mup: i => { i = +i; const a = S.stk.packs; [a[i - 1], a[i]] = [a[i], a[i - 1]]; save(); emit('stk'); P.reb(); },
+      mrm: async id => { if (mine(id)) { if (!await ok(`删除「${packMeta(id).name}」？自己导入的表情会一起删掉`)) return; rmMine(id); } else rmPack(id); P.reb(); },
+    },
+  });
   return P;
 }
 export { closeAll as closeStk };

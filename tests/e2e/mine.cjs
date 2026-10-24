@@ -1,0 +1,76 @@
+// 我的表情（长按移到前面 / 删除、移除整组、导入自己的表情包组）、动态页真实姓名 + @网名 + 换封面、正文同步加好友带语言
+const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
+const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
+const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.html': 'text/html' };
+const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (MIME[path.extname(f)] || 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8787);
+let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR42mP8z8BQz0AEYBxVSF+FjP///ycqDEYVjiocVUhfhYwMDAwAkvkP8f7ZOV8AAAAASUVORK5CYII=', 'base64');
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort());
+  await ctx.route(/registry\.npmmirror\.com|img\.test|unpkg\.com|jsdelivr/, r => r.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: PNG }));
+  await ctx.route(/zhaoolee\.com/, r => r.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: '[]' }));
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto('http://localhost:8787/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
+  const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms);
+  const lp = async sel => { const r = await E(`(() => { const b = document.querySelector('${sel}').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`); await p.mouse.move(r[0], r[1]); await p.mouse.down(); await W(650); await p.mouse.up(); await W(300); };
+  const pick = async x => { await E(`document.querySelector('.sheet.mnu.in [data-a=pick][data-x="${x}"]').click()`); await W(350); };
+  const items = () => E(`[...document.querySelectorAll('.sheet.mnu.in .mi')].map(b => b.textContent).join()`);
+  await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.sk = await import('/apps/chat/sticker.js'); window.chat = await import('/apps/chat/chat.js');
+    core.S.assets.sticker = [{ id: 'a', name: '一', img: 'https://img.test/1.png' }, { id: 'b', name: '二', img: 'https://img.test/2.png' }, { id: 'c', name: '三', img: 'https://img.test/3.png' }];
+    core.APPS.chat.open(); const c = dt.add(dt.blank('p', { real: '姜照临', nick: 'Jiang', fr: 1 })); core.saveD(); talk.openChat(c.id); window._c = c; })()`); await W(600);
+  // 1. 表情面板里长按
+  await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(400);
+  await E(`document.querySelector('.pan .pbar [data-x=fav]').click()`); await W(300);
+  await lp('.pan .pgrid .sk[data-x="2"]');
+  ok(await items() == '移到前面,删除,取消', '长按「我的表情」里的单个表情：移到前面 / 删除');
+  await pick('top'); ok(await E(`core.S.assets.sticker.map(x => x.name).join()`) == '三,一,二', '移到前面');
+  await lp('.pan .pgrid .sk[data-x="1"]'); await pick('del'); ok(await E(`core.S.assets.sticker.map(x => x.name).join()`) == '三,二', '删除');
+  await p.screenshot({ path: path.join(OUT, 'mine_a.png') });
+  await lp('.pan .pbar [data-x=f-love]'); ok(/移到前面,移除/.test(await items()), '长按上面一排的表情包图标：移到前面 / 移除');
+  await pick('top'); ok(await E(`core.S.stk.packs[0]`) == 'f-love', '表情包组移到最前');
+  await lp('.pan .pbar [data-x=hoyoverse-hi3]'); await pick('rm'); await W(200);
+  ok(!(await E(`core.S.stk.packs.includes('hoyoverse-hi3')`)) && !(await E(`!!document.querySelector('.pan .pbar [data-x=hoyoverse-hi3]')`)), '移除表情包组：面板里马上没了');
+  await E(`document.querySelector('.pan .pbar [data-x=f-pets]').click()`); await W(300);
+  await lp('.pan .pgrid .sk[data-x="0"]'); ok(/添加到「我的表情」/.test(await items()), '长按组里的表情：可以存到我的表情'); await pick('fav');
+  ok(await E(`core.S.assets.sticker[0].name`) == '猫猫', '存进「我的表情」最前面');
+  // 2. 导入自己的表情包组（粘贴链接）
+  await E(`document.querySelector('.pan .pbar [data-a=pstore]').click()`); await W(600);
+  await E(`document.querySelector('.spstore .sp-imp').click()`); await W(400);
+  await p.fill('.sheet.in [data-k=n]', '小哭猫'); await p.press('.sheet.in [data-k=n]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(400);
+  ok(/从相册选多张图,粘贴图片链接/.test(await items()), '导入方式：从相册多选 / 粘贴链接'); await pick('u');
+  await p.fill('.sheet.in [data-k=t]', '哭哭 https://img.test/a.gif\nhttps://img.test/抱抱.png\n乱写的一行'); await E(`document.querySelector('.sheet.in [data-k=t]').dispatchEvent(new Event('change', { bubbles: true }))`); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(800);
+  const mp = await E(`JSON.stringify(core.S.stk.mine.map(p => [p.name, p.items.map(x => x.l + '|' + x.img)]))`);
+  ok(/小哭猫/.test(mp) && /哭哭\|https:\/\/img\.test\/a\.gif/.test(mp) && /抱抱\|https:\/\/img\.test\/抱抱\.png/.test(mp) && !/乱写/.test(mp), '导入成功：两张图，名字取自前面写的字或文件名 ' + mp);
+  const id = await E(`core.S.stk.mine[0].id`);
+  ok(await E(`core.S.stk.packs[0]`) == id && await E(`!!document.querySelector('.sppg.in')`), '导入的组排在面板最前面，并打开详情');
+  await p.screenshot({ path: path.join(OUT, 'mine_b.png') });
+  await lp('.sppg .sks-i[data-x="1"]'); await pick('top'); ok(await E(`core.S.stk.mine[0].items[0].l`) == '抱抱', '详情里长按自己的表情：移到前面');
+  // 3. 我的表情页
+  await E(`document.querySelector('.sppg .pg-back, .sppg [data-a=back]').click()`); await W(400);
+  await E(`document.querySelector('.spstore [data-a=spmine]').click()`); await W(500);
+  const rowsT = await E(`[...document.querySelectorAll('.spmine .sp-row b:first-child')].map(b => b.textContent).join()`);
+  ok(/添加的单个表情/.test(rowsT) && /小哭猫/.test(rowsT) && /比心贴贴/.test(rowsT), '我的表情：单个表情 + 聊天面板中的整套表情 ' + rowsT);
+  await p.screenshot({ path: path.join(OUT, 'mine_c.png') });
+  await E(`document.querySelector('.spmine [data-a=mrm][data-x=f-face]').click()`); await W(300); ok(!(await E(`core.S.stk.packs.includes('f-face')`)), '「移除」：整套表情从面板拿掉');
+  await E(`document.querySelector('.spmine [data-a=mrm][data-x="${id}"]').click()`); await W(300); await pick('y');
+  ok(!(await E(`core.S.stk.mine.length`)), '自己导入的组：确认后整组删除');
+  await E(`document.querySelector('.spmine [data-a=mfav]').click()`); await W(400);
+  ok(await E(`document.querySelectorAll('.pg.in .sp-g .sks-i:not(.add)').length`) == 3, '「添加的单个表情」页能看到全部');
+  await E(`core.home()`); await W(300);
+  // 4. 动态：真实姓名 + @网名；封面能换
+  await E(`core.D().me.nick = '苹果'; core.S.style = 'kk'; core.APPS.chat.open()`); await W(500); await E(`document.querySelector('.chatapp.in [data-a=tab][data-x=feed]').click()`); await W(400);
+  const h = await E(`document.querySelector('.ft-h b').textContent + '|' + document.querySelector('.ft-h small').textContent`);
+  ok(h == '徐照临|@苹果', '动态页：上面是真实姓名（酒馆里的名字），下面 @网名：' + h);
+  ok(/轻点设置封面/.test(await E(`document.querySelector('.ft-cv').textContent`)), '没封面时提示「轻点设置封面」');
+  await E(`document.querySelector('.ft-cv').click()`); await W(300); await pick('u');
+  await p.fill('.sheet.in [data-k=u]', 'https://img.test/cover.png'); await p.press('.sheet.in [data-k=u]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(500);
+  ok(await E(`core.D().me.cover`) == 'https://img.test/cover.png' && /cover\.png/.test(await E(`document.querySelector('.ft-cv').style.backgroundImage`)), '点封面换照片：立刻显示');
+  await p.screenshot({ path: path.join(OUT, 'mine_d.png') });
+  await E(`document.querySelector('.chatapp.in [data-a=tab][data-x=me]').click()`); await W(400);
+  ok(/真实姓名：徐照临/.test(await E(`document.querySelector('.me-c').textContent`)) && !!(await E(`document.querySelector('[data-k=real]')`)), '「我」页：昵称（网名）和真实姓名分开，真实姓名默认用酒馆里的名字');
+  await p.fill('[data-k=real]', '徐小苹'); await p.press('[data-k=real]', 'Tab'); await W(300);
+  ok(await E(`core.meObj().real`) == '徐小苹' && await E(`core.meObj().nick`) == '苹果', '可以改真实姓名，网名不受影响');
+  // 5. 正文同步：加好友带语言
+  await E(`(() => { const c = core.C(); c.chat.push({ mes: '剧情……\\n<手机>\\n加好友|佐藤遥|haru|日语\\n</手机>', is_user: false }); chat.inlineSync(c.chat.length - 1); })()`); await W(300);
+  ok(await E(`core.D().chats.find(c => c.real == '佐藤遥')?.cfg.lang`) == 'ja', '正文里「加好友|佐藤遥|haru|日语」：聊天设置的语言就是日语');
+  console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
+})().catch(e => { console.error('FATAL', e); process.exit(1); });

@@ -1,5 +1,5 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
-import { stkFind, stkPage, storePage, packPage, pack, packMeta, coverNow, imgH, msgOf, warm } from './sticker.js';
+import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine } from './sticker.js';
 import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname } from './data.js';
 import { openFeed } from './chat.js';
@@ -69,11 +69,11 @@ export async function gen(ch) {
   finally { busy = 0; CTL = null; emit('chat'); goSync(); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
 }
 const push = (ch, m) => {
-  const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); later(ch);
+  const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); ch.cfg.auto && later(ch); // 默认不自动回复：想发几条发几条，发完点右下角 ✦ 让对方回
   if (ch.cfg.trMine && ch.cfg.lang && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, ch.cfg.lang).then(t => { x.orig = x.c; x.c = t; }).catch(e => toast('翻译失败：' + e.message)).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
   return x;
 };
-on('stk', () => { const el = ui.stack?.querySelector('.pg.chat'), o = el?._pg; o?.pan && $('.pan.on', el) && o.pan('stk', 1); }); // 表情包组增删后刷新聊天里的表情面板
+on('stk', () => { const el = ui.stack?.querySelector('.pg.chat'), o = el?._pg; o?.pan && (o.pkC && Object.keys(o.pkC).forEach(k => k.startsWith('c_') && delete o.pkC[k]), $('.pan.on', el) && o.pan('stk', 1)); }); // 表情包组增删后刷新聊天里的表情面板
 on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('.pg-t', t.el).innerHTML = t.title(), goSync()) : t.re(); });
 
 /* ---------- 渲染 ---------- */
@@ -119,16 +119,16 @@ let avL, avT;
 export function openChat(id) {
   const ch = get(id); if (!ch) return; if (top()?.cls != 'chatapp') { home(); APPS.chat.open(); } ch.unread = 0; saveD();
   const cf = ch.cfg, cls = () => `chat st-${sty(ch)} ${ch.type == 'g' ? 'grp' : ''} ${cf.dark ? 'dark' : ''} sh-${cf.shape || 'def'} av-${cf.avs || 'def'} ${cf.showAv ? '' : 'noav'} ${cf.cont ? 'cont' : ''}`;
-  let ptab = S.stk.packs[0] || 'fav', q = null; const pkC = {};
+  let ptab = null, q = null; const pkC = {};
   // 表情面板（仿微信）：上面一排图标：搜索、Emoji、我的表情、添加的表情包组、＋表情商店；下面是这一组的表情（带名字）
   const SRCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>';
-  const pbar = () => { S.stk.packs.some(id => !coverNow(id)) && warm(); if (!['emo', 'fav', ...S.stk.packs].includes(ptab)) ptab = 'fav'; const it = (x, h, t = '') => `<b data-a="ptab" data-x="${x}" class="pi ${ptab == x ? 'on' : ''}" title="${t}">${h}</b>`; return `<div class="pbar"><b class="pi" data-a="stks" title="搜索表情">${SRCH}</b>${it('emo', '<i>😀</i>', 'Emoji')}${it('fav', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>', '我的表情')}${S.stk.packs.map(id => it(id, coverNow(id) ? imgH(coverNow(id)) : `<i>${esc((packMeta(id)?.name || '?')[0])}</i>`, packMeta(id)?.name)).join('')}<b class="pi add" data-a="pstore" title="表情商店">＋</b></div>`; };
+  const pbar = () => { stkMig(); ptab ??= S.stk.packs[0] || 'fav'; S.stk.packs.some(id => !coverNow(id)) && warm(); if (!['emo', 'fav', ...S.stk.packs].includes(ptab)) ptab = 'fav'; const it = (x, h, t = '', lp = '') => `<b data-a="ptab" data-x="${x}" ${lp && `data-lp="${lp}"`} class="pi ${ptab == x ? 'on' : ''}" title="${t}">${h}</b>`; return `<div class="pbar"><b class="pi" data-a="stks" title="搜索表情">${SRCH}</b>${it('emo', '<i>😀</i>', 'Emoji')}${it('fav', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>', '我的表情')}${S.stk.packs.map(id => it(id, coverNow(id) ? imgH(coverNow(id)) : `<i>${esc((packMeta(id)?.name || '?')[0])}</i>`, packMeta(id)?.name, 'plp')).join('')}<b class="pi add" data-a="pstore" title="表情商店">＋</b></div>`; };
   const pgrid = () => {
     if (ptab == 'emo') return `<div class="pgrid emo">${EMOJI.map(e => `<i data-a="emo" data-x="${e}">${e}</i>`).join('')}</div>`;
-    if (ptab == 'fav') return `<div class="ph"><b>我的表情</b><span data-a="pstore">表情商店 ›</span></div><div class="pgrid">${S.assets.sticker.map((s, i) => `<div class="sk" data-a="sk" data-x="${i}"><img src="${esc(s.img)}" loading="lazy" referrerpolicy="no-referrer"><small>${esc(s.name)}</small></div>`).join('')}<div class="sk add" data-a="skadd">＋<small>添加</small></div></div>`;
+    if (ptab == 'fav') return `<div class="ph"><b>我的表情</b><span data-a="pmine">管理 ›</span></div><div class="pgrid">${S.assets.sticker.map((s, i) => `<div class="sk" data-a="sk" data-lp="flp" data-x="${i}"><img src="${esc(s.img)}" loading="lazy" referrerpolicy="no-referrer"><small>${esc(s.name)}</small></div>`).join('')}<div class="sk add" data-a="skadd">＋<small>添加</small></div></div>`;
     const pk = pkC[ptab], m = packMeta(ptab);
     if (!pk) { const id = ptab; pack(id).then(p => { pkC[id] = p || { items: [] }; ptab == id && $('.pan.on', pg.el) && pan('stk', 1); }, () => { pkC[id] = { items: [] }; }); return `<div class="ph"><b>${esc(m?.name || '')}</b></div><div class="sks-st sm"><i class="spin"></i></div>`; }
-    return `<div class="ph"><b>${esc(m?.name || '')}</b><span data-a="pinfo" data-x="${ptab}">详情 ›</span></div>${pk.items.length ? `<div class="pgrid ${pk.sm ? 'sm' : ''}">${pk.items.map((x, i) => `<div class="sk" data-a="psk" data-x="${i}">${imgH(x)}${x.l ? `<small>${esc(x.l)}</small>` : ''}</div>`).join('')}</div>` : '<div class="sks-st sm">表情库暂时连不上，稍后再试</div>'}`;
+    return `<div class="ph"><b>${esc(m?.name || '')}</b><span data-a="pinfo" data-x="${ptab}">详情 ›</span></div>${pk.items.length ? `<div class="pgrid ${pk.sm ? 'sm' : ''}">${pk.items.map((x, i) => `<div class="sk" data-a="psk" data-lp="pklp" data-x="${i}">${imgH(x)}${x.l ? `<small>${esc(x.l)}</small>` : ''}</div>`).join('')}</div>` : '<div class="sks-st sm">表情库暂时连不上，稍后再试</div>'}`;
   };
   const panHtml = k => k == 'stk' ? pbar() + `<div class="pbody">${pgrid()}</div>`
     : `<div class="pgrid tools">${[['pimg', '相册', '🖼'], ['pai', 'AI生图', '🎨'], ['ptf', '转账', '¥'], ['ppat', '拍一拍', '👋'], ['pvo', '语音', '🎙'], ['pgen', '让TA回复', '✨']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${i}</i>${l}</div>`).join('')}</div>`;
@@ -137,10 +137,10 @@ export function openChat(id) {
   const pat = t => { push(ch, { t: 'pat', c: t == 'me' ? `“我” 拍了拍自己${D().me.ps || ''}` : `“我” 拍了拍 “${nm(get(t))}”${get(t).ps || ''}` }); shake(); };
   const tool = async f => { $('.pan', pg.el).classList.remove('on'); await f(); };
   const pg = page({
-    chat: id, live: 1, model: () => ch, cls: cls(), pan: (k, keep) => pan(k, keep), onClose: () => setTimeout(() => emit('chat')),
+    chat: id, live: 1, model: () => ch, cls: cls(), pan: (k, keep) => pan(k, keep), pkC, onClose: () => setTimeout(() => emit('chat')),
     title: () => `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
     right: () => `<b data-a="cset">${I.more}</b>`, body: () => msgs(ch),
-    foot: () => `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="发消息…"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg></button></div><div class="pan"></div>`,
+    foot: () => `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="发消息…"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg><svg class="s-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5c.6 4.6 3 7 7.6 7.6-4.6.6-7 3-7.6 7.6-.6-4.6-3-7-7.6-7.6 4.6-.6 7-3 7.6-7.6Z"/><path d="M18.5 14.5c.3 2.1 1.3 3.1 3.4 3.4-2.1.3-3.1 1.3-3.4 3.4-.3-2.1-1.3-3.1-3.4-3.4 2.1-.3 3.1-1.3 3.4-3.4Z"/></svg></button></div><div class="pan"></div>`,
     after: el => {
       const keep = el.classList.contains('in'); el.className = `pg ${cls()}${keep ? ' in' : ''}`;
       const b = $('.pg-b', el), ip = $('.ip', el), go = $('.go', el); b.style.background = cf.bg ? `url("${cf.bg}") center/cover` : '';
@@ -155,7 +155,15 @@ export function openChat(id) {
       pan, cset: () => cset(ch), qx: () => { q = null; qbar(); },
       ptab: x => { ptab = x; pan('stk', 1); },
       psk: i => { const x = pkC[ptab]?.items[i]; x && push(ch, msgOf(x)); },
-      pinfo: id => packPage(id, m => push(ch, m)),
+      pinfo: id => packPage(id, m => push(ch, m)), pmine: () => minePage(m => push(ch, m)),
+      // 长按：表情包组图标 → 移到前面 / 移除；我的表情 → 移到前面 / 删除；组里的表情 → 存到我的表情
+      plp: async id => { const k = await menu([['top', '移到前面'], ['rm', mine(id) ? '删除这一组' : '移除', 'danger']], packMeta(id)?.name); if (!k) return;
+        if (k == 'top') { S.stk.packs = [id, ...S.stk.packs.filter(x => x != id)]; C().saveSettingsDebounced(); return pan('stk', 1); }
+        if (mine(id) && !await ok(`删除「${packMeta(id).name}」？自己导入的表情会一起删掉`)) return; mine(id) ? rmMine(id) : rmPack(id); pan('stk', 1); },
+      flp: async i => { const L = S.assets.sticker, k = await menu([['top', '移到前面'], ['del', '删除', 'danger']], L[i]?.name); if (!k) return; const [x] = L.splice(i, 1); k == 'top' ? L.unshift(x) : drop(x); C().saveSettingsDebounced(); pan('stk', 1); },
+      pklp: async i => { const x = pkC[ptab]?.items[i], own = mine(ptab); if (!x) return; const k = await menu([['fav', '添加到「我的表情」'], ...(own ? [['top', '移到前面'], ['del', '删除', 'danger']] : [])], x.l); if (!k) return;
+        if (k == 'fav') { S.assets.sticker.unshift({ id: uid(), name: x.l || '表情', img: x.img }); C().saveSettingsDebounced(); return toast('已添加到「我的表情」'); }
+        const [y] = own.items.splice(i, 1); k == 'top' ? own.items.unshift(y) : drop(y); C().saveSettingsDebounced(); delete pkC[ptab]; pan('stk', 1); },
       pstore: () => storePage(m => { push(ch, m); }),
       emo: e => { const ip = $('.ip', pg.el); ip.value += e; ip.oninput(); },
       stks: () => stkPage(m => push(ch, m)),
@@ -203,7 +211,7 @@ export function cset(ch) {
       g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}<p class="tip">「加好友」：把群里还不认识的人加进通讯录，就能私聊了。</p>`],
       ['tr', '翻译', g ? '<p class="tip">群聊里每个成员的语言跟随 TA 私聊窗口的翻译设置（成员名后面会标出语言）。</p>' + f.tog('cfg.trOpen', '默认展开翻译')
         : f.sel('cfg.lang', '对方说的语言', LANGS) + f.tog('cfg.trOpen', '默认展开中文翻译') + f.tog('cfg.trMine', '把我的消息翻译成对方语言') + '<p class="tip">对方直接用外语回复，中文译文和消息在同一次回复里一起生成，按人设语气翻，不额外调用 API。你的消息只用酒馆自带的谷歌/必应机翻，绝不调用聊天模型；机翻失败就保留原文。</p>'],
-      ['rd', '互动', f.tog('cfg.read', '显示已读 / 未读') + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + '<p class="tip">拍一拍：双击头像拍对方；对方也会不时拍你一下，画面会轻轻抖动。角色还可能贴表情、引用消息、撤回或“已读不回”。</p>'],
+      ['rd', '互动', f.tog('cfg.auto', '发完消息自动回复') + '<p class="tip">关着时：想发几条就发几条，发完点输入框右边的 ✦ 让对方回复。打开后：停止打字 1.5 秒就自动回复。</p>' + f.tog('cfg.read', '显示已读 / 未读') + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + '<p class="tip">拍一拍：双击头像拍对方；对方也会不时拍你一下，画面会轻轻抖动。角色还可能贴表情、引用消息、撤回或“已读不回”。</p>'],
       ['look', '美化', f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],

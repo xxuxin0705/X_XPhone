@@ -1,7 +1,7 @@
 // 聊天 · 数据层：联系人/群/消息的增删改，以及剧情同步 delta 的应用
 import { C, S, D, saveD, uid, ui, top, now, genImg, emit, merge, byId, nm, meObj, fail, drop } from '../../core.js';
 
-export const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', lang: '', trOpen: false, trMine: false, inj: false, read: true, pat: true };
+export const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', lang: '', trOpen: false, trMine: false, inj: false, read: true, pat: true, auto: false };
 export const STY = [['wx', '仿微信'], ['qq', '仿QQ'], ['kk', '仿KakaoTalk'], ['line', '仿LINE']];
 export const TN = { wx: '微信', qq: '消息', kk: '聊天', line: '聊天' }, CN = { wx: '通讯录', qq: '联系人', kk: '联系人', line: '联系人' };
 export const FS = { wx: 'wx', qq: 'qq', kk: 'tw', line: 'tw' }, FN = { wx: '朋友圈', qq: 'QQ空间', kk: '动态', line: '动态' };

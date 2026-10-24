@@ -134,7 +134,7 @@ export function inlineSync(id) {
     if (k == '私聊' && f.length >= 4) { me(f[1]) ? d.msgs.push({ chat: f[2], from: u, text: rest(3) }) : me(f[2]) && d.msgs.push({ chat: f[1], from: f[1], text: rest(3) }); }
     else if (k == '群聊' && f.length >= 4) { d.groups.push({ name: f[1], members: me(f[2]) ? [] : [f[2]] }); d.msgs.push({ chat: f[1], from: me(f[2]) ? u : f[2], text: rest(3) }); }
     else if ((k == '朋友圈' || k == '动态') && f[2]) d.posts.push({ author: me(f[1]) ? u : f[1], text: rest(2) });
-    else if (k == '加好友' && f[1] && !me(f[1])) d.contacts.push({ real: f[1], nick: f[2] || f[1] });
+    else if (k == '加好友' && f[1] && !me(f[1])) d.contacts.push({ real: f[1], nick: f[2] || f[1], lang: langOf(f[3]) || '' });
     else if (k == '拉群' && f[1]) d.groups.push({ name: f[1], members: String(f[2] || '').split(/[,，、]/).map(x => x.trim()).filter(x => x && !me(x)) });
     else if (k == '转账' && f.length >= 4) { const t = { type: 'transfer', amount: parseFloat(f[3]) || 0, text: rest(4) }; me(f[2]) ? d.msgs.push({ chat: f[1], from: f[1], ...t }) : me(f[1]) && d.msgs.push({ chat: f[2], from: u, ...t }); }
     else if (k == '拍一拍' && f[1] && !me(f[1])) d.msgs.push({ chat: f[1], from: f[1], type: 'pat', text: rest(2) || '拍了拍你' });
@@ -159,21 +159,23 @@ const list = () => vis().sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(
 }).join('') || `<div class="empty"><p>还没有聊天 ✧</p>${btn('tab', '去通讯录添加联系人', 'ct', 'pri')}</div>`;
 const post = (p, fs) => {
   const a = p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' }, me = nm(meObj()), lk = p.likes.includes(me);
-  return `<article class="po"><img class="av" src="${esc(avOf(a))}" data-a="pfeed" data-x="${p.a}"><div class="po-m"><b class="po-n">${esc(nm(a))}</b>${fs == 'tw' ? `<small class="po-h">@${esc(a.nick || a.real)} · ${ago(p.ts)}</small>` : ''}<p>${esc(p.c)}</p>${p.url ? `<img class="po-i" src="${esc(p.url)}">` : p.imgd ? `<div class="picd">🖼 ${esc(p.imgd)}</div>` : ''}
+  return `<article class="po"><img class="av" src="${esc(avOf(a))}" data-a="pfeed" data-x="${p.a}"><div class="po-m"><b class="po-n">${esc(fs == 'tw' ? a.real || a.nick || nm(a) : nm(a))}</b>${fs == 'tw' ? `<small class="po-h">@${esc(a.nick || a.real)} · ${ago(p.ts)}</small>` : ''}<p>${esc(p.c)}</p>${p.url ? `<img class="po-i" src="${esc(p.url)}">` : p.imgd ? `<div class="picd">🖼 ${esc(p.imgd)}</div>` : ''}
 <div class="po-a">${fs != 'tw' ? `<time>${ago(p.ts)}</time>` : ''}<span data-a="like" data-x="${p.id}" class="${lk ? 'on' : ''}">${lk ? '♥' : '♡'} ${p.likes.length || ''}</span><span data-a="cmt" data-x="${p.id}">💬 ${p.cm.length || ''}</span>${p.a == 'me' ? `<span data-a="pdel" data-x="${p.id}">删除</span>` : ''}</div>
 ${p.likes.length || p.cm.length ? `<div class="po-c">${p.likes.length ? `<div class="lk">♡ ${esc(p.likes.join('，'))}</div>` : ''}${p.cm.map(c => `<div><b>${esc(c.f)}</b>：${esc(c.c)}</div>`).join('')}</div>` : ''}</div></article>`;
 };
 function feed(aid, st = S.style) {
   const fs = FS[st], u = aid && aid != 'me' ? get(aid) : meObj(), ps = D().posts.filter(p => !aid || p.a == aid), sg = esc(u?.sign || ''), av = esc(avOf(u)), n = esc(nm(u));
-  const hd = fs == 'wx' ? `<div class="fw-cv" ${(!aid || aid == 'me') && D().me.cover ? `style="background-image:url('${esc(D().me.cover)}')"` : ''}><b>${n}</b><img class="av" src="${av}"></div><p class="fw-sg">${sg}</p>`
-    : fs == 'qq' ? `<div class="fq-h"><img class="av" src="${av}"><div><b>${n}</b><small>${sg || '这个人很懒～'}</small></div></div><div class="fq-n">${['说说', '日志', '相册', '留言', '更多'].map(x => `<span><i>${x[0]}</i>${x}</span>`).join('')}</div>${aid ? '' : '<div class="fq-in" data-a="post">分享新鲜事...</div>'}`
-      : `<div class="ft-h"><img class="av" src="${av}"><b>${n}</b><small>@${esc(u?.nick || u?.real)}</small>${sg ? `<p>${sg}</p>` : ''}</div>`;
+  // 封面：自己的存在「我」里，别人的存在联系人里；点封面就能换（相册上传 / 图片链接）
+  const cov = (!aid || aid == 'me') ? D().me.cover : u?.cover, cs = cov ? `style="background-image:url('${esc(cov)}')"` : '', ck = `data-a="fcov" data-x="${aid && aid != 'me' ? aid : 'me'}"`, tip = cov ? '' : '<i class="cv-tip">轻点设置封面</i>';
+  const hd = fs == 'wx' ? `<div class="fw-cv" ${ck} ${cs}>${tip}<b>${n}</b><img class="av" src="${av}"></div><p class="fw-sg">${sg}</p>`
+    : fs == 'qq' ? `<div class="fq-cv" ${ck} ${cs}>${tip}</div><div class="fq-h"><img class="av" src="${av}"><div><b>${n}</b><small>${sg || '这个人很懒～'}</small></div></div><div class="fq-n">${['说说', '日志', '相册', '留言', '更多'].map(x => `<span><i>${x[0]}</i>${x}</span>`).join('')}</div>${aid ? '' : '<div class="fq-in" data-a="post">分享新鲜事...</div>'}`
+      : `<div class="ft-cv" ${ck} ${cs}>${tip}</div><div class="ft-h"><img class="av" src="${av}"><b>${esc(u?.real || u?.nick || '')}</b><small>@${esc(u?.nick || u?.real)}</small>${sg ? `<p>${sg}</p>` : ''}</div>`; // 推特式：真实姓名 + @网名
   return `<div class="feed f-${fs}">${hd}${ps.map(p => post(p, fs)).join('') || '<p class="empty">还没有动态，点右上角 ✦ 让大家发点什么</p>'}</div>`;
 }
 const meP = () => {
   const f = fx(D().me), m = meObj();
-  return `<div class="me-c" data-a="img" data-x="av"><img class="av" src="${esc(avOf(m))}"><div><b>${esc(m.nick)}</b><small>${esc(m.sign || '点击头像更换 · 下方编辑签名')}</small></div></div>${sec('me', [
-    ['p', '个人资料', f.inp('nick', '昵称') + f.inp('sign', '签名') + f.inp('ps', '我的拍一拍后缀', 'text', '如：的小脑袋') + f.img('cover', '动态封面')],
+  return `<div class="me-c" data-a="img" data-x="av"><img class="av" src="${esc(avOf(m))}"><div><b>${esc(m.nick)}</b><small>真实姓名：${esc(m.real)}</small><small>${esc(m.sign || '点击头像更换 · 下方编辑签名')}</small></div></div>${sec('me', [
+    ['p', '个人资料', f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名', 'text', C().name1 + '（默认酒馆里的名字）') + f.inp('sign', '签名') + f.inp('ps', '我的拍一拍后缀', 'text', '如：的小脑袋') + f.img('cover', '动态封面')],
     ['w', '钱包', `<div class="wal"><small>余额</small><b>¥${(+D().me.wallet || 0).toFixed(2)}</b></div>` + f.inp('wallet', '修改余额', 'number')],
     ['s', '默认风格', f.seg('$style', STY) + '<p class="tip">决定新聊天样式与动态页：微信→朋友圈 / QQ→空间 / Kakao·LINE→推特式动态。单个聊天可在聊天设置里单独改。</p>'],
     ['d', '我的动态', btn('myfeed', '查看我的' + FN[S.style])]])}`;
@@ -188,6 +190,7 @@ async function genFeed(aid) {
   task('正在生成动态', async sg => { const ps = json(await llm(await sysCtx(), `为${who || '联系人们（挑2-3位）'}生成${who ? 2 : 3}条贴合人设与当前剧情的${FN[S.style]}动态，可附带其他联系人的点赞和评论，可以提到${meObj().nick}。\n只输出JSON：{"posts":[{"author":"真实姓名","text":"","img":"配图画面描述(可空)","likes":["名字"],"comments":[{"from":"名字","text":""}]}]}`, '生成动态', sg))?.posts; if (!ps) throw Error('返回格式不对'); applyDelta({ posts: ps }); return `新增 ${ps.length} 条动态`; });
 }
 const FA = {
+  fcov: async (x, t, e, pg) => { const o = x == 'me' ? D().me : get(x); if (!o) return; const v = await pickImg(1080, 'cover'); if (v == null) return; drop(o.cover); o.cover = v; saveD(); emit('chat'); pg?.re?.(); },
   like: id => { const p = P(id), me = nm(meObj()); p.likes = p.likes.includes(me) ? p.likes.filter(x => x != me) : [...p.likes, me]; saveD(); emit('chat'); },
   cmt: async id => {
     const p = P(id), r = await form('评论', [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c }); saveD(); emit('chat'); if (p.a == 'me') return;
@@ -245,7 +248,7 @@ ${T('notice', '群公告', g.notice, '', '可留空')}</div></div>`;
     if (!ok) { drop(items.map(x => x[1].av)); return toast('已取消，这次生成的都没有添加'); }
     const C2 = st.c.filter((c, i) => keep.has('c' + i)), G = st.g.filter((g, i) => keep.has('g' + i)).map(g => ({ ...g, owner: isMe(g.owner) ? '' : R(g.owner), admins: g.admins.map(R), members: g.members.map(R), titles: Object.fromEntries(Object.entries(g.titles || {}).filter(([n, t]) => t && g.members.includes(n)).map(([n, t]) => [R(n), t])) }));
     applyDelta({ contacts: C2.map(c => ({ ...c, nick: c.nick || c.real })), groups: G });
-    C2.forEach(c => { const x = find(c.real, 'p'); x && (Object.assign(x, { nick: c.nick || c.real, remark: c.remark, sex: c.sex, ps: c.ps, sign: c.sign }), c.av && (x.av = c.av), (x.cfg ||= {}).lang = c.lang); }); // 以确认卡为准
+    C2.forEach(c => { const x = find(c.real, 'p'); x && (Object.assign(x, { nick: c.nick || c.real, remark: c.remark, sex: c.sex, ps: c.ps, sign: c.sign }), c.av && (x.av = c.av), c.lang != null && ((x.cfg ||= {}).lang = c.lang)); }); // 以确认卡为准
     G.forEach(g => { const x = find(g.name, 'g'); x && (x.no = g.no || x.no, g.av && (x.av = g.av)); });
     drop([...st.c.filter((c, i) => !keep.has('c' + i)), ...st.g.filter((g, i) => !keep.has('g' + i))].map(x => x.av)); // 没要的人换过的头像删掉
     saveD(); emit('chat');
