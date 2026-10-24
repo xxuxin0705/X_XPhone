@@ -1,7 +1,7 @@
 // 小手机 · 锁屏：动态壁纸 / 时间 / 上滑解锁 / 4 位数字密码或手势密码
 // 密码三选一：4 位数字 / 手势 / 指纹（模拟）。备用密码 0000：不能修改、永远有效
 import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc } from './core.js';
-import { mountScene, sceneInk, SCENES } from './lockfx.js';
+import { mountScene, sceneInk, sceneKey, SCENES } from './lockfx.js';
 
 export const BACKUP = '0000';
 const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };
@@ -9,7 +9,7 @@ export const setPin = p => (S.lock.pin = hash('p' + p), save());
 export const setGest = g => (S.lock.gest = hash('g' + g), save());
 const okPin = p => p == BACKUP || (!!S.lock.pin && hash('p' + p) == S.lock.pin);
 const okGest = g => !!S.lock.gest && hash('g' + g) == S.lock.gest;
-export const wpName = () => S.lock.wp == 'video' ? '自定义视频' : SCENES.find(x => x[0] == S.lock.wp)?.[1] || '光之教堂';
+export const wpName = () => S.lock.wp == 'video' ? '自定义视频' : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
 
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
 const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></svg>';
@@ -111,6 +111,7 @@ export function askFp(done) {
 /* ---------- 锁屏本体 ---------- */
 let el, fx, locked = false, iv, vurl;
 export const isLocked = () => locked;
+export const lockFx = () => fx; // 测试 / 调试用：当前锁屏场景
 const visible = () => ui.root?.classList.contains('on');
 function clock() {
   if (!el) return; const d = now(), u = D().chats.reduce((a, c) => a + (c.unread || 0), 0);
@@ -119,7 +120,7 @@ function clock() {
 }
 async function wallpaper() {
   const bg = $('.lk-bg', el); fx?.stop(); fx = null; vurl && URL.revokeObjectURL(vurl); vurl = '';
-  const k = S.lock.wp == 'video' && S.lock.video ? 'video' : S.lock.wp || 'cathedral', ink = sceneInk(k);
+  const k = S.lock.wp == 'video' && S.lock.video ? 'video' : sceneKey(S.lock.wp), ink = sceneInk(k);
   el.style.setProperty('--lk-ink', k == 'video' ? '#fff' : ink.ink); el.style.setProperty('--lk-shade', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   ui.scr.style.setProperty('--lk-sb', k == 'video' ? '#fff' : ink.ink); ui.scr.style.setProperty('--lk-sbs', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   if (k == 'video') { const src = await mediaSrc(S.lock.video).catch(() => ''); src.startsWith('blob:') && (vurl = src); bg.innerHTML = `<video src="${esc(src)}" autoplay muted loop playsinline></video>`; $('video', bg).play?.().catch(() => {}); return; }
@@ -129,17 +130,34 @@ export function lock(preview) {
   el ||= ui.lock; if (!el) return; lockMig();
   locked = true; el.hidden = false; el.className = 'lock' + (preview ? ' pv' : '') + (fpOn() ? ' fp' : ''); ui.scr.classList.add('locked');
   el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock"><small class="lk-date"></small><b class="lk-time"></b>${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
-<div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${preview ? '预览 · 上滑退出' : fpOn() ? '按住指纹解锁 · 上滑用备用密码' : '向上滑动解锁'}</span></div></div><div class="lk-auth" hidden></div>`;
+<div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${hintText(preview)}</span></div></div><div class="lk-auth" hidden></div>`;
   wallpaper(); clock(); clearInterval(iv); iv = setInterval(() => locked && visible() && clock(), 1e3);
+  if (fx?.interactive) { const h = $('.lk-hint span', el); h.textContent = '轻点圣诞树和雪人 · 雪地上可以写字'; setTimeout(() => locked && h.isConnected && (h.textContent = hintText(preview)), 3800); }
   swipe(preview);
   const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑用备用密码'), 1600); });
 }
+const hintText = preview => preview ? '预览 · 从底部上滑退出' : fpOn() ? '按住指纹解锁 · 上滑用备用密码' : '从底部向上滑动解锁';
+// 动态锁屏可以互动（雪地写字、点圣诞树…）：从屏幕底部上滑才是解锁；其他地方的触摸交给场景
 function swipe(preview) {
   const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0;
   const go = () => preview || !S.lock.pw ? unlock() : auth(S.lock.type == 'fp'); // 指纹模式上滑 = 备用密码
-  u.addEventListener('pointerdown', e => { if (e.target.closest('.lk-auth')) return; y0 = e.clientY; t0 = Date.now(); dy = 0; u.style.transition = 'none'; });
-  u.addEventListener('pointermove', e => { if (y0 == null) return; dy = Math.min(0, e.clientY - y0); u.style.transform = `translateY(${dy * .6}px)`; u.style.opacity = 1 + dy / 420; });
-  const up = () => { if (y0 == null) return; y0 = null; u.style.transition = ''; u.style.transform = u.style.opacity = ''; (dy < -70 || dy / Math.max(1, Date.now() - t0) < -.5) && go(); };
+  let mode = '', x0 = 0;
+  u.addEventListener('pointerdown', e => {
+    if (e.target.closest('.lk-auth,.lk-fp,.lk-note') || el.classList.contains('authing')) return;
+    const r = el.getBoundingClientRect(), bottom = e.clientY > r.bottom - r.height * .12;
+    mode = !bottom && fx?.interactive ? (fx.input('down', e.clientX, e.clientY) ? 'fx' : 'both') : 'swipe'; x0 = e.clientX;
+    if (mode == 'fx') { u.setPointerCapture?.(e.pointerId); return; }
+    y0 = e.clientY; t0 = Date.now(); dy = 0; u.style.transition = 'none';
+  });
+  u.addEventListener('pointermove', e => {
+    if (mode == 'fx' || mode == 'both') fx?.input('move', e.clientX, e.clientY); if (mode == 'fx' || y0 == null) return;
+    dy = Math.min(0, e.clientY - y0); if (mode == 'both' && dy > -30) return; u.style.transform = `translateY(${dy * .6}px)`; u.style.opacity = 1 + dy / 420;
+  });
+  const up = e => {
+    if (mode == 'fx' || mode == 'both') fx?.input(e?.type == 'pointercancel' ? 'cancel' : 'up', e?.clientX ?? x0, e?.clientY ?? y0); if (mode == 'fx') { mode = ''; return; }
+    if (y0 == null) return; y0 = null; u.style.transition = ''; u.style.transform = u.style.opacity = '';
+    const fast = dy / Math.max(1, Date.now() - t0); (mode == 'swipe' ? dy < -70 || fast < -.5 : dy < -160 && fast < -.6) && go(); mode = '';
+  };
   u.addEventListener('pointerup', up); u.addEventListener('pointercancel', up);
   $('.lk-hint', el).addEventListener('click', e => { e.stopPropagation(); go(); });
   el.onkeydown = e => { if (/^\d$/.test(e.key)) el._pad?.key?.(e.key); else if (e.key == 'Backspace') el._pad?.key?.('del'); else if (e.key == 'Enter' && !el.classList.contains('authing')) go(); };

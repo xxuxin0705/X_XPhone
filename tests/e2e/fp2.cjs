@@ -23,13 +23,13 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await hold('.lock .lk-fp', 150); ok(await E(`lk.isLocked()`), 'short tap does not unlock');
   await hold('.lock .lk-fp', 750); await p.waitForTimeout(500); ok(!(await E(`lk.isLocked()`)), 'press & hold unlocks');
   await E(`document.querySelector('#stp .off').click()`); await p.click('#stp-ball'); await p.waitForTimeout(600);
-  await p.mouse.move(195, 450); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(195, 450 - i * 30); await p.mouse.up(); await p.waitForTimeout(500);
+  { const r = await E(`(() => { const b = document.querySelector('#stp .lock').getBoundingClientRect(); return [b.left + b.width / 2, b.bottom - 30]; })()`); await p.mouse.move(r[0], r[1]); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(r[0], r[1] - i * 30); await p.mouse.up(); } await p.waitForTimeout(500);
   ok(await E(`document.querySelector('.lock .lk-t').textContent == '输入备用密码' && document.querySelector('.lock .lk-msg').textContent == '备用密码 0000'`), 'fingerprint mode: swipe up → backup pad saying 备用密码 0000');
   ok(await E(`getComputedStyle(document.querySelector('.lk-ui')).opacity == '0'`), 'clock / sensor / hint hidden behind the keypad (no overlap)');
   await p.screenshot({ path: path.join(OUT, 'fp2_backup.png') });
   for (const d of '0000') await p.click(`.lock .lk-pad [data-n="${d}"]`); await p.waitForTimeout(600); ok(!(await E(`lk.isLocked()`)), '0000 unlocks');
-  await E(`Object.assign(core.S.lock, { type: 'pin', pin: '' }); lk.lock()`); await p.waitForTimeout(300);
-  await p.mouse.move(195, 450); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(195, 450 - i * 30); await p.mouse.up(); await p.waitForTimeout(400);
+  await E(`Object.assign(core.S.lock, { type: 'pin', pin: '' }); lk.lock()`); await p.waitForTimeout(800);
+  { const r = await E(`(() => { const b = document.querySelector('#stp .lock').getBoundingClientRect(); return [b.left + b.width / 2, b.bottom - 30]; })()`); await p.mouse.move(r[0], r[1]); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(r[0], r[1] - i * 30); await p.mouse.up(); } await p.waitForTimeout(400);
   await E(`[...document.querySelectorAll('.lock .lk-ft b')].find(b => b.textContent.includes('忘记')).click()`); await p.waitForTimeout(200);
   ok(await E(`document.querySelector('.lock .lk-msg').textContent == '备用密码 0000'`), 'PIN mode: 忘记密码？ → 备用密码 0000');
   ok(!(await E(`!!document.querySelector('.lock .lk-fp')`)), 'PIN mode shows no fingerprint sensor');

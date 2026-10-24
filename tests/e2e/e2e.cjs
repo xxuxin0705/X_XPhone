@@ -19,16 +19,16 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const E = s => p.evaluate(s);
   await E(`(async () => { window.core = await import('/core.js'); window.lk = await import('/lock.js'); })()`);
   const shot = n => p.screenshot({ path: path.join(OUT, n + '.png') });
-  const swipeUp = async () => { await p.mouse.move(195, 600); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(195, 600 - i * 30); await p.mouse.up(); await p.waitForTimeout(150); };
+  const swipeUp = async () => { const r = await E(`(() => { const b = document.querySelector('#stp .lock').getBoundingClientRect(); return [b.left + b.width / 2, b.bottom - 30]; })()`); await p.mouse.move(r[0], r[1]); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(r[0], r[1] - i * 30); await p.mouse.up(); await p.waitForTimeout(150); };
   const open = () => p.click('#stp-ball');
   const isOn = () => E(`document.querySelector('#stp').classList.contains('on')`);
 
   console.log('L1 lock screen appears when phone opened; swipe unlocks (no password)');
-  await E(`core.S.lock.on = true; core.S.lock.wp = 'cathedral'; core.S.lock.text = 'since 2026.02.21 · still counting'`);
+  await E(`core.S.lock.on = true; core.S.lock.wp = 'cathedral' /* 旧主题名：应自动换成雪夜 */; core.S.lock.text = 'since 2026.02.21 · still counting'`);
   await open(); await p.waitForTimeout(400);
   ok(await isOn() && await E(`!document.querySelector('#stp .lock').hidden && lk.isLocked()`), 'lock screen showing on first open');
   ok(/\d\d:\d\d/.test(await E(`document.querySelector('.lk-time').textContent`)) && /星期/.test(await E(`document.querySelector('.lk-date').textContent`)), 'clock + date rendered: ' + await E(`document.querySelector('.lk-date').textContent + ' ' + document.querySelector('.lk-time').textContent`));
-  await p.waitForTimeout(1500); await shot('lock_cathedral');
+  await p.waitForTimeout(1500); await shot('lock_snownight'); ok(await E(`!!document.querySelector('.lk-bg canvas')`), 'old scene name falls back to 雪夜');
   await swipeUp(); await p.waitForTimeout(600);
   ok(!(await E(`lk.isLocked()`)) && await E(`document.querySelector('#stp .lock').hidden`), 'swipe up unlocked (no password)');
   await E(`document.querySelector('#stp .off').click()`); await p.waitForTimeout(200); await open(); await p.waitForTimeout(300);
@@ -90,7 +90,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   console.log('L5 video lock wallpaper (≤5s) + theme picker');
   const vid = fs.readFileSync(path.join(here, 'v3.mp4')).toString('base64'), vlong = fs.readFileSync(path.join(here, 'v8.mp4')).toString('base64');
   await E(`core.home(); core.APPS.theme.open()`); await p.waitForTimeout(1500); await shot('theme_lock');
-  ok(await E(`document.querySelectorAll('.lwg canvas[data-fx]').length == 6`), '6 live scene previews in theme');
+  ok(await E(`document.querySelectorAll('.lwg canvas[data-fx]').length == 1`), 'live 雪夜 preview in theme');
   const pick = async b64 => { const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('.lw.vid').click()`)]); await fc.setFiles({ name: 'v.mp4', mimeType: 'video/mp4', buffer: Buffer.from(b64, 'base64') }); await p.waitForTimeout(1500); };
   await pick(vlong); ok(/5 秒以内/.test(await E(`[...document.querySelectorAll('.stp-toast')].map(x => x.textContent).join()`)), '8s video rejected');
   await pick(vid); ok(await E(`core.S.lock.wp == 'video' && /XPhone\\/lock_\\w+\\.mp4$/.test(core.S.lock.video)`), 'video saved to folder: ' + await E('core.S.lock.video'));
@@ -110,6 +110,6 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   console.log('\nerrors:', errs.length ? errs : 'none'); console.log(`${pass} passed, ${fail} failed`);
   // scene screenshots with full lock UI
   await E(`core.S.lock.pw = false`);
-  for (const k of ['cathedral', 'sakura', 'snow', 'rain', 'alice', 'thread']) { await E(`core.S.lock.wp = '${k}'; core.home(); lk.lock(true)`); await p.waitForTimeout(k == 'thread' ? 16000 : 2500); await shot('L_' + k); await E(`lk.unlock()`); await p.waitForTimeout(500); }
+  for (const k of ['snownight']) { await E(`core.S.lock.wp = '${k}'; core.home(); lk.lock(true)`); await p.waitForTimeout(2500); await shot('L_' + k); await E(`lk.unlock()`); await p.waitForTimeout(500); }
   await b.close(); srv.close(); process.exit(fail ? 1 : 0);
 })();

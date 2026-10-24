@@ -26,10 +26,10 @@ const AK = {
   sticker: { n: '表情包', f: [['name', '描述（AI 会按描述发送）'], ['img', '图片', 'img']] },
 };
 const rf = () => top()?.re();
-// 锁屏壁纸：6 个动态场景的实时小预览 + 自定义视频（5 秒内）
+// 锁屏壁纸：动态场景「雪夜」的实时小预览 + 自定义视频（5 秒内）
 let pv = [];
-const lockSec = () => `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${S.lock.wp == k ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}<div class="lw vid ${S.lock.wp == 'video' ? 'on' : ''}" data-a="lwv" data-lp="lwvm">${S.lock.video ? '<video data-v muted loop playsinline autoplay></video>' : '<i>＋</i>'}<span>${S.lock.video ? '自定义视频' : '上传视频'}</span></div></div>`
-  + btn('lprev', '预览锁屏', '', 'pri') + `<p class="tip">动态壁纸只在锁屏亮着时播放。自定义视频要在 5 秒以内，长按可以更换或删除。${S.lock.on ? '' : '<br>还没有开启锁屏：设置 → 锁屏与密码。'}</p>`;
+const lockSec = () => `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${S.lock.wp != 'video' ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}<div class="lw vid ${S.lock.wp == 'video' ? 'on' : ''}" data-a="lwv" data-lp="lwvm">${S.lock.video ? '<video data-v muted loop playsinline autoplay></video>' : '<i>＋</i>'}<span>${S.lock.video ? '自定义视频' : '上传视频'}</span></div></div>`
+  + btn('lprev', '预览锁屏', '', 'pri') + `<p class="tip">动态壁纸只在锁屏亮着时播放。雪夜里可以点圣诞树、点雪人、在雪地上写字，双击天空或摇一摇手机会像摇水晶球。自定义视频要在 5 秒以内，长按可以更换或删除。${S.lock.on ? '' : '<br>还没有开启锁屏：设置 → 锁屏与密码。'}</p>`;
 const mountPv = (el, pg) => {
   pv.forEach(h => h.stop()); pv = [];
   el.querySelectorAll('canvas[data-fx]').forEach(cv => pv.push(mountScene(cv, cv.dataset.fx, { fps: 24, active: () => top() == pg && ui.root.classList.contains('on') && !cv.closest('.fold') })));

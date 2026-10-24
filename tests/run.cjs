@@ -11,6 +11,7 @@ const ALL = {
   send: ['e2e/send.cjs', '发送键：单个图标、等待方块、自动回复、停止'],
   stp: ['e2e/stp.cjs', '酒馆连接配置、状态栏高度、字体大小'],
   ct: ['e2e/ct.cjs', '四种风格的通讯录和加好友页、搜索、推荐'],
+  snow: ['e2e/snow.cjs', '锁屏雪夜：照片底图、点树亮灯、雪地写字、雪人、抖雪、结霜、底部上滑解锁'],
   prov: ['e2e/prov.cjs', '生图 / 语音服务商页：迁移、切换、快选拉取、Fish 网页接口、ElevenLabs'],
 };
 const pick = process.argv.slice(2).filter(k => ALL[k]), keys = pick.length ? pick : Object.keys(ALL);

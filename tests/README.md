@@ -27,6 +27,7 @@ node tests/run.cjs unit ct    # 只跑某几组
 | stp | 酒馆连接配置、状态栏、字体大小 |
 | ct | 四种风格的通讯录和加好友页 |
 | prov | 生图 / 语音服务商页、Fish 网页接口、ElevenLabs |
+| snow | 锁屏「雪夜」的各种互动 |
 
 除了 `real/` 以外，这些测试都是在一个模拟的酒馆（`e2e/st.html`）里跑的，模型接口也是假的，不花额度，也不需要 API Key。
 
