@@ -139,8 +139,10 @@ console.log('T6 TTS providers');
   await core.tts('嗨'); c = calls.at(-1); ok(c.o.headers.Authorization == 'Bearer;K' && c.body.app.cluster == 'volcano_tts' && c.body.request.operation == 'query', '火山 V1');
   P({ prov: 'mimo' }); routes = [[/api\.xiaomimimo\.com\/v1\/chat\/completions/, () => new Response(JSON.stringify({ choices: [{ message: { audio: { data: btoa('mp3') } } }] }))]];
   await core.tts('嗨', '冰糖'); c = calls.at(-1); ok(c.body.model == 'mimo-v2.5-tts' && c.body.messages[0].role == 'assistant' && c.body.audio.voice == '冰糖', 'MiMo body, contact voice wins');
-  P({ prov: 'fish', voice: 'ref123' }); routes = [[/api\.fish\.audio\/v1\/tts/, () => au.clone()]];
-  await core.tts('嗨'); c = calls.at(-1); ok(c.body.reference_id == 'ref123' && c.o.headers.model == 's1', 'Fish Audio');
+  P({ prov: 'fish', voice: 'ref123' }); routes = [[/api\.fish\.audio\/compat\/v1\/audio\/speech/, () => au.clone()]];
+  await core.tts('嗨'); c = calls.at(-1); ok(c.body.voice == 'ref123' && c.body.model == 'fish-audio/s2.1-pro' && c.body.input == '嗨' && c.o.headers.Authorization == 'Bearer K', 'Fish Audio（网页接口，浏览器可直连）');
+  P({ prov: 'eleven' }); routes = [[/api\.elevenlabs\.io\/v1\/text-to-speech\//, () => au.clone()]];
+  await core.tts('嗨', '', '男'); c = calls.at(-1); ok(/text-to-speech\/JBFqnCBsd6RMkjVDRZzb\?/.test(c.url) && c.o.headers['xi-api-key'] == 'K' && c.body.model_id == 'eleven_multilingual_v2', 'ElevenLabs（男声兜底默认 George）');
   P({ prov: 'index', url: 'http://127.0.0.1:6006/audio/speech', voice: 'hutao' }); routes = [[/127\.0\.0\.1:6006\/audio\/speech/, () => au.clone()]];
   await core.tts('嗨'); c = calls.at(-1); ok(c.body.input == '嗨' && c.body.character == 'hutao', 'IndexTTS local');
   P({ prov: 'openai', url: 'https://api.openai.com/v1', voice: 'alloy' }); routes = [[/api\.openai\.com\/v1\/audio\/speech/, () => au.clone()]];
@@ -161,7 +163,7 @@ console.log('T7 image providers');
   // tag conversion through chat model
   P({ prov: 'nai', tag: true }); S.api.chat.list[0].url = 'https://relay.test/v1';
   routes = [[/relay\.test/, () => sse([dc('1girl, school uniform,\nsmile')], 10)], [/novelai/, () => new Response(zipS)]];
-  await core.genImg('一个穿校服微笑的女孩'); c = calls.at(-1); ok(c.body.input == '1girl, school uniform, smile', 'Chinese → tags via chat model: ' + c.body.input);
+  await core.genImg('一个穿校服微笑的女孩'); c = calls.at(-1); ok(c.body.input == 'masterpiece, best quality, very aesthetic, 1girl, school uniform, smile', 'Chinese → tags via chat model (+ NAI default prefix): ' + c.body.input);
   P({ prov: 'sd', url: 'http://127.0.0.1:7860', size: '512x768', model: 'anything-v5' }); routes = [[/sdapi\/v1\/txt2img/, () => new Response(JSON.stringify({ images: [Buffer.from(png).toString('base64')] }))]];
   await core.genImg('cat'); c = calls.at(-1); ok(c.body.width == 512 && c.body.override_settings.sd_model_checkpoint == 'anything-v5', '本地SD');
   P({ prov: 'sf', size: '1024x1024' }); routes = [[/api\.siliconflow\.cn\/v1\/images\/generations/, () => new Response(JSON.stringify({ images: [{ url: 'https://sf.test/a.png' }] }))], [/sf\.test/, () => new Response(png, { headers: { 'content-type': 'image/png' } })]];
@@ -177,15 +179,13 @@ console.log('T8 settings UI: every provider form renders, switching provider swa
 {
   APPS.settings.open(); const set = top();
   for (const t of ['tts', 'img']) {
-    set.acts.api(t); const pg = top();
-    ok(/自选渠道/.test(pg.el.innerHTML) && /新增渠道/.test(pg.el.innerHTML), t + ' page shows 酒馆扩展/自选渠道 + 新增渠道');
-    pg.acts.padd(); await sleep(5); const s = ui.sheets.lastElementChild._pg, m = s.model();
+    S.api[t] = { src: 'custom', cur: '', list: [] }; set.acts.api(t); const pg = top();
     const list = t == 'tts' ? core.TTSP : core.IMGP;
-    ok(m.prov == list[0][0], `${t} new form defaults to ${list[0][1]}`);
-    for (const [k, label] of list) { m.prov = k; s.onChange('prov', k); const h = s.el.querySelector('.pg-b').innerHTML; ok(h.includes('渠道') && h.includes(`value="${k}" selected`) && !/undefined/.test(h), `${t}/${label} form renders`); }
-    if (t == 'img') { m.prov = 'nai'; s.onChange('prov', 'nai'); } if (t == 'img') { m.prov = 'sd'; s.onChange('prov', 'sd'); ok(m.size == '512x768' && m.steps == 20 && m.url == 'http://127.0.0.1:7860', 'switch NAI→SD swaps defaults (size/steps/url)'); }
-    if (t == 'tts') { m.prov = 'volc'; s.onChange('prov', 'volc'); m.ver = 'v1'; s.onChange('ver', 'v1'); ok(s.el.querySelector('.pg-b').innerHTML.includes('Cluster'), 'volc V1 shows Cluster field'); }
-    s.acts.ok(); await sleep(5); ok(S.api[t].list.length >= 1 && S.api[t].list.at(-1).name, `${t} profile saved with name "${S.api[t].list.at(-1).name}"`);
+    ok(/自选服务商/.test(pg.el.innerHTML) && pg.el.innerHTML.includes('data-k="pv"'), t + ' page: 酒馆扩展 / 自选服务商 + 服务商下拉框');
+    ok(S.api[t].pv == list[0][0], `${t} defaults to ${list[0][1]}`);
+    for (const [k, label] of list) { S.api[t].pv = k; core.prof(t); pg.onChange('pv'); const h = pg.el.innerHTML; ok(h.includes(`value="${k}" selected`) && h.includes(`cfg.${k}.`) && !/undefined/.test(h), `${t}/${label} fields render`); }
+    if (t == 'img') { S.api.img.pv = 'sd'; const c = core.prof('img'); ok(c.size == '512x768' && c.steps == 20 && c.url == 'http://127.0.0.1:7860', 'SD has its own defaults (size/steps/url)'); }
+    if (t == 'tts') { S.api.tts.pv = 'volc'; core.prof('tts').ver = 'v1'; pg.onChange('cfg.volc.ver'); ok(pg.el.innerHTML.includes('Cluster'), 'volc V1 shows Cluster field'); }
     core.back();
   }
   // live log page

@@ -743,3 +743,9 @@
 .may-line button{padding:6px 18px;border-radius:8px;background:#0095f6;color:#fff;font-weight:600;font-size:calc(13.5px*var(--fz,1))}
 .may-line .done{padding:6px 14px;border-radius:8px;background:rgba(127,127,127,.14);color:var(--pt);font-weight:600}
 .chatapp.tb-ct:is(.st-wx,.st-kk,.st-line) .pg-back,.nfpg:is(.st-wx,.st-kk,.st-line) .pg-back{color:var(--pt)}
+/* ---------- 生图 / 语音设置：服务商页 ---------- */
+.row .pull+.pull{margin-left:6px}
+.pull.eye{background:rgba(127,127,127,.14);color:var(--pt)}
+.mi small{display:block;margin-top:1px;font-size:calc(11px*var(--fz,1));font-weight:400;opacity:.5;word-break:break-all}
+.tts-ops{display:flex;justify-content:space-between;margin:-2px 18px 4px;font-size:calc(13px*var(--fz,1))}
+.tts-ops b{color:var(--ac);font-weight:500;cursor:pointer}.tts-ops b.danger{color:#ff3b30}

@@ -247,7 +247,17 @@ export const saveLog = () => { try { localStorage.stp_log = JSON.stringify(LOG.s
 const RUN = new Map(); let lt = 0, lq;
 const logUp = now => { clearTimeout(lq); const go = () => { lt = Date.now(); emit('log'); }; now || Date.now() - lt > 700 ? go() : (lq = setTimeout(go, 700)); };
 export const stopCall = id => RUN.get(id)?.abort(Error('已手动中止'));
-export const prof = t => S.api[t].list.find(p => p.id == S.api[t].cur);
+// 聊天模型：配置列表里选一个；生图 / 语音：选一个服务商，每个服务商各存一份设置（切换服务商不丢之前填的）
+export const prof = t => {
+  const a = S.api[t]; if (t == 'chat') return a.list.find(p => p.id == a.cur);
+  if (!a.cfg) { // 旧版「渠道列表」迁移：每个服务商取一份（正在用的优先）
+    a.cfg = {}; const L = a.list || [], cur = L.find(p => p.id == a.cur);
+    [cur, ...L].forEach(p => { const k = p?.prov || 'openai'; p && !a.cfg[k] && (a.cfg[k] = { ...structuredClone(PDEF[t][k] || {}), ...p }); });
+    a.pv ||= cur ? cur.prov || 'openai' : t == 'tts' ? 'mm' : 'nai';
+  }
+  const P = t == 'tts' ? TTSP : IMGP; a.pv = P.some(x => x[0] == a.pv) ? a.pv : P[0][0];
+  const c = a.cfg[a.pv] ||= structuredClone(PDEF[t][a.pv] || {}); c.prov = a.pv; c.name = P.find(x => x[0] == a.pv)[1]; return c;
+};
 const tav = t => S.api[t].src == 'tavern';
 // 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
 async function call(t, desc, rq, fn, sg, pO, raw) {
@@ -353,7 +363,39 @@ export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };
 
 /* ---------- 语音 TTS 渠道 ---------- */
-export const TTSP = [['mm', 'MiniMax国内'], ['mmi', 'MiniMax国际'], ['openai', 'OpenAI'], ['fish', 'Fish Audio'], ['index', 'IndexTTS本地'], ['mimo', 'MiMo-V2.5-TTS'], ['volc', '豆包 / 火山引擎']];
+export const TTSP = [['mm', 'MiniMax国内'], ['mmi', 'MiniMax国际'], ['openai', 'OpenAI'], ['fish', 'Fish Audio'], ['eleven', 'ElevenLabs'], ['index', 'IndexTTS本地'], ['mimo', 'MiMo-V2.5-TTS'], ['volc', '豆包 / 火山引擎']];
+// 各服务商的默认设置
+export const PDEF = {
+  tts: {
+    mm: { model: 'speech-2.6-hd', voice: 'female-shaonv', vm: 'male-qn-qingse', vf: 'female-shaonv' }, mmi: { model: 'speech-2.6-hd', voice: 'female-shaonv', vm: 'male-qn-qingse', vf: 'female-shaonv' },
+    openai: { url: 'https://api.openai.com/v1', model: 'tts-1', voice: 'alloy', vm: 'onyx', vf: 'nova' }, fish: { model: 's2.1-pro' },
+    eleven: { model: 'eleven_multilingual_v2', voice: 'EXAVITQu4vr4xnSDxMaL', vm: 'JBFqnCBsd6RMkjVDRZzb', vf: 'EXAVITQu4vr4xnSDxMaL' },
+    index: { url: 'http://127.0.0.1:6006/audio/speech' }, mimo: { model: 'mimo-v2.5-tts', voice: 'mimo_default', vm: '苏打', vf: '冰糖' },
+    volc: { ver: 'v3', res: 'seed-tts-2.0', voice: 'zh_female_xiaohe_uranus_bigtts', vf: 'zh_female_xiaohe_uranus_bigtts' },
+  },
+  img: {
+    nai: { model: 'nai-diffusion-4-5-full', size: '832x1216', steps: 28, scale: 5, sampler: 'k_euler_ancestral', pre: 'masterpiece, best quality, very aesthetic', tag: true },
+    openai: { url: 'https://api.openai.com/v1', model: 'gpt-image-1', size: '1024x1024' },
+    sd: { url: 'http://127.0.0.1:7860', size: '512x768', steps: 20, scale: 7, sampler: 'Euler a', tag: true },
+    comfy: { url: 'http://127.0.0.1:8188', size: '512x768', steps: 20, scale: 7, sampler: 'euler_ancestral', tag: true },
+    sf: { model: 'Kwai-Kolors/Kolors', size: '1024x1024', steps: 20, scale: 7.5 },
+  },
+};
+// 「快速选择」用的模型 / 音色清单（音色还可以从账号里拉取）
+const MMV = [['male-qn-qingse', '青涩青年'], ['male-qn-jingying', '精英青年'], ['male-qn-badao', '霸道青年'], ['male-qn-daxuesheng', '青年大学生'], ['female-shaonv', '少女'], ['female-yujie', '御姐'], ['female-chengshu', '成熟女性'], ['female-tianmei', '甜美女性'], ['presenter_male', '男性主持人'], ['presenter_female', '女性主持人'], ['audiobook_male_1', '男性有声书'], ['audiobook_female_1', '女性有声书']];
+const MMM = ['speech-2.8-hd', 'speech-2.8-turbo', 'speech-2.6-hd', 'speech-2.6-turbo', 'speech-02-hd', 'speech-02-turbo', 'speech-01-hd', 'speech-01-turbo'];
+export const TCAT = {
+  mm: { models: MMM, voices: MMV }, mmi: { models: MMM, voices: MMV },
+  openai: { models: ['tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'], voices: ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse'].map(v => [v, v]) },
+  fish: { models: ['s2.1-pro', 's2.1-pro-free', 's2-pro', 's1'], voices: [] },
+  eleven: { models: ['eleven_v3', 'eleven_multilingual_v2', 'eleven_flash_v2_5', 'eleven_turbo_v2_5', 'eleven_flash_v2', 'eleven_turbo_v2'],
+    voices: [['EXAVITQu4vr4xnSDxMaL', 'Sarah · 女'], ['FGY2WhTYpPnrIDTdsKH5', 'Laura · 女'], ['XB0fDUnXU5powFXDhCwa', 'Charlotte · 女'], ['Xb7hH8MSUJpSbSDYk0k2', 'Alice · 女'], ['XrExE9yKIg1WjnnlVkGX', 'Matilda · 女'], ['cgSgspJ2msm6clMCkdW9', 'Jessica · 女'], ['pFZP5JQG7iQjIQuC4Bku', 'Lily · 女'],
+      ['JBFqnCBsd6RMkjVDRZzb', 'George · 男'], ['IKne3meq5aSn9XLyUdCD', 'Charlie · 男'], ['N2lVS1w4EtoT3dr4eOWO', 'Callum · 男'], ['TX3LPaxmHKxFdv7VOQHJ', 'Liam · 男'], ['bIHbv24MWmeRgasZH58o', 'Will · 男'], ['cjVigY5qzO86Huf0OWal', 'Eric · 男'], ['iP95p4xoKVk53GoZ742B', 'Chris · 男'], ['nPczCjzI2devNBz1zQrb', 'Brian · 男'], ['onwK4e9ZLuTAKqWW03F9', 'Daniel · 男']] },
+  mimo: { models: ['mimo-v2.5-tts'], voices: [['冰糖', '冰糖 · 中文女声'], ['茉莉', '茉莉 · 中文女声'], ['苏打', '苏打 · 中文男声'], ['白桦', '白桦 · 中文男声'], ['Mia', 'Mia · 英文女声'], ['Chloe', 'Chloe · 英文女声'], ['Milo', 'Milo · 英文男声'], ['Dean', 'Dean · 英文男声'], ['mimo_default', '默认音色']] },
+  index: { models: [], voices: [] }, volc: { models: [], voices: [] },
+};
+const FISH = 'https://api.fish.audio', fishB = p => trim(p.url || FISH).replace(/\/v1$/, ''), EL = 'https://api.elevenlabs.io';
+const mmHost = p => trim(p.url || (p.prov == 'mmi' ? 'https://api.minimax.io' : 'https://api.minimaxi.com')).replace(/\/v1(\/t2a_v2)?$/, '');
 const B = 'Bearer ';
 const b64 = (s, type = '') => new Blob([Uint8Array.from(atob(String(s).replace(/\s/g, '')), c => c.charCodeAt(0))], { type });
 const hex = (s, type = '') => new Blob([new Uint8Array(String(s).match(/../g).map(h => parseInt(h, 16)))], { type });
@@ -365,7 +407,7 @@ async function audio(r) {
   return /^https?:/.test(d) ? (await xf(d)).blob() : /^[0-9a-f]{64}/i.test(d) ? hex(d, 'audio/mpeg') : b64(d.replace(/^data:[^,]+,/, ''), 'audio/mpeg');
 }
 const mm = host => async (p, t, v, sg) => {
-  const j = await (await post(`${trim(p.url || host).replace(/\/v1$/, '')}/v1/t2a_v2${p.gid ? '?GroupId=' + encodeURIComponent(p.gid) : ''}`, { model: p.model || 'speech-2.6-hd', text: t, stream: false, output_format: 'hex', voice_setting: { voice_id: v || 'female-shaonv', speed: +p.speed || 1, vol: 1, pitch: 0 }, audio_setting: { format: 'mp3', sample_rate: 32000, bitrate: 128000, channel: 1 } }, { Authorization: B + p.key }, sg)).json();
+  const j = await (await post(`${mmHost({ ...p, prov: host.includes('minimax.io') ? 'mmi' : 'mm' })}/v1/t2a_v2${p.gid ? '?GroupId=' + encodeURIComponent(p.gid) : ''}`, { model: p.model || 'speech-2.6-hd', text: t, stream: false, output_format: 'hex', voice_setting: { voice_id: v || 'female-shaonv', speed: +p.speed || 1, vol: 1, pitch: 0 }, audio_setting: { format: 'mp3', sample_rate: 32000, bitrate: 128000, channel: 1 } }, { Authorization: B + p.key }, sg)).json();
   if (j.base_resp?.status_code) throw Error(`MiniMax ${j.base_resp.status_code}：${j.base_resp.status_msg}`);
   if (!j.data?.audio) throw Error('MiniMax 没有返回音频'); return hex(j.data.audio, 'audio/mpeg');
 };
@@ -387,7 +429,12 @@ async function volc(p, t, v, sg) {
 const TTS = {
   mm: mm('https://api.minimaxi.com'), mmi: mm('https://api.minimax.io'), volc,
   openai: async (p, t, v, sg) => (await req(p, '/audio/speech', { model: p.model || 'tts-1', input: t, voice: v || 'alloy' }, sg)).blob(),
-  fish: async (p, t, v, sg) => audio(await post(trim(p.url || 'https://api.fish.audio').replace(/\/v1$/, '') + '/v1/tts', { text: t, format: 'mp3', ...(v && { reference_id: v }) }, { Authorization: B + p.key, model: p.model || 's1' }, sg)),
+  // Fish Audio：走官方的网页接口 /compat/v1/audio/speech（允许浏览器直接调用，不用改酒馆后端、TauriTavern 也能用）
+  fish: async (p, t, v, sg) => { if (!p.key) throw Error('请先填写 Fish Audio 的 API Key');
+    return audio(await post(fishB(p) + '/compat/v1/audio/speech', { model: 'fish-audio/' + String(p.model || 's2.1-pro').replace(/^fish-audio\//, ''), input: t, voice: v || '', response_format: 'mp3', ...(+p.speed && +p.speed != 1 && { speed: +p.speed }) }, { Authorization: B + p.key }, sg)); },
+  // ElevenLabs：浏览器可直接调用
+  eleven: async (p, t, v, sg) => { if (!p.key) throw Error('请先填写 ElevenLabs 的 API Key'); if (!v) throw Error('请先选择音色');
+    return (await post(`${trim(p.url || EL)}/v1/text-to-speech/${encodeURIComponent(v)}?output_format=mp3_44100_128`, { text: t, model_id: p.model || 'eleven_multilingual_v2', ...(+p.speed && +p.speed != 1 && { voice_settings: { speed: +p.speed } }) }, { 'xi-api-key': p.key }, sg)).blob(); },
   // 本地 IndexTTS：同时带 OpenAI 格式（input/voice）和常见 API 格式（text/character），两种服务端都能认
   index: async (p, t, v, sg) => audio(await post(trim(p.url || 'http://127.0.0.1:6006/audio/speech'), { model: p.model || 'IndexTTS', input: t, voice: v, text: t, character: v }, p.key ? { Authorization: B + p.key } : {}, sg)),
   mimo: async (p, t, v, sg) => {
@@ -471,8 +518,23 @@ export async function genImg(prompt, sg) {
     const r = await (IMG[p.prov] || IMG.openai)(p, prompt, sig); if (!r) throw Error('没有返回图片'); return putMedia(await shrink(r), 'ai');
   }, sg);
 }
-// 拉取模型：OpenAI 兼容 /models；本地 SD 读 sd-models；ComfyUI 读底模文件列表
+// 拉取音色：Fish（我的音色，没有就列热门）/ ElevenLabs / MiniMax；其他服务商用快速选择清单
+export async function voices(p) {
+  if (p.prov == 'fish') { const h = p.key ? { Authorization: B + p.key } : {}, get = async q => (await (await xf(fishB(p) + '/model?' + q, { headers: h }).then(chk)).json()).items || [];
+    let L = p.key ? await get('self=true&page_size=50') : []; const mine = L.length; L.length || (L = await get('page_size=40&sort_by=task_count'));
+    return L.map(v => [v._id, (v.title || v._id) + (mine ? '' : ' · 热门')]); }
+  if (p.prov == 'eleven') { if (!p.key) throw Error('请先填写 API Key'); const j = await (await xf(`${trim(p.url || EL)}/v2/voices?page_size=100`, { headers: { 'xi-api-key': p.key } }).then(chk)).json();
+    return (j.voices || []).map(v => [v.voice_id, v.name + (v.labels?.gender ? ' · ' + ({ female: '女', male: '男' }[v.labels.gender] || v.labels.gender) : '') + (v.category == 'premade' ? '' : ' · 我的')]); }
+  if (p.prov == 'mm' || p.prov == 'mmi') { if (!p.key) throw Error('请先填写 API Key'); const j = await (await post(mmHost(p) + '/v1/get_voice', { voice_type: 'all' }, { Authorization: B + p.key })).json();
+    if (j.base_resp?.status_code) throw Error(`MiniMax ${j.base_resp.status_code}：${j.base_resp.status_msg}`);
+    return [...(j.voice_cloning || []).map(v => [v.voice_id, v.voice_id + ' · 复刻']), ...(j.voice_generation || []).map(v => [v.voice_id, v.voice_id + ' · 设计']), ...(j.system_voice || []).map(v => [v.voice_id, v.voice_name || v.voice_id])]; }
+  return TCAT[p.prov]?.voices || [];
+}
+// 拉取模型：OpenAI 兼容 /models；本地 SD 读 sd-models；ComfyUI 读底模文件列表；Fish / ElevenLabs 读各自的模型列表
 export const models = async (p, t = 'chat') => {
+  if (t == 'tts' && p.prov == 'fish') return ((await (await xf(fishB(p) + '/compat/v1/models').then(chk)).json()).data || []).map(m => String(m.id).replace(/^fish-audio\//, ''));
+  if (t == 'tts' && p.prov == 'eleven') { if (!p.key) throw Error('请先填写 API Key'); return (await (await xf(trim(p.url || EL) + '/v1/models', { headers: { 'xi-api-key': p.key } }).then(chk)).json()).filter(m => m.can_do_text_to_speech !== false).map(m => m.model_id); }
+  if (t == 'tts' && TCAT[p.prov]?.models.length && !['openai', 'index'].includes(p.prov)) return TCAT[p.prov].models;
   if (t == 'img' && p.prov == 'comfy') return (await (await xf(trim(p.url || 'http://127.0.0.1:8188') + '/object_info/CheckpointLoaderSimple').then(chk)).json()).CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
   if (t == 'img' && p.prov == 'sd') return (await (await xf(trim(p.url || 'http://127.0.0.1:7860') + '/sdapi/v1/sd-models').then(chk)).json()).map(m => m.title);
   const j = await (await req(p, '/models')).json(); return (j.data || j.models || j).map?.(m => m.id || m.name || m) || [];
