@@ -1,5 +1,5 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
-import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
+import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
 import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 export { openChat, applyDelta };
@@ -288,21 +288,90 @@ async function fromWi() {
 /* ---------- 联系人 / 通讯录 ---------- */
 const PY = 'ABCDEFGHJKLMNOPQRSTWXYZ', PB = '阿八嚓哒妸发旮哈讥咔垃痳拏噢妑七呥扨它穵夕丫帀', COL = new Intl.Collator('zh-CN');
 const ini = s => { const c = [...String(s || '#')][0]; if (/[a-z]/i.test(c)) return c.toUpperCase(); if (!/[\u4e00-\u9fa5]/.test(c)) return '#'; let r = '#'; for (let i = 0; i < PB.length && COL.compare(c, PB[i]) >= 0; i++) r = PY[i]; return r; };
-const crow = (c, a = 'prof') => `<div class="cl" data-a="${a}" data-x="${c.id}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}</b></div></div>`;
-const ent = (i, l, a, x = '') => `<div class="cl ent2" data-a="${a}" data-x="${x}"><i class="ei">${i}</i><div class="cl-m"><b>${l}</b></div><small>›</small></div>`;
-let ctab = 'grp';
+const SV = (d, f) => `<svg viewBox="0 0 24 24" ${f ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"'}>${d}</svg>`;
+const CI = {
+  srch: SV('<circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.3-4.3"/>'), x: SV('<path d="M7 7l10 10M17 7L7 17"/>'), chev: SV('<path d="M9.5 6l6 6-6 6"/>'),
+  addp: SV('<circle cx="10" cy="8" r="3.8"/><path d="M3 20c.8-3.8 3.6-5.6 7-5.6 1.4 0 2.7.3 3.8.9M18.5 13.5v6.5M15.3 16.8h6.4"/>'),
+  addpF: SV('<circle cx="9.5" cy="8" r="4"/><path d="M2.5 20.5c.7-4 3.5-6.2 7-6.2s6.3 2.2 7 6.2z"/><path d="M19 9v6M16 12h6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>', 1),
+  grpF: SV('<circle cx="9" cy="8.3" r="3.7"/><circle cx="16.8" cy="9.3" r="2.9"/><path d="M2.3 19.8c.7-3.7 3.4-5.6 6.7-5.6s6 1.9 6.7 5.6zM16.3 14.1c3 0 5 1.7 5.6 5.1H17.6c-.3-1.9-.8-3.6-1.3-5.1z"/>', 1),
+  id: SV('<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16.2c.6-1.4 1.8-2.1 3.2-2.1s2.6.7 3.2 2.1M14.5 10h4M14.5 13.5h3"/>'),
+  book: SV('<path d="M5 4.5h10.5a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10.5"/>'),
+  ai: SV('<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9zM18.5 15.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/>'),
+  grpA: SV('<circle cx="9" cy="8.5" r="3.5"/><path d="M3 19.5c.7-3.5 3.2-5.3 6-5.3s5.3 1.8 6 5.3M18 8.5v6M15 11.5h6"/>'),
+};
+// 「推荐 / 可能认识的人」= 群里出现过、但还不是好友的人；点 × 不再推荐
+const sug = () => D().chats.filter(c => c.type == 'p' && c.fr === 0 && !c.nosug);
+const gOf = c => D().chats.find(g => g.type == 'g' && g.members.includes(c.id));
+const sx = c => /女|^f/i.test(c?.sex || '') ? 'f' : /男|^m/i.test(c?.sex || '') ? 'm' : '';
+const dq = c => esc([nm(c), c.real, c.nick, c.remark, c.name].filter(Boolean).join(' ').toLowerCase());
+const hsh = s => [...String(s)].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7) >>> 0;
+const crow = (c, a = 'prof') => `<div class="cl" data-a="${a}" data-x="${c.id}" data-q="${dq(c)}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}</b></div></div>`;
+const srchBar = (ph = '搜索') => `<label class="ct-q"><i>${CI.srch}</i><input data-ctq placeholder="${ph}" autocomplete="off"></label>`;
+let ctab = 'grp', ctS = 0, qst = {}; const added = new Set();
 function contacts() {
-  const st = S.style, ps = D().chats.filter(c => c.type == 'p' && c.fr !== 0).sort((a, b) => COL.compare(nm(a), nm(b))), gs = D().chats.filter(c => c.type == 'g'), me = meObj();
-  if (st == 'wx') {
+  const st = S.style, ps = D().chats.filter(c => c.type == 'p' && c.fr !== 0).sort((a, b) => COL.compare(nm(a), nm(b))), gs = D().chats.filter(c => c.type == 'g'), me = meObj(), sg = sug();
+  if (st == 'wx') { // 微信：灰底白行、彩色方块入口、字母分组、右侧索引
     const by = {}; ps.forEach(c => (by[ini(nm(c))] ||= []).push(c)); const ks = Object.keys(by).sort((a, b) => a == '#' ? 1 : b == '#' ? -1 : a < b ? -1 : 1);
-    return `<div class="ct-wx">${ent('👤', '新的朋友', 'plus')}${ent('👥', `群聊 <small>${gs.length}</small>`, 'groups')}${ks.map(k => `<h6 data-l="${k}">${k}</h6>${by[k].map(c => crow(c)).join('')}`).join('') || '<p class="empty">还没有联系人</p>'}<p class="ct-n">${ps.length} 位联系人</p></div><nav class="az">${[...PY.slice(0, 8), 'I', ...PY.slice(8, 19), 'U', 'V', ...PY.slice(19), '#'].map(k => `<b data-a="jump" data-x="${k}">${k}</b>`).join('')}</nav>`;
+    const e = (k, ic, l, a, n = '') => `<div class="cw-e" data-a="${a}"><i class="${k}">${ic}</i><b>${l}</b>${n}</div>`;
+    return `<div class="ct ct-wx">${ctS ? srchBar() : ''}<div class="cw-es ct-hide">${e('o', CI.addpF, '新的朋友', 'newfr', sg.length ? `<em class="rdot">${sg.length}</em>` : '')}${e('g', CI.grpF, '群聊', 'groups')}</div>`
+      + ks.map(k => `<section data-sec><h6 data-l="${k}">${k}</h6>${by[k].map(c => crow(c)).join('')}</section>`).join('')
+      + `<p class="ct-n ct-hide">${ps.length ? ps.length + '个朋友' : '还没有朋友，点「新的朋友」添加'}</p></div><nav class="az">${['↑', '☆', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'].map(k => `<b data-a="jump" data-x="${k}">${k}</b>`).join('')}</nav>`;
   }
-  if (st == 'qq') {
-    const by = {}; ps.forEach(c => (by[c.grp || '我的好友'] ||= []).push(c));
-    return `${ent('👤', '新朋友', 'plus')}${ent('🔔', '群通知', 'groups')}<div class="seg ct-seg">${[['grp', '分组'], ['fr', '好友'], ['gp', '群聊']].map(([k, l]) => `<button data-a="ctab" data-x="${k}" class="${ctab == k ? 'on' : ''}">${l}</button>`).join('')}</div>`
-      + (ctab == 'grp' ? Object.entries(by).map(([k, l]) => `<details class="qg" open><summary><b>${esc(k)}</b><small>${l.length}/${l.length}</small></summary>${l.map(c => crow(c)).join('')}</details>`).join('') : (ctab == 'fr' ? ps : gs).map(c => crow(c, ctab == 'gp' ? 'open' : 'prof')).join('')) || '<p class="empty">空空如也</p>';
+  if (st == 'qq') { // QQ：搜索框、可能想认识的人、新朋友 / 群通知、分组 · 好友 · 群聊
+    const by = {}; ps.forEach(c => (by[c.grp || '我的好友'] ||= []).push(c)); const ks = Object.keys(by).sort((a, b) => (b == '我的好友') - (a == '我的好友') || COL.compare(a, b)), op = k => qst[k] ?? ks.length == 1;
+    const on = c => hsh(c.id) % 3 != 0, row = c => `<div class="cl cq-r" data-a="prof" data-x="${c.id}" data-q="${dq(c)}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}</b><small>${on(c) ? '<i class="on">[在线]</i>' : '[离线]'} ${esc(c.sign || '')}</small></div></div>`;
+    return `<div class="ct ct-qq">${srchBar()}${sg.length ? `<div class="cq-may ct-hide"><div class="cq-h" data-a="newfr"><span>可能想认识的人</span>${CI.chev}</div>${sg.slice(0, 3).map(c => mayRow(c, 'qq')).join('')}</div>` : ''}`
+      + `<div class="cq-ent ct-hide"><div data-a="newfr"><b>新朋友</b>${sg.length ? `<em class="rdot">${sg.length}</em>` : ''}${CI.chev}</div><div data-a="groups"><b>群通知</b>${CI.chev}</div></div>`
+      + `<nav class="cq-tabs ct-hide">${[['grp', '分组'], ['fr', '好友'], ['gp', '群聊']].map(([k, l]) => `<b data-a="ctab" data-x="${k}" class="${ctab == k ? 'on' : ''}">${l}</b>`).join('')}</nav>`
+      + (ctab == 'grp' ? ks.map(k => `<details class="qg" data-sec ${op(k) ? 'open' : ''}><summary data-a="qtog" data-x="${esc(k)}"><b>${esc(k)}</b><small>${by[k].filter(on).length}/${by[k].length}</small></summary>${by[k].map(row).join('')}</details>`).join('')
+        : ctab == 'fr' ? ps.map(row).join('') : gs.map(c => `<div class="cl cq-r" data-a="open" data-x="${c.id}" data-q="${dq(c)}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}</b><small>${gsz(c)}人</small></div></div>`).join(''))
+      + ((ctab == 'gp' ? gs : ps).length ? '' : `<p class="empty">${ctab == 'gp' ? '还没有群聊' : '还没有好友'}</p>`) + '</div>';
   }
-  return `<div class="cl ct-me" data-a="tab" data-x="me"><img class="av" src="${esc(avOf(me))}"><div class="cl-m"><b>${esc(me.nick)}</b><small>${esc(me.sign || '设置状态消息')}</small></div></div><h6>群聊 ${gs.length}</h6>${gs.map(c => crow(c, 'open')).join('')}<h6>好友 ${ps.length}</h6>${ps.map(c => crow(c)).join('') || '<p class="tip">还没有好友，点右上角添加</p>'}`;
+  if (st == 'kk') { // KakaoTalk 친구：我的资料、群聊、好友（右侧状态消息气泡）
+    const row = (c, a = 'prof') => `<div class="cl ck-r" data-a="${a}" data-x="${c.id}" data-q="${dq(c)}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>${gsz(c)}</small>` : ''}</b></div>${c.sign || c.notice ? `<span class="ck-st">${esc(c.type == 'g' ? c.notice : c.sign)}</span>` : ''}</div>`;
+    return `<div class="ct ct-kk">${ctS ? srchBar() : ''}<div class="ck-me ct-hide" data-a="tab" data-x="me"><img class="av" src="${esc(avOf(me))}"><div class="cl-m"><b>${esc(me.nick)}</b><small>${esc(me.sign || '设置状态消息')}</small></div></div>`
+      + (sg.length ? `<div class="ck-sug ct-hide" data-a="newfr"><i>${CI.addp}</i><span>推荐好友 <b>${sg.length}</b></span>${CI.chev}</div>` : '')
+      + (gs.length ? `<section data-sec><h6 class="ck-h">群聊 ${gs.length}</h6>${gs.map(c => row(c, 'open')).join('')}</section>` : '')
+      + `<section data-sec><h6 class="ck-h">好友 ${ps.length}</h6>${ps.map(c => row(c)).join('') || '<p class="tip">还没有好友，点右上角添加</p>'}</section></div>`;
+  }
+  // LINE：Ins 风（快拍头像条、为你推荐卡片、关注列表）
+  const seen = new Set(D().posts.filter(p => now() - p.ts < 3 * 864e5).map(p => p.a));
+  const story = (c, me) => `<div class="ci-s" data-a="${me ? 'myfeed' : 'pfeed'}" data-x="${c.id}"><i class="${seen.has(me ? 'me' : c.id) ? 'ring' : ''}"><img class="av" src="${esc(avOf(c))}">${me ? '<em>+</em>' : ''}</i><small>${me ? '你的快拍' : esc(nm(c))}</small></div>`;
+  const row = (c, a = 'prof') => `<div class="cl ci-r" data-a="${a}" data-x="${c.id}" data-q="${dq(c)}"><img class="av" src="${esc(avOf(c))}"><div class="cl-m"><b>${esc(c.type == 'g' ? c.name : c.nick || nm(c))}</b><small>${esc(c.type == 'g' ? gsz(c) + ' 位成员' : [c.remark, c.real].filter((x, i, l) => x && x != c.nick && l.indexOf(x) == i).join(' · ') || c.sign || '')}</small></div><button class="ci-b" data-a="chat2" data-x="${c.id}">发消息</button></div>`;
+  return `<div class="ct ct-ins">${srchBar()}<div class="ci-st ct-hide">${story(me, 1)}${ps.map(c => story(c)).join('')}</div>`
+    + (sg.length ? `<div class="ci-sh ct-hide"><b>为你推荐</b><span data-a="newfr">查看全部</span></div><div class="ci-sg ct-hide">${sg.slice(0, 8).map(c => `<div class="ci-c"><b class="x" data-a="nosug" data-x="${c.id}">${CI.x}</b><img class="av" src="${esc(avOf(c))}" data-a="prof" data-x="${c.id}"><b>${esc(nm(c))}</b><small>${gOf(c) ? '群聊「' + esc(gOf(c).name) + '」' : '可能认识'}</small><button data-a="addfr" data-x="${c.id}">关注</button></div>`).join('')}</div>` : '')
+    + (gs.length ? `<section data-sec><h6 class="ci-h">群聊 <small>${gs.length}</small></h6>${gs.map(c => row(c, 'open')).join('')}</section>` : '')
+    + `<section data-sec><h6 class="ci-h">关注中 <small>${ps.length}</small></h6>${ps.map(c => row(c)).join('') || '<p class="tip">还没有关注任何人，点右上角发现用户</p>'}</section></div>`;
+}
+// 一行「可能认识的人」：各风格的按钮和文案不同
+const mayRow = (c, st) => {
+  const g = gOf(c), ad = added.has(c.id), sub = g ? (st == 'qq' ? '你的群友 · ' : st == 'kk' ? '' : '群聊「') + esc(g.name) + (st == 'qq' || st == 'kk' ? '' : '」') : '可能认识';
+  const btnT = { wx: ['添加', '已添加'], qq: ['添加', '已添加'], kk: ['添加', '已添加'], line: ['关注', '已关注'] }[st] || ['添加', '已添加'];
+  const tags = st == 'qq' ? `<div class="tags">${sx(c) ? `<em class="sx ${sx(c)}">${sx(c) == 'f' ? '♀' : '♂'}</em>` : ''}<em>${sub}</em></div>` : `<small>${st == 'kk' && g ? esc(g.name) + ' 群成员' : sub}</small>`;
+  return `<div class="may may-${st}" data-q="${dq(c)}"><img class="av" src="${esc(avOf(c))}" data-a="prof" data-x="${c.id}"><div class="cl-m" data-a="prof" data-x="${c.id}"><b>${esc(nm(c))}</b>${tags}</div>${ad ? `<span class="done">${btnT[1]}</span>` : `<button data-a="addfr" data-x="${c.id}">${btnT[0]}</button>${st == 'wx' ? '' : `<b class="x" data-a="nosug" data-x="${c.id}">${CI.x}</b>`}`}</div>`;
+};
+// 加好友页：微信「新的朋友」/ QQ「新朋友」/ Kakao「친구 추가」/ LINE·Ins「发现用户」
+async function addF() { const r = await form('添加好友', [['av', '头像', 'img'], ['nick', '昵称（网名）'], ['real', '真实姓名'], ['remark', '备注'], ['sign', '个性签名']]); r && (r.nick || r.real) && (add(blank('p', r)), saveD(), emit('chat'), toast('已添加')); }
+async function addG() { const r = await form('发起群聊', [['av', '群头像', 'img'], ['name', '群名'], ['notice', '群公告', 'area'], ['members', '选择成员', 'multi', D().chats.filter(c => c.type == 'p').map(c => [c.id, nm(c)])]]); r?.name && (add(blank('g', { ...r, members: r.members || [] })), saveD(), emit('chat'), toast('群聊已创建')); }
+const CTA = {
+  newfr: () => newFr(), groups: () => page({ title: '群聊', cls: 'st-' + S.style, body: () => D().chats.filter(c => c.type == 'g').map(c => crow(c, 'open')).join('') || '<p class="empty">还没有群聊</p>', acts: { open: id => (back(), openChat(id)) } }),
+  addfr: id => { const c = get(id); if (!c) return; c.fr = 1; added.add(id); saveD(); emit('chat'); toast(`已添加「${nm(c)}」，现在可以私聊了`); },
+  nosug: id => { const c = get(id); c && (c.nosug = 1, saveD(), emit('chat')); },
+  chat2: id => openChat(id), qtog: (k, t, e, pg) => { const ks = Object.keys(D().chats.filter(c => c.type == 'p' && c.fr !== 0).reduce((a, c) => (a[c.grp || '我的好友'] = 1, a), {})); qst[k] = !(qst[k] ?? ks.length == 1); },
+  ctsrch: (x, t, e, pg) => { ctS = !ctS; pg.reb(); ctS && setTimeout(() => $('[data-ctq]', pg.el)?.focus(), 30); },
+  nf_f: addF, nf_g: addG, nf_ai: () => aiInit(), nf_wi: () => fromWi(),
+};
+export function newFr() {
+  const st = S.style, T = { wx: '新的朋友', qq: '新朋友', kk: '添加好友', line: '发现用户' };
+  page({ title: T[st], cls: 'nfpg st-' + st, live: 1, onClose: () => setTimeout(() => top()?.live && top().re()), after: ctBind, right: () => st == 'wx' ? `<b class="txt" data-a="nf_f">添加朋友</b>` : '', acts: CTA, body: () => {
+    const L = D().chats.filter(c => c.type == 'p' && (c.fr === 0 && !c.nosug || added.has(c.id))), list = L.map(c => mayRow(c, st)).join('');
+    const opt = (a, ic, l, sm) => `<div class="nf-o" data-a="${a}"><i>${ic}</i><div class="cl-m"><b>${l}</b>${sm ? `<small>${sm}</small>` : ''}</div>${CI.chev}</div>`;
+    const opts = [['nf_f', CI.id, '手动添加', '填昵称、真实姓名、头像'], ['nf_ai', CI.ai, 'AI 生成联系人', '按角色卡和剧情生成'], ['nf_wi', CI.book, '从世界书添加', '读取世界书里的人物'], ['nf_g', CI.grpA, '发起群聊', '']];
+    if (st == 'kk') return `<div class="nf nf-kk"><div class="nk-ic ct-hide">${[['nf_f', CI.id, 'ID添加'], ['nf_wi', CI.book, '世界书导入'], ['nf_ai', CI.ai, 'AI推荐'], ['nf_g', CI.grpA, '建群']].map(([a, ic, l]) => `<div data-a="${a}"><i>${ic}</i><small>${l}</small></div>`).join('')}</div><h6>推荐好友 <small>${L.length}</small></h6>${list || '<p class="nf-e">暂时没有推荐好友<br><small>群里出现过、还不是好友的人会出现在这里</small></p>'}</div>`;
+    if (st == 'line') return `<div class="nf nf-ins">${srchBar()}<div class="nf-os ct-hide">${opts.map(o => opt(...o)).join('')}</div><h6>为你推荐</h6>${list || '<p class="nf-e">暂时没有推荐<br><small>群里出现过、还没关注的人会出现在这里</small></p>'}</div>`;
+    if (st == 'qq') return `<div class="nf nf-qq">${srchBar('QQ号/手机号/群')}<div class="nf-os ct-hide">${opts.map(o => opt(...o)).join('')}</div><h6>可能想认识的人</h6>${list || '<p class="nf-e">暂时没有</p>'}</div>`;
+    return `<div class="nf nf-wx"><div class="nf-wq" data-a="nf_f">${CI.srch}<span>账号/手机号</span></div><div class="nf-os ct-hide">${opts.slice(1).map(o => opt(...o)).join('')}</div><h6>可能认识的人</h6>${list || '<p class="nf-e">暂时没有新的朋友</p>'}</div>`;
+  } });
 }
 function prof(id) {
   const c = get(id), g = c.type == 'g';
@@ -329,23 +398,28 @@ const MS = {
     L.forEach(rm); msel = null; saveD(); emit('chat'); toast(`已删除 ${L.length} 个`);
   },
 };
+// 通讯录搜索：只在本页过滤，不重新渲染（不丢输入框焦点）
+const ctBind = el => { if (el._ctq) return; el._ctq = 1; el.addEventListener('input', e => {
+  if (!e.target.matches('[data-ctq]')) return; const v = e.target.value.trim().toLowerCase(), b = e.target.closest('.pg-b');
+  b.classList.toggle('qing', !!v); $$('[data-q]', b).forEach(r => r.hidden = !!v && !r.dataset.q.includes(v));
+  $$('[data-sec]', b).forEach(s => { v && s.tagName == 'DETAILS' && (s.open = true); s.hidden = !!v && !s.querySelector('[data-q]:not([hidden])'); });
+}); };
 let tab = 'list';
 reg({
   id: 'chat', name: '聊天', icon: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.5 4C5.4 4 2 6.8 2 10.2c0 1.9 1 3.6 2.7 4.7L4 17.5l3-1.6c.8.2 1.6.3 2.5.3 4.1 0 7.5-2.8 7.5-6.2S13.6 4 9.5 4z"/><path opacity=".8" d="M22 14.6c0-2.3-1.7-4.3-4.2-5.2l.1.9c0 4-3.7 7.2-8.4 7.4 1.1 1.4 3.1 2.3 5.3 2.3.6 0 1.2-.1 1.8-.2l2.4 1.2-.5-2c1.4-1 2.5-2.6 2.5-4.4z"/></svg>',
   open: () => page({
     cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; },
     title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: FN[S.style], me: '我' })[tab],
-    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'ct' ? `<b data-a="plus">${I.plus}</b>` : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
-    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => stCls(el, 'chatapp st-' + S.style),
+    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
+    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + tab); ctBind(el); },
     onChange: k => k == '$style' && emit('chat'),
     acts: {
-      ...FA, aiInit, tab: (x, t, e, pg) => { tab = x; msel = null; pg.re(); }, ...MS, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
-      groups: () => page({ title: '群聊', body: () => D().chats.filter(c => c.type == 'g').map(c => crow(c, 'open')).join('') || '<p class="empty">还没有群聊</p>', acts: { open: id => (back(), openChat(id)) } }),
-      jump: (x, t, e, pg) => { const b = $('.pg-b', pg.el), s = $(`[data-l="${x}"]`, b); s && (b.scrollTop += (s.getBoundingClientRect().top - b.getBoundingClientRect().top) * b.offsetHeight / b.getBoundingClientRect().height); }, open: (id, t, e, pg) => msel ? MS.mtog(id, t, e, pg) : openChat(id),
+      ...FA, ...CTA, aiInit, tab: (x, t, e, pg) => { tab = x; msel = null; ctS = 0; pg.re(); }, ...MS, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
+      jump: (x, t, e, pg) => { const b = $('.pg-b', pg.el), s = /[↑☆]/.test(x) ? (b.scrollTop = 0, null) : $(`[data-l="${x}"]`, b) || [...$$('[data-l]', b)].find(h => h.dataset.l > x); s && (b.scrollTop += (s.getBoundingClientRect().top - b.getBoundingClientRect().top) * b.offsetHeight / b.getBoundingClientRect().height); }, open: (id, t, e, pg) => msel ? MS.mtog(id, t, e, pg) : openChat(id),
       plus: async () => {
         const k = await menu([['f', '👤 添加好友'], ['g', '👥 发起群聊'], ['ai', '✨ AI 生成联系人'], ['wi', '📖 从世界书添加']]);
-        if (k == 'f') { const r = await form('添加好友', [['av', '头像', 'img'], ['nick', '昵称（网名）'], ['real', '真实姓名'], ['remark', '备注'], ['sign', '个性签名']]); r && (r.nick || r.real) && add(blank('p', r)); }
-        if (k == 'g') { const r = await form('发起群聊', [['av', '群头像', 'img'], ['name', '群名'], ['notice', '群公告', 'area'], ['members', '选择成员', 'multi', D().chats.filter(c => c.type == 'p').map(c => [c.id, nm(c)])]]); r?.name && add(blank('g', { ...r, members: r.members || [] })); }
+        if (k == 'f') return newFr();
+        if (k == 'g') return addG();
         k == 'ai' && await aiInit(); k == 'wi' && await fromWi(); saveD(); emit('chat');
       },
     },
