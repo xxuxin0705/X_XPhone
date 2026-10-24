@@ -509,3 +509,16 @@
 .lw.on{box-shadow:0 0 0 2.5px var(--ac),0 6px 16px rgba(0,0,0,.18)}
 .lw.on::after{content:'\2713';position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--ac);color:#fff;font-size:12px;display:grid;place-items:center}
 .lw.vid{display:grid;place-items:center;background:linear-gradient(160deg,#ece8f6,#d6cfea)}.lw.vid>i{font-style:normal;font-size:30px;color:#8a7fb0;margin-bottom:14px}
+
+/* 模拟屏下指纹 */
+.lk-fp{position:absolute;bottom:84px;left:50%;width:66px;height:66px;margin-left:-33px;border-radius:50%;display:grid;place-items:center;color:var(--lk-ink,#fff);background:radial-gradient(circle,rgba(255,255,255,.16),rgba(255,255,255,.04) 70%);box-shadow:0 0 0 1px rgba(255,255,255,.18) inset;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent;--fp:1;transition:transform .2s,box-shadow .3s;filter:drop-shadow(0 0 6px var(--lk-shade))}
+.lk-fp svg{width:40px;height:40px}.lk-fp .fpb{opacity:.55}
+.lk-fp .fpc path{stroke:#9ff5d5;stroke-dasharray:1;stroke-dashoffset:var(--fp);filter:drop-shadow(0 0 3px #6ef0c0);transition:stroke-dashoffset .35s}
+.lk-fp.on{transform:scale(.94)}.lk-fp.on .fpc path{stroke-dashoffset:0;transition:stroke-dashoffset .6s linear}
+.lk-fp.on::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(159,245,213,.7);animation:fpr 1s ease-out infinite}
+@keyframes fpr{from{transform:scale(.85);opacity:1}to{transform:scale(1.45);opacity:0}}
+.lk-fp.ok{box-shadow:0 0 0 2px #9ff5d5 inset,0 0 26px 6px rgba(110,240,192,.55)}.lk-fp.ok .fpc path{stroke-dashoffset:0}
+.lock.fp .lk-note{bottom:168px}
+.lk-enr{align-items:center}.lk-enr .lk-fp{position:relative;bottom:auto;left:auto;margin:22px 0 10px;width:110px;height:110px}.lk-enr .lk-fp svg{width:66px;height:66px}
+.lk-enr .lk-fp.on .fpc path{stroke-dashoffset:var(--fp);transition:stroke-dashoffset .35s}
+.lk-pct{font-size:13px;opacity:.75;letter-spacing:.1em}

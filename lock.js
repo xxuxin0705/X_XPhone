@@ -83,6 +83,31 @@ export function askGest(done) {
   } });
 }
 
+
+/* ---------- 模拟指纹（网页拿不到真实指纹：按住感应区、纹路扫满就算通过） ---------- */
+const FPP = ['M9 20c2.6-6 8.4-10 15-10s12.4 4 15 10', 'M13 37c1.6-3.2 2.2-6.4 2.2-10 0-5 4-8.8 8.8-8.8s8.8 3.8 8.8 8.8v2', 'M19 41c1.6-3.6 2.6-7.8 2.6-12.4 0-1.4 1-2.4 2.4-2.4s2.4 1 2.4 2.4c0 5.2-1 9.8-3 13.8',
+  'M30 41.5c1.4-3.2 2.4-6.9 2.6-11', 'M38.6 33c-.5 2.6-1.3 4.8-2.2 6.7', 'M8.4 28.5c0-1.6.2-3.1.6-4.6', 'M15 14.2c2.6-1.6 5.7-2.5 9-2.5 6.2 0 11.6 3.3 14.4 8.3', 'M9.6 33.8c-.7-1.6-1.1-3.4-1.2-5.3', 'M26.5 29.2c0 4.1-.9 8.1-2.6 11.6'];
+export const fpSvg = () => `<svg viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-width="2.3"><g class="fpb" stroke="currentColor">${FPP.map(d => `<path d="${d}"/>`).join('')}</g><g class="fpc">${FPP.map(d => `<path pathLength="1" d="${d}"/>`).join('')}</g></svg>`;
+export const fpOn = () => !!(S.lock.pw && S.lock.fp && S.lock.fpSet);
+// 按住 ms 毫秒算一次成功；提前松手算失败
+function holdSensor(btn, ms, ok, early) {
+  let tm, t0;
+  const end = e => { if (!t0) return; e?.stopPropagation(); clearTimeout(tm); t0 = 0; btn.classList.remove('on'); btn.dataset.done || early?.(); };
+  btn.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); btn.setPointerCapture?.(e.pointerId); delete btn.dataset.done; t0 = Date.now(); btn.classList.add('on'); navigator.vibrate?.(10); tm = setTimeout(() => { btn.dataset.done = 1; btn.classList.remove('on'); t0 = 0; navigator.vibrate?.([15, 30, 15]); ok(); }, ms); });
+  btn.addEventListener('pointerup', end); btn.addEventListener('pointercancel', end); btn.addEventListener('pointerleave', end);
+}
+// 录入：按 6 次，纹路一点点亮起来
+export function askFp(done) {
+  let n = 0; const N = 6;
+  const s = sheet({ title: '录入指纹', noBack: 1, cls: 'lk-sheet', body: () => `<div class="lk-auth lk-set lk-enr"><p class="lk-t">把手指放在感应区上</p><p class="lk-msg">按住，感觉到震动后抬起，重复几次</p><b class="lk-fp big">${fpSvg()}</b><p class="lk-pct">0%</p></div>`, after: el => {
+    const b = $('.lk-fp', el), set = () => { b.style.setProperty('--fp', 1 - n / N); $('.lk-pct', el).textContent = Math.round(n / N * 100) + '%'; }; set();
+    holdSensor(b, 450, () => { n++; set(); $('.lk-msg', el).classList.remove('bad');
+      $('.lk-msg', el).textContent = n < N ? ['很好，抬起再按', '继续，换个角度', '再来几次', '快好了', '最后一次'][n - 1] : '录入成功';
+      if (n >= N) { b.classList.add('ok'); S.lock.fpSet = true; S.lock.fp = true; save(); setTimeout(() => { s.close(); toast('指纹已录入'); done?.(); }, 700); }
+    }, () => { const m = $('.lk-msg', el); m.textContent = '请按住不要太快抬起'; m.classList.add('bad'); });
+  } });
+}
+
 /* ---------- 锁屏本体 ---------- */
 let el, fx, locked = false, iv, vurl;
 export const isLocked = () => locked;
@@ -102,11 +127,12 @@ async function wallpaper() {
 }
 export function lock(preview) {
   el ||= ui.lock; if (!el) return;
-  locked = true; el.hidden = false; el.className = 'lock' + (preview ? ' pv' : ''); ui.scr.classList.add('locked');
+  locked = true; el.hidden = false; el.className = 'lock' + (preview ? ' pv' : '') + (fpOn() ? ' fp' : ''); ui.scr.classList.add('locked');
   el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock"><small class="lk-date"></small><b class="lk-time"></b>${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
-<div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div><div class="lk-hint"><span>${preview ? '预览 · 上滑退出' : '向上滑动解锁'}</span></div></div><div class="lk-auth" hidden></div>`;
+<div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${preview ? '预览 · 上滑退出' : fpOn() ? '按住指纹解锁 · 上滑输入密码' : '向上滑动解锁'}</span></div></div><div class="lk-auth" hidden></div>`;
   wallpaper(); clock(); clearInterval(iv); iv = setInterval(() => locked && visible() && clock(), 1e3);
   swipe(preview);
+  const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑输入密码'), 1600); });
 }
 function swipe(preview) {
   const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0;
