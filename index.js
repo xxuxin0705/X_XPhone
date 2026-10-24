@@ -22,7 +22,7 @@ const pos = () => [[ui.root, 'win'], [$('#stp-ball'), 'ball']].forEach(([el, k])
 const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || relock(); $('#stp-ball').classList.remove('dot'); tick(); } else relock(); };
 function tick() { $('.sb-t', ui.root).textContent = hm(now()); ui.root.classList.contains('on') && !ui.desk.classList.contains('edit') && renderDesk(); }
 function show() {
-  $('#stp-ball').hidden = S.show != 'float'; $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', S.scale || 1);
+  $('#stp-ball').hidden = S.show != 'float'; $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', S.scale || 1); ui.root.style.setProperty('--fz', S.fz || .92);
   if (S.show != 'wand') return;
   $('#extensionsMenu')?.insertAdjacentHTML('beforeend', '<div id="stp-wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0"><div class="fa-solid fa-mobile-screen-button extensionsMenuExtensionButton"></div><span>小手机</span></div>');
   $('#stp-wand')?.addEventListener('click', () => toggle());
@@ -37,7 +37,7 @@ function init() {
   bind(ui.root); applyTheme(); initDesk(); show(); pos();
   drag(ui.root, $('#stp .sb'), 'win'); drag($('#stp-ball'), $('#stp-ball'), 'ball', () => toggle());
   ui.sheets.addEventListener('click', e => e.target == ui.sheets && ui.sheets.lastElementChild?._pg.close());
-  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale)/.test(k) && show(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(); });
+  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz)/.test(k) && show(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(); });
   on('open-chat', id => { toggle(true); openChat(id); });
   on('badge', () => ui.root.classList.contains('on') || $('#stp-ball').classList.add('dot'));
   const c = C(), E = c.eventTypes || c.event_types;

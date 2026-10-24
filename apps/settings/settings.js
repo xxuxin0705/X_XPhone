@@ -1,5 +1,5 @@
 // 小手机 · 设置：API（聊天 / 生图渠道 / 语音渠道）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
-import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, prof, LOG, saveLog, stopCall, TTSP, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
+import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askGest, askFp, wpName, lockMig } from '../../lock.js';
@@ -7,7 +7,7 @@ import { lock, askPin, askGest, askFp, wpName, lockMig } from '../../lock.js';
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
-const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? '酒馆' : prof(x) ? (x == 'chat' ? '' : pn(x, prof(x).prov) + ' · ') + (prof(x).name || '未命名') : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'gesture' ? '手势密码' : '数字密码') : '无密码') : '未开启') : '';
+const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : prof(x) ? (x == 'chat' ? '' : pn(x, prof(x).prov) + ' · ') + (prof(x).name || '未命名') : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'gesture' ? '手势密码' : '数字密码') : '无密码') : '未开启') : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
@@ -66,19 +66,28 @@ const fields = t => m => t == 'chat'
   : [['name', '名称'], ['prov', '渠道', 'sel', PV[t]], ...(TIP[t][m.prov] ? [['', TIP[t][m.prov], 'tip']] : []), ...((t == 'tts' ? TF : IF)[m.prov] || (t == 'tts' ? TF : IF).openai)(m),
     ...(t == 'tts' ? [['voice', '默认音色', 'text', VPH[m.prov] || ''], ['vm', '男声兜底音色', 'text', '男性联系人没绑音色时用'], ['vf', '女声兜底音色', 'text', '女性联系人没绑音色时用']] : [])];
 
+// 酒馆模式：在酒馆「连接配置」里任选一个（不切换正文用的连接），或者跟随酒馆当前连接
+const stPick = a => {
+  const L = stProfiles(), cn = stCurName(), on = id => (id ? a.stp == id && stProf(id) : !stProf(a.stp)) ? 'on' : '';
+  const row = (id, b, sm) => `<div class="row prof ${on(id)}" data-a="stp" data-x="${esc(id)}"><i class="radio"></i><span><b>${esc(b)}</b><small>${esc(sm)}</small></span></div>`;
+  const lost = a.stp && !stProf(a.stp);
+  return `<div class="card">${row('', '跟随酒馆当前连接', cn ? '现在是「' + cn + '」，酒馆那边换了这里跟着换' : '酒馆现在连的是什么就用什么')}${(L || []).map(p => row(p.id, p.name || '未命名', [p.model, p.api].filter(Boolean).join(' · ') || '连接配置')).join('')}</div>`
+    + `<p class="tip">${L == null ? '这个版本的酒馆没有「连接配置」功能（或被关掉了），只能跟随当前连接。'
+      : L.length ? '下面列的是酒馆 API 连接页顶部「连接配置」里保存过的配置，选哪个手机就用哪个，不会改动正文用的连接。' : '酒馆里还没有保存过连接配置：在酒馆 API 连接页顶部「连接配置」点 ＋ 保存一个，这里就能选。'}${lost ? '<br>之前选的配置在酒馆里被删掉了，暂时跟随当前连接。' : ''}</p>`;
+};
 function api(t) {
   const a = S.api[t], cur = () => a.list.findIndex(p => p.id == a.cur);
   const pg = page({
     title: T[t], model: () => a, save, onClose: rf,
-    body: () => { const i = cur(), p = a.list[i]; return fx(a).seg('src', t == 'chat' ? [['tavern', '酒馆当前配置'], ['custom', '自定义 API']] : [['tavern', '酒馆扩展'], ['custom', '自选渠道']]) + (a.src == 'tavern'
-      ? `<p class="tip">${{ chat: '直接使用酒馆当前连接的 API 与模型。', img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`
+    body: () => { const i = cur(), p = a.list[i]; return fx(a).seg('src', t == 'chat' ? [['tavern', '酒馆连接'], ['custom', '自定义 API']] : [['tavern', '酒馆扩展'], ['custom', '自选渠道']]) + (a.src == 'tavern'
+      ? (t == 'chat' ? stPick(a) : `<p class="tip">${{ img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`)
       : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}${t == 'chat' ? '' : `<em class="pv">${esc(pn(t, p.prov))}</em>`}</b><small>${esc(p.model || p.voice || '未选模型')}${p.url ? ' · ' + esc(p.url) : ''}</small></span></div>`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除</p>${btn('padd', '＋ 新增' + (t == 'chat' ? '配置' : '渠道'))}${p && (t == 'chat' || (p.prov || 'openai') == 'openai') ? btn('pmod', '拉取模型列表') : ''}`
         + (t == 'tts' && p ? `<h6>兜底音色 · ${esc(p.name || pn(t, p.prov))}</h6><div class="card">${fx(a).inp(`list.${i}.vm`, '男声兜底', 'text', '男性联系人没绑音色时用')}${fx(a).inp(`list.${i}.vf`, '女声兜底', 'text', '女性联系人没绑音色时用')}</div><p class="tip">联系人没有绑定专属音色时，按联系人性别调用这里的男 / 女兜底音色；性别不明就用配置里的默认音色。联系人的性别和音色在「聊天信息」里改。</p>` : ''))
-      + (t == 'chat' && a.list.length ? `<h6>生成用模型</h6><div class="card">${fx(a).sel('aux', '生成联系人 / 剧情同步', [['', '跟聊天模型一样'], ...a.list.map(p => [p.id, (p.name || '未命名') + (p.model ? ' · ' + p.model : '')])])}</div><p class="tip">生成联系人、剧情同步、世界书解析、生图提示词这类「列清单」的活不需要思考。像 glm-5.3-flash 这种强制思考、关不掉的模型，会先想上万字再输出（日志里的「模型思考中 N字」就是它，不是联系人内容）。这里另选一个不思考的模型（同一个公益站里的非思考模型就行），会快很多；聊天回复仍用上面的模型。</p>` : '')
+      + (t == 'chat' && (a.list.length || stProfiles()?.length) ? `<h6>生成用模型</h6><div class="card">${fx(a).sel('aux', '生成联系人 / 剧情同步', [['', '跟聊天模型一样'], ...a.list.map(p => [p.id, (p.name || '未命名') + (p.model ? ' · ' + p.model : '')]), ...(stProfiles() || []).map(p => ['st:' + p.id, '酒馆 · ' + (p.name || '未命名') + (p.model ? ' · ' + p.model : '')])])}</div><p class="tip">生成联系人、剧情同步、世界书解析、生图提示词这类「列清单」的活不需要思考。像 glm-5.3-flash 这种强制思考、关不掉的模型，会先想上万字再输出（日志里的「模型思考中 N字」就是它，不是联系人内容）。这里另选一个不思考的模型（同一个公益站里的非思考模型就行），会快很多；聊天回复仍用上面的模型。</p>` : '')
       + (t == 'chat' ? `<div class="card">${fx(a).inp('$tmo', '超时（秒）', 'number', '300')}</div><p class="tip">连续这么久没收到任何数据才判定失败（流式输出时边收边计时，默认5分钟）。想更快：开「低思考模式」、选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
       + (t == 'img' ? `<div class="card">${fx(a).tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>` : '') + btn('test', '测试连接', '', 'pri'); },
     acts: {
-      pick: id => { a.cur = id; save(); pg.re(); }, padd: () => pe(),
+      pick: id => { a.cur = id; save(); pg.re(); }, stp: id => { a.stp = id; save(); pg.re(); }, padd: () => pe(),
       pedit: async id => { const p = a.list.find(x => x.id == id), k = await menu([['e', '编辑'], ['c', '复制'], ['d', '删除', 'danger']], esc(p.name)); k == 'e' && pe(p); k == 'c' && a.list.push({ ...structuredClone(p), id: uid(), name: p.name + ' 副本' }); k == 'd' && a.list.splice(a.list.indexOf(p), 1); save(); pg.re(); },
       pmod: async () => { try { toast('拉取中…'); const m = await menu((await models(prof(t), t)).map(x => [x, esc(x)]), '选择模型'); m && (prof(t).model = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
       test: () => task('测试连接中', async sg => t == 'chat' ? '✓ ' + String(await llm('Reply in one short sentence.', '用一句话打个招呼', '测试', sg)).slice(0, 30)
@@ -135,7 +144,7 @@ function disp() {
     title: '显示方式', onClose: rf,
     body: () => { const f = fx(S); return sec('disp', [
       ['s', '入口', f.seg('show', [['float', '悬浮窗'], ['wand', '魔法棒菜单']]) + '<p class="tip">悬浮窗：可拖动的小图标。魔法棒：在输入框左侧的扩展菜单里打开。</p>'],
-      ['z', '尺寸与位置', `<label class="row"><span>缩放</span><input type="range" min=".6" max="1.3" step=".05" data-k="scale" value="${S.scale}"></label>` + btn('rpos', '重置手机与悬浮窗位置')]]); },
+      ['z', '尺寸与字体', `<label class="row"><span>缩放</span><input type="range" min=".6" max="1.3" step=".05" data-k="scale" value="${S.scale}"></label><label class="row"><span>字体大小</span><input type="range" min=".8" max="1.15" step=".02" data-k="fz" value="${S.fz || .92}"></label>` + btn('rpos', '重置手机与悬浮窗位置')]]); },
     acts: { rpos: () => { S.pos = {}; save(); emit('cfg', 'pos'); toast('已重置'); } },
   });
 }

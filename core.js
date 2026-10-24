@@ -20,7 +20,7 @@ const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', gest: '', wp: 'cathedral', video: '', text: '' }, media: {},
-  ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
+  ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
     widget: [{ id: 'w1', name: '心情便签', sz: '2x2', html: '<div style="height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px"><b style="font:700 30px Georgia,serif">{{time}}</b><small>今天也要开心 ✧</small><small style="opacity:.6">{{date}} 周{{week}}</small></div>' }],
@@ -250,8 +250,8 @@ export const stopCall = id => RUN.get(id)?.abort(Error('已手动中止'));
 export const prof = t => S.api[t].list.find(p => p.id == S.api[t].cur);
 const tav = t => S.api[t].src == 'tavern';
 // 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
-async function call(t, desc, rq, fn, sg, pO) {
-  const T = !pO && tav(t), p = pO || prof(t), L = { id: uid(), t, desc, at: Date.now(), run: 1, src: T ? '酒馆' : p?.name || '未配置', model: T ? '' : p?.model || p?.voice || '', req: String(rq).slice(0, 4000), res: '' };
+async function call(t, desc, rq, fn, sg, pO, raw) {
+  const T = raw ?? (!pO && tav(t)), p = pO || prof(t), L = { id: uid(), t, desc, at: Date.now(), run: 1, src: T ? '酒馆' : p?.name || '未配置', model: T ? '' : p?.model || p?.voice || '', req: String(rq).slice(0, 4000), res: '' };
   LOG.unshift(L); LOG.length > 100 && LOG.pop(); saveLog(); logUp(1);
   const ac = new AbortController(), lim = +S.tmo || 300; let tm; RUN.set(L.id, ac);
   const kick = () => { clearTimeout(tm); tm = setTimeout(() => ac.abort(Error(`超时（${lim}秒没有收到任何返回）`)), lim * 1e3); }; kick();
@@ -306,16 +306,41 @@ async function readAI(r, cx, o) {
   let j; try { j = JSON.parse(all); } catch { throw Error('返回格式无法识别：' + all.slice(0, 200)); }
   if (j.error) throw Error(j.error.message || JSON.stringify(j.error)); return pick(j);
 }
+/* ---------- 酒馆里保存的「连接配置」（API 连接页顶部的下拉框；靠酒馆自带的连接管理器调用，不切换正文用的连接） ---------- */
+export const stProfiles = () => { try { const c = C(), R = c.ConnectionManagerRequestService, es = c.extensionSettings || c.extension_settings;
+  if (!R || es?.disabledExtensions?.includes('connection-manager')) return null;
+  return (es?.connectionManager?.profiles || []).filter(p => { try { return R.isProfileSupported ? R.isProfileSupported(p) : !!p.api; } catch { return false; } }); } catch { return null; } };
+export const stProf = id => id && stProfiles()?.find(p => p.id == id) || null;
+export const stCurName = () => { try { const es = C().extensionSettings, id = es?.connectionManager?.selectedProfile; return id && es.connectionManager.profiles.find(p => p.id == id)?.name || ''; } catch { return ''; } };
+async function stReq(id, sys, user, sig, cx, o) {
+  const R = C().ConnectionManagerRequestService; if (!R) throw Error('这个版本的酒馆不支持按连接配置调用，请更新酒馆，或改回「跟随酒馆当前连接」');
+  const m = [{ role: 'system', content: sys }, { role: 'user', content: user }]; let r;
+  try { r = await R.sendRequest(id, R.constructPrompt ? R.constructPrompt(m, id) : m, 8192, { stream: true, signal: sig }); }
+  catch (e) { if (sig?.aborted) throw sig.reason || e; throw Error(String(e?.cause?.message || e?.message || e)); }
+  if (typeof r != 'function') return r?.content ?? (typeof r == 'string' ? r : '');
+  let out = '';
+  for await (const v of r()) { out = v?.text || ''; const th = v?.state?.reasoning?.length || 0; th && o.onThink?.(th); out && o.onText?.(out); cx.part(out || `（模型正在思考，已经想了 ${th} 字。这是模型内部的思考过程，不是返回结果；想完才开始输出）`, th); }
+  return out;
+}
+// 本次调用走哪条线：生成用模型（aux）> 聊天模型；酒馆模式下可指定某个连接配置，不指定就用酒馆当前连接
+const route = aux => {
+  const a = S.api.chat, x = aux && a.aux || '';
+  if (x.startsWith('st:')) { const sp = stProf(x.slice(3)); if (sp) return { st: sp }; }
+  else if (x) { const cp = a.list.find(p => p.id == x); if (cp) return { p: cp }; }
+  if (a.src == 'tavern') { const sp = stProf(a.stp); return sp ? { st: sp } : { raw: 1 }; }
+  return { p: prof('chat') };
+};
 // o.fast 本次强制低思考；o.aux 用「生成用模型」（生成联系人 / 剧情同步等，没设就用聊天模型）；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
-export const auxProf = () => S.api.chat.aux && S.api.chat.list.find(p => p.id == S.api.chat.aux) || null;
-export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const ap = o.aux ? auxProf() : null; return call('chat', desc, user, async (p, sig, cx) => {
-  if (!ap && tav('chat')) return C().generateRaw({ systemPrompt: sys, prompt: user });
+export const auxProf = () => { const r = route(1); return r.p && r.p.id == S.api.chat.aux ? r.p : null; };
+export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const R = route(o.aux); return call('chat', desc, user, async (p, sig, cx) => {
+  if (R.raw) return C().generateRaw({ systemPrompt: sys, prompt: user });
+  if (R.st) return stReq(R.st.id, sys, user, sig, cx, o);
   const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], ...(!p.nostream && { stream: true }) };
   const x = p.fast || o.fast ? noThink(p.model) : null; let r;
   try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
   catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }
   return readAI(r, cx, o);
-}, sg, ap); };
+}, sg, R.raw ? null : R.st ? { name: '酒馆 · ' + (R.st.name || '连接配置'), model: R.st.model || '', _st: 1 } : R.p, !!R.raw); };
 // 机器翻译：只给“我”写的文字用，走酒馆自带翻译接口（谷歌/必应同时发，谁先回用谁，8秒上限）；绝不调用聊天模型，不花 API 额度
 export async function mt(text, to) {
   const c = C(), h = { ...(c.getRequestHeaders?.() || {}), 'Content-Type': 'application/json' }, ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8e3);
