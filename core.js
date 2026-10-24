@@ -46,9 +46,9 @@ export const defAv = n => { n = String(n || '?'); return 'data:image/svg+xml,' +
 export const meObj = () => { const d = D().me; return { ...d, id: 'me', nick: d.nick || C().name1, real: d.real || C().name1 }; }; // nick＝网名，real＝真实姓名（默认酒馆里的名字）
 export const byId = id => D().chats.find(c => c.id == id);
 export function avOf(c) { if (!c) return defAv('?'); if (c.av) return c.av; const x = C(), ch = x.characters?.[x.characterId]; return (ch && c.real && c.real == x.name2 && x.getThumbnailUrl?.('avatar', ch.avatar)) || defAv(nm(c)); }
-export const brief = m => ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]` }[m.t] || '') + (m.c || '');
+export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]` }[m.t] || '') + (m.c || '');
 // 给模型看的：表情包要写清楚是什么意思（名字 + 说明 + 哪一组），不然对方看不懂你发了个啥
-export const say = m => { if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
+export const say = m => { if (m.t == 'rec') return `[转发了一段聊天记录「${m.c}」：${(m.rec || []).map(r => `${r.n}: ${r.c}`).join(' / ')}]`; if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
   if (!n && !d && m.img) { const x = S.stk?.mine?.flatMap(p => p.items).find(x => x.img == m.img) || S.assets.sticker.find(x => x.img == m.img); x && (n = x.l || x.name || '', d = x.d && x.d != n ? x.d : ''); } // 之前发的、后来才起名字的表情
   return `[表情包：${[n, d && `（${d}）`].join('') || '一个表情'}${m.pk ? `，「${m.pk}」里的` : ''}]`; };
 
@@ -226,6 +226,7 @@ export function bind(R) {
     const end = () => { clearTimeout(lp); removeEventListener('pointermove', mv); removeEventListener('pointerup', end); removeEventListener('pointercancel', end); }, mv = ev => Math.hypot(ev.clientX - x, ev.clientY - y) > 8 && end();
     lp = setTimeout(() => { lpd = 1; navigator.vibrate?.(12); hit(e, 'lp'); }, 480); addEventListener('pointermove', mv); addEventListener('pointerup', end); addEventListener('pointercancel', end);
   });
+  R.addEventListener('contextmenu', e => e.preventDefault()); // 长按图片不要弹浏览器自己的「保存图片 / 大图」
   R.addEventListener('change', e => {
     const t = e.target, pg = pgOf(t), k = t.dataset.k, km = t.dataset.km;
     k && set(pg, k, t.type == 'checkbox' ? t.checked : t.type == 'number' || t.type == 'range' ? +t.value : t.value);

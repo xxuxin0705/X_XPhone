@@ -843,3 +843,29 @@
 .rv-i small{max-width:100%;padding:1px 4px;border-radius:4px;font-size:calc(10.5px*var(--fz,1));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.rv-i small.none{opacity:.45}
 .rv-ck{position:absolute;right:4px;top:4px;width:18px;height:18px;border-radius:50%;background:#07c160;box-shadow:0 0 0 2px #fff}.rv-ck::after{content:'';position:absolute;left:6px;top:3px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .rv-i.drop img{opacity:.25}.rv-i.drop .rv-ck{background:rgba(127,127,127,.25)}.rv-i.drop .rv-ck::after{display:none}.rv-i.drop small{opacity:.4}
+/* 长按图片不弹系统菜单 / 大图 */
+#stp img{-webkit-touch-callout:none;-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+/* 长按消息：深色气泡菜单（仿微信） */
+.mpop-m{position:absolute;inset:0;z-index:95;animation:lkin .12s}.mpop-m.out{opacity:0;transition:opacity .15s}
+.mpop{position:absolute;max-width:calc(100% - 16px);padding:8px 6px 6px;border-radius:12px;background:#4c4c4c;color:#fff;box-shadow:0 8px 28px rgba(0,0,0,.28)}
+.mp-e{display:flex;justify-content:space-between;gap:2px;padding:2px 6px 8px;margin-bottom:4px;border-bottom:.5px solid rgba(255,255,255,.14)}.mp-e b{font-size:calc(21px*var(--fz,1));cursor:pointer;padding:2px 3px;border-radius:8px}.mp-e b:active{background:rgba(255,255,255,.15)}
+.mp-g{display:grid;grid-template-columns:repeat(5,58px);row-gap:4px}
+.mp-g b{display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px 0 6px;border-radius:8px;font-weight:400;font-size:calc(11.5px*var(--fz,1));cursor:pointer}.mp-g b:active{background:rgba(255,255,255,.12)}
+.mp-g svg{width:21px;height:21px}.mp-g b.dg{color:#ff8a80}
+.mp-ar{position:absolute;width:12px;height:12px;margin-left:-6px;background:#4c4c4c;transform:rotate(45deg)}.mp-ar.dn{bottom:-5px}.mp-ar.up{top:-5px}
+/* 多选消息 */
+.cv.msel .msg{position:relative;padding-left:30px;cursor:pointer}.cv.msel .msg *{pointer-events:none}
+.mck{position:absolute;left:0;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:50%;border:1.5px solid rgba(127,127,127,.55);box-sizing:border-box}
+.msg.on .mck{border:0;background:#07c160}.msg.on .mck::after{content:'';position:absolute;left:7px;top:3.5px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pg-t .msel-x{position:absolute;left:14px;font-weight:400;font-size:calc(15px*var(--fz,1));cursor:pointer}
+.chat:has(.cv.msel) .pg-back{visibility:hidden}
+.selto{position:absolute;left:12px;bottom:calc(100% + 10px);padding:6px 12px;border-radius:16px;background:var(--b1,#fff);color:#576b95;font-size:calc(12.5px*var(--fz,1));box-shadow:0 2px 10px rgba(0,0,0,.12);cursor:pointer}
+.mbar2{display:flex;justify-content:space-around;padding:8px 10px 18px;border-top:.5px solid rgba(127,127,127,.18);background:var(--hb)}
+.mbar2 button{all:unset;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 14px;font-size:calc(11px*var(--fz,1));color:var(--t1,#222);cursor:pointer}.mbar2 svg{width:23px;height:23px}.mbar2 button.dis{opacity:.35;pointer-events:none}
+/* 合并转发的聊天记录卡片 */
+.bub.b-rec{padding:0!important;background:var(--b1,#fff)!important;color:var(--t1,#222)!important}.b-rec::before{display:none}
+.rec{width:210px;padding:11px 13px 8px;cursor:pointer}.rec b{display:block;margin-bottom:5px;font-size:calc(14.5px*var(--fz,1));font-weight:500}
+.rec p{margin:0!important;font-size:calc(12px*var(--fz,1));line-height:1.55;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec small{display:block;margin-top:6px;padding-top:6px;border-top:.5px solid rgba(127,127,127,.2);font-size:calc(11px*var(--fz,1));color:#aaa}
+.rec-l{display:flex;flex-direction:column;gap:14px;padding-top:10px}.rec-i b{display:block;font-size:calc(12.5px*var(--fz,1));opacity:.55;font-weight:400;margin-bottom:3px}.rec-i p{margin:0!important;font-size:calc(15px*var(--fz,1))}
+.chat .pg-f{position:relative}

@@ -14,6 +14,7 @@ const ALL = {
   snow: ['e2e/snow.cjs', '锁屏雪夜：照片底图、点树亮灯、雪地写字、雪人、抖雪、结霜、底部上滑解锁、打开第一帧不黑屏'],
   stk: ['e2e/stk.cjs', '表情包：面板图标栏、表情商店、表情包组详情、搜索（可爱风优先）、AI 表情配图、线路兜底；翻译按钮、Kakao 未读 1'],
   mine: ['e2e/mine.cjs', '我的表情：长按管理；导入表情包（上传图片 / 链接 / Word 文件）前挑选保留、起名字、本地读图里的字；动态页；机翻不再报错'],
+  msel: ['e2e/msel.cjs', '聊天长按菜单（仿微信）、多选消息（选择到这里 / 全选 / 删除）、转发（逐条 / 合并，只写网名）、长按图片不弹大图'],
   prov: ['e2e/prov.cjs', '生图 / 语音服务商页：迁移、切换、快选拉取、Fish 网页接口、ElevenLabs'],
 };
 const pick = process.argv.slice(2).filter(k => ALL[k]), keys = pick.length ? pick : Object.keys(ALL);
