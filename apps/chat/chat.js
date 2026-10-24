@@ -140,7 +140,8 @@ export function inlineSync(id) {
     else if (k == '拍一拍' && f[1] && !me(f[1])) d.msgs.push({ chat: f[1], from: f[1], type: 'pat', text: rest(2) || '拍了拍你' });
   }
   const out = applyDelta(d); out.forEach(([ch, x]) => notify(ch, x));
-  m.mes = String(m.mes).replace(PHB, '').replace(/\n{3,}/g, '\n\n').trim(); // 正文里不显示这个块
+  const cut = t => String(t).replace(PHB, '').replace(/\n{3,}/g, '\n\n').trim();
+  m.mes = cut(m.mes); Array.isArray(m.swipes) && m.swipes[m.swipe_id ?? 0] != null && (m.swipes[m.swipe_id ?? 0] = cut(m.swipes[m.swipe_id ?? 0])); // 正文里不显示这个块（当前这条 swipe 也一起清掉）
   setTimeout(() => { c.updateMessageBlock?.(id, m); c.saveChat?.(); });
   return out.length;
 }
