@@ -86,13 +86,30 @@ export const back = () => { const o = stack.pop(); o && close(o); };
 export const home = () => { while (stack.length) back(); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };
-// 任务进度条：转圈 + 计时 + 取消，结束后显示成功/失败结果
+// 失败提示：红色条一直留着，点 × 才关，可直接跳到调用日志；手机收起时同时用酒馆右上角弹窗提醒
+const errBar = (el, msg, sec) => {
+  el.className = 'tk err'; el.innerHTML = `<i>!</i><span>${esc(msg)}</span>${sec != null ? `<time>${sec}s</time>` : ''}<b data-lg>日志</b><b data-x>×</b>`;
+  $('[data-lg]', el).onclick = e => { e.stopPropagation(); el.remove(); ui.root?.classList.add('on'); G.openLogs?.(); };
+  $('[data-x]', el).onclick = e => { e.stopPropagation(); el.remove(); };
+  emit('badge'); ui.root?.classList.contains('on') || globalThis.toastr?.error(msg, '小手机', { timeOut: 15e3, extendedTimeOut: 1e4 });
+};
+export const fail = msg => {
+  const same = [...(ui.tasks?.children || [])].find(x => x.classList.contains('err') && x.dataset.m == msg);
+  if (same) { same.dataset.n = (+same.dataset.n || 1) + 1; $('span', same).textContent = `${msg} ×${same.dataset.n}`; return; }
+  const el = Object.assign(document.createElement('div'), { className: 'tk err' }); el.dataset.m = msg; ui.tasks?.append(el); errBar(el, msg);
+};
+// 任务进度条：转圈 + 计时 + 进度文字 + 取消；成功4秒后消失，失败一直保留直到手动关闭
 export function task(title, fn) {
   const ac = new AbortController(), t0 = Date.now(), el = Object.assign(document.createElement('div'), { className: 'tk' });
   el.innerHTML = `<i class="spin"></i><span>${esc(title)}…</span><time>0s</time><b>取消</b>`; ui.tasks?.append(el);
   const iv = setInterval(() => $('time', el).textContent = ((Date.now() - t0) / 1e3 | 0) + 's', 1e3); $('b', el).onclick = e => { e.stopPropagation(); ac.abort(); };
-  const fin = (ok, msg) => { clearInterval(iv); el.className = 'tk ' + (ok ? 'ok' : 'err'); el.innerHTML = `<i>${ok ? '✓' : '!'}</i><span>${esc(msg)}</span><time>${(Date.now() - t0) / 1e3 | 0}s</time>`; el.onclick = () => el.remove(); setTimeout(() => el.remove(), ok ? 4000 : 10000); ok || emit('badge'); };
-  return fn(ac.signal).then(m => (fin(1, m || title + ' · 完成'), m), e => fin(0, ac.signal.aborted ? '已取消' : '失败：' + (e?.message || e)));
+  const prog = s => { const sp = !el.classList.contains('err') && $('span', el); sp && (sp.textContent = s ? `${title} · ${s}` : title + '…'); };
+  const fin = (ok, msg) => {
+    clearInterval(iv); const sec = (Date.now() - t0) / 1e3 | 0;
+    if (!ok) return errBar(el, msg, sec);
+    el.className = 'tk ' + (ok == 2 ? 'cc' : 'ok'); el.innerHTML = `<i>${ok == 2 ? '–' : '✓'}</i><span>${esc(msg)}</span><time>${sec}s</time>`; el.onclick = () => el.remove(); setTimeout(() => el.remove(), 4000);
+  };
+  return fn(ac.signal, prog).then(m => (fin(1, m || title + ' · 完成'), m), e => ac.signal.aborted ? fin(2, `${title} · 已取消`) : fin(0, `${title}失败：${e?.message || e}`));
 }
 export const toast = s => { const t = Object.assign(document.createElement('div'), { className: 'stp-toast', textContent: s }); ui.scr?.append(t); setTimeout(() => t.remove(), 2400); };
 export const menu = (items, title = '') => new Promise(res => {
@@ -114,9 +131,10 @@ export const fx = m => {
     multi: (k, l, o) => `<div class="col"><span>${l}</span><div class="chips">${o.map(([a, b]) => `<label class="chip"><input type="checkbox" data-km="${k}" value="${esc(a)}" ${(v(k) || []).includes(a) ? 'checked' : ''}>${esc(b)}</label>`).join('') || '<small>（空）</small>'}</div></div>`,
   };
 };
-export const form = (title, fields, obj = {}, ext = {}) => new Promise(res => {
+// fields 可以是数组，也可以是 m => 数组（字段随填写内容变化，如切换渠道）；chg(k, v, m, s) 在任意字段改动后调用
+export const form = (title, fields, obj = {}, ext = {}, chg) => new Promise(res => {
   const m = structuredClone(obj), f = fx(m); let done;
-  const s = sheet({ title, noBack: 1, model: () => m, save: () => {}, body: () => fields.map(([k, l, t = 'text', o]) => t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); } }, onClose: () => done || res(null) });
+  const s = sheet({ title, noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => chg?.(k, v, m, s), body: () => (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); } }, onClose: () => done || res(null) });
 });
 // 可折叠、长按拖拽排序的分组
 export const sec = (pk, list) => { const o = S.ui.order[pk] || [], ix = k => o.indexOf(k) + 1 || 99; return `<div class="secs" data-secs="${pk}">${list.filter(Boolean).sort((a, b) => ix(a[0]) - ix(b[0])).map(([k, t, h]) => `<div class="sec ${S.ui.fold[pk + k] ? 'fold' : ''}" data-sec="${esc(k)}"><div class="sec-h" data-a="fold" data-x="${esc(pk + k)}" data-lp="secDrag"><b>${t}</b>${I.chev}</div><div class="sec-b">${h}</div></div>`).join('')}</div>`; };
@@ -126,7 +144,7 @@ export const pickFile = (accept = 'image/*') => new Promise(r => { const i = Obj
 export const readImg = (f, max = 400) => new Promise(r => {
   const fr = new FileReader(); fr.onload = () => {
     if (f.type == 'image/gif') return r(fr.result); const im = new Image();
-    im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = Object.assign(document.createElement('canvas'), { width: im.width * s, height: im.height * s }); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); r(c.toDataURL('image/webp', .86)); }; im.src = fr.result;
+    im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = Object.assign(document.createElement('canvas'), { width: im.width * s, height: im.height * s }); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); r(c.toDataURL('image/webp', .86)); }; im.onerror = () => r(fr.result); im.src = fr.result;
   }; fr.readAsDataURL(f);
 });
 export async function pickImg(max) { const k = await menu([['f', '从相册上传'], ['u', '输入图片链接'], ['c', '清除', 'danger']]); if (k == 'f') { const f = await pickFile(); return f ? readImg(f, max) : null; } if (k == 'u') return (await form('图片链接', [['u', 'URL']]))?.u ?? null; return k == 'c' ? '' : null; }
@@ -175,23 +193,81 @@ Object.assign(G, {
 });
 
 /* ---------- AI：聊天 / 生图 / TTS + 日志 ---------- */
+// 日志在调用「开始」时就写入（run=1 进行中），流式返回时实时更新内容，结束后原地改成成功 / 失败
 export const LOG = (() => { try { return JSON.parse(localStorage.stp_log || '[]'); } catch { return []; } })();
+LOG.forEach(l => l.run && (l.run = 0, l.res = (l.res ? l.res + '\n\n' : '') + '✗ 页面刷新，调用中断'));
 export const saveLog = () => { try { localStorage.stp_log = JSON.stringify(LOG.slice(0, 50)); } catch { } };
+const RUN = new Map(); let lt = 0, lq;
+const logUp = now => { clearTimeout(lq); const go = () => { lt = Date.now(); emit('log'); }; now || Date.now() - lt > 700 ? go() : (lq = setTimeout(go, 700)); };
+export const stopCall = id => RUN.get(id)?.abort(Error('已手动中止'));
 export const prof = t => S.api[t].list.find(p => p.id == S.api[t].cur);
 const tav = t => S.api[t].src == 'tavern';
-// 每次调用都有超时（聊天默认30秒，可在设置改）并可被任务取消
+// 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
 async function call(t, desc, rq, fn, sg) {
-  const p = prof(t), L = { t, desc, at: Date.now(), src: tav(t) ? '酒馆' : p?.name || '未配置', model: tav(t) ? '' : p?.model, req: String(rq).slice(0, 4000) };
-  const ac = new AbortController(), lim = +S.tmo || 300, tm = setTimeout(() => ac.abort(Error(`超时（${lim}秒没有返回）`)), lim * 1e3);
-  sg?.addEventListener('abort', () => ac.abort(Error('已取消')));
-  const stop = new Promise((_, rj) => ac.signal.addEventListener('abort', () => rj(ac.signal.reason)));
-  try { if (!tav(t) && !p) throw Error('请先在 设置 中添加并选择API配置'); const r = await Promise.race([fn(p, ac.signal), stop]); L.ok = 1; L.res = typeof r == 'string' ? r.slice(0, 4000) : '[ok]'; return r; }
-  catch (e) { L.res = String(e?.message || e); throw e; } finally { clearTimeout(tm); L.ms = Date.now() - L.at; LOG.unshift(L); LOG.length > 100 && LOG.pop(); saveLog(); }
+  const p = prof(t), L = { id: uid(), t, desc, at: Date.now(), run: 1, src: tav(t) ? '酒馆' : p?.name || '未配置', model: tav(t) ? '' : p?.model || p?.voice || '', req: String(rq).slice(0, 4000), res: '' };
+  LOG.unshift(L); LOG.length > 100 && LOG.pop(); saveLog(); logUp(1);
+  const ac = new AbortController(), lim = +S.tmo || 300; let tm; RUN.set(L.id, ac);
+  const kick = () => { clearTimeout(tm); tm = setTimeout(() => ac.abort(Error(`超时（${lim}秒没有收到任何返回）`)), lim * 1e3); }; kick();
+  const off = () => ac.abort(Error('已取消')); sg?.aborted ? off() : sg?.addEventListener('abort', off);
+  const stop = new Promise((_, rj) => ac.signal.aborted ? rj(ac.signal.reason) : ac.signal.addEventListener('abort', () => rj(ac.signal.reason)));
+  const cx = { kick, part: (s, th) => { kick(); L.res = String(s).slice(-4000); L.th = th || 0; logUp(); } };
+  try {
+    if (!tav(t) && !p) throw Error('请先在 设置 中添加并选择配置');
+    const r = await Promise.race([fn(p, ac.signal, cx), stop]); L.ok = 1;
+    L.res = typeof r == 'string' ? (r.startsWith('data:') ? '[图片数据]' : r.slice(0, 4000)) : r == null ? '[完成]' : '[ok]'; return r;
+  } catch (e) { const m = String(e?.message || e); L.res = (L.res ? L.res + '\n\n' : '') + '✗ ' + m; throw e instanceof Error ? e : Error(m); }
+  finally { clearTimeout(tm); sg?.removeEventListener('abort', off); RUN.delete(L.id); L.run = 0; L.ms = Date.now() - L.at; saveLog(); logUp(1); }
 }
-const base = u => { u = String(u || '').trim().replace(/\/+$/, '').replace(/\/chat\/completions$/, ''); return /\/v\d[^/]*$/.test(u) ? u : u + '/v1'; };
-const req = async (p, path, body, signal) => { const r = await fetch(base(p.url) + path, { signal, method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(p.key && { Authorization: 'Bearer ' + p.key }) }, body: body && JSON.stringify(body) }); if (!r.ok) throw Error(`HTTP ${r.status} ${(await r.text()).slice(0, 200)}`); return r; };
-export const llm = (sys, user, desc = '聊天', sg) => call('chat', desc, user, async (p, sig) => tav('chat') ? C().generateRaw({ systemPrompt: sys, prompt: user })
-  : (await (await req(p, '/chat/completions', { model: p.model, temperature: +p.temp || 0.9, ...(p.fast && { reasoning_effort: 'low' }), messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] }, sig)).json()).choices?.[0]?.message?.content || '', sg);
+
+/* ---------- 网络 ---------- */
+const trim = u => String(u || '').trim().replace(/\/+$/, '');
+const base = u => { u = trim(u).replace(/\/chat\/completions$/, ''); return /\/v\d[^/]*$/.test(u) ? u : u + '/v1'; };
+const chk = async r => { if (!r.ok) throw Error(`HTTP ${r.status} ${(await r.text()).slice(0, 300)}`); return r; };
+// 直连失败（多半是跨域被拦）时自动改走酒馆自带的 CORS 代理 /proxy/（config.yaml 里 enableCorsProxy: true）
+async function xf(url, o = {}) {
+  try { return await fetch(url, o); }
+  catch (e) {
+    if (o.signal?.aborted || !/^https?:/i.test(url) || url.startsWith(location.origin)) throw e;
+    let r = null; try { r = await fetch('/proxy/' + url, { ...o, headers: { ...C().getRequestHeaders?.(), ...o.headers } }); } catch (e2) { if (o.signal?.aborted) throw e2; }
+    if (r?.status == 404) { const s = await r.clone().text(); (/proxy is disabled|Cannot (GET|POST)/i.test(s) || s.trim().startsWith('<')) && (r = null); }
+    if (!r) throw Error(`连不上 ${new URL(url).host}（网络不通或被跨域拦截）。本地服务请开启跨域；在线接口可在酒馆 config.yaml 设 enableCorsProxy: true 后重启酒馆`);
+    return r;
+  }
+}
+const post = (url, body, h, signal) => xf(url, { signal, method: 'POST', headers: { 'Content-Type': 'application/json', ...h }, body: JSON.stringify(body) }).then(chk);
+const req = (p, path, body, signal) => xf(base(p.url) + path, { signal, method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(p.key && { Authorization: 'Bearer ' + p.key }) }, body: body && JSON.stringify(body) }).then(chk);
+
+/* ---------- 聊天模型（默认流式：边收边显示，不会因为整体太慢被判超时） ---------- */
+// 关思考：GLM / Qwen 用各自的开关，其它模型用 reasoning_effort；接口不认就自动去掉重发
+const noThink = m => /glm/i.test(m) ? { thinking: { type: 'disabled' } } : /qwen|qwq/i.test(m) ? { enable_thinking: false } : { reasoning_effort: 'low' };
+const pick = j => j.choices?.[0]?.message?.content ?? j.choices?.[0]?.text ?? '';
+async function readAI(r, cx, o) {
+  const rd = r.body?.getReader?.(); if (!rd) return pick(await r.json());
+  const dec = new TextDecoder(); let buf = '', all = '', out = '', th = 0, sse = 0;
+  const line = l => {
+    l = l.trim(); if (!l.startsWith('data:')) return; sse = 1; const d = l.slice(5).trim(); if (!d || d == '[DONE]') return;
+    let j; try { j = JSON.parse(d); } catch { return; } if (j.error) throw Error(j.error.message || JSON.stringify(j.error));
+    const c = j.choices?.[0], dl = c?.delta || c?.message || {}, rs = dl.reasoning_content || dl.reasoning || '';
+    rs && (th += rs.length, o.onThink?.(th)); dl.content && (out += dl.content, o.onText?.(out)); cx.part(out || `（思考中… ${th}字）`, th);
+  };
+  for (;;) {
+    const { done, value } = await rd.read(); if (done) break; cx.kick();
+    const s = dec.decode(value, { stream: true }); all.length < 4e6 && (all += s); buf += s;
+    let i; while ((i = buf.indexOf('\n')) >= 0) { line(buf.slice(0, i)); buf = buf.slice(i + 1); }
+  }
+  line(buf + dec.decode()); if (sse) return out;
+  let j; try { j = JSON.parse(all); } catch { throw Error('返回格式无法识别：' + all.slice(0, 200)); }
+  if (j.error) throw Error(j.error.message || JSON.stringify(j.error)); return pick(j);
+}
+// o.fast 本次强制低思考；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
+export const llm = (sys, user, desc = '聊天', sg, o = {}) => call('chat', desc, user, async (p, sig, cx) => {
+  if (tav('chat')) return C().generateRaw({ systemPrompt: sys, prompt: user });
+  const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], ...(!p.nostream && { stream: true }) };
+  const x = p.fast || o.fast ? noThink(p.model) : null; let r;
+  try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
+  catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }
+  return readAI(r, cx, o);
+}, sg);
 // 机器翻译：只给“我”写的文字用，走酒馆自带翻译接口（谷歌/必应同时发，谁先回用谁，8秒上限）；绝不调用聊天模型，不花 API 额度
 export async function mt(text, to) {
   const c = C(), h = { ...(c.getRequestHeaders?.() || {}), 'Content-Type': 'application/json' }, ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8e3);
@@ -202,9 +278,132 @@ export async function mt(text, to) {
 }
 export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/```(json)?/g, ''); const i = s.search(/[[{]/), j = Math.max(s.lastIndexOf('}'), s.lastIndexOf(']')); try { return JSON.parse(s.slice(i, j + 1)); } catch { return null; } };
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };
-export const genImg = prompt => call('img', '生图', prompt, async (p, sig) => { if (tav('img')) return slash('/sd quiet=true ' + prompt); const d = (await (await req(p, '/images/generations', { model: p.model, prompt, n: 1, size: p.size || '1024x1024' }, sig)).json()).data?.[0]; return d?.url || 'data:image/png;base64,' + d?.b64_json; });
-export const tts = (text, voice) => call('tts', '语音', text, async p => { if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`); new Audio(URL.createObjectURL(await (await req(p, '/audio/speech', { model: p.model, input: text, voice: voice || p.voice || 'alloy' })).blob())).play(); });
-export const models = async p => { const j = await (await req(p, '/models')).json(); return (j.data || j.models || j).map?.(m => m.id || m.name || m) || []; };
+
+/* ---------- 语音 TTS 渠道 ---------- */
+export const TTSP = [['mm', 'MiniMax国内'], ['mmi', 'MiniMax国际'], ['openai', 'OpenAI'], ['fish', 'Fish Audio'], ['index', 'IndexTTS本地'], ['mimo', 'MiMo-V2.5-TTS'], ['volc', '豆包 / 火山引擎']];
+const B = 'Bearer ';
+const b64 = (s, type = '') => new Blob([Uint8Array.from(atob(String(s).replace(/\s/g, '')), c => c.charCodeAt(0))], { type });
+const hex = (s, type = '') => new Blob([new Uint8Array(String(s).match(/../g).map(h => parseInt(h, 16)))], { type });
+// 通用：直接是音频，或 JSON 里带 base64 / hex / 链接
+async function audio(r) {
+  if (!/json|text/.test(r.headers.get('content-type') || '')) return r.blob();
+  const j = await r.json(), d = j.data?.audio || j.audio?.data || j.choices?.[0]?.message?.audio?.data || j.audio_url || j.url || j.audio || j.data;
+  if (typeof d != 'string') throw Error('没有拿到音频：' + JSON.stringify(j).slice(0, 200));
+  return /^https?:/.test(d) ? (await xf(d)).blob() : /^[0-9a-f]{64}/i.test(d) ? hex(d, 'audio/mpeg') : b64(d.replace(/^data:[^,]+,/, ''), 'audio/mpeg');
+}
+const mm = host => async (p, t, v, sg) => {
+  const j = await (await post(`${trim(p.url || host).replace(/\/v1$/, '')}/v1/t2a_v2${p.gid ? '?GroupId=' + encodeURIComponent(p.gid) : ''}`, { model: p.model || 'speech-2.6-hd', text: t, stream: false, output_format: 'hex', voice_setting: { voice_id: v || 'female-shaonv', speed: +p.speed || 1, vol: 1, pitch: 0 }, audio_setting: { format: 'mp3', sample_rate: 32000, bitrate: 128000, channel: 1 } }, { Authorization: B + p.key }, sg)).json();
+  if (j.base_resp?.status_code) throw Error(`MiniMax ${j.base_resp.status_code}：${j.base_resp.status_msg}`);
+  if (!j.data?.audio) throw Error('MiniMax 没有返回音频'); return hex(j.data.audio, 'audio/mpeg');
+};
+// 豆包 / 火山：V3 单向流式（2.0 音色必须用这个，返回逐行 JSON，code=0 是音频片段、20000000 是结束）；V1 旧接口
+async function volc(p, t, v, sg) {
+  if (!v) throw Error('请先填写音色（如 zh_female_xiaohe_uranus_bigtts）');
+  if (p.ver == 'v1') {
+    const j = await (await post('https://openspeech.bytedance.com/api/v1/tts', { app: { appid: p.appid, token: p.key, cluster: p.cluster || 'volcano_tts' }, user: { uid: 'st_phone' }, audio: { voice_type: v, encoding: 'mp3', speed_ratio: +p.speed || 1 }, request: { reqid: uid() + uid(), text: t, operation: 'query' } }, { Authorization: 'Bearer;' + p.key }, sg)).json();
+    if (j.code != 3000) throw Error(`火山 ${j.code}：${j.message}`); return b64(j.data, 'audio/mpeg');
+  }
+  const s = await (await post('https://openspeech.bytedance.com/api/v3/tts/unidirectional', { user: { uid: 'st_phone' }, req_params: { text: t, speaker: v, audio_params: { format: 'mp3', sample_rate: 24000, speech_rate: Math.max(-50, Math.min(100, Math.round(((+p.speed || 1) - 1) * 100))) } } }, { 'X-Api-App-Id': p.appid, 'X-Api-Access-Key': p.key, 'X-Api-Resource-Id': p.res || 'seed-tts-2.0', 'X-Api-Request-Id': uid() + uid() }, sg)).text();
+  const parts = [];
+  for (const l of s.replace(/}\s*{/g, '}\n{').split('\n')) {
+    let j; try { j = JSON.parse(l); } catch { continue; }
+    if (j.code == 0 && j.data) parts.push(b64(j.data)); else if (j.code && j.code != 20000000) throw Error(`火山 ${j.code}：${j.message}`);
+  }
+  if (!parts.length) throw Error('火山没有返回音频'); return new Blob(parts, { type: 'audio/mpeg' });
+}
+const TTS = {
+  mm: mm('https://api.minimaxi.com'), mmi: mm('https://api.minimax.io'), volc,
+  openai: async (p, t, v, sg) => (await req(p, '/audio/speech', { model: p.model || 'tts-1', input: t, voice: v || 'alloy' }, sg)).blob(),
+  fish: async (p, t, v, sg) => audio(await post(trim(p.url || 'https://api.fish.audio').replace(/\/v1$/, '') + '/v1/tts', { text: t, format: 'mp3', ...(v && { reference_id: v }) }, { Authorization: B + p.key, model: p.model || 's1' }, sg)),
+  // 本地 IndexTTS：同时带 OpenAI 格式（input/voice）和常见 API 格式（text/character），两种服务端都能认
+  index: async (p, t, v, sg) => audio(await post(trim(p.url || 'http://127.0.0.1:6006/audio/speech'), { model: p.model || 'IndexTTS', input: t, voice: v, text: t, character: v }, p.key ? { Authorization: B + p.key } : {}, sg)),
+  mimo: async (p, t, v, sg) => {
+    const j = await (await post(base(p.url || 'https://api.xiaomimimo.com/v1') + '/chat/completions', { model: p.model || 'mimo-v2.5-tts', messages: [{ role: 'assistant', content: t }], audio: { format: 'mp3', voice: v || 'mimo_default' } }, { Authorization: B + p.key }, sg)).json();
+    const d = j.choices?.[0]?.message?.audio?.data; if (!d) throw Error('MiMo 没有返回音频：' + JSON.stringify(j).slice(0, 200)); return b64(d, 'audio/mpeg');
+  },
+};
+let AU; const play = b => { AU?.pause(); AU = new Audio(URL.createObjectURL(b)); return AU.play(); };
+// 音色优先级：联系人专属音色 → 按性别的男/女兜底音色 → 配置里的默认音色
+export const tts = (text, voice, sex, sg0) => call('tts', '语音', text, async (p, sg) => {
+  if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`);
+  const v = voice || (sex == '男' ? p.vm : sex == '女' ? p.vf : '') || p.voice || '';
+  const b = await (TTS[p.prov] || TTS.openai)(p, text, v, sg); if (!b?.size) throw Error('音频为空');
+  await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · 音色 ${v || '默认'}]`;
+}, sg0);
+
+/* ---------- 生图渠道 ---------- */
+export const IMGP = [['nai', 'NovelAI / NAI'], ['openai', 'GPT / OpenAI兼容'], ['sd', '本地SD'], ['comfy', 'ComfyUI'], ['sf', '硅基流动']];
+const wh = (s, w, h) => { const m = String(s || '').match(/(\d+)\s*[x×*]\s*(\d+)/); return m ? [+m[1], +m[2]] : [w, h]; };
+const seed = () => Math.floor(Math.random() * 4294967295);
+// NAI 返回 zip：按中央目录取第一个文件（不压缩 / deflate 都支持）
+export async function unzip1(u8) {
+  if (u8[0] == 0x89 && u8[1] == 0x50) return new Blob([u8], { type: 'image/png' });
+  if (u8[0] != 0x50 || u8[1] != 0x4b) throw Error('NAI 返回异常：' + new TextDecoder().decode(u8.slice(0, 300)));
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength); let e = u8.length - 22;
+  while (e >= 0 && dv.getUint32(e, true) != 0x06054b50) e--; if (e < 0) throw Error('NAI 返回的压缩包损坏');
+  const cd = dv.getUint32(e + 16, true), meth = dv.getUint16(cd + 10, true), size = dv.getUint32(cd + 20, true), lo = dv.getUint32(cd + 42, true);
+  const st = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true), raw = u8.subarray(st, st + size);
+  if (meth == 0) return new Blob([raw], { type: 'image/png' });
+  return new Blob([await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()], { type: 'image/png' });
+}
+// ComfyUI 内置工作流（普通 SD1.5 / SDXL 底模）；自定义工作流用「导出(API)」的 JSON，占位符同下
+export const COMFY = JSON.stringify({
+  3: { class_type: 'KSampler', inputs: { seed: '%seed%', steps: '%steps%', cfg: '%scale%', sampler_name: '%sampler%', scheduler: 'karras', denoise: 1, model: ['4', 0], positive: ['6', 0], negative: ['7', 0], latent_image: ['5', 0] } },
+  4: { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: '%model%' } },
+  5: { class_type: 'EmptyLatentImage', inputs: { width: '%width%', height: '%height%', batch_size: 1 } },
+  6: { class_type: 'CLIPTextEncode', inputs: { text: '%prompt%', clip: ['4', 1] } },
+  7: { class_type: 'CLIPTextEncode', inputs: { text: '%negative_prompt%', clip: ['4', 1] } },
+  8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['4', 2] } },
+  9: { class_type: 'SaveImage', inputs: { filename_prefix: 'st_phone', images: ['8', 0] } },
+});
+export const fillWf = (wf, o) => wf.replace(/"%(\w+)%"/g, (m, k) => k in o ? JSON.stringify(o[k]) : m).replace(/%(\w+)%/g, (m, k) => k in o ? JSON.stringify(String(o[k])).slice(1, -1) : m);
+const NEG = 'lowres, bad anatomy, bad hands, missing fingers, text, error, watermark, worst quality, low quality, blurry';
+const IMG = {
+  openai: async (p, pr, sg) => { const d = (await (await req(p, '/images/generations', { model: p.model, prompt: pr, n: 1, size: p.size || '1024x1024' }, sg)).json()).data?.[0]; return d?.url || d?.b64_json && 'data:image/png;base64,' + d.b64_json; },
+  sf: async (p, pr, sg) => { const j = await (await post(base(p.url || 'https://api.siliconflow.cn/v1') + '/images/generations', { model: p.model || 'Kwai-Kolors/Kolors', prompt: pr, image_size: p.size || '1024x1024', batch_size: 1, num_inference_steps: +p.steps || 20, guidance_scale: +p.scale || 7.5, ...(p.neg && { negative_prompt: p.neg }) }, { Authorization: B + p.key }, sg)).json(); return j.images?.[0]?.url || j.data?.[0]?.url; },
+  sd: async (p, pr, sg) => { const [w, h] = wh(p.size, 512, 768), j = await (await post(trim(p.url || 'http://127.0.0.1:7860') + '/sdapi/v1/txt2img', { prompt: pr, negative_prompt: p.neg || NEG, width: w, height: h, steps: +p.steps || 20, cfg_scale: +p.scale || 7, sampler_name: p.sampler || 'Euler a', seed: -1, ...(p.model && { override_settings: { sd_model_checkpoint: p.model } }) }, {}, sg)).json(); return j.images?.[0] && 'data:image/png;base64,' + j.images[0]; },
+  nai: async (p, pr, sg) => {
+    const [w, h] = wh(p.size, 832, 1216), m = p.model || 'nai-diffusion-4-5-full', neg = p.neg || NEG, v4 = /diffusion-4/.test(m);
+    const prm = { params_version: 3, width: w, height: h, scale: +p.scale || 5, sampler: p.sampler || 'k_euler_ancestral', steps: +p.steps || 28, n_samples: 1, seed: seed(), ucPreset: 0, qualityToggle: true, noise_schedule: 'karras', cfg_rescale: 0, sm: false, sm_dyn: false, dynamic_thresholding: false, legacy: false, add_original_image: true, negative_prompt: neg,
+      ...(v4 && { v4_prompt: { caption: { base_caption: pr, char_captions: [] }, use_coords: false, use_order: true }, v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] }, legacy_uc: false } }) };
+    const r = await post(trim(p.url || 'https://image.novelai.net') + '/ai/generate-image', { input: pr, model: m, action: 'generate', parameters: prm }, { Authorization: B + p.key }, sg);
+    return unzip1(new Uint8Array(await r.arrayBuffer()));
+  },
+  comfy: async (p, pr, sg) => {
+    const u = trim(p.url || 'http://127.0.0.1:8188'), [w, h] = wh(p.size, 512, 768);
+    if (!p.wf?.trim() && !p.ckpt) throw Error('请先在配置里填写 ComfyUI 模型文件名（可点拉取）');
+    let wf; try { wf = JSON.parse(fillWf(p.wf?.trim() || COMFY, { prompt: pr, negative_prompt: p.neg || NEG, seed: seed(), width: w, height: h, steps: +p.steps || 20, scale: +p.scale || 7, sampler: p.sampler || 'euler_ancestral', model: p.ckpt || '' })); }
+    catch { throw Error('工作流 JSON 格式不对（要用 ComfyUI「导出(API)」的格式）'); }
+    const id = (await (await post(u + '/prompt', { prompt: wf, client_id: 'st_phone' }, {}, sg)).json()).prompt_id; if (!id) throw Error('ComfyUI 没有接受任务');
+    for (;;) {
+      await sleep(1500); if (sg.aborted) throw sg.reason;
+      const hs = (await (await xf(`${u}/history/${id}`, { signal: sg }).then(chk)).json())[id];
+      if (hs?.status?.status_str == 'error') throw Error('ComfyUI 执行出错，请看 ComfyUI 控制台');
+      const im = hs && Object.values(hs.outputs || {}).flatMap(o => o.images || []).sort((a, b) => (b.type == 'output') - (a.type == 'output'))[0];
+      if (im) return (await xf(`${u}/view?filename=${encodeURIComponent(im.filename)}&subfolder=${encodeURIComponent(im.subfolder || '')}&type=${im.type}`, { signal: sg }).then(chk)).blob();
+    }
+  },
+};
+// 结果统一压成 webp 存进聊天数据（链接会过期的渠道也能留住图）；拿不到就保留原链接
+const shrink = async s => { try { return await readImg(s instanceof Blob ? s : await (await fetch(s)).blob(), 1280); } catch { return s instanceof Blob ? URL.createObjectURL(s) : s; } };
+const TAGP = 'Convert the image description into concise comma-separated English Danbooru-style tags (subject, appearance, clothing, expression, pose, scene, lighting). Output tags only.';
+export async function genImg(prompt, sg) {
+  const p = prof('img'), own = !tav('img') && p;
+  if (own && p.tag && ['nai', 'sd', 'comfy'].includes(p.prov) && /[一-龥]/.test(prompt)) {
+    try { prompt = String(await llm(TAGP, prompt, '生图提示词', sg, { fast: 1 })).replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/\s*[,，]?\s*\n+\s*/g, ', ').replace(/^[\s,]+|[\s,]+$/g, '') || prompt; } catch (e) { if (sg?.aborted) throw e; }
+  }
+  own && p.pre?.trim() && (prompt = p.pre.trim().replace(/,\s*$/, '') + ', ' + prompt);
+  return call('img', '生图', prompt, async (p, sig) => {
+    if (tav('img')) return slash('/sd quiet=true ' + prompt);
+    const r = await (IMG[p.prov] || IMG.openai)(p, prompt, sig); if (!r) throw Error('没有返回图片'); return shrink(r);
+  }, sg);
+}
+// 拉取模型：OpenAI 兼容 /models；本地 SD 读 sd-models；ComfyUI 读底模文件列表
+export const models = async (p, t = 'chat') => {
+  if (t == 'img' && p.prov == 'comfy') return (await (await xf(trim(p.url || 'http://127.0.0.1:8188') + '/object_info/CheckpointLoaderSimple').then(chk)).json()).CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
+  if (t == 'img' && p.prov == 'sd') return (await (await xf(trim(p.url || 'http://127.0.0.1:7860') + '/sdapi/v1/sd-models').then(chk)).json()).map(m => m.title);
+  const j = await (await req(p, '/models')).json(); return (j.data || j.models || j).map?.(m => m.id || m.name || m) || [];
+};
 
 /* ---------- 剧情上下文 / 世界书 ---------- */
 const strip = s => String(s || '').replace(/<[^>]*>/g, '').replace(/\n{3,}/g, '\n\n').trim();
@@ -216,17 +415,19 @@ const BC = {};
 export const loadBook = async n => { const c = C(), h = BC[n]; if (h && Date.now() - h.t < 6e4) return h.d; try { return (BC[n] = { t: Date.now(), d: c.loadWorldInfo ? await c.loadWorldInfo(n) : await (await fetch('/api/worldinfo/get', { method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ name: n }) })).json() }).d; } catch { return null; } };
 export const entState = (b, e, ctx) => { const o = S.wi.ov[b + '/' + e.uid]; return o != null ? !!o : !e.disable && (e.constant || (e.key || []).some(k => k && ctx.includes(k))); };
 export async function wiText(ctx) { const o = []; for (const b of await wiBooks()) for (const e of Object.values((await loadBook(b))?.entries || {})) entState(b, e, ctx) && o.push(e.content); return o.join('\n\n'); }
-// 上下文长度预算（按约1分钟内生成调校）；lite=1 时跳过世界书、只取最近6条正文
+// 上下文长度预算：sysCtx() 完整；sysCtx(true) 精简（不带世界书、只取最近6条）；也可传 { n 条数, rc 正文字数, wi 世界书字数, desc 角色卡字数 } 自定
 const cut = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
-export async function sysCtx(lite) {
+export async function sysCtx(o) {
+  o = o === true ? { n: 6, rc: 2500, wi: 0, desc: 1200 } : o || {};
   const c = C(), ch = c.characters?.[c.characterId], d = D(), sub = (s, n = 1500) => cut((c.substituteParams?.(s || '') ?? s ?? '').trim(), n);
-  const r = cut((C().chat || []).filter(m => !m.is_system).slice(lite ? -6 : -S.ctxN).map(m => `${m.name}: ${cut(strip(m.mes), 800)}`).join('\n'), lite ? 2500 : 10000);
-  return `你是“小手机”模拟器，扮演手机里的所有联系人与内容，言行贴合人设、世界观与当前剧情，只输出要求的JSON，不要任何多余文字。
+  const n = Math.max(1, Math.min(+S.ctxN || 15, o.n || 99)), wi = o.wi ?? 8000;
+  const r = cut((C().chat || []).filter(m => !m.is_system).slice(-n).map(m => `${m.name}: ${cut(strip(m.mes), 800)}`).join('\n'), o.rc || 10000);
+  return `你是“小手机”模拟器，扮演手机里的所有联系人与内容，言行贴合人设、世界观与当前剧情。严格按要求的格式输出，不要任何多余文字。
 当前手机时间：${now().toLocaleString('zh-CN')}
 【用户】${c.name1}（手机昵称：${d.me.nick || c.name1}）${sub(c.powerUserSettings?.persona_description)}
-【主角色】${c.name2}\n${sub(ch?.description, lite ? 1200 : 4000)}\n${sub(ch?.personality, 800)}
-${lite ? '' : `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')), 8000)}`}
-【正文剧情·最近${S.ctxN}条】\n${r}
+【主角色】${c.name2}\n${sub(ch?.description, o.desc || 4000)}\n${sub(ch?.personality, 800)}
+${wi ? `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')), wi)}` : ''}
+【正文剧情·最近${n}条】\n${r}
 【手机联系人】${d.chats.map(x => x.type == 'g' ? `群「${x.name}」` : `${rn(x)}(网名${x.nick || '-'})`).join('、') || '无'}`;
 }
 

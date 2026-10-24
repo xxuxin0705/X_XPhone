@@ -441,3 +441,15 @@
 .pgrid.emo i:active{background:rgba(127,127,127,.15)}
 .pgrid.tools{padding-top:14px}
 .mem b small{font-size:10px;padding:0 5px;border-radius:5px;background:color-mix(in srgb,var(--ac) 15%,transparent);color:var(--ac);margin-left:4px}
+/* 调用日志：进行中 / 中止；任务条：失败常驻、已取消；渠道标签；测试图 */
+.log.run{border-left-color:#0a84ff;animation:lgp 1.6s ease-in-out infinite}
+@keyframes lgp{50%{border-left-color:rgba(10,132,255,.25)}}
+.log>div+div small{flex:1;min-width:0}
+.log.run .ls{color:#0a84ff;font-weight:600}.log.err .ls{color:#ff3b30}
+.log .lstop{flex:none;font-style:normal;font-size:11.5px;padding:2px 10px;border-radius:10px;background:rgba(255,59,48,.12);color:#ff3b30;cursor:pointer}
+.tk.err{height:auto;min-height:36px;padding:7px 8px 7px 12px;background:rgba(58,10,10,.95)}
+.tk.err span{white-space:normal;overflow:visible;font-size:12.5px;line-height:1.45;word-break:break-all}
+.tk.err b{flex:none}
+.tk.cc>i{background:#8e8e93}.tk.cc{cursor:pointer}
+.prof em.pv{margin-left:6px;font-style:normal;font-size:10.5px;font-weight:500;padding:1px 6px;border-radius:6px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);vertical-align:1px}
+.tpic{display:block;width:calc(100% - 28px);margin:6px 14px 16px;border-radius:14px}

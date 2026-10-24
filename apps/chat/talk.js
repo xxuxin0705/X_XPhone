@@ -1,5 +1,5 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
-import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS } from '../../core.js';
+import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, STY, LANGS, lname } from './data.js';
 import { openFeed } from './chat.js';
 
@@ -58,7 +58,7 @@ export async function gen(ch) {
   try {
     const ms = parseReply(await llm(await sysCtx(), replyP(ch, ch.cfg.pat && Math.random() < .3), '聊天回复'), ch);
     for (const m of ms) { const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
-  } catch (e) { toast('生成失败：' + e.message); } finally { busy = 0; emit('chat'); }
+  } catch (e) { fail(`${nm(ch)} · 回复失败：${e.message}`); } finally { busy = 0; emit('chat'); }
 }
 const push = (ch, m) => {
   const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat');
@@ -131,7 +131,7 @@ export function openChat(id) {
       sk: i => { const s = S.assets.sticker[i]; push(ch, { t: 'sticker', c: s.name, img: s.img }); },
       skadd: async () => { const r = await form('添加表情包', [['name', '描述（AI 按描述发送）'], ['img', '图片', 'img']]); if (!r?.img) return; S.assets.sticker.push({ id: uid(), name: r.name || '表情', img: r.img }); C().saveSettingsDebounced(); $('.pan', pg.el).innerHTML = panHtml('stk'); },
       pimg: () => tool(async () => { const u = await pickImg(800); u && push(ch, { t: 'img', c: '图片', url: u }); }),
-      pai: () => tool(async () => { const r = await form('AI生图并发送', [['d', '画面描述', 'area']]); if (!r?.d) return; const x = push(ch, { t: 'img', c: r.d }); try { x.url = await genImg(r.d); saveD(); emit('chat'); } catch (e) { toast('生图失败：' + e.message); } }),
+      pai: () => tool(async () => { const r = await form('AI生图并发送', [['d', '画面描述', 'area']]); if (!r?.d) return; const x = push(ch, { t: 'img', c: r.d }); try { x.url = await genImg(r.d); saveD(); emit('chat'); } catch (e) { fail('生图失败：' + e.message); } }),
       ptf: () => tool(async () => { const r = await form('转账', [['amt', '金额', 'number'], ['c', '备注']]); if (!(+r?.amt > 0)) return; D().me.wallet -= +r.amt; push(ch, { t: 'transfer', amt: +r.amt, c: r.c }); }),
       ppat: () => tool(async () => { if (ch.type == 'p') return pat(ch.id); const k = await menu(ch.members.map(i => [i, esc(nm(get(i)))]), '拍一拍谁'); k && pat(k); }),
       pvo: () => tool(async () => { const r = await form('发送语音', [['c', '要说的话', 'area']]); r?.c && push(ch, { t: 'voice', c: r.c }); }),
@@ -141,7 +141,7 @@ export function openChat(id) {
       rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; saveD(); emit('chat'); },
       redit: i => { const m = ch.msgs[i], ip = $('.ip', pg.el); ip.value = m.old; ip.oninput(); ip.focus(); },
       tf: async i => { const m = ch.msgs[i]; if (m.f == 'me' || m.st || !await ok(`收下 ¥${m.amt}？`)) return; m.st = '已收款'; D().me.wallet = +D().me.wallet + m.amt; saveD(); emit('chat'); },
-      play: i => { const m = ch.msgs[i]; m.open = 1; saveD(); emit('chat'); tts(m.c, m.f == 'me' ? '' : get(m.f)?.voice).catch(e => toast('语音失败：' + e.message)); },
+      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? null : get(m.f); m.open = 1; saveD(); emit('chat'); tts(m.c, c?.voice, c?.sex).catch(e => fail('语音失败：' + e.message)); },
       mlp: async i => {
         const m = ch.msgs[i]; if (/sys|pat/.test(m.t)) return; const mine = m.f == 'me';
         const k = await menu([...EMO.map(e => ['e' + e, e, 'emo']), ['q', '引用'], ['tr', m.tr || m.orig ? '显示 / 收起翻译' : '翻译'], ['tts', '朗读'], ['copy', '复制'], ['inj', m.inj ? '取消注入正文' : '注入正文'], ...(mine ? [['rc', '撤回']] : []), ['regen', '从这条往后重新生成'], ['del', '删除', 'danger']]); if (!k) return;
@@ -153,7 +153,7 @@ export function openChat(id) {
           else if (!ch.cfg.lang) return toast('先在聊天设置里选择对方说的语言');
           else { m.tp = 1; emit('chat'); try { const t = await mt(m.c, ch.cfg.lang); m.orig = m.c; m.c = t; m.tz = !ch.cfg.trOpen; } catch (e) { toast(e.message); } m.tp = 0; }
         }
-        k == 'inj' && (m.inj = !m.inj); k == 'tts' && tts(m.c, get(m.f)?.voice).catch(e => toast(e.message)); k == 'copy' && navigator.clipboard?.writeText(m.c);
+        k == 'inj' && (m.inj = !m.inj); k == 'tts' && tts(m.c, get(m.f)?.voice, get(m.f)?.sex).catch(e => fail('朗读失败：' + e.message)); k == 'copy' && navigator.clipboard?.writeText(m.c);
         k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && ch.msgs.splice(i, 1); k == 'regen' && (ch.msgs.splice(+i + (mine ? 1 : 0)), gen(ch));
         saveD(); emit('chat');
       },
@@ -168,7 +168,7 @@ export function cset(ch) {
     title: g ? '群聊信息' : '聊天信息', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
     body: () => sec('cset', [
       ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
-        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.inp('voice', 'TTS音色', 'text', '可留空')],
+        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']]) + f.inp('voice', 'TTS音色', 'text', '留空=按性别用兜底音色')],
       g && ['mem', `群成员 · ${ch.members.length + 1}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b><input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${btn('madd', '＋ 邀请成员')}`],
       ['tr', '翻译', g ? '<p class="tip">群聊里每个成员的语言跟随 TA 私聊窗口的翻译设置（成员名后面会标出语言）。</p>' + f.tog('cfg.trOpen', '默认展开翻译')
         : f.sel('cfg.lang', '对方说的语言', LANGS) + f.tog('cfg.trOpen', '默认展开中文翻译') + f.tog('cfg.trMine', '把我的消息翻译成对方语言') + '<p class="tip">对方直接用外语回复，中文译文和消息在同一次回复里一起生成，按人设语气翻，不额外调用 API。你的消息只用酒馆自带的谷歌/必应机翻，绝不调用聊天模型；机翻失败就保留原文。</p>'],

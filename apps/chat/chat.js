@@ -9,12 +9,43 @@ const names = () => D().chats.map(c => c.type == 'g' ? `群「${c.name}」` : rn
 const GJ = '"groups":[{"name":"群名","owner":"群主真实姓名","admins":[],"members":["真实姓名"],"notice":"群公告"}]';
 export const SCAN = t => `【最新剧情】\n${t}\n\n任务：找出这段剧情里发生在线上（手机/社交软件）的事件并同步到小手机：发消息、加好友、拉群/进群、发朋友圈动态、转账、拍一拍等。已有：${names()}。剧情里没出现的不要编。
 只输出JSON：{"contacts":[{"real":"真实姓名","nick":"网名","sign":"签名"}],${GJ},"msgs":[{"chat":"私聊对象真实姓名或群名","from":"发送者真实姓名","type":"text","text":"内容"}],"posts":[{"author":"","text":""}]}，没有的项给空数组。`;
-// 生成联系人：只要 {{user}} 视角（已加好友的人、{{user}}本人在里面的群），用短键名压缩输出以提速
-const CJ = '{"c":[{"n":"真实姓名","k":"网名","r":"备注(USER会怎么备注TA，如：哥/班长/沈学长)","s":"个性签名(25字内)"}],"g":[{"n":"群名","o":"群主真实姓名","a":["管理员"],"m":["成员真实姓名"],"t":"群公告(40字内)"}]}';
-const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, remark: x.r ?? x.remark, sign: x.s ?? x.sign })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
-const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，数量按剧情实际需要，不要凑数。`}
-规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成），members 不用写${u}。不要包含${u}自己。已有：${names()}，不要重复。签名、公告都简短。
-只输出JSON：${CJ}`; };
+// 生成联系人：只要 {{user}} 视角（已加好友的人、{{user}}本人在里面的群）。
+// 提速：① 用「一行一个」的竖线格式代替 JSON（输出更短，流式收到一行就立刻加一个，超时也能保住已生成的部分）
+//       ② 自动关思考 ③ 世界书 / 正文只取够用的长度 ④ 限制数量、签名公告写短
+const LF = u => `【输出格式】不要JSON、不要解释、不要编号，每行一条，字段用 | 分隔：
+人|真实姓名|网名|备注|性别|个性签名
+群|群名|群主真实姓名|管理员(逗号分隔，没有就空着)|成员真实姓名(逗号分隔，不写${u})|群公告
+说明：备注=${u}会怎么备注TA（如：哥 / 班长 / 沈学长）；性别写 男 或 女；签名15字内；公告25字内。先写完所有「人」再写「群」。
+示例：
+人|沈知遥|遥遥无期|沈学长|男|今天也在图书馆
+群|高三(2)班|林老师||沈知遥,周小满|周五前交志愿表`;
+const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，按剧情实际需要（联系人一般不超过12个、群聊不超过4个），不要凑数。`}
+规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成）。不要包含${u}自己。已有：${names()}，不要重复。
+${LF(u)}`; };
+const sp = s => String(s || '').split(/[,，、;；\s]+/).map(x => x.trim()).filter(x => x && !/^(无|空|没有|-+|—+|null)$/i.test(x));
+// 解析一行：人|… 或 群|…
+export const pline = l => {
+  const f = String(l).trim().replace(/^[-*•>\d.、)）\s]+/, '').replace(/^[「【[]|[」】\]]$/g, '').split(/\s*[|｜]\s*/), k = f[0];
+  if (/^(人|联系人|好友)$/.test(k) && f[1]) return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: f[3] || '', sex: (String(f[4]).match(/[男女]/) || [''])[0], sign: f.slice(5).join('|') }] };
+  if (/^(群|群聊)$/.test(k) && f[1]) { const o = sp(f[2])[0]; return { groups: [{ name: f[1], owner: o, admins: sp(f[3]), members: sp(f[4]), notice: f.slice(5).join('|') }] }; }
+  return null;
+};
+// 兼容模型仍然输出 JSON（旧短键 / 长键都认）
+const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, remark: x.r ?? x.remark, sign: x.s ?? x.sign, sex: x.x ?? x.sex })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
+// 边收边加：每收到完整一行就立刻加进手机；结束 / 超时 / 取消后弹出确认卡
+export async function genContacts(sys, prompt, desc, sg, prog) {
+  const old = new Set(D().chats.map(c => c.id)); let done = 0, np = 0, ng = 0, raw = '', err;
+  const eat = (txt, end) => { const ls = String(txt).split('\n'), n = end ? ls.length : ls.length - 1; for (; done < n; done++) { const d = pline(ls[done]); d && (applyDelta(d), d.contacts ? np++ : ng++); } (np || ng) && prog?.(`已收到 ${np} 人 · ${ng} 群`); };
+  try {
+    raw = await llm(sys, prompt, desc, sg, { fast: 1, onText: t => eat(t), onThink: n => np + ng || prog?.(`思考中… ${n}字`) });
+    eat(raw, 1); if (!np && !ng) { const j = json(raw); j && applyDelta(unz(j)); }
+  } catch (e) { err = e; }
+  const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), gs = D().chats.filter(c => c.type == 'g' && !old.has(c.id));
+  nw.length && setTimeout(() => review(nw, gs), 500);
+  if (err) throw nw.length || gs.length ? Error(`${err.message}（已先保存 ${nw.length} 位联系人 · ${gs.length} 个群）`) : err;
+  if (!nw.length && !gs.length) throw Error(String(raw).trim() ? '没有识别到新的联系人（可能都已存在，或返回格式不对，可在调用日志查看）' : '模型返回为空');
+  return `已添加 ${nw.length} 位联系人 · ${gs.length} 个群`;
+}
 export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 
 /* ---------- 渲染 ---------- */
@@ -71,14 +102,8 @@ async function aiInit() {
   const mode = await menu([['auto', '✨ 按剧情 / 世界书自动生成'], ['me', '✍️ 按我提供的信息生成']], 'AI 生成联系人'); if (!mode) return;
   const r = mode == 'me' ? await form('按我提供的信息生成', [['info', '联系人信息', 'area', '例：3个大学室友，一个是学生会长，一个是暗恋我的学弟…'], ['n', '联系人个数', 'number'], ['g', '群聊个数', 'number']], { n: 3, g: 1 }) : {};
   if (!r) return; if (mode == 'me' && !r.info?.trim()) return toast('请先填写联系人信息'); r.mode = mode;
-  task('AI 正在生成联系人', async sg => addContacts(json(await llm(await sysCtx(mode == 'me'), INIT(r), '生成联系人', sg))));
-}
-// 应用生成结果，并询问是否给新联系人填备注
-function addContacts(raw) {
-  if (!raw) throw Error('返回格式不对'); const d = unz(raw), old = new Set(D().chats.map(c => c.id)); applyDelta(d);
-  const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), ng = D().chats.filter(c => c.type == 'g' && !old.has(c.id)).length;
-  const gs = D().chats.filter(c => c.type == 'g' && !old.has(c.id)); nw.length && setTimeout(() => review(nw, gs), 500);
-  return `已添加 ${nw.length} 位联系人 · ${ng} 个群`;
+  // 联系人只需要人物关系：世界书 5000 字、正文最近 10 条 / 4000 字就够；按我的信息生成时不读世界书
+  task('AI 正在生成联系人', (sg, prog) => (prog('读取人设与世界书'), sysCtx(mode == 'me' ? true : { n: 10, rc: 4000, wi: 5000, desc: 2500 })).then(sys => (prog('等待模型返回'), genContacts(sys, INIT(r), '生成联系人', sg, prog))));
 }
 // 新联系人确认卡：展示网名 / 真实姓名，备注默认填 AI 生成的、可直接改
 function review(nw, gs) {
@@ -92,7 +117,7 @@ function review(nw, gs) {
 async function fromWi() {
   const es = []; for (const b of await wiBooks()) es.push(...Object.values((await loadBook(b))?.entries || {})); if (!es.length) return toast('没有读取到世界书条目');
   const i = await menu(es.map((e, i) => [i, esc(e.comment || e.key?.join(',') || '条目' + e.uid)]), '选择世界书条目'); if (i == null) return;
-  task('正在解析世界书条目', async sg => addContacts(json(await llm('你是小手机数据整理器，只输出JSON。', `根据以下世界书条目，整理出${C().name1}手机里会有的联系人（${C().name1}认识的人）或${C().name1}所在的群聊，不包含${C().name1}自己：\n${es[i].content}\n只输出JSON：${CJ}`, '世界书解析', sg))));
+  task('正在解析世界书条目', (sg, prog) => genContacts('你是小手机数据整理器，严格按要求的格式输出。', `根据以下世界书条目，整理出${C().name1}手机里会有的联系人（${C().name1}认识的人）或${C().name1}所在的群聊，不包含${C().name1}自己：\n${es[i].content}\n已有：${names()}，不要重复。\n${LF(C().name1)}`, '世界书解析', sg, prog));
 }
 
 /* ---------- 联系人 / 通讯录 ---------- */

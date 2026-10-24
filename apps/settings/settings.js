@@ -1,10 +1,11 @@
-// 小手机 · 设置：API（聊天/生图/TTS）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
-import { C, S, D, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, llm, genImg, tts, models, prof, LOG, saveLog, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
+// 小手机 · 设置：API（聊天 / 生图渠道 / 语音渠道）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
+import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, prof, LOG, saveLog, stopCall, TTSP, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
-const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? '酒馆' : prof(x)?.name || '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? LOG.length : '';
+const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
+const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? '酒馆' : prof(x) ? (x == 'chat' ? '' : pn(x, prof(x).prov) + ' · ') + (prof(x).name || '未命名') : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['通用', [['disp', '显示方式', '#64d2ff', '▣'], ['logs', '调用日志', '#8e8e93', '≡'], ['data', '数据管理', '#30b0c7', '⇪']]]];
@@ -13,37 +14,90 @@ reg({
   id: 'settings', name: '设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>',
   open: () => page({
     title: '设置', cls: 'set',
-    body: () => ROWS.map(([h, rs]) => `<h6>${h}</h6><div class="card">${rs.map(([a, x, c, i]) => `<div class="row go" data-a="${a}" data-x="${a == 'api' ? x : ''}"><i class="ri" style="background:${c}">${i}</i><span>${T[x] || x}</span><small>${sub(a, x)}</small></div>`).join('')}</div>`).join(''),
+    body: () => ROWS.map(([h, rs]) => `<h6>${h}</h6><div class="card">${rs.map(([a, x, c, i]) => `<div class="row go" data-a="${a}" data-x="${a == 'api' ? x : ''}"><i class="ri" style="background:${c}">${i}</i><span>${T[x] || x}</span><small>${esc(sub(a, x))}</small></div>`).join('')}</div>`).join(''),
     acts: { api, link, ctx, disp, logs, data },
   }),
 });
 
+/* ---------- 渠道：新建时的默认值 / 各渠道要填的字段 ---------- */
+const PD = {
+  tts: {
+    mm: { model: 'speech-2.6-hd', voice: 'female-shaonv', vm: 'male-qn-qingse', vf: 'female-shaonv' }, mmi: { model: 'speech-2.6-hd', voice: 'female-shaonv', vm: 'male-qn-qingse', vf: 'female-shaonv' },
+    openai: { url: 'https://api.openai.com/v1', model: 'tts-1', voice: 'alloy', vm: 'onyx', vf: 'nova' }, fish: { model: 's1' }, index: { url: 'http://127.0.0.1:6006/audio/speech' },
+    mimo: { model: 'mimo-v2.5-tts', voice: 'mimo_default' }, volc: { ver: 'v3', res: 'seed-tts-2.0', voice: 'zh_female_xiaohe_uranus_bigtts', vf: 'zh_female_xiaohe_uranus_bigtts' },
+  },
+  img: {
+    nai: { model: 'nai-diffusion-4-5-full', size: '832x1216', steps: 28, scale: 5, sampler: 'k_euler_ancestral', pre: 'masterpiece, best quality, very aesthetic', tag: true },
+    openai: { url: 'https://api.openai.com/v1', model: 'gpt-image-1', size: '1024x1024' },
+    sd: { url: 'http://127.0.0.1:7860', size: '512x768', steps: 20, scale: 7, sampler: 'Euler a', tag: true },
+    comfy: { url: 'http://127.0.0.1:8188', size: '512x768', steps: 20, scale: 7, sampler: 'euler_ancestral', tag: true },
+    sf: { model: 'Kwai-Kolors/Kolors', size: '1024x1024', steps: 20, scale: 7.5 },
+  },
+};
+const K = (l = 'API Key') => ['key', l, 'password'], U = ph => ['url', '接口地址', 'text', ph], M = ph => ['model', '模型', 'text', ph], N = (k, l, ph = '') => [k, l, 'number', ph];
+const TF = {
+  mm: () => [K(), ['gid', 'GroupId（可选）'], M('speech-2.6-hd'), N('speed', '语速', '1'), U('留空用官方 api.minimaxi.com')],
+  mmi: () => [K(), ['gid', 'GroupId（可选）'], M('speech-2.6-hd'), N('speed', '语速', '1'), U('留空用官方 api.minimax.io')],
+  openai: () => [U('https://api.openai.com/v1'), K(), ['model', '模型', 'pull', 'tts-1']],
+  fish: () => [K(), M('s1'), U('留空用官方 api.fish.audio')],
+  index: () => [U('完整地址，如 http://127.0.0.1:6006/audio/speech'), M('可空'), K('Key（可空）')],
+  mimo: () => [K(), M('mimo-v2.5-tts'), U('留空用官方 api.xiaomimimo.com/v1')],
+  volc: m => [['appid', 'App ID'], K('Access Token'), ['ver', '接口版本', 'sel', [['v3', 'V3 单向流式（2.0音色，推荐）'], ['v1', 'V1 旧版']]], m.ver == 'v1' ? ['cluster', 'Cluster', 'text', 'volcano_tts'] : ['res', '资源ID', 'text', 'seed-tts-2.0（复刻音色用 seed-icl-2.0）'], N('speed', '语速', '1')],
+};
+const VPH = { mm: 'female-shaonv（系统音色或复刻音色ID）', mmi: 'female-shaonv', openai: 'alloy / nova / onyx…', fish: '音色模型ID（reference_id）', index: '参考音色 / 角色名', mimo: 'mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean', volc: 'zh_female_xiaohe_uranus_bigtts' };
+const NAIM = [['nai-diffusion-4-5-full', 'V4.5 Full'], ['nai-diffusion-4-5-curated', 'V4.5 Curated'], ['nai-diffusion-4-full', 'V4 Full'], ['nai-diffusion-4-curated-preview', 'V4 Curated'], ['nai-diffusion-3', 'V3 Anime']];
+const SZ = ['size', '尺寸（宽x高）'], ST = N('steps', '步数'), CF = N('scale', 'CFG'), SP = ['sampler', '采样器'], PRE = ['pre', '画风 / 质量前缀', 'area', '自动加在每次提示词前面'], NG = ['neg', '负面提示词', 'area', '留空用内置'], TG = ['tag', '中文描述先转成英文标签（多调一次聊天模型）', 'tog'];
+const IF = {
+  nai: () => [K('官方站 Key'), ['url', '排队服务地址（可选）', 'text', '多人共用一个 NAI Key 时填；留空直连 NAI'], ['model', '模型', 'sel', NAIM], SZ, ST, CF, SP, PRE, NG, TG],
+  openai: () => [U('https://api.openai.com/v1'), K(), ['model', '模型', 'pull', 'gpt-image-1'], SZ],
+  sd: () => [U('http://127.0.0.1:7860'), ['model', '底模（空=当前）', 'pull'], SZ, ST, CF, SP, PRE, NG, TG],
+  comfy: () => [U('http://127.0.0.1:8188'), ['ckpt', '底模文件名', 'pull'], SZ, ST, CF, SP, PRE, NG, ['wf', '自定义工作流（可空）', 'area', 'ComfyUI「导出(API)」的 JSON。占位符：%prompt% %negative_prompt% %seed% %width% %height% %steps% %scale% %sampler% %model%'], TG],
+  sf: () => [K(), M('Kwai-Kolors/Kolors'), SZ, ST, CF, NG, U('留空用官方 api.siliconflow.cn/v1')],
+};
+const TIP = {
+  img: { nai: 'NAI 要求尺寸面积 ≤ 1024×1024、步数 ≤ 28 才不额外扣点。', sd: 'WebUI 启动参数加 --api --cors-allow-origins=*', comfy: 'ComfyUI 启动参数加 --enable-cors-header *', sf: '返回的图片链接1小时过期，小手机会自动转存。', openai: '' },
+  tts: { mm: '国内站 platform.minimaxi.com 的 Key；音色可填系统音色或复刻音色 ID。', mmi: '国际站 minimax.io 的 Key。', volc: '火山引擎「豆包语音」控制台的 App ID 与 Access Token；2.0 音色必须用 V3。', index: '本地 IndexTTS API 服务的完整地址（OpenAI 格式或 /tts 格式都行），需开启跨域。', mimo: '小米 MiMo 开放平台的 Key。', fish: '', openai: '' },
+};
+const fields = t => m => t == 'chat'
+  ? [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型', 'pull', '填好地址和Key后点拉取'], ['temp', '温度', 'number', '0.9'], ['fast', '低思考模式（更快，接口不支持会自动退回）', 'tog'], ['nostream', '关闭流式传输（接口不支持流式时才勾）', 'tog']]
+  : [['name', '名称'], ['prov', '渠道', 'sel', PV[t]], ...(TIP[t][m.prov] ? [['', TIP[t][m.prov], 'tip']] : []), ...((t == 'tts' ? TF : IF)[m.prov] || (t == 'tts' ? TF : IF).openai)(m),
+    ...(t == 'tts' ? [['voice', '默认音色', 'text', VPH[m.prov] || ''], ['vm', '男声兜底音色', 'text', '男性联系人没绑音色时用'], ['vf', '女声兜底音色', 'text', '女性联系人没绑音色时用']] : [])];
+
 function api(t) {
-  const a = S.api[t];
+  const a = S.api[t], cur = () => a.list.findIndex(p => p.id == a.cur);
   const pg = page({
     title: T[t], model: () => a, save, onClose: rf,
-    body: () => fx(a).seg('src', [['tavern', '酒馆当前配置'], ['custom', '自定义 API']]) + (a.src == 'tavern'
+    body: () => { const i = cur(), p = a.list[i]; return fx(a).seg('src', t == 'chat' ? [['tavern', '酒馆当前配置'], ['custom', '自定义 API']] : [['tavern', '酒馆扩展'], ['custom', '自选渠道']]) + (a.src == 'tavern'
       ? `<p class="tip">${{ chat: '直接使用酒馆当前连接的 API 与模型。', img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`
-      : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}</b><small>${esc(p.model || '未选模型')} · ${esc(p.url)}</small></span></div>`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除</p>${btn('padd', '＋ 新增配置')}${a.cur ? btn('pmod', '拉取模型列表') : ''}`)
-      + (t == 'chat' ? `<div class="card">${fx(a).inp('$tmo', '超时（秒）', 'number', '300')}</div><p class="tip">默认5分钟没返回才判定失败。想更快：配置里开启「低思考模式」、选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
-      + (t == 'img' ? `<div class="card">${fx(a).tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>` : '') + btn('test', '测试连接', '', 'pri'),
+      : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}${t == 'chat' ? '' : `<em class="pv">${esc(pn(t, p.prov))}</em>`}</b><small>${esc(p.model || p.voice || '未选模型')}${p.url ? ' · ' + esc(p.url) : ''}</small></span></div>`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除</p>${btn('padd', '＋ 新增' + (t == 'chat' ? '配置' : '渠道'))}${p && (t == 'chat' || (p.prov || 'openai') == 'openai') ? btn('pmod', '拉取模型列表') : ''}`
+        + (t == 'tts' && p ? `<h6>兜底音色 · ${esc(p.name || pn(t, p.prov))}</h6><div class="card">${fx(a).inp(`list.${i}.vm`, '男声兜底', 'text', '男性联系人没绑音色时用')}${fx(a).inp(`list.${i}.vf`, '女声兜底', 'text', '女性联系人没绑音色时用')}</div><p class="tip">联系人没有绑定专属音色时，按联系人性别调用这里的男 / 女兜底音色；性别不明就用配置里的默认音色。联系人的性别和音色在「聊天信息」里改。</p>` : ''))
+      + (t == 'chat' ? `<div class="card">${fx(a).inp('$tmo', '超时（秒）', 'number', '300')}</div><p class="tip">连续这么久没收到任何数据才判定失败（流式输出时边收边计时，默认5分钟）。想更快：开「低思考模式」、选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
+      + (t == 'img' ? `<div class="card">${fx(a).tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>` : '') + btn('test', '测试连接', '', 'pri'); },
     acts: {
       pick: id => { a.cur = id; save(); pg.re(); }, padd: () => pe(),
-      pedit: async id => { const p = a.list.find(x => x.id == id), k = await menu([['e', '编辑'], ['c', '复制'], ['d', '删除', 'danger']], esc(p.name)); k == 'e' && pe(p); k == 'c' && a.list.push({ ...p, id: uid(), name: p.name + ' 副本' }); k == 'd' && a.list.splice(a.list.indexOf(p), 1); save(); pg.re(); },
-      pmod: async () => { try { toast('拉取中…'); const m = await menu((await models(prof(t))).map(x => [x, esc(x)]), '选择模型'); m && (prof(t).model = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
-      test: () => task('测试连接中', async sg => t == 'chat' ? '✓ ' + String(await llm('Reply in one short sentence.', '用一句话打个招呼', '测试', sg)).slice(0, 30) : t == 'img' ? (await genImg('a cute cat, pastel colors'), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试'), '✓ 已播放')),
+      pedit: async id => { const p = a.list.find(x => x.id == id), k = await menu([['e', '编辑'], ['c', '复制'], ['d', '删除', 'danger']], esc(p.name)); k == 'e' && pe(p); k == 'c' && a.list.push({ ...structuredClone(p), id: uid(), name: p.name + ' 副本' }); k == 'd' && a.list.splice(a.list.indexOf(p), 1); save(); pg.re(); },
+      pmod: async () => { try { toast('拉取中…'); const m = await menu((await models(prof(t), t)).map(x => [x, esc(x)]), '选择模型'); m && (prof(t).model = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
+      test: () => task('测试连接中', async sg => t == 'chat' ? '✓ ' + String(await llm('Reply in one short sentence.', '用一句话打个招呼', '测试', sg)).slice(0, 30)
+        : t == 'img' ? (show(await genImg('a cute cat, pastel colors, soft light', sg)), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试。', '', '', sg), '✓ 已播放')),
     },
   });
+  const show = u => typeof u == 'string' && /^(data:|https?:|blob:)/.test(u) && sheet({ title: '测试图', noBack: 1, body: () => `<img class="tpic" src="${esc(u)}">` });
   const pe = async (p = {}) => {
-    const r = await form(p.id ? '编辑配置' : '新增配置', [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型', 'pull', '填好地址和Key后点拉取'],
-      ...(t == 'chat' ? [['temp', '温度', 'number', '0.9'], ['fast', '低思考模式（更快，个别接口不支持就关掉）', 'tog']] : t == 'img' ? [['size', '尺寸', 'text', '1024x1024']] : [['voice', '默认音色', 'text', 'alloy']])], p, { pull: async (k, el, e, s) => {
-      const m = s.model(); if (!m.url) return toast('请先填写 API 地址');
-      try { toast('正在拉取模型…'); const l = await models(m); if (!l.length) return toast('没有拉到模型'); const x = await menu(l.map(v => [v, esc(v)]), `选择模型 · ${l.length}个`); x && (m.model = x, s.re()); } catch (er) { toast('拉取失败：' + er.message); }
-    } });
-    if (!r) return; r.id ? Object.assign(p, r) : (r.id = uid(), a.list.push(r), a.cur ||= r.id); save(); pg.re();
+    const p0 = t == 'chat' ? p : p.id ? { ...p, prov: p.prov || 'openai' } : { prov: PV[t][0][0], ...PD[t][PV[t][0][0]] };
+    let pv = p0.prov;
+    const r = await form(p.id ? '编辑配置' : t == 'chat' ? '新增配置' : '新增渠道', fields(t), p0, {
+      pull: async (k, el, e, s) => {
+        const m = s.model(); if (t != 'img' && !m.url) return toast('请先填写接口地址');
+        try { toast('正在拉取…'); const l = await models(m, t); if (!l.length) return toast('没有拉到可选项'); const x = await menu(l.map(v => [v, esc(v)]), `选择 · ${l.length}个`); x && (m[k] = x, s.reb()); } catch (er) { toast('拉取失败：' + er.message); }
+      },
+    }, (k, v, m, s) => { // 换渠道：清掉上个渠道的默认值、填上新渠道的默认值
+      if (k == 'prov') { const d0 = PD[t][pv] || {}, d1 = PD[t][v] || {}; for (const x in d0) m[x] === d0[x] && delete m[x]; for (const x in d1) (m[x] == null || m[x] === '') && (m[x] = d1[x]); pv = v; }
+      (k == 'prov' || k == 'ver') && s.reb();
+    });
+    if (!r) return; r.name ||= t == 'chat' ? '未命名' : pn(t, r.prov);
+    r.id ? Object.assign(p, r) : (r.id = uid(), a.list.push(r), a.cur ||= r.id); save(); pg.re();
   };
 }
-
 function link() {
   page({
     title: '联动模式与时间', onClose: rf, onChange: k => k == 'mode' && saveD(),
@@ -82,13 +136,26 @@ function disp() {
   });
 }
 
+// 调用日志：一开始调用就出现（蓝色·进行中，实时计时 + 收到的内容），结束后原地变成功 / 失败；进行中的可以直接中止
+const lkey = (l, i) => l.id || 'i' + i, lfind = x => LOG.find((l, i) => lkey(l, i) == x);
+const lstate = l => l.run ? (String(l.res).startsWith('（思考中') ? `思考中 · ${l.th || 0}字` : l.res ? `接收中 · ${l.res.length}字` : '等待返回…') : l.ok ? '成功' : '失败';
+const lrow = (l, i) => `<div class="log ${l.run ? 'run' : l.ok ? '' : 'err'}" data-a="lx" data-x="${lkey(l, i)}"><div><em>${T[l.t]}</em><b>${esc(l.desc)}</b><small>${new Date(l.at).toLocaleTimeString()} · ${l.run ? `<time data-t="${l.at}">${(Date.now() - l.at) / 1e3 | 0}s</time>` : l.ms + 'ms'}</small></div><div><small>${esc(l.src)} ${esc(l.model || '')} · <span class="ls">${lstate(l)}</span></small>${l.run ? `<i class="lstop" data-a="lstop" data-x="${l.id}">中止</i>` : ''}</div>${l.open ? `<pre>▸ 请求\n${esc(l.req)}\n\n▸ 返回${l.run ? '（实时）' : ''}\n${esc(l.res || (l.run ? '…' : ''))}</pre>` : ''}</div>`;
 function logs() {
   const pg = page({
-    title: '调用日志', right: () => '<b data-a="clr">清空</b>',
-    body: () => LOG.map((l, i) => `<div class="log ${l.ok ? '' : 'err'}" data-a="lx" data-x="${i}"><div><em>${T[l.t]}</em><b>${esc(l.desc)}</b><small>${new Date(l.at).toLocaleTimeString()} · ${l.ms}ms</small></div><small>${esc(l.src)} ${esc(l.model || '')} · ${l.ok ? '成功' : '失败'}</small>${l.open ? `<pre>▸ 请求\n${esc(l.req)}\n\n▸ 返回\n${esc(l.res)}</pre>` : ''}</div>`).join('') || '<p class="empty">暂无记录</p>',
-    acts: { lx: i => { LOG[i].open = !LOG[i].open; pg.reb(); }, clr: () => { LOG.length = 0; saveLog(); pg.reb(); } },
+    title: '调用日志', isLog: 1, right: () => '<b data-a="clr">清空</b>',
+    body: () => LOG.map(lrow).join('') || '<p class="empty">暂无记录</p>',
+    after: el => $$('.log.run pre', el).forEach(p => p.scrollTop = p.scrollHeight),
+    onClose: () => clearInterval(iv),
+    acts: {
+      lx: x => { const l = lfind(x); l && (l.open = !l.open, pg.reb()); },
+      lstop: id => stopCall(id),
+      clr: () => { const keep = LOG.filter(l => l.run); LOG.length = 0; LOG.push(...keep); saveLog(); pg.reb(); },
+    },
   });
+  const iv = setInterval(() => $$('time[data-t]', pg.el).forEach(t => t.textContent = ((Date.now() - t.dataset.t) / 1e3 | 0) + 's'), 1e3);
 }
+G.openLogs = () => top()?.isLog || logs();
+on('log', () => { const t = top(); t?.isLog && t.reb(); });
 
 const dl = (n, o) => Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(o, null, 1)])), download: n }).click();
 const readJ = async () => { const f = await pickFile('.json'); try { return f && JSON.parse(await f.text()); } catch { toast('文件格式错误'); } };
