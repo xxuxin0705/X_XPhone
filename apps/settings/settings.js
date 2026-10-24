@@ -3,16 +3,16 @@ import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
-import { STKP, stkSearch } from '../../core.js';
+import { STKP, webSearch, localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
-const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? (STKP.find(x => x[0] == S.stk.src)?.[1] || '') + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
+const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
-  ['聊天', [['stkp', '表情包搜索', '#ffb800', '☺']]],
+  ['聊天', [['stkp', '表情包', '#ffb800', '☺']]],
   ['通用', [['disp', '显示方式', '#64d2ff', '▣'], ['logs', '调用日志', '#8e8e93', '≡'], ['data', '数据管理', '#30b0c7', '⇪']]]];
 
 reg({
@@ -201,19 +201,25 @@ G.openLogs = () => top()?.isLog || logs();
 on('log', () => { const t = top(); t?.isLog && t.reb(); });
 
 /* ---------- 锁屏与密码 ---------- */
-// 表情包搜索：聊天里「搜索表情」和 AI 发表情包时自动配图用的来源
+// 表情包：免费表情库（表情商店、已添加的表情包组）、网络表情补充来源、AI 发表情自动配图。都不会用到你自己的 API
 function stkp() {
   const pg = page({
-    title: '表情包搜索', onClose: rf, onChange: () => pg.re(),
+    title: '表情包', onClose: rf, onChange: () => pg.re(),
     body: () => { const f = fx(S), c = S.stk; return sec('stk', [
-      ['s', '来源', f.seg('stk.src', STKP) + (c.src == 'giphy' ? f.inp('stk.gk', 'GIPHY Key', 'password', 'developers.giphy.com 免费申请')
-        + '<p class="tip">GIPHY 是国外的动图库，英文关键词搜得最好，中文也能搜。Key 在 developers.giphy.com → Create an API Key（选 API）。没填 Key 时自动改用搜狗表情。</p>'
+      ['m', '我的表情包组', `<div class="card">${c.packs.map((id, i) => `<div class="row"><span>${esc(packMeta(id)?.name || id)}</span><small><b class="lnk" data-a="pup" data-x="${i}">${i ? '上移' : ''}</b> <b class="lnk danger" data-a="prm" data-x="${id}">移除</b></small></div>`).join('') || '<div class="row"><small>还没有添加表情包组</small></div>'}</div>`
+        + btn('pstore', '打开表情商店') + '<p class="tip">表情来自开源免费的 ChineseBQB 和 Waline 表情库，图片走公共 CDN；排在前面的组，AI 发表情时优先从里面挑。</p>'],
+      ['s', '网络表情（库里不够时补充）', f.tog('stk.cute', '偏可爱风（搜索时自动加「可爱」）') + f.seg('stk.src', STKP) + (c.src == 'giphy' ? f.inp('stk.gk', 'GIPHY Key', 'password', 'developers.giphy.com 免费申请')
+        + '<p class="tip">GIPHY 是国外的动图库，英文关键词搜得最好。Key 在 developers.giphy.com → Create an API Key（选 API）。没填 Key 时自动改用搜狗表情。</p>'
         : f.inp('stk.id', '用户 ID', 'text', '留空用公共测试号') + f.inp('stk.key', '通讯秘钥', 'password', '留空用公共测试号')
-        + '<p class="tip">搜狗 / 百度表情来自「接口盒子」apihz.cn 的免费接口。不填就用它公开的测试号，大家共用、每分钟有次数限制；搜不出来时可以去 apihz.cn 免费注册，把自己的 ID 和秘钥填上。一个来源出错会自动换另一个。</p>')
+        + '<p class="tip">搜狗 / 百度表情来自「接口盒子」apihz.cn 的免费接口，不填就用它公开的测试号（大家共用、每分钟有次数限制）；搜不出来时可以去 apihz.cn 免费注册，把自己的 ID 和秘钥填上。</p>')
         + btn('stkt', '测试搜索「开心」')],
-      ['a', 'AI 发表情包', f.tog('stk.auto', '自动配图') + '<p class="tip">AI 回复里的 [表情包:关键词]，表情库里没有对应的，就按关键词在线搜一张真的表情图显示出来。关掉的话只显示颜文字占位。</p>'],
+      ['a', 'AI 发表情包', f.tog('stk.auto', '自动配图') + '<p class="tip">AI 回复里的 [表情包:关键词]：先在表情库里挑一张（你添加的组优先、可爱风优先），没有合适的再上网搜。关掉的话只显示颜文字占位。</p>'],
     ]); },
-    acts: { stkt: async () => { toast('搜索中…'); try { const L = await stkSearch('开心'); toast(L.length ? `可以用，搜到 ${L.length} 张` : '能连上，但没搜到结果'); } catch (e) { toast('搜索失败：' + e.message); } } },
+    acts: {
+      pstore: () => storePage(), prm: id => { rmPack(id); pg.re(); },
+      pup: i => { i = +i; const a = S.stk.packs; [a[i - 1], a[i]] = [a[i], a[i - 1]]; save(); emit('stk'); pg.re(); },
+      stkt: async () => { toast('搜索中…'); try { const L = await localSearch('开心'); let w = ''; try { w = ` · 网络表情 ${(await webSearch('开心')).length} 张`; } catch (e) { w = ' · 网络表情没连上：' + e.message; } toast(`表情库 ${L.length} 张${w}`); } catch (e) { toast('搜索失败：' + e.message); } },
+    },
   });
 }
 function lockp() {

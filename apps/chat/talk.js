@@ -1,5 +1,5 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
-import { stkSearch, stkFind, stkRecent, save } from '../../core.js';
+import { stkFind, stkPage, storePage, packPage, pack, packMeta, coverNow, imgH, msgOf, warm } from './sticker.js';
 import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname } from './data.js';
 import { openFeed } from './chat.js';
@@ -10,7 +10,7 @@ const EMOJI = [...'😀😁😂🤣😊😇🙂😉😍🥰😘😚😋😛😜�
 /* ---------- 回复协议：一行一条消息「名字: 内容」，功能用方括号标签（比 JSON 短、生成更快、不怕格式错） ---------- */
 const TAGS = '表情包|语音|图片|转账|收款|表情回应|引用|撤回|拍一拍|翻译';
 export function parseReply(raw, ch) {
-  raw = String(raw ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/【/g, '[').replace(/】/g, ']');
+  raw = String(raw ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/【/g, '[').replace(/】/g, ']').replace(/\[(表情|贴纸|sticker)(?=[:：])/gi, '[表情包'); // 模型偶尔写成 [表情:xx]
   if (/^\s*[[{]/.test(raw) && /"(msgs|from)"/.test(raw)) { const d = json(raw), a = d?.msgs || (Array.isArray(d) && d); if (a) return a; } // 兼容模型仍输出 JSON
   const ppl = ch.type == 'g' ? ch.members.map(get).filter(Boolean) : [ch], out = []; let last = ch.type == 'g' ? '' : rn(ch);
   for (let l of raw.split('\n')) {
@@ -73,60 +73,22 @@ const push = (ch, m) => {
   if (ch.cfg.trMine && ch.cfg.lang && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, ch.cfg.lang).then(t => { x.orig = x.c; x.c = t; }).catch(e => toast('翻译失败：' + e.message)).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
   return x;
 };
+on('stk', () => { const el = ui.stack?.querySelector('.pg.chat'), o = el?._pg; o?.pan && $('.pan.on', el) && o.pan('stk', 1); }); // 表情包组增删后刷新聊天里的表情面板
 on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('.pg-t', t.el).innerHTML = t.title(), goSync()) : t.re(); });
 
 /* ---------- 渲染 ---------- */
 export const tT = ts => { const d = new Date(ts); return (d.toDateString() == now().toDateString() ? '' : `${d.getMonth() + 1}月${d.getDate()}日 `) + hm(d); };
 const avH = (c, ch, id) => { const fr = S.assets.frame.find(a => a.id == ch.cfg.frame)?.img; return `<div class="avw" data-a="avc" data-x="${id}"><img class="av" src="${esc(avOf(c))}">${fr ? `<img class="frm" src="${esc(fr)}">` : ''}</div>`; };
-// 表情包消息没有图（AI 发的、库里没有）：按描述在线搜一张补上；每条只搜一次
-const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !S.stk.auto || !m.c) return; stkTry.add(m); stkFind(m.c).then(u => { stkDone.add(m); u ? m.img = u : u === '' && (m.sk = 1); saveD(); emit('chat'); }); };
-const HOT = ['摸摸头', '开心', '无语', '哭哭', '晚安', '爱你', '生气', '加油', '震惊', '委屈', '贴贴', '哈哈哈'];
-// 搜索表情页（仿微信）：输入关键词 → 一排表情图 → 点一下预览 → 发送 / 添加到表情
-export function stkPage(send) {
-  let q = '', L = [], st = '', err = '', pg = 1, more = true, ac = null, tm = 0, pv = -1;
-  const out = () => {
-    if (!q) return `${S.stk.recent.length ? `<div class="sks-h"><span>最近搜索</span><b data-a="skclr">清空</b></div><div class="sks-ch">${S.stk.recent.map(x => `<b data-a="skq" data-x="${esc(x)}">${esc(x)}</b>`).join('')}</div>` : ''}<div class="sks-h"><span>大家都在搜</span></div><div class="sks-ch">${HOT.map(x => `<b data-a="skq" data-x="${x}">${x}</b>`).join('')}</div>`;
-    const tabs = `<div class="sks-tab"><b class="on">全部表情</b></div>`;
-    if (st == 'ld' && !L.length) return tabs + `<div class="sks-st"><i class="spin"></i>正在搜索</div>`;
-    if (err && !L.length) return tabs + `<div class="sks-st">${esc(err)}<small>可以在 设置 → 表情包搜索 里换一个来源</small><b data-a="skre">重试</b></div>`;
-    if (!L.length) return tabs + `<div class="sks-st">没有找到「${esc(q)}」相关的表情</div>`;
-    return tabs + `<div class="sks-g">${L.map((x, i) => `<div class="sks-i" data-a="skp" data-x="${i}"><img src="${esc(x.thumb || x.img)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('bad')"></div>`).join('')}</div>${st == 'ld' ? '<div class="sks-st sm"><i class="spin"></i></div>' : more ? '<div class="sks-more" data-a="skmore">加载更多</div>' : ''}`;
-  };
-  const draw = () => { const o = $('.sks-out', P.el); o && (o.innerHTML = out()); };
-  const go = async (k, next) => {
-    k = String(k ?? q).trim(); clearTimeout(tm); if (!next) { ac?.abort(); q = k; L = []; pg = 1; more = true; err = ''; }
-    const ip = $('.sks-ip', P.el); ip && ip.value != q && (ip.value = q); $('.sks-bar', P.el)?.classList.toggle('has', !!q);
-    if (!q) { st = ''; return draw(); }
-    st = 'ld'; draw(); const a = ac = new AbortController(), want = q;
-    try { const r = await stkSearch(q, pg, a.signal); if (a != ac) return; L = next ? [...L, ...r] : r; more = r.length >= 8; next || stkRecent(want); }
-    catch (e) { if (a != ac || a.signal.aborted) return; err = '搜索失败：' + e.message; }
-    st = ''; draw();
-  };
-  const P = page({
-    title: '搜索表情', cls: 'skspg',
-    body: () => `<div class="sks-bar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input class="sks-ip" placeholder="搜索表情" enterkeyhint="search" autocomplete="off"><b data-a="skx">×</b></div><div class="sks-out">${out()}</div><div class="sks-pv" hidden></div>`,
-    after: el => {
-      const ip = $('.sks-ip', el);
-      ip.oninput = () => { $('.sks-bar', el).classList.toggle('has', !!ip.value); clearTimeout(tm); tm = setTimeout(() => !ip.value.trim() || ip.value.trim() == q ? !ip.value.trim() && go('') : go(ip.value), 650); };
-      ip.onkeydown = e => { if (e.key == 'Enter' && !e.isComposing) { e.preventDefault(); go(ip.value); ip.blur(); } };
-      setTimeout(() => ip.focus({ preventScroll: true }), 350);
-    },
-    acts: {
-      skq: x => go(x), skre: () => go(), skmore: () => { if (st == 'ld') return; pg++; go(q, 1); },
-      skx: () => { go(''); $('.sks-ip', P.el).focus(); },
-      skclr: () => { S.stk.recent = []; save(); draw(); },
-      skp: i => { pv = +i; const x = L[pv], b = $('.sks-pv', P.el); b.hidden = false; b.innerHTML = `<div class="sks-pc"><img src="${esc(x.img)}" referrerpolicy="no-referrer"><nav><b data-a="skfav">添加到表情</b><b class="pri" data-a="sksend">发送</b></nav></div>`; b.onclick = e => e.target == b && (b.hidden = true); },
-      sksend: () => { const x = L[pv]; if (!x) return; back(); send({ t: 'sticker', c: q, img: x.img }); },
-      skfav: () => { const x = L[pv]; if (!x) return; S.assets.sticker.push({ id: uid(), name: q, img: x.img }); save(); toast('已添加到表情包'); $('.sks-pv', P.el).hidden = true; },
-    },
-  });
-  return P;
-}
-const fold = (i, txt, lab, open) => `<div class="tz ${open ? 'open' : ''}"><b data-a="tz" data-x="${i}">${open ? '收起' + lab : lab}</b><p>${esc(txt)}</p></div>`;
+// 表情包消息没有图（AI 发的、库里没有）：先在免费表情库里找，找不到再上网搜一张补上；每条只找一次
+const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !S.stk.auto || !m.c) return; stkTry.add(m); stkFind(m.c).then(r => { stkDone.add(m); r ? Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }) : r === '' && (m.sk = 1); saveD(); emit('chat'); }); };
+const KAO = ['(｡•ᴗ•｡)', '(๑•̀ㅂ•́)و', '(っ˘ω˘ς)', '( ˘•ω•˘ )', '(ﾉ´ヮ`)ﾉ'];
+const stk0 = (m, ld) => `<div class="stk0 ${ld ? 'ld' : ''}"><b>${KAO[m.c.length % 5]}</b><small>${esc(m.c)}</small></div>`;
+// 翻译：正文后面一个小「文」字按钮，点开在下面多一行译文 / 原文（两边样式一样，最多两行内容；不重画整个聊天，不会跳到最下面）
+const fold = (i, txt, lab, open) => `<b class="tzb ${open ? 'on' : ''}" data-a="tz" data-x="${i}" title="${lab}">文</b><p class="tzp" ${open ? '' : 'hidden'}>${esc(txt)}</p>`;
 function body(m, i, cf) {
   const tzo = !!cf.trOpen != !!m.tz; // m.tz 记录这条是否被手动翻转过
   switch (m.t) {
-    case 'sticker': (m.img || stkFill(m)); return m.img ? `<img class="stk" src="${esc(m.img)}" referrerpolicy="no-referrer" onerror="this.classList.add('bad')">` : `<div class="stk0 ${stkTry.has(m) && !stkDone.has(m) ? 'ld' : ''}"><b>${['(｡•ᴗ•｡)', '(๑•̀ㅂ•́)و', '(っ˘ω˘ς)', '( ˘•ω•˘ )', '(ﾉ´ヮ`)ﾉ'][m.c.length % 5]}</b><small>${esc(m.c)}</small></div>`;
+    case 'sticker': (m.img || stkFill(m)); return m.img ? imgH({ img: m.img, alt: m.alt ? m.alt.split('|') : [] }, 'stk' + (m.sz == 's' ? ' sm' : '')) + stk0(m) : stk0(m, stkTry.has(m) && !stkDone.has(m));
     case 'img': return m.url ? `<img class="pic" src="${esc(m.url)}">` : `<div class="picd">🖼 ${esc(m.c)}</div>`;
     case 'voice': return `<div class="vc" data-a="play" data-x="${i}">${I.wave}${Math.max(1, Math.ceil(m.c.length / 4))}″</div>${m.open ? `<div class="vt">${esc(m.c)}</div>` : ''}${m.tr && m.open ? fold(i, m.tr, '翻译', tzo) : ''}`;
     case 'transfer': return `<div class="tf ${m.st ? 'done' : ''}" data-a="tf" data-x="${i}"><b>¥${(+m.amt).toFixed(2)}</b><small>${esc(m.st || m.c || (m.f == 'me' ? '待对方收款' : '请收款'))}</small><i>转账</i></div>`;
@@ -157,32 +119,48 @@ let avL, avT;
 export function openChat(id) {
   const ch = get(id); if (!ch) return; if (top()?.cls != 'chatapp') { home(); APPS.chat.open(); } ch.unread = 0; saveD();
   const cf = ch.cfg, cls = () => `chat st-${sty(ch)} ${ch.type == 'g' ? 'grp' : ''} ${cf.dark ? 'dark' : ''} sh-${cf.shape || 'def'} av-${cf.avs || 'def'} ${cf.showAv ? '' : 'noav'} ${cf.cont ? 'cont' : ''}`;
-  let ptab = 'stk', q = null;
-  const panHtml = k => k == 'stk' ? `<div class="ptabs">${`<b class="psrch" data-a="stks" title="搜索表情"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></b>` + [['stk', '★ 表情包'], ['emo', '😀 Emoji']].map(([a, l]) => `<b data-a="ptab" data-x="${a}" class="${ptab == a ? 'on' : ''}">${l}</b>`).join('')}</div><div class="pgrid ${ptab}">${ptab == 'emo' ? EMOJI.map(e => `<i data-a="emo" data-x="${e}">${e}</i>`).join('') : S.assets.sticker.map((s, i) => `<div class="sk" data-a="sk" data-x="${i}"><img src="${esc(s.img)}" loading="lazy" referrerpolicy="no-referrer"><small>${esc(s.name)}</small></div>`).join('') + '<div class="sk add" data-a="skadd">＋<small>添加</small></div>'}</div>`
+  let ptab = S.stk.packs[0] || 'fav', q = null; const pkC = {};
+  // 表情面板（仿微信）：上面一排图标：搜索、Emoji、我的表情、添加的表情包组、＋表情商店；下面是这一组的表情（带名字）
+  const SRCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>';
+  const pbar = () => { S.stk.packs.some(id => !coverNow(id)) && warm(); if (!['emo', 'fav', ...S.stk.packs].includes(ptab)) ptab = 'fav'; const it = (x, h, t = '') => `<b data-a="ptab" data-x="${x}" class="pi ${ptab == x ? 'on' : ''}" title="${t}">${h}</b>`; return `<div class="pbar"><b class="pi" data-a="stks" title="搜索表情">${SRCH}</b>${it('emo', '<i>😀</i>', 'Emoji')}${it('fav', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>', '我的表情')}${S.stk.packs.map(id => it(id, coverNow(id) ? imgH(coverNow(id)) : `<i>${esc((packMeta(id)?.name || '?')[0])}</i>`, packMeta(id)?.name)).join('')}<b class="pi add" data-a="pstore" title="表情商店">＋</b></div>`; };
+  const pgrid = () => {
+    if (ptab == 'emo') return `<div class="pgrid emo">${EMOJI.map(e => `<i data-a="emo" data-x="${e}">${e}</i>`).join('')}</div>`;
+    if (ptab == 'fav') return `<div class="ph"><b>我的表情</b><span data-a="pstore">表情商店 ›</span></div><div class="pgrid">${S.assets.sticker.map((s, i) => `<div class="sk" data-a="sk" data-x="${i}"><img src="${esc(s.img)}" loading="lazy" referrerpolicy="no-referrer"><small>${esc(s.name)}</small></div>`).join('')}<div class="sk add" data-a="skadd">＋<small>添加</small></div></div>`;
+    const pk = pkC[ptab], m = packMeta(ptab);
+    if (!pk) { const id = ptab; pack(id).then(p => { pkC[id] = p || { items: [] }; ptab == id && $('.pan.on', pg.el) && pan('stk', 1); }, () => { pkC[id] = { items: [] }; }); return `<div class="ph"><b>${esc(m?.name || '')}</b></div><div class="sks-st sm"><i class="spin"></i></div>`; }
+    return `<div class="ph"><b>${esc(m?.name || '')}</b><span data-a="pinfo" data-x="${ptab}">详情 ›</span></div>${pk.items.length ? `<div class="pgrid ${pk.sm ? 'sm' : ''}">${pk.items.map((x, i) => `<div class="sk" data-a="psk" data-x="${i}">${imgH(x)}${x.l ? `<small>${esc(x.l)}</small>` : ''}</div>`).join('')}</div>` : '<div class="sks-st sm">表情库暂时连不上，稍后再试</div>'}`;
+  };
+  const panHtml = k => k == 'stk' ? pbar() + `<div class="pbody">${pgrid()}</div>`
     : `<div class="pgrid tools">${[['pimg', '相册', '🖼'], ['pai', 'AI生图', '🎨'], ['ptf', '转账', '¥'], ['ppat', '拍一拍', '👋'], ['pvo', '语音', '🎙'], ['pgen', '让TA回复', '✨']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${i}</i>${l}</div>`).join('')}</div>`;
-  const pan = k => { const p = $('.pan', pg.el), on = p.dataset.k != k || !p.classList.contains('on'); p.dataset.k = k; p.classList.toggle('on', on); p.innerHTML = panHtml(k); };
+  const pan = (k, keep) => { const p = $('.pan', pg.el), on = keep || p.dataset.k != k || !p.classList.contains('on'); p.dataset.k = k; p.classList.toggle('on', on); const sc = $('.pbar', p)?.scrollLeft; p.innerHTML = panHtml(k); sc && ($('.pbar', p).scrollLeft = sc); };
   const qbar = () => { const b = $('.qbar', pg.el), m = q != null && ch.msgs[q]; b.innerHTML = m ? `<span>${esc(who(ch, m.f))}：${esc(brief(m)).slice(0, 40)}</span><b data-a="qx">×</b>` : ''; b.classList.toggle('on', !!m); };
   const pat = t => { push(ch, { t: 'pat', c: t == 'me' ? `“我” 拍了拍自己${D().me.ps || ''}` : `“我” 拍了拍 “${nm(get(t))}”${get(t).ps || ''}` }); shake(); };
   const tool = async f => { $('.pan', pg.el).classList.remove('on'); await f(); };
   const pg = page({
-    chat: id, live: 1, model: () => ch, cls: cls(), onClose: () => setTimeout(() => emit('chat')),
+    chat: id, live: 1, model: () => ch, cls: cls(), pan: (k, keep) => pan(k, keep), onClose: () => setTimeout(() => emit('chat')),
     title: () => `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
     right: () => `<b data-a="cset">${I.more}</b>`, body: () => msgs(ch),
     foot: () => `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="发消息…"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg></button></div><div class="pan"></div>`,
     after: el => {
       const keep = el.classList.contains('in'); el.className = `pg ${cls()}${keep ? ' in' : ''}`;
-      const b = $('.pg-b', el), ip = $('.ip', el), go = $('.go', el); b.style.background = cf.bg ? `url("${cf.bg}") center/cover` : ''; b.scrollTop = b.scrollHeight;
+      const b = $('.pg-b', el), ip = $('.ip', el), go = $('.go', el); b.style.background = cf.bg ? `url("${cf.bg}") center/cover` : '';
+      // 只有来了新消息、本来就在最底下、或第一次打开时才滚到底；点翻译、表情回应这些不会跳
+      const n = ch.msgs.length + (busy == id ? .5 : 0), stick = el._n == null || el._n != n || el._pg.nb || !b.scrollTop; el._n = n;
+      if (stick) { b.scrollTop = b.scrollHeight; b.querySelectorAll('img').forEach(im => im.complete || im.addEventListener('load', () => b.scrollHeight - b.scrollTop - b.clientHeight < im.offsetHeight + 90 && (b.scrollTop = b.scrollHeight), { once: true })); }
       ip.oninput = () => { go.classList.toggle('has', !!ip.value.trim()); ip.style.height = 'auto'; ip.style.height = Math.min(100, ip.scrollHeight) + 'px'; };
       ip.onkeydown = e => e.key == 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), pg.acts.send());
     },
     acts: {
       send: () => { const ip = $('.ip', pg.el), v = ip.value.trim(); if (!v) return busy == ch.id || PEND.has(ch.id) ? stopGen(ch) : gen(ch); const m = q != null && ch.msgs[q]; ip.value = ''; ip.oninput(); push(ch, { c: v, ...(m && { q: { w: who(ch, m.f), c: brief(m).slice(0, 40) } }) }); q = null; qbar(); },
       pan, cset: () => cset(ch), qx: () => { q = null; qbar(); },
-      ptab: x => { ptab = x; $('.pan', pg.el).innerHTML = panHtml('stk'); },
+      ptab: x => { ptab = x; pan('stk', 1); },
+      psk: i => { const x = pkC[ptab]?.items[i]; x && push(ch, msgOf(x)); },
+      pinfo: id => packPage(id, m => push(ch, m)),
+      pstore: () => storePage(m => { push(ch, m); }),
       emo: e => { const ip = $('.ip', pg.el); ip.value += e; ip.oninput(); },
-      stks: () => { $('.pan', pg.el).classList.remove('on'); stkPage(m => push(ch, m)); },
+      stks: () => stkPage(m => push(ch, m)),
       sk: i => { const s = S.assets.sticker[i]; push(ch, { t: 'sticker', c: s.name, img: s.img }); },
-      skadd: async () => { const r = await form('添加表情包', [['name', '描述（AI 按描述发送）'], ['img', '图片', 'img']]); if (!r?.img) return; S.assets.sticker.push({ id: uid(), name: r.name || '表情', img: r.img }); C().saveSettingsDebounced(); $('.pan', pg.el).innerHTML = panHtml('stk'); },
+      skadd: async () => { const r = await form('添加表情包', [['name', '描述（AI 按描述发送）'], ['img', '图片', 'img']]); if (!r?.img) return; S.assets.sticker.push({ id: uid(), name: r.name || '表情', img: r.img }); C().saveSettingsDebounced(); pan('stk', 1); },
       pimg: () => tool(async () => { const u = await pickImg(800); u && push(ch, { t: 'img', c: '图片', url: u }); }),
       pai: () => tool(async () => { const r = await form('AI生图并发送', [['d', '画面描述', 'area']]); if (!r?.d) return; const x = push(ch, { t: 'img', c: r.d }); try { x.url = await genImg(r.d); saveD(); emit('chat'); } catch (e) { fail('生图失败：' + e.message); } }),
       ptf: () => tool(async () => { const r = await form('转账', [['amt', '金额', 'number'], ['c', '备注']]); if (!(+r?.amt > 0)) return; D().me.wallet -= +r.amt; push(ch, { t: 'transfer', amt: +r.amt, c: r.c }); }),
@@ -190,7 +168,7 @@ export function openChat(id) {
       pvo: () => tool(async () => { const r = await form('发送语音', [['c', '要说的话', 'area']]); r?.c && push(ch, { t: 'voice', c: r.c }); }),
       pgen: () => tool(() => gen(ch)),
       avc: x => { clearTimeout(avT); if (avL == x) { avL = 0; return pat(x); } avL = x; avT = setTimeout(() => { avL = 0; x != 'sys' && openFeed(x); }, 280); },
-      tz: i => { const m = ch.msgs[i]; m.tz = !m.tz; saveD(); emit('chat'); },
+      tz: (i, t) => { const m = ch.msgs[i]; m.tz = !m.tz; saveD(); const o = !!cf.trOpen != !!m.tz, p = t.nextElementSibling; t.classList.toggle('on', o); p && (p.hidden = !o); },
       rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; saveD(); emit('chat'); },
       redit: i => { const m = ch.msgs[i], ip = $('.ip', pg.el); ip.value = m.old; ip.oninput(); ip.focus(); },
       tf: async i => { const m = ch.msgs[i]; if (m.f == 'me' || m.st || !await ok(`收下 ¥${m.amt}？`)) return; m.st = '已收款'; D().me.wallet = +D().me.wallet + m.amt; saveD(); emit('chat'); },

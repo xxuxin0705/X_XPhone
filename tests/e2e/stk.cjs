@@ -1,97 +1,141 @@
-// 表情包搜索（仿微信「搜索表情」）：搜索页、最近搜索、结果、预览发送、添加到表情、AI 表情包自动配图、来源切换和兜底
+// 表情包：表情面板（仿微信图标栏）、表情商店、表情包组详情、搜索表情（库里可爱风优先 + 网络补充）、AI 表情自动配图、图片线路兜底
+// 另外测：翻译按钮（不跳到底、两边一样）、Kakao 未读「1」
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.html': 'text/html' };
 const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (MIME[path.extname(f)] || 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8786);
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
-// 小图：每个关键词一种颜色，方便截图里看出来
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR42mP8z8BQz0AEYBxVSF+FjP///ycqDEYVjiocVUhfhYwMDAwAkvkP8f7ZOV8AAAAASUVORK5CYII=', 'base64');
-const reqs = []; let sogouDown = false, noCors = false;
+// 模拟 ChineseBQB 的公开索引
+const H = i => (i.toString(16).padStart(4, '0')).repeat(16);
+const BQB = [];
+const cat = (num, folder, prefix, names) => { BQB.push({ name: '0000000' + num + '.jpg', category: 'bqb-' + num, folder, src: `media/${H(+num * 100)}.jpg`, animated: false, bytes: 2e4 });
+  names.forEach((n, i) => BQB.push({ name: `${prefix}0000${i + 1}-${n}.gif`, category: 'bqb-' + num, folder, src: `media/${H(+num * 100 + i + 1)}.gif`, animated: true, bytes: i == 0 ? 4e6 : 3e5 })); };
+cat('049', '049CatEveryday_猫咪日常BQB', '猫咪日常', ['开心到转圈', '你知道我要说什么吧', '委屈巴巴', '晚安喵']);
+cat('010', '010Cat_是喵星人啦🐱BQB', '是喵星人啦', ['震惊猫', '开心猫', '哭了猫']);
+cat('015', '015Golden_Curator_Panda金馆长熊猫🐼BQB', '金馆长熊猫', ['开心就好', '无语', '傲娇']);
+BQB.push({ name: 'Trump00001-x.jpg', category: 'bqb-064', folder: '064Trump_特朗普BQB', src: `media/${H(9999)}.jpg`, bytes: 1 });
+const reqs = []; let sogouDown = false, mirrorDown = false;
 (async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort());
-  const J = (r, o, cors = true) => r.fulfill({ status: 200, headers: { 'content-type': 'application/json', ...(cors && { 'access-control-allow-origin': '*' }) }, body: JSON.stringify(o) });
-  const res = (w, n, pg) => Array.from({ length: n }, (_, i) => `https://i01piccdn.sogoucdn.com/${encodeURIComponent(w)}_${pg}_${i}`);
-  await ctx.route(/cn\.apihz\.cn/, r => { const u = new URL(r.request().url()); reqs.push(u.href); const w = u.searchParams.get('words'), pg = +u.searchParams.get('page') || 1;
-    if (noCors) return r.abort('failed'); // 模拟浏览器跨域拦截：fetch 直接报错
+  const J = (r, o) => r.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify(o) });
+  const img = r => r.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: PNG });
+  await ctx.route(/zhaoolee\.com\/ChineseBQB\/catalog\/search\.json/, r => { reqs.push(r.request().url()); J(r, BQB); });
+  await ctx.route(/zhaoolee\.com\/ChineseBQB\/(thumbs|media)\//, img);
+  await ctx.route(/registry\.npmmirror\.com/, r => { reqs.push(r.request().url()); mirrorDown ? r.fulfill({ status: 404, body: '' }) : img(r); });
+  await ctx.route(/unpkg\.com|cdn\.jsdelivr\.net|sogoucdn\.com/, r => { reqs.push(r.request().url()); img(r); });
+  await ctx.route(/cn\.apihz\.cn/, r => { const u = new URL(r.request().url()); reqs.push(u.href); const w = u.searchParams.get('words');
     if (/sougou/.test(u.pathname) && sogouDown) return J(r, { code: 400, msg: '频率超限' });
-    return J(r, { code: 200, page: String(pg), res: w == '空空' ? [] : res(w, pg > 1 ? 6 : 16, pg) }, !noCors); });
-  await ctx.route(/localhost:8786\/proxy\//, r => { const u = new URL(r.request().url().replace(/^.*?\/proxy\//, '')); reqs.push('PROXY ' + u.href); J(r, { code: 200, page: '1', res: res(u.searchParams.get('words'), 16, 1) }); });
-  await ctx.route(/api\.giphy\.com/, r => { reqs.push(r.request().url()); J(r, { data: [{ images: { fixed_width: { url: 'https://media.giphy.com/a.gif' }, fixed_width_small: { url: 'https://media.giphy.com/a_s.gif' } } }], meta: { status: 200 } }); });
-  await ctx.route(/sogoucdn\.com|media\.giphy\.com/, r => r.fulfill({ status: 200, headers: { 'content-type': 'image/png' }, body: PNG }));
+    J(r, { code: 200, page: '1', res: Array.from({ length: 12 }, (_, i) => `https://i01piccdn.sogoucdn.com/${encodeURIComponent(w)}_${i}`) }); });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8786/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
-  const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms);
-  await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); core.APPS.chat.open(); const c = dt.add(dt.blank('p', { real: '齐木楠雄', nick: '齐木', fr: 1 })); core.saveD(); talk.openChat(c.id); window._c = c; })()`); await W(600);
-  // 打开表情面板 → 搜索
-  await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(300);
-  ok(await E(`!!document.querySelector('.pan.on .ptabs [data-a=stks]')`), '表情面板左上角有「搜索表情」按钮');
-  await E(`document.querySelector('.pan .ptabs [data-a=stks]').click()`); await W(500);
-  ok(await E(`!!document.querySelector('.skspg.in .sks-ip') && !document.querySelector('.pan.on')`), '点了打开「搜索表情」页，表情面板收起');
-  ok(/大家都在搜/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)) && !/最近搜索/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)), '还没搜过：只显示「大家都在搜」');
-  await p.screenshot({ path: path.join(OUT, 'stk_a.png') });
-  // 输入关键词：停顿一下自动搜
-  await p.fill('.skspg .sks-ip', '你好'); await W(300);
-  ok(reqs.length == 0, '打字时先不搜（等停顿）'); await W(500);
-  ok(await E(`!!document.querySelector('.skspg .sks-st .spin') || document.querySelectorAll('.skspg .sks-i').length > 0`), '停顿后开始搜索（转圈或已有结果）'); await W(500);
-  const u0 = reqs[0] ? new URL(reqs[0]) : null;
-  ok(u0 && /apihzbqbsougou\.php$/.test(u0.pathname) && u0.searchParams.get('words') == '你好' && u0.searchParams.get('id') == '88888888' && u0.searchParams.get('key') == '88888888', '默认走搜狗表情，没填 ID/Key 用公共测试号：' + (reqs[0] || ''));
-  ok(await E(`document.querySelectorAll('.skspg .sks-i img').length`) == 16 && await E(`document.querySelector('.skspg .sks-i img').referrerPolicy`) == 'no-referrer', '出现 16 张表情图（不带 referrer，防盗链）');
-  ok(/全部表情/.test(await E(`document.querySelector('.skspg .sks-tab').textContent`)), '结果上方有「全部表情」标签');
+  const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), dec = s => decodeURIComponent(s);
+  await E(`(async () => { localStorage.removeItem('stp_bqb_v1'); window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.sk = await import('/apps/chat/sticker.js'); core.S.stk.auto = false; core.APPS.chat.open(); const c = dt.add(dt.blank('p', { real: '齐木楠雄', nick: '齐木', fr: 1 })); core.saveD(); talk.openChat(c.id); window._c = c; })()`); await W(600);
+  const last = async () => JSON.parse(dec(await E(`JSON.stringify(_c.msgs.at(-1) || null)`)));
+  // 1. 表情面板
+  await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(500);
+  const icons = await E(`[...document.querySelectorAll('.pan.on .pbar .pi')].map(b => b.dataset.x || b.dataset.a)`);
+  ok(JSON.stringify(icons) == JSON.stringify(['stks', 'emo', 'fav', 'hoyoverse-hi3', 'b049', 'bilibili', 'b010', 'pstore']), '面板上面一排：搜索、Emoji、我的表情、默认 4 组表情包、＋商店 ' + icons);
+  ok(/崩坏3/.test(await E(`document.querySelector('.pan .ph').textContent`)) && await E(`document.querySelectorAll('.pan .pgrid .sk').length`) > 100, '默认打开第一组「崩坏3 · Q版」，一百多个表情');
+  ok(await E(`[...document.querySelectorAll('.pan .pgrid .sk small')].map(s => s.textContent).includes('害怕')`), '表情下面有中文名字（英文名已翻成中文）');
+  await W(300); await p.screenshot({ path: path.join(OUT, 'stk_a.png') });
+  await E(`document.querySelectorAll('.pan .pgrid .sk')[1].click()`); await W(400);
+  let m = await last();
+  ok(m?.t == 'sticker' && /registry\.npmmirror\.com\/@waline\/emojis\/1\.4\.0\/files\/hoyoverse-hi3\/hi3_afraid\.webp/.test(m.img) && /unpkg\.com/.test(m.alt), '点一下直接发出：图片走国内 npm 镜像，备用线路也存着');
+  ok(m.c == '害怕', '消息里记的是表情名字「害怕」');
+  // 2. ChineseBQB 组（读公开索引）
+  await E(`document.querySelector('.pan .pbar [data-x=b049]').click()`); await W(700);
+  ok(reqs.some(u => /zhaoolee\.com\/ChineseBQB\/catalog\/search\.json/.test(u)), '读取 ChineseBQB 的公开索引（只读一次）');
+  const labs = await E(`[...document.querySelectorAll('.pan .pgrid .sk small')].map(s => s.textContent)`);
+  ok(JSON.stringify(labs) == JSON.stringify(['开心到转圈', '你知道我要说什么吧', '委屈巴巴', '晚安喵']), '「猫咪日常」：封面图不算，名字去掉了编号前缀 ' + labs);
+  ok(/thumbs\/.*\.webp/.test(await E(`document.querySelector('.pan .pgrid .sk img').src`)), '面板里用小缩略图（webp），省流量');
+  await E(`document.querySelectorAll('.pan .pgrid .sk')[1].click()`); await W(300); m = await last();
+  ok(/zhaoolee\.com\/ChineseBQB\/media\/.*\.gif$/.test(m.img) && /cdn\.jsdelivr\.net\/gh\/zhaoolee\/ChineseBQB@master\/049CatEveryday/.test(m.alt), '发出的是原图（动图），备用 jsDelivr 线路');
+  await E(`document.querySelectorAll('.pan .pgrid .sk')[0].click()`); await W(300); m = await last();
+  ok(/thumbs\//.test(m.img), '超过 2.5MB 的大动图发缩略图，不卡');
+  ok(await E(`!!document.querySelector('.pan.on')`), '发完表情面板还开着（跟微信一样）');
+  // 3. 表情商店
+  await E(`document.querySelector('.pan .pbar [data-a=pstore]').click()`); await W(700);
+  ok(await E(`!!document.querySelector('.spstore.in') && document.querySelectorAll('.spstore .sp-cc').length == 6`), '表情商店：顶部轮播 6 个精选');
+  ok(/精选表情.*更多表情/.test(await E(`document.querySelector('.spstore .pg-t').textContent`)), '标题栏有「精选表情 / 更多表情」');
+  const rows = await E(`[...document.querySelectorAll('.spstore .sp-row b:first-child')].map(b => b.textContent)`);
+  ok(rows[0] == '崩坏3 · Q版' && rows.includes('猫咪日常') && !rows.includes('熊猫头'), '精选列表：可爱风在前，熊猫头这种斗图在「更多表情」');
+  ok(await E(`document.querySelector('.spstore .sp-row[data-x=b049] .sp-add').textContent`) == '已添加', '已经添加的显示「已添加」');
   await W(300); await p.screenshot({ path: path.join(OUT, 'stk_b.png') });
-  // 加载更多
-  await E(`document.querySelector('.skspg [data-a=skmore]').click()`); await W(500);
-  ok(await E(`document.querySelectorAll('.skspg .sks-i').length`) == 22 && /page=2/.test(reqs.at(-1)), '加载更多：第 2 页接在后面');
-  // 点一张 → 预览 → 发送
-  await E(`document.querySelectorAll('.skspg .sks-i')[2].click()`); await W(300);
-  ok(await E(`!document.querySelector('.skspg .sks-pv').hidden && !!document.querySelector('.sks-pc img')`), '点一下：弹出大图预览，有「发送」和「添加到表情」');
+  await E(`document.querySelector('.spstore [data-a=sptab][data-x="2"]').click()`); await W(300);
+  ok(/熊猫头/.test(await E(`document.querySelector('.spstore .sp-list').textContent`)) && !/特朗普/.test(await E(`document.querySelector('.spstore').textContent`)), '更多表情：熊猫头等斗图；不收真人政治类');
+  await E(`document.querySelector('.spstore .sp-row[data-x=b015] .sp-add').click()`); await W(300);
+  ok(await E(`core.S.stk.packs.includes('b015')`) && await E(`document.querySelector('.spstore .sp-row[data-x=b015] .sp-add').textContent`) == '已添加', '点「添加」：熊猫头加进我的表情');
+  // 详情页
+  await E(`document.querySelector('.spstore .sp-row[data-x=b015]').click()`); await W(600);
+  ok(await E(`!!document.querySelector('.sppg.in .sp-ban img') && document.querySelectorAll('.sppg .sp-g .sks-i').length == 3`), '表情包详情：大横幅 + 全部表情');
+  ok(/熊猫头/.test(await E(`document.querySelector('.sppg .sp-hd').textContent`)) && /ChineseBQB · 3 个表情/.test(await E(`document.querySelector('.sppg .sp-hd').textContent`)), '详情写着名字、来源、数量');
   await p.screenshot({ path: path.join(OUT, 'stk_c.png') });
-  await E(`document.querySelector('.sks-pc [data-a=skfav]').click()`); await W(200);
-  ok(await E(`core.S.assets.sticker.at(-1).name`) == '你好' && /你好_1_2/.test(decodeURIComponent(await E(`core.S.assets.sticker.at(-1).img`))), '添加到表情：存进表情库，名字是搜索词');
-  await E(`document.querySelectorAll('.skspg .sks-i')[3].click()`); await W(200); await E(`document.querySelector('.sks-pc [data-a=sksend]').click()`); await W(600);
-  const last = decodeURIComponent(await E(`JSON.stringify(_c.msgs.at(-1))`));
-  ok(/"t":"sticker"/.test(last) && /你好_1_3/.test(last) && /"f":"me"/.test(last), '发送：聊天里多了一条我发的表情 ' + last.slice(0, 120));
-  ok(await E(`!document.querySelector('.skspg.in') && !!document.querySelector('.chat .me img.stk, .chat img.stk')`), '发送后回到聊天，表情图显示在气泡里');
-  await p.screenshot({ path: path.join(OUT, 'stk_d.png') });
-  // 再打开：最近搜索
-  await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(200); await E(`document.querySelector('.pan .ptabs [data-a=stks]').click()`); await W(500);
-  ok(await E(`[...document.querySelectorAll('.skspg .sks-ch')[0].querySelectorAll('b')].map(b => b.textContent).join()`) == '你好', '再打开：「最近搜索」里有「你好」');
-  reqs.length = 0; await E(`document.querySelector('.skspg [data-a=skq][data-x="你好"]').click()`); await W(300);
-  ok(reqs.length == 0 && await E(`document.querySelectorAll('.skspg .sks-i').length`) == 16, '点最近搜索：直接出结果（有缓存，不重复请求）');
-  // 按回车搜、没结果
-  await p.fill('.skspg .sks-ip', '空空'); await p.press('.skspg .sks-ip', 'Enter'); await W(500);
-  ok(/没有找到「空空」/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)), '回车搜索；没结果时提示「没有找到」');
-  // 清空 ×
-  await E(`document.querySelector('.skspg [data-a=skx]').click()`); await W(200);
-  ok(await E(`document.querySelector('.skspg .sks-ip').value`) == '' && /最近搜索/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)), '点 × 清空，回到最近搜索');
-  await E(`document.querySelector('.skspg [data-a=skclr]').click()`); await W(200); ok(await E(`core.S.stk.recent.length`) == 0, '最近搜索可以清空');
-  await E(`core.back()`); await W(400);
-  // 搜狗出错 → 自动换百度
-  sogouDown = true; reqs.length = 0; const r1 = await E(`core.stkSearch('摸摸头').then(L => L.length)`);
-  ok(r1 == 16 && reqs.some(u => /sougou/.test(u)) && reqs.some(u => /apihzbqbbaidu\.php/.test(u) && /limit=24/.test(u)), '搜狗出错时自动换百度表情'); sogouDown = false;
-  // AI 发表情包：库里没有 → 自动在线搜一张
-  reqs.length = 0;
-  await E(`(() => { dt.addMsg(_c, { from: '齐木', type: 'sticker', text: '无语' }); core.saveD(); core.emit('chat'); })()`); await W(900);
-  const am = decodeURIComponent(await E(`JSON.stringify(_c.msgs.at(-1))`));
-  ok(/"t":"sticker"/.test(am) && /无语_1_[0-3]/.test(am) && reqs.some(u => /words=%E6%97%A0%E8%AF%AD/.test(u)), 'AI 发 [表情包:无语]：自动搜到一张真表情图 ' + am.slice(0, 120));
-  ok(await E(`[...document.querySelectorAll('.chat img.stk')].some(i => /无语/.test(decodeURIComponent(i.src)))`), '聊天里直接显示这张表情图');
+  await E(`document.querySelectorAll('.sppg .sks-i')[2].click()`); await W(300);
+  ok(await E(`!document.querySelector('.sppg .sks-pv').hidden && /傲娇/.test(document.querySelector('.sppg .sks-pc').textContent)`), '点一个：大图预览，写着名字');
+  await E(`document.querySelector('.sppg .sks-pc [data-a=sksend]').click()`); await W(700); m = await last();
+  ok(m.c == '傲娇' && await E(`!document.querySelector('.sppg.in, .spstore.in')`), '预览里点发送：发出去，商店和详情页一起关掉回到聊天');
+  ok(await E(`[...document.querySelectorAll('.pan.on .pbar .pi')].some(b => b.dataset.x == 'b015')`), '回到聊天：面板里多了熊猫头这一组');
+  // 4. 搜索表情
+  reqs.length = 0; await E(`document.querySelector('.pan .pbar [data-a=stks]').click()`); await W(500);
+  ok(/精选表情 ›/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)), '搜索页有「精选表情 ›」入口');
+  await p.fill('.skspg .sks-ip', '开心'); await W(1500);
+  const res = await E(`[...document.querySelectorAll('.skspg .sks-g')[0].querySelectorAll('.sks-i img')].map(i => decodeURIComponent(i.src))`);
+  ok(res.length >= 5, '库里搜到 ' + res.length + ' 个');
+  const L = await E(`sk.localSearch('开心').then(L => L.map(x => x.k + ':' + x.l))`);
+  ok(/^(b049|b010|hoyoverse-hi3|bilibili):/.test(L[0]) && L.indexOf('b015:开心就好') > L.findIndex(x => /^b049/.test(x)), '排序：已添加的可爱组在前，熊猫头在后 ' + L.slice(0, 5));
+  ok(L.some(x => x == 'hoyoverse-hi3:开心') && L.some(x => /^noto:/.test(x) || /^bilibili:/.test(x) || /^bmoji:/.test(x) || /^tieba:/.test(x) || /^qq:/.test(x)), '内置表情也能按中文名搜到（同义词：笑、哈哈…）');
+  ok(!reqs.some(u => /apihz/.test(u)), '库里够多（' + res.length + ' 个）时不去搜网络表情');
+  await W(300); await p.screenshot({ path: path.join(OUT, 'stk_d.png') });
+  await p.fill('.skspg .sks-ip', '考试'); await W(1500);
+  const wq = reqs.find(u => /apihz/.test(u)); ok(wq && new URL(wq).searchParams.get('words') == '考试可爱', '库里没有的词才补网络表情，关键词自动加「可爱」：' + (wq && new URL(wq).searchParams.get('words')));
+  ok(/网络表情/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)) && await E(`document.querySelectorAll('.skspg .sks-i').length`) == 12, '网络表情单独一栏');
+  await p.fill('.skspg .sks-ip', '开心'); await W(1200);
+  await E(`document.querySelector('.skspg [data-a=sktab][data-x=pk]').click()`); await W(300);
+  const pk = await E(`[...document.querySelectorAll('.skspg .sp-row')].map(r => r.dataset.x)`);
+  ok(pk.includes('b049') && pk.includes('b015'), '「表情包」标签：搜到含这个表情的整组，可以直接添加 ' + pk.slice(0, 6));
+  await E(`document.querySelector('.skspg [data-a=sktab][data-x=all]').click()`); await W(200);
+  await E(`document.querySelector('.skspg .sks-i').click()`); await W(200); await E(`document.querySelector('.skspg [data-a=sksend]').click()`); await W(600);
+  ok((await last()).t == 'sticker' && await E(`!document.querySelector('.skspg.in')`), '搜索结果点发送：发出并回到聊天');
+  ok(await E(`core.S.stk.recent[0]`) == '开心', '记进「最近在搜」');
+  // 5. AI 表情：先从库里挑，不上网
+  await E(`core.S.stk.auto = true`); reqs.length = 0;
+  await E(`dt.addMsg(_c, { from: '齐木', type: 'sticker', text: '委屈' }); core.saveD(); core.emit('chat')`); await W(800); m = await last();
+  ok(m.img && /委屈巴巴|zhaoolee|npmmirror/.test(dec(m.img) + m.c) && !reqs.some(u => /apihz/.test(u)), 'AI 发 [表情包:委屈]：直接从表情库挑一张，没上网搜 ' + m.img);
+  await E(`(() => { const L = talk.parseReply('齐木: [表情:傲娇]', _c); L.forEach(x => dt.addMsg(_c, x)); core.emit('chat'); })()`); await W(800); m = await last();
+  ok(m.t == 'sticker' && m.c == '傲娇' && !!m.img, '模型写成 [表情:傲娇] 也认成表情包');
+  await E(`dt.addMsg(_c, { from: '齐木', text: '[表情:晚安]' }); core.emit('chat')`); await W(800); m = await last();
+  ok(m.t == 'sticker' && m.c == '晚安', '正文同步里的「[表情:晚安]」也变成表情包');
+  // 6. 图片线路兜底
+  mirrorDown = true; await E(`dt.addMsg(_c, { from: 'me', type: 'sticker', text: 'x' }); Object.assign(_c.msgs.at(-1), sk.msgOf({ l: '哭', img: 'https://registry.npmmirror.com/@waline/emojis/1.4.0/files/tieba/tieba_cry.png?down', alt: ['https://unpkg.com/@waline/emojis@1.4.0/tieba/tieba_cry.png'] })); core.emit('chat')`); await W(800);
+  ok(await E(`/unpkg\\.com/.test([...document.querySelectorAll('.chat img.stk')].at(-1).src)`), '国内镜像打不开时自动换 unpkg 线路'); mirrorDown = false;
   await p.screenshot({ path: path.join(OUT, 'stk_e.png') });
-  // 关掉自动配图 → 只显示颜文字
-  await E(`core.S.stk.auto = false; dt.addMsg(_c, { from: '齐木', type: 'sticker', text: '晚安' }); core.emit('chat')`); await W(600);
-  ok(await E(`!_c.msgs.at(-1).img && !!document.querySelector('.chat .stk0')`), '关掉自动配图：AI 表情只显示颜文字占位'); await E(`core.S.stk.auto = true`);
-  // 跨域被拦 → 走酒馆 /proxy/
-  noCors = true; reqs.length = 0; const r2 = await E(`core.stkSearch('贴贴').then(L => L.length, e => 'ERR ' + e.message)`);
-  ok(r2 == 16 && reqs.some(u => /^PROXY .*words=%E8%B4%B4%E8%B4%B4/.test(u)), '直连被跨域拦截时改走酒馆 /proxy/：' + r2); noCors = false;
-  // 设置页：来源切换
+  // 7. 搜狗出错 → 换百度
+  sogouDown = true; reqs.length = 0; const r1 = await E(`sk.webSearch('摸摸头').then(L => L.length)`);
+  ok(r1 == 12 && reqs.some(u => /apihzbqbbaidu\.php/.test(u)), '网络表情：搜狗出错自动换百度'); sogouDown = false;
+  // 8. 翻译：点「文」不跳到底；两边一样
+  await E(`(() => { for (let i = 0; i < 14; i++) _c.msgs.push({ f: _c.id, t: 'text', c: '안녕 ' + i, tr: '你好 ' + i, ts: Date.now() }); _c.msgs.push({ f: 'me', t: 'text', c: '하하하', orig: '哈哈哈', ts: Date.now() }); core.emit('chat'); })()`); await W(500);
+  ok(await E(`!!document.querySelector('.chat .msg:not(.me) .tzb') && !!document.querySelector('.chat .msg.me .tzb')`), '对方和我的消息都是同一个「文」小按钮');
+  await E(`document.querySelector('.chat .pg-b').scrollTop = 200`); await W(100);
+  await E(`document.querySelectorAll('.chat .msg:not(.me) .tzb')[3].click()`); await W(300);
+  const sc = await E(`document.querySelector('.chat .pg-b').scrollTop`);
+  ok(sc > 150 && sc < 260, '点翻译按钮：位置不动，没有跳到最下面（' + sc + '）');
+  ok(await E(`(() => { const b = document.querySelectorAll('.chat .msg:not(.me) .tzb')[3]; return b.classList.contains('on') != b.nextElementSibling.hidden; })()`), '展开 / 收起切换正常');
+  const lines = await E(`(() => { const p = document.querySelectorAll('.chat .msg:not(.me) .tzb')[3].closest('.bub'); const lh = parseFloat(getComputedStyle(p).lineHeight) || 20; return Math.round((p.clientHeight - 16) / lh); })()`);
+  ok(lines <= 3, '短句展开后只有两行：原文一行、译文一行（约 ' + lines + ' 行高）');
+  await E(`document.querySelector('.chat .msg.me .tzb').click()`); await W(200);
+  ok(await E(`/哈哈哈/.test(document.querySelector('.chat .msg.me .tzp').textContent) && !document.querySelector('.chat .msg.me .tzp').hidden`), '我的消息点「文」：下面一行显示原文');
+  await E(`document.querySelector('.chat .pg-b').scrollTop = 1e5`); await p.screenshot({ path: path.join(OUT, 'stk_f.png') });
+  // 9. Kakao：没读的消息旁边黄色「1」
+  await E(`core.S.style = 'kk'; _c.msgs.push({ f: 'me', t: 'text', c: '宝宝', ts: Date.now() }); core.emit('chat')`); await W(400);
+  ok(await E(`(() => { const r = [...document.querySelectorAll('.chat .msg.me')].at(-1).querySelector('.rd.un'); return r && r.textContent == '1' && getComputedStyle(r).display != 'none'; })()`), 'Kakao 风格：对方还没读的消息旁边有黄色「1」');
+  ok(await E(`!(document.querySelectorAll('.chat .msg.me')[0].querySelector('.rd.un'))`), '已经被读过的消息没有「1」');
+  await E(`document.querySelector('.chat .pg-b').scrollTop = 1e5`); await p.screenshot({ path: path.join(OUT, 'stk_g.png') }); await E(`core.S.style = 'wx'`);
+  // 10. 设置页
   await E(`core.home(); core.APPS.settings.open()`); await W(500);
-  ok(/搜狗表情/.test(await E(`document.querySelector('[data-a=stkp]').textContent`)), '设置首页有「表情包搜索」，显示当前来源');
+  ok(/5 组/.test(await E(`document.querySelector('[data-a=stkp]').textContent`)), '设置首页「表情包」显示已添加组数');
   await E(`document.querySelector('[data-a=stkp]').click()`); await W(500);
-  ok(await E(`!!document.querySelector('[data-k="stk.id"]') && !!document.querySelector('[data-k="stk.key"]')`), '搜狗来源：可以填自己的 ID / 秘钥');
-  await p.screenshot({ path: path.join(OUT, 'stk_f.png') });
-  await E(`document.querySelector('[data-a=seg][data-x=giphy]').click()`); await W(300);
-  ok(await E(`!!document.querySelector('[data-k="stk.gk"]')`), '切到 GIPHY：显示 Key 输入框');
-  reqs.length = 0; await E(`core.stkSearch('哈哈哈')`); ok(reqs.every(u => /apihz/.test(u)), 'GIPHY 没填 Key：自动用搜狗');
-  await p.fill('[data-k="stk.gk"]', 'gk1'); await p.press('[data-k="stk.gk"]', 'Tab'); await W(200);
-  reqs.length = 0; const g = await E(`core.stkSearch('cat').then(L => L[0].img)`);
-  ok(g == 'https://media.giphy.com/a.gif' && /api\.giphy\.com\/v1\/stickers\/search\?api_key=gk1&q=cat/.test(reqs[0] || ''), 'GIPHY：带 Key 搜贴纸 ' + (reqs[0] || ''));
-  await E(`document.querySelector('[data-a=stkt]').click()`); await W(400);
+  ok(/熊猫头/.test(await E(`document.querySelector('.pg.in:last-child').textContent`)) && await E(`!!document.querySelector('[data-k="stk.cute"]:checked')`), '设置页：我的表情包组列表、「偏可爱风」默认打开');
+  await p.screenshot({ path: path.join(OUT, 'stk_h.png') });
+  await E(`document.querySelector('[data-a=prm][data-x=b015]').click()`); await W(300); ok(await E(`!core.S.stk.packs.includes('b015')`), '可以移除表情包组');
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

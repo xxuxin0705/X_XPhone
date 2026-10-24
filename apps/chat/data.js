@@ -34,6 +34,7 @@ export const shake = () => { const s = ui.scr; s.classList.remove('shk'); void s
 
 // 消息类型：text sticker img voice transfer pat sys；以及动作 react accept recall
 export function addMsg(ch, m) {
+  const st = m.type == null || m.type == 'text' ? String(m.text ?? '').trim().match(/^[\[【](?:表情包?|贴纸)[:：]\s*([^\]】]+)[\]】]$/) : null; st && (m = { ...m, type: 'sticker', text: st[1].trim() }); // 正文同步里的 [表情:xx] 也当表情包
   const t = m.type || 'text', f = isMe(m.from) ? 'me' : ch.type == 'p' ? ch.id : member(ch, m.from), name = who(ch, f);
   const near = frag => (frag && ch.msgs.findLast(x => !/sys|pat/.test(x.t) && (String(x.c) + (x.orig || '')).includes(frag))) || null;
   if (t == 'react') { const x = near(m.frag) || ch.msgs.findLast(x => x.f == 'me' && !/sys|pat/.test(x.t)); x && (x.re = [...nre(x.re), { e: m.text || '❤️', by: f }]); return null; }
