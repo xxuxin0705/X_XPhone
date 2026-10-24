@@ -1,0 +1,33 @@
+const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
+const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
+const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (f.endsWith('.js') ? 'text/javascript' : f.endsWith('.css') ? 'text/css' : 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8778);
+let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
+const LINES = ['人|姜照临|Jiang🐯|姜狗|男|的虎牙+1|中文|比你有钱', '人|郁明也|MING||男|。|中文|', '群|PK学园2年级|灰吕杵志|郁明也|姜照临:校草,郁明也:学委,灰吕杵志:热血班长,海藤瞬:中二之王|42|文化祭倒计时！'];
+let reqBody = '';
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort());
+  await ctx.route(/relay\.test/, r => { reqBody = r.request().postData() || ''; r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: LINES.map(l => `data: ${JSON.stringify({ choices: [{ delta: { content: l + '\n' } }] })}\n\n`).join('') + 'data: [DONE]\n\n' }); });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto('http://localhost:8778/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
+  const E = s => p.evaluate(s);
+  await E(`(async () => { window.core = await import('/core.js'); window.ch = await import('/apps/chat/chat.js'); window.talk = await import('/apps/chat/talk.js'); window.dt = await import('/apps/chat/data.js'); SillyTavern.getContext().name2 = '姜照临'; core.S.api.chat = { src: 'custom', cur: 'a', list: [{ id: 'a', name: 'x', url: 'https://relay.test/v1', key: 'k', model: 'm' }] }; core.APPS.chat.open(); })()`);
+  // real entry point (menu → auto)
+  await E(`document.querySelector('[data-a=tab][data-x=ct]')?.click()`); await p.waitForTimeout(300); await E(`document.querySelector('.pg-h [data-a=plus]').click()`); await p.waitForTimeout(400); await p.click('.sheet.mnu .mi >> nth=2'); await p.waitForTimeout(400); await p.click('.sheet.mnu .mi >> nth=0'); await p.waitForTimeout(1500);
+  ok(/一定先列出角色卡里的主要角色（姜照临/.test(JSON.parse(reqBody).messages[1].content) && /群人数/.test(reqBody) && /名字:群头衔/.test(reqBody), 'prompt requires main character first, asks for titles + 群人数');
+  ok(/42人/.test(await E(`document.querySelector('.rv2 [data-pk=g0] .rk-m b').textContent`)), 'group row shows 42人');
+  await p.click('.rv2 [data-pk=g0] .rk-m'); await p.waitForTimeout(250);
+  const rows = await E(`[...document.querySelectorAll('.rv2 [data-pk=g0] .rk-mr')].map(r => r.querySelector('b').textContent + '=' + r.querySelector('input').value).join(' | ')`);
+  ok(rows == '姜照临=校草 | 郁明也=学委 | 灰吕杵志非好友=热血班长 | 海藤瞬非好友=中二之王', 'members with titles; non-friends tagged: ' + rows);
+  ok(/还有 37 位群成员没在剧情里出现/.test(await E(`document.querySelector('.rv2 .rk-more').textContent`)), 'unnamed members folded: 还有 37 位');
+  await p.screenshot({ path: path.join(OUT, 'grp_a.png') });
+  await p.fill('.rv2 [data-pk=g0] [data-tt="海藤瞬"]', '漆黑之翼'); await p.click('[data-rv=yes]'); await p.waitForTimeout(600);
+  const g = await E(`JSON.stringify((() => { const D = core.D(), g = D.chats.find(c => c.type == 'g'), n = id => D.chats.find(c => c.id == id)?.real; return [g.size, Object.entries(g.titles).map(([i, t]) => n(i) + ':' + t).sort().join(), D.chats.filter(c => c.type == 'p' && c.fr === 0).map(c => c.real).sort().join()]; })())`);
+  ok(g == JSON.stringify([42, ['姜照临:校草', '海藤瞬:漆黑之翼', '灰吕杵志:热血班长', '郁明也:学委'].sort().join(), ['海藤瞬', '灰吕杵志'].sort().join()]), 'saved: size, titles (edited), non-friends kept as members: ' + g);
+  await E(`document.querySelector('[data-a=tab][data-x=list]').click()`); await p.waitForTimeout(300);
+  ok(/\(42\)/.test(await E(`[...document.querySelectorAll('.chatapp .cl b')].find(b => b.textContent.includes('PK学园')).textContent`)), 'chat list shows (42)');
+  // group info → add a non-friend
+  await E(`(() => { const g = core.D().chats.find(c => c.type == 'g'); talk.cset(g); })()`); await p.waitForTimeout(500);
+  ok(await E(`document.querySelectorAll('.mem .mfr').length`) == 2 && /还有 37 位群成员/.test(await E(`document.querySelector('.pg:last-child .pg-b').textContent`)), 'group info: 加好友 on 2 non-friends, folded count shown');
+  await p.screenshot({ path: path.join(OUT, 'grp_b.png') });
+  await p.click('.mem:has-text("海藤") .mfr'); await p.waitForTimeout(400); await p.click('.sheet.mnu .mi.danger'); await p.waitForTimeout(400);
+  ok(await E(`core.D().chats.find(c => c.real == '海藤瞬').fr`) === 1, 'tapping 加好友 makes them a friend (can private chat)');
+  console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();
