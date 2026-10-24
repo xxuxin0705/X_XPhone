@@ -63,7 +63,10 @@ export async function gen(ch) {
   if (busy) { busy == ch.id ? (ch._again = 1) : toast('上一轮回复还在生成中…'); return; }
   busy = ch.id; const ac = CTL = new AbortController(); ch.msgs.forEach(m => m.f == 'me' && (m.rd = 1)); saveD(); emit('chat'); goSync();
   try {
-    const ms = parseReply(await llm(await sysCtx(), replyP(ch, ch.cfg.pat && Math.random() < .3), '聊天回复', ac.signal), ch);
+    // 识图：我上次被回复之后发的表情包（最多 3 个），图片跟这次回复请求一起发过去，让对方看图理解（不额外调用）
+    const lastR = ch.msgs.findLastIndex(m => m.f != 'me' && !/sys|pat/.test(m.t)), see = S.stk.see !== false ? ch.msgs.slice(lastR + 1).filter(m => m.f == 'me' && m.t == 'sticker' && m.img).slice(-3) : [];
+    const P = replyP(ch, ch.cfg.pat && Math.random() < .3) + (see.length ? `\n\n【表情包图片】附上了${meObj().nick}刚发的 ${see.length} 个表情包的图片，按顺序对应上面最后 ${see.length} 个「[表情包：…]」。先看图弄懂${meObj().nick}想表达的情绪和意思，再自然地回应。` : '');
+    const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img) }), ch);
     for (const m of ms) { if (ac.signal.aborted) break; const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
   } catch (e) { ac.signal.aborted ? toast('已停止回复') : fail(`${nm(ch)} · 回复失败：${e.message}`); }
   finally { busy = 0; CTL = null; emit('chat'); goSync(); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回

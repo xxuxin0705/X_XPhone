@@ -20,7 +20,7 @@ const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', text: '' }, media: {},
-  stk: { v: 3, packs: ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
+  stk: { see: true, v: 3, packs: ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
@@ -347,14 +347,37 @@ const route = aux => {
 };
 // o.fast 本次强制低思考；o.aux 用「生成用模型」（生成联系人 / 剧情同步等，没设就用聊天模型）；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
 export const auxProf = () => { const r = route(1); return r.p && r.p.id == S.api.chat.aux ? r.p : null; };
+// 识图：把图片跟这次请求一起发给模型（不额外调用），模型看图理解意思。o.images = [图片地址…]
+// 先缩小成 320px 的 jpg（省 token）；模型或接口不支持看图就自动退回纯文字，并记住这条线以后不再带图
+export const noVision = new Set(), imgC = new Map();
+export async function getBlob(u) {
+  if (u instanceof Blob) return u;
+  if (/^(data|blob):/.test(u) || u.startsWith('/')) return (await fetch(u)).blob();
+  try { const r = await fetch(u, { referrerPolicy: 'no-referrer' }); if (r.ok) return r.blob(); } catch { }
+  const tf = globalThis.__TAURI__?.http?.fetch; if (tf) try { const r = await tf(u, { method: 'GET' }); if (r.ok) return r.blob(); } catch { }
+  const r = await fetch('/proxy/' + u); if (!r.ok) throw Error('图片取不到'); return r.blob();
+}
+export const imgData = u => imgC.get(u) || (imgC.set(u, (async () => {
+  const b = await getBlob(u), bm = await createImageBitmap(b).catch(() => new Promise((res, rej) => { const i = new Image(), o = URL.createObjectURL(b); i.onload = () => res(i); i.onerror = () => rej(Error('图片打不开')); i.src = o; })), k = Math.min(1, 320 / Math.max(bm.width, bm.height));
+  const c = Object.assign(document.createElement('canvas'), { width: Math.max(1, Math.round(bm.width * k)), height: Math.max(1, Math.round(bm.height * k)) }), g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bm, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', .82);
+})().catch(e => { imgC.delete(u); throw e; })), imgC.get(u));
+const withImgs = (user, imgs) => [{ type: 'text', text: user }, ...imgs.map(url => ({ type: 'image_url', image_url: { url } }))];
 export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const R = route(o.aux); return call('chat', desc, user, async (p, sig, cx) => {
-  if (R.raw) return C().generateRaw({ systemPrompt: sys, prompt: user });
-  if (R.st) return stReq(R.st.id, sys, user, sig, cx, o);
-  const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], ...(!p.nostream && { stream: true }) };
-  const x = p.fast || o.fast ? noThink(p.model) : null; let r;
-  try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
-  catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }
-  return readAI(r, cx, o);
+  const key = R.raw ? 'raw' : R.st ? 'st:' + R.st.id : 'p:' + p.id + ':' + p.model;
+  const imgs = o.images?.length && !noVision.has(key) ? (await Promise.all(o.images.map(u => imgData(u).catch(() => null)))).filter(Boolean) : [];
+  const once = async img => {
+    if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: user });
+    if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : user, sig, cx, o);
+    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : user }], ...(!p.nostream && { stream: true }) };
+    const x = p.fast || o.fast ? noThink(p.model) : null; let r;
+    try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
+    catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }
+    return readAI(r, cx, o);
+  };
+  if (!imgs.length) return once([]);
+  try { const out = await once(imgs); if (out || out === '') return out; throw Error('空回复'); }
+  catch (e) { if (sig?.aborted) throw e; noVision.add(key); cx.part?.('（这个模型看不了图，改成只发文字）', 0); return once([]); } // 不支持看图：去掉图片再发一次
 }, sg, R.raw ? null : R.st ? { name: '酒馆 · ' + (R.st.name || '连接配置'), model: R.st.model || '', _st: 1 } : R.p, !!R.raw); };
 // 机器翻译：只给“我”写的文字用，走酒馆自带翻译接口（谷歌/必应同时发，谁先回用谁，8秒上限）；绝不调用聊天模型，不花 API 额度
 // 机翻：只用酒馆自带的翻译接口（不调用聊天模型）。先谷歌，不行再必应；不支持的接口记下来以后不再请求，

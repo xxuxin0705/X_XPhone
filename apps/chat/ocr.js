@@ -23,7 +23,7 @@ async function blobOf(u) {
 }
 // 放大 + 白底（透明背景会变成黑底，读不出字）
 async function prep(b) {
-  const bm = await createImageBitmap(b), k = Math.max(1, Math.min(3, 640 / Math.max(bm.width, bm.height)));
+  const bm = await createImageBitmap(b).catch(() => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(Error('图片打不开')); i.src = URL.createObjectURL(b); })), k = Math.max(1, Math.min(3, 640 / Math.max(bm.width, bm.height)));
   const c = Object.assign(document.createElement('canvas'), { width: Math.round(bm.width * k), height: Math.round(bm.height * k) }), g = c.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bm, 0, 0, c.width, c.height); return c;
 }

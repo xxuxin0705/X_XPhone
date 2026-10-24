@@ -2,9 +2,11 @@ const { chromium } = require('playwright'); const fs = require('fs'), path = req
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (f.endsWith('.js') ? 'text/javascript' : f.endsWith('.css') ? 'text/css' : 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8779);
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
-let nReq = 0, prompts = [];
+let nReq = 0, prompts = [], imgs = [], noVis = false;
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAKElEQVR4nGP8f4LhPwMNARMtDR+1YNSCUQtGLRi1YNSCUQtGLaAeAAAW4wL2cIeZ5gAAAABJRU5ErkJggg==', 'base64');
 (async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort());
-  await ctx.route(/relay\.test/, async r => { nReq++; prompts.push(JSON.parse(r.request().postData()).messages[1].content); await new Promise(x => setTimeout(x, 1500)); r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: `data: ${JSON.stringify({ choices: [{ delta: { content: '好的～\n' } }] })}\n\ndata: [DONE]\n\n` }).catch(() => {}); });
+  await ctx.route(/img\.test/, r => r.fulfill({ status: 200, headers: { 'content-type': 'image/png', 'access-control-allow-origin': '*' }, body: PNG }));
+  await ctx.route(/relay\.test/, async r => { nReq++; const c = JSON.parse(r.request().postData()).messages[1].content; prompts.push(typeof c == 'string' ? c : c.find(x => x.type == 'text').text); const im = Array.isArray(c) ? c.filter(x => x.type == 'image_url') : []; imgs.push(im.length); if (im.length && noVis) { nReq--; return r.fulfill({ status: 400, body: 'model does not support image input' }); } await new Promise(x => setTimeout(x, 1500)); r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: `data: ${JSON.stringify({ choices: [{ delta: { content: '好的～\n' } }] })}\n\ndata: [DONE]\n\n` }).catch(() => {}); });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8779/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s);
@@ -33,10 +35,17 @@ let nReq = 0, prompts = [];
   await E(`_c.msgs.push({ f: 'me', t: 'sticker', c: '表情', d: '小狗哭得稀里哗啦', pk: '小白狗', img: 'https://img.test/x.png', ts: Date.now() }, { f: 'me', t: 'sticker', c: '哭哭', img: 'https://img.test/y.png', ts: Date.now() }); core.emit('chat')`); await p.waitForTimeout(200);
   await p.click('.chat .go'); await p.waitForTimeout(400);
   ok(/\[表情包：（小狗哭得稀里哗啦），「小白狗」里的\][\s\S]*\[表情包：哭哭\]/.test(prompts.at(-1)) && !/\[表情\]表情/.test(prompts.at(-1)), '我发的表情包：对方看到的是「[表情包：哭哭]」这种带意思的，不是「[表情]表情」');
+  ok(imgs.at(-1) == 2 && /附上了.*刚发的 2 个表情包的图片/.test(prompts.at(-1)), '识图：我刚发的 2 个表情图跟这次回复请求一起发过去（没有额外请求）');
   await p.waitForTimeout(2600);
+  // 模型不支持看图：自动去掉图片重发，之后不再带图
+  noVis = true; await E(`_c.msgs.push({ f: 'me', t: 'sticker', c: '表情', img: 'https://img.test/z.png', ts: Date.now() }); core.emit('chat')`); await p.waitForTimeout(200);
+  const n0 = imgs.length; await p.click('.chat .go'); await p.waitForTimeout(2300);
+  ok(imgs.slice(n0).join() == '1,0' && await E(`_c.msgs.at(-1).c`) == '好的～', '模型不支持看图：自动改成只发文字，照样回复');
+  await E(`_c.msgs.push({ f: 'me', t: 'sticker', c: '表情', img: 'https://img.test/w.png', ts: Date.now() }); core.emit('chat')`); const n1 = imgs.length; await p.click('.chat .go'); await p.waitForTimeout(2300);
+  ok(imgs.slice(n1).join() == '0', '记住了：这个模型以后不再带图'); noVis = false;
   // 打开「发完消息自动回复」
   await E(`_c.cfg.auto = true`); await type('自动吗'); await p.click('.chat .go'); await p.waitForTimeout(300);
-  ok(await vis() == 'stop' && nReq == 3, '打开自动回复后：发完先等着（方块）');
-  await p.waitForTimeout(1600); ok(nReq == 4, '1.5 秒后自动回复');
+  ok(await vis() == 'stop' && nReq == 5, '打开自动回复后：发完先等着（方块）');
+  await p.waitForTimeout(1600); ok(nReq == 6, '1.5 秒后自动回复');
   await p.waitForTimeout(2000);
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();
