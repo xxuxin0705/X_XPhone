@@ -526,3 +526,12 @@
 /* 弹出密码面板时把锁屏的时钟、指纹、提示都藏起来，避免透出来叠在一起 */
 .lock.authing .lk-ui{opacity:0!important;pointer-events:none;transition:opacity .2s}
 .lk-enr .lk-fp.rec.on .fpc path{stroke-dashoffset:0;transition:stroke-dashoffset .9s linear}
+
+/* 消息列表多选 */
+.cl.msel{transition:background .15s}.cl.msel.on{background:color-mix(in srgb,var(--ac) 8%,transparent)}
+.cl .ck{flex:none;width:22px;height:22px;margin-left:2px;border-radius:50%;border:1.6px solid #c4c4c7;display:grid;place-items:center;transition:.15s}
+.cl.on .ck{background:var(--ac);border-color:var(--ac)}.cl.on .ck::after{content:'\2713';color:#fff;font-size:13px;font-weight:700}
+.pg-r b.txt{font-size:15px;font-weight:500;color:var(--ac);cursor:pointer;white-space:nowrap}
+.mbar{display:flex;gap:10px;padding:10px 14px 24px;background:var(--cd);border-top:.5px solid var(--ln)}
+.mbar button{all:unset;flex:1;text-align:center;padding:11px 0;border-radius:12px;background:rgba(127,127,127,.1);font-size:14px;font-weight:500;color:var(--pt);cursor:pointer}
+.mbar button.danger{background:rgba(255,59,48,.1);color:#ff3b30}.mbar button.off{opacity:.4;pointer-events:none}

@@ -94,9 +94,12 @@ export const syncStory = t => task('剧情同步中', async sg => { const o = ap
 
 /* ---------- 渲染 ---------- */
 const ago = ts => { const s = (now() - ts) / 6e4; return s < 1 ? '刚刚' : s < 60 ? (s | 0) + '分钟前' : s < 1440 ? (s / 60 | 0) + '小时前' : tT(ts); };
-const list = () => D().chats.filter(c => c.fr !== 0 || c.msgs.length).sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
+// 多选模式：msel 是选中的会话 id（null = 没在多选）
+let msel = null;
+const vis = () => D().chats.filter(c => c.fr !== 0 || c.msgs.length);
+const list = () => vis().sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
   const m = c.msgs.at(-1);
-  return `<div class="cl ${c.pin ? 'pin' : ''}" data-a="open" data-x="${c.id}" data-lp="clp"><div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${c.members.length + 1})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
+  return `<div class="cl ${c.pin ? 'pin' : ''} ${msel ? 'msel' : ''} ${msel?.has(c.id) ? 'on' : ''}" data-a="open" data-x="${c.id}" data-lp="clp">${msel ? '<i class="ck"></i>' : ''}<div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${c.members.length + 1})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
 }).join('') || `<div class="empty"><p>还没有联系人 ✧</p>${btn('aiInit', '✨ AI 生成联系人', '', 'pri')}${btn('plus', '手动添加')}</div>`;
 const post = (p, fs) => {
   const a = p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' }, me = nm(meObj()), lk = p.likes.includes(me);
@@ -195,19 +198,35 @@ ${btn('pchat', g ? '进入群聊' : '发消息', '', 'pri')}${g ? '' : btn('pfd'
 }
 
 /* ---------- 聊天 App ---------- */
+// 多选：长按任意会话进入，点选 / 全选，底部批量置顶、已读、删除；左上角返回退出多选
+const mbar = () => { const n = msel.size, L = [...msel].map(get).filter(Boolean), allPin = n && L.every(c => c.pin);
+  return `<nav class="mbar"><button data-a="mpin" class="${n ? '' : 'off'}">${allPin ? '取消置顶' : '置顶'}</button><button data-a="mread" class="${n ? '' : 'off'}">标为已读</button><button data-a="mdel" class="danger ${n ? '' : 'off'}">删除${n ? `(${n})` : ''}</button></nav>`; };
+const MS = {
+  clp: (id, t, e, pg) => { if (msel) return MS.mtog(id, t, e, pg); navigator.vibrate?.(12); msel = new Set([id]); pg.re(); },
+  mtog: (id, t, e, pg) => { msel.has(id) ? msel.delete(id) : msel.add(id); pg.re(); },
+  mall: (x, t, e, pg) => { const all = vis().map(c => c.id); msel = msel.size >= all.length ? new Set() : new Set(all); pg.re(); },
+  back: (x, t, e, pg) => { if (!msel) return back(); msel = null; pg.re(); },
+  mpin: (x, t, e, pg) => { const L = [...msel].map(get).filter(Boolean); if (!L.length) return; const v = !L.every(c => c.pin); L.forEach(c => c.pin = v); msel = null; saveD(); emit('chat'); toast(v ? `已置顶 ${L.length} 个` : '已取消置顶'); },
+  mread: (x, t, e, pg) => { const L = [...msel].map(get).filter(Boolean); if (!L.length) return; L.forEach(c => c.unread = 0); msel = null; saveD(); emit('chat'); toast(`已标为已读`); },
+  mdel: async (x, t, e, pg) => {
+    const L = [...msel].map(get).filter(Boolean); if (!L.length) return; const g = L.filter(c => c.type == 'g').length, p = L.length - g;
+    if (!await ok(`删除选中的${p ? ` ${p} 个联系人` : ''}${p && g ? '和' : ''}${g ? ` ${g} 个群聊` : ''}？聊天记录也会一起清除`)) return;
+    L.forEach(rm); msel = null; saveD(); emit('chat'); toast(`已删除 ${L.length} 个`);
+  },
+};
 let tab = 'list';
 reg({
   id: 'chat', name: '聊天', icon: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.5 4C5.4 4 2 6.8 2 10.2c0 1.9 1 3.6 2.7 4.7L4 17.5l3-1.6c.8.2 1.6.3 2.5.3 4.1 0 7.5-2.8 7.5-6.2S13.6 4 9.5 4z"/><path opacity=".8" d="M22 14.6c0-2.3-1.7-4.3-4.2-5.2l.1.9c0 4-3.7 7.2-8.4 7.4 1.1 1.4 3.1 2.3 5.3 2.3.6 0 1.2-.1 1.8-.2l2.4 1.2-.5-2c1.4-1 2.5-2.6 2.5-4.4z"/></svg>',
   open: () => page({
-    cls: 'chatapp', live: 1, model: () => D().me, title: () => ({ list: TN[S.style], ct: CN[S.style], feed: FN[S.style], me: '我' })[tab],
-    right: () => tab == 'list' || tab == 'ct' ? `<b data-a="plus">${I.plus}</b>` : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
-    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => tabs(tab), after: el => stCls(el, 'chatapp st-' + S.style),
+    cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; },
+    title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: FN[S.style], me: '我' })[tab],
+    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'list' || tab == 'ct' ? `<b data-a="plus">${I.plus}</b>` : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
+    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => stCls(el, 'chatapp st-' + S.style),
     onChange: k => k == '$style' && emit('chat'),
     acts: {
-      ...FA, aiInit, tab: (x, t, e, pg) => { tab = x; pg.re(); }, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
+      ...FA, aiInit, tab: (x, t, e, pg) => { tab = x; msel = null; pg.re(); }, ...MS, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
       groups: () => page({ title: '群聊', body: () => D().chats.filter(c => c.type == 'g').map(c => crow(c, 'open')).join('') || '<p class="empty">还没有群聊</p>', acts: { open: id => (back(), openChat(id)) } }),
-      jump: (x, t, e, pg) => { const b = $('.pg-b', pg.el), s = $(`[data-l="${x}"]`, b); s && (b.scrollTop += (s.getBoundingClientRect().top - b.getBoundingClientRect().top) * b.offsetHeight / b.getBoundingClientRect().height); }, open: id => openChat(id),
-      clp: async id => { const c = get(id), k = await menu([['pin', c.pin ? '取消置顶' : '置顶聊天'], ['read', '标为已读'], ['del', c.type == 'g' ? '删除群聊' : '删除联系人', 'danger']], esc(nm(c))); k == 'pin' && (c.pin = !c.pin); k == 'read' && (c.unread = 0); k == 'del' && await ok('确定删除？聊天记录也会清除') && rm(c); saveD(); emit('chat'); },
+      jump: (x, t, e, pg) => { const b = $('.pg-b', pg.el), s = $(`[data-l="${x}"]`, b); s && (b.scrollTop += (s.getBoundingClientRect().top - b.getBoundingClientRect().top) * b.offsetHeight / b.getBoundingClientRect().height); }, open: (id, t, e, pg) => msel ? MS.mtog(id, t, e, pg) : openChat(id),
       plus: async () => {
         const k = await menu([['f', '👤 添加好友'], ['g', '👥 发起群聊'], ['ai', '✨ AI 生成联系人'], ['wi', '📖 从世界书添加']]);
         if (k == 'f') { const r = await form('添加好友', [['av', '头像', 'img'], ['nick', '昵称（网名）'], ['real', '真实姓名'], ['remark', '备注'], ['sign', '个性签名']]); r && (r.nick || r.real) && add(blank('p', r)); }
