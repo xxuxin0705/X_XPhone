@@ -535,3 +535,14 @@
 .mbar{display:flex;gap:10px;padding:10px 14px 24px;background:var(--cd);border-top:.5px solid var(--ln)}
 .mbar button{all:unset;flex:1;text-align:center;padding:11px 0;border-radius:12px;background:rgba(127,127,127,.1);font-size:14px;font-weight:500;color:var(--pt);cursor:pointer}
 .mbar button.danger{background:rgba(255,59,48,.1);color:#ff3b30}.mbar button.off{opacity:.4;pointer-events:none}
+
+/* 新联系人确认卡：勾选 / 取消 */
+.nc{position:relative;cursor:pointer;transition:opacity .2s,box-shadow .2s}.nc:not(.on){opacity:.45}.nc:not(.on) .av{filter:grayscale(.6)}
+.nc-ck{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;border:1.6px solid #c4c4c7;display:grid;place-items:center;transition:.15s}
+.nc.on .nc-ck{background:var(--ac);border-color:var(--ac)}.nc.on .nc-ck::after{content:'\2713';color:#fff;font-size:13px;font-weight:700}
+.nc .nc-n{padding-right:28px}
+.nc-top{display:flex;justify-content:space-between;align-items:center;margin:4px 6px 0;font-size:12.5px;color:#999}.nc-top b{color:var(--ac);font-weight:500;cursor:pointer}
+.nc-g .gk{cursor:pointer;border:1.5px solid transparent;transition:.15s}.nc-g .gk.on{border-color:var(--ac)}.nc-g .gk:not(.on){opacity:.45;text-decoration:line-through}
+.rv-ft{position:sticky;bottom:0;display:flex;gap:10px;padding:12px 2px 6px;background:linear-gradient(transparent,var(--pg) 30%)}
+.rv-ft button{all:unset;flex:1;text-align:center;padding:13px 0;border-radius:14px;background:var(--cd);font-weight:600;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.rv-ft button.pri{flex:1.6;background:var(--ac);color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--ac) 35%,transparent)}

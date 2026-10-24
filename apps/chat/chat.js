@@ -94,11 +94,11 @@ export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
   res == 'late' && got && (how = '（2 分钟到了，先保存已经生成的部分）');
   if (res == 'late' && !sg?.aborted && !added() && o.people?.length) { applyDelta({ contacts: o.people.slice(0, 12).map(p => ({ real: p.n, nick: p.n, sex: p.sex })) }); how = '（模型太慢，已先按世界书人物添加，网名和签名可以稍后再改）'; }
   const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), gs = D().chats.filter(c => c.type == 'g' && !old.has(c.id));
-  nw.length && setTimeout(() => review(nw, gs), 500);
+  (nw.length || gs.length) && setTimeout(() => review(nw, gs, old), 500);
   if (sg?.aborted) throw Error('已取消');
   if (!nw.length && !gs.length) throw res == 'late' ? Error('模型 2 分钟内没有给出结果，世界书里也没找到人物条目，可以换个不思考的「生成用模型」再试') : lastErr || Error('没有识别到新的联系人（可能都已存在，或返回格式不对，可在调用日志查看）');
-  if (res == 'err' && lastErr) throw Error(`${lastErr.message}（已先保存 ${nw.length} 位联系人 · ${gs.length} 个群）`);
-  return `已添加 ${nw.length} 位联系人 · ${gs.length} 个群${how}`;
+  if (res == 'err' && lastErr) throw Error(`${lastErr.message}（已生成的 ${nw.length} 位联系人 · ${gs.length} 个群可以确认添加）`);
+  return `已生成 ${nw.length} 位联系人 · ${gs.length} 个群，请确认${how}`;
 }
 export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1 }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 
@@ -166,12 +166,36 @@ async function aiInit() {
   });
 }
 // 新联系人确认卡：展示网名 / 真实姓名，备注默认填 AI 生成的、可直接改
-function review(nw, gs) {
-  const m = Object.fromEntries(nw.map(c => [c.id, c.remark || ''])), s = sheet({
-    cls: 'rv', noBack: 1, model: () => m, save: () => {}, title: `<b>✨ 新增 ${nw.length} 位联系人</b><small>确认一下备注吧，AI 已经帮你填好，可以直接改</small>`,
-    body: () => nw.map(c => `<div class="nc"><img class="av" src="${esc(avOf({ ...c, remark: '' }))}"><div class="nc-m"><div class="nc-n"><b>${esc(c.nick || c.real)}</b><em>网名</em></div><small>真实姓名 · ${esc(c.real || '—')}</small>${c.ps || c.cfg?.lang ? `<small>${c.ps ? `拍一拍 · 拍了拍TA${esc(c.ps)}` : ''}${c.ps && c.cfg?.lang ? ' · ' : ''}${c.cfg?.lang ? `说${esc(lname(c.cfg.lang))}（自动翻译）` : ''}</small>` : ''}<label class="nc-r"><i>备注</i><input data-k="${c.id}" value="${esc(m[c.id])}" placeholder="不填就显示网名"></label></div></div>`).join('')
-      + (gs.length ? `<div class="nc-g"><small>同时加入的群聊</small>${gs.map(g => `<span>👥 ${esc(g.name)}</span>`).join('')}</div>` : '') + btn('ok', '完成', '', 'pri'),
-    acts: { ok: () => s.close() }, onClose: () => { nw.forEach(c => c.remark = ($(`[data-k="${c.id}"]`, s.el)?.value ?? m[c.id] ?? '').trim()); saveD(); emit('chat'); },
+// 新联系人确认卡：默认全选，可以取消勾选不要的；「取消」= 这次生成的全都不要，「添加」= 只留勾选的
+// 没勾选、但在保留下来的群里的人：留作普通群成员（不进好友列表），群里的消息不会变成「已删除」
+function review(nw, gs, old) {
+  const m = Object.fromEntries(nw.map(c => [c.id, c.remark || ''])), keep = new Set([...nw, ...gs].map(c => c.id)), total = keep.size; let done = 0;
+  const finish = ok => {
+    if (done) return; done = 1;
+    nw.forEach(c => c.remark = ($(`[data-k="${c.id}"]`, s.el)?.value ?? m[c.id] ?? '').trim());
+    const K = ok ? keep : new Set(), inG = id => D().chats.some(g => g.type == 'g' && (g.members.includes(id) || g.owner == id || g.admins.includes(id)));
+    gs.filter(g => !K.has(g.id)).forEach(rm);
+    nw.filter(c => !K.has(c.id)).forEach(c => inG(c.id) ? (c.fr = 0) : rm(c));
+    D().chats.filter(c => c.type == 'p' && c.fr === 0 && !old.has(c.id) && !c.msgs.length && !inG(c.id)).forEach(rm); // 随群一起生成、现在没群可待的成员
+    saveD(); emit('chat');
+    const np = nw.filter(c => K.has(c.id)).length, ng = gs.filter(g => K.has(g.id)).length;
+    toast(np || ng ? `已添加 ${np} 位联系人${ng ? ` · ${ng} 个群` : ''}` : '已取消，这次生成的都没有添加');
+  };
+  const s = sheet({
+    cls: 'rv', noBack: 1, model: () => m, save: () => {}, title: `<b>✨ 生成了 ${nw.length} 位联系人${gs.length ? ` · ${gs.length} 个群` : ''}</b><small>不想要的点一下取消勾选，备注可以直接改</small>`,
+    body: () => `<div class="nc-top"><span></span><b data-pk="all"></b></div>` + nw.map(c => `<div class="nc on" data-pk="${c.id}"><i class="nc-ck"></i><img class="av" src="${esc(avOf({ ...c, remark: '' }))}"><div class="nc-m"><div class="nc-n"><b>${esc(c.nick || c.real)}</b><em>网名</em></div><small>真实姓名 · ${esc(c.real || '—')}</small>${c.ps || c.cfg?.lang ? `<small>${c.ps ? `拍一拍 · 拍了拍TA${esc(c.ps)}` : ''}${c.ps && c.cfg?.lang ? ' · ' : ''}${c.cfg?.lang ? `说${esc(lname(c.cfg.lang))}（自动翻译）` : ''}</small>` : ''}<label class="nc-r"><i>备注</i><input data-k="${c.id}" value="${esc(m[c.id])}" placeholder="不填就显示网名"></label></div></div>`).join('')
+      + (gs.length ? `<div class="nc-g"><small>同时加入的群聊（点一下取消）</small>${gs.map(g => `<span class="gk on" data-pk="${g.id}">👥 ${esc(g.name)}</span>`).join('')}</div>` : '')
+      + `<div class="rv-ft"><button data-rv="no">取消</button><button data-rv="yes" class="pri"></button></div>`,
+    after: el => {
+      const sync = () => { el.querySelectorAll('[data-pk]').forEach(x => x.dataset.pk != 'all' && x.classList.toggle('on', keep.has(x.dataset.pk))); $('.nc-top span', el).textContent = `已选 ${keep.size} / 共 ${total}`; $('.nc-top b', el).textContent = keep.size == total ? '全不选' : '全选'; const y = $('[data-rv="yes"]', el); y.textContent = keep.size ? `添加 (${keep.size})` : '一个都不要'; };
+      el.addEventListener('click', e => {
+        const r = e.target.closest('[data-rv]'); if (r) { e.stopPropagation(); finish(r.dataset.rv == 'yes'); return s.close(); }
+        if (e.target.closest('input,label')) return; const p = e.target.closest('[data-pk]'); if (!p) return; e.stopPropagation();
+        const id = p.dataset.pk; id == 'all' ? (keep.size == total ? keep.clear() : [...nw, ...gs].forEach(c => keep.add(c.id))) : keep.has(id) ? keep.delete(id) : keep.add(id); sync();
+      });
+      sync();
+    },
+    onClose: () => finish(true), // 点外面关掉：按当前勾选保留，不白白丢掉
   });
 }
 async function fromWi() {
