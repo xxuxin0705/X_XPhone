@@ -1,5 +1,5 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
-import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop } from '../../core.js';
+import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
 import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 export { openChat, applyDelta };
@@ -43,9 +43,10 @@ const LN = { 中文: '', 汉语: '', 普通话: '', 简体中文: '', 粤语: ''
 const langOf = s => { s = String(s || '').trim().replace(/[（(].*$/, ''); if (!s) return null; const k = s.toLowerCase(); if (k in LN) return LN[k]; if (s in LN) return LN[s]; const x = LANGS.find(([c, n]) => c && (n == s || c == k || n.replace('语', '') == s.replace(/[语文]$/, ''))); return x ? x[0] : null; };
 export const pline = l => {
   const f = String(l).trim().replace(/^[-*•>\d.、)）\s]+/, '').replace(/^[「【[]|[」】\]]$/g, '').split(/\s*[|｜]\s*/), k = f[0];
+  const nil = v => /^(-+|—+|无|空|没有|null|none)?$/i.test(String(v ?? '').trim()) ? '' : String(v).trim(); // 「-」「无」= 空
   if (/^(人|联系人|好友)$/.test(k) && f[1] && f.length <= 6) return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: f[3] || '', sex: (String(f[4]).match(/[男女]/) || [''])[0], sign: f[5] || '' }] }; // 旧的 6 段格式
   if (/^(人|联系人|好友)$/.test(k) && f[1]) { const lg = langOf(f[6]), sign = lg == null && f.length <= 7 ? f.slice(6).join('|') : f.slice(7).join('|'); // 模型漏写语言时第 7 段当签名
-    return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: f[3] || '', sex: (String(f[4]).match(/[男女]/) || [''])[0], ps: (f[5] || '').replace(/^拍了拍\S*?(?=的|并|，)/, ''), lang: lg || '', sign }] }; }
+    return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: nil(f[3]), sex: (String(f[4]).match(/[男女]/) || [''])[0], ps: (f[5] || '').replace(/^拍了拍\S*?(?=的|并|，)/, ''), lang: lg || '', sign: nil(sign) }] }; }
   if (/^(群|群聊)$/.test(k) && f[1]) { const o = sp(f[2])[0]; return { groups: [{ name: f[1], owner: o, admins: sp(f[3]), members: sp(f[4]), notice: f.slice(5).join('|') }] }; }
   return null;
 };
@@ -86,8 +87,8 @@ export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
   const LIM = o.lim ?? 115e3, BK = o.bk ?? 45e3, ac = new AbortController();
   // 先放进暂存区，用户在确认卡里点「添加」之后才真正进手机
   const st = { c: [], g: [] }, seen = new Set(), size = () => st.c.length + st.g.length;
-  const put = x => { x?.contacts?.forEach(c => { const n = c.real || c.nick, k = 'p:' + n, ex = n && (find(c.real, 'p') || find(c.nick, 'p')); if (!n || seen.has(k) || isMe(n) || ex && ex.fr !== 0) return; seen.add(k); st.c.push({ real: n, nick: c.nick || n, remark: c.remark || '', sex: c.sex || '', ps: c.ps || '', lang: c.lang || '', sign: c.sign || '' }); });
-    x?.groups?.forEach(g => { const k = 'g:' + g.name; if (!g.name || seen.has(k) || find(g.name, 'g')) return; seen.add(k); st.g.push({ ...g }); }); };
+  const put = x => { x?.contacts?.forEach(c => { const n = c.real || c.nick, k = 'p:' + n, ex = n && (find(c.real, 'p') || find(c.nick, 'p')); if (!n || seen.has(k) || isMe(n) || ex && ex.fr !== 0) return; seen.add(k); st.c.push({ real: n, r0: n, nick: c.nick || n, remark: c.remark || '', sex: c.sex || '', ps: c.ps || '', lang: c.lang || '', sign: c.sign || '', av: '' }); });
+    x?.groups?.forEach(g => { const k = 'g:' + g.name; if (!g.name || seen.has(k) || find(g.name, 'g')) return; seen.add(k); st.g.push({ ...g, owner: g.owner || '', admins: [...(g.admins || [])], members: [...(g.members || [])], notice: g.notice || '', no: String(1e8 + Math.random() * 9e8 | 0), av: '' }); }); };
   let got = 0, settle, alive = 0, lastErr, bkOn = 0, how = ''; const fin = new Promise(r => settle = r), drafts = [], t0 = Date.now();
   const stopAll = () => ac.abort(), cancel = () => { stopAll(); settle('cancel'); }; sg?.aborted ? cancel() : sg?.addEventListener('abort', cancel);
   const count = () => `已收到 ${size()} 个`;
@@ -178,40 +179,67 @@ async function aiInit() {
   });
 }
 // 新联系人确认卡：展示网名 / 真实姓名，备注默认填 AI 生成的、可直接改
-// 新联系人确认卡：生成结果先在这里，默认全选；每个人的网名 / 真实姓名 / 性别 / 备注 / 拍一拍 / 语言都能改
-// 「取消」= 这次生成的全都不要；「添加」= 只把勾选的加进手机。没勾选、但在保留下来的群里的人，会作为普通群成员留在群里（不进好友列表）
+// 新联系人确认卡：生成结果先放这里，确认后才进手机。
+// 每个人 / 群默认折叠成一行（勾选框只管选不选，点这一行展开编辑）；展开后头像、网名、真名、备注、性别、拍一拍、签名、语言，
+// 群的头像、群名、群号、群主、管理员、成员、公告都能改。「取消」= 都不要；「添加」= 只加勾选的。
 function review(st) {
-  const items = [...st.c.map((c, i) => ['c' + i, c]), ...st.g.map((g, i) => ['g' + i, g])], keep = new Set(items.map(x => x[0])), total = keep.size; let done = 0;
-  const sexO = v => [['', '性别'], ['男', '男'], ['女', '女']].map(([a, b]) => `<option value="${a}" ${a == v ? 'selected' : ''}>${b}</option>`).join('');
-  const langO = v => LANGS.map(([a, b]) => `<option value="${a}" ${a == v ? 'selected' : ''}>${a ? b : '中文（不翻译）'}</option>`).join('');
-  const val = (id, f) => $(`[data-pk="${id}"] [data-f="${f}"]`, s.el)?.value?.trim() ?? '';
+  const u = C().name1, items = [...st.c.map((c, i) => ['c' + i, c]), ...st.g.map((g, i) => ['g' + i, g])], keep = new Set(items.map(x => x[0])), total = keep.size, byId = Object.fromEntries(items);
+  let open = '', done = 0;
+  const R = n => st.c.find(c => c.r0 == n)?.real || n; // 真名改过以后，群里的成员名跟着变
+  const cav = c => c.av || avOf({ nick: c.nick || c.real }), gav = g => g.av || defAv(g.name);
+  const sumC = c => [c.remark && `备注 ${c.remark}`, c.real, c.sex, c.lang && `说${lname(c.lang)}`].filter(Boolean).join(' · ');
+  const sumG = g => [`群主 ${g.owner && !isMe(g.owner) ? R(g.owner) : u}`, g.admins.length && `管理员 ${g.admins.map(R).join('、')}`].filter(Boolean).join(' · ');
+  const opt = (L, v) => L.map(([a, b]) => `<option value="${esc(a)}" ${a == v ? 'selected' : ''}>${esc(b)}</option>`).join('');
+  const F = (f, l, v, cls = '', ph = '') => `<label class="rk-f ${cls}"><span>${l}</span><input data-f="${f}" value="${esc(v)}" placeholder="${esc(ph)}"></label>`;
+  const T = (f, l, v, pre = '', ph = '') => `<label class="rk-f w"><span>${l}</span><div class="rk-ta">${pre ? `<em>${pre}</em>` : ''}<textarea data-f="${f}" rows="1" placeholder="${esc(ph)}">${esc(v)}</textarea></div></label>`;
+  const edC = (c) => `<div class="rk-ed"><div class="rk-avb" data-av><img src="${esc(cav(c))}"><small>换头像</small></div><div class="rk-g">
+${F('nick', '网名', c.nick)}${F('real', '真实姓名', c.real)}${F('remark', '备注', c.remark, '', '不填显示网名')}
+<label class="rk-f"><span>性别</span><select data-f="sex">${opt([['', '未知'], ['男', '男'], ['女', '女']], c.sex)}</select></label>
+${T('ps', '拍一拍后缀', c.ps, '拍了拍TA', '可留空')}${T('sign', '个性签名', c.sign, '', '可留空')}
+<label class="rk-f w"><span>聊天语言</span><select data-f="lang">${opt(LANGS.map(([a, b]) => [a, a ? `${b}（自动翻译）` : '中文（不翻译）']), c.lang)}</select></label></div></div>`;
+  const edG = (g) => `<div class="rk-ed"><div class="rk-avb" data-av><img src="${esc(gav(g))}"><small>换群头像</small></div><div class="rk-g">
+${F('name', '群名', g.name)}${F('no', '群号', g.no)}
+<label class="rk-f w"><span>群主</span><select data-f="owner">${opt([['', `我（${u}）`], ...g.members.filter(n => !isMe(n)).map(n => [n, R(n)])], isMe(g.owner) ? '' : g.owner)}</select></label>
+<div class="rk-f w"><span>成员 · 点名字设为 / 取消管理员，× 移出群</span><div class="rk-ch">${g.members.filter(n => !isMe(n)).map(n => `<b class="${g.admins.includes(n) ? 'ad' : ''}" data-adm="${esc(n)}">${g.admins.includes(n) ? '★ ' : ''}${esc(R(n))}<i data-out="${esc(n)}">×</i></b>`).join('') || '<small>没有成员</small>'}</div></div>
+${T('notice', '群公告', g.notice, '', '可留空')}</div></div>`;
+  const row = ([id, x]) => { const g = id[0] == 'g';
+    return `<div class="rk ${keep.has(id) ? 'on' : ''} ${open == id ? 'op' : ''}" data-pk="${id}"><div class="rk-h" data-tg><i class="rk-ck" data-ck></i><img class="av ${g ? 'gav' : ''}" src="${esc(g ? gav(x) : cav(x))}"><div class="rk-m">
+<b>${esc(g ? x.name : x.nick || x.real)}${g ? `<small> · ${x.members.length + 1}人</small>` : ''}</b><small data-sum>${esc(g ? sumG(x) : sumC(x))}</small>${(g ? x.notice : x.ps) ? `<small class="rk-p">${esc(g ? '公告 · ' + x.notice : '拍了拍TA' + x.ps)}</small>` : ''}</div><i class="rk-ar">›</i></div>${open == id ? (g ? edG(x) : edC(x)) : ''}</div>`; };
   const finish = ok => {
     if (done) return; done = 1;
-    if (!ok) return toast('已取消，这次生成的都没有添加');
-    const ren = {}, C = st.c.map((c, i) => { const id = 'c' + i, real = val(id, 'real') || c.real; real != c.real && (ren[c.real] = real); return keep.has(id) && { ...c, real, nick: val(id, 'nick') || real, remark: val(id, 'remark'), sex: val(id, 'sex'), ps: val(id, 'ps'), lang: val(id, 'lang') }; }).filter(Boolean);
-    const R = n => ren[n] || n, G = st.g.filter((g, i) => keep.has('g' + i)).map(g => ({ ...g, owner: R(g.owner), admins: (g.admins || []).map(R), members: (g.members || []).map(R) }));
-    applyDelta({ contacts: C, groups: G }); C.forEach(c => { const x = find(c.real, 'p'); x && Object.assign(x, { remark: c.remark, ps: c.ps, sex: c.sex, nick: c.nick }); }); saveD(); emit('chat'); // 改过的字段以确认卡为准
-    toast(C.length || G.length ? `已添加 ${C.length} 位联系人${G.length ? ` · ${G.length} 个群` : ''}` : '一个都没添加');
+    if (!ok) { drop(items.map(x => x[1].av)); return toast('已取消，这次生成的都没有添加'); }
+    const C2 = st.c.filter((c, i) => keep.has('c' + i)), G = st.g.filter((g, i) => keep.has('g' + i)).map(g => ({ ...g, owner: isMe(g.owner) ? '' : R(g.owner), admins: g.admins.map(R), members: g.members.map(R) }));
+    applyDelta({ contacts: C2.map(c => ({ ...c, nick: c.nick || c.real })), groups: G });
+    C2.forEach(c => { const x = find(c.real, 'p'); x && (Object.assign(x, { nick: c.nick || c.real, remark: c.remark, sex: c.sex, ps: c.ps, sign: c.sign }), c.av && (x.av = c.av), (x.cfg ||= {}).lang = c.lang); }); // 以确认卡为准
+    G.forEach(g => { const x = find(g.name, 'g'); x && (x.no = g.no || x.no, g.av && (x.av = g.av)); });
+    drop([...st.c.filter((c, i) => !keep.has('c' + i)), ...st.g.filter((g, i) => !keep.has('g' + i))].map(x => x.av)); // 没要的人换过的头像删掉
+    saveD(); emit('chat');
+    toast(C2.length || G.length ? `已添加 ${C2.length} 位联系人${G.length ? ` · ${G.length} 个群` : ''}` : '一个都没添加');
   };
-  const card = (id, c) => `<div class="nc on" data-pk="${id}"><i class="nc-ck"></i><img class="av" src="${esc(avOf({ nick: c.nick || c.real }))}"><div class="nc-m">
-<div class="nc-n"><input class="nc-nick" data-f="nick" value="${esc(c.nick)}" placeholder="网名"><em>网名</em></div>
-<div class="nc-2"><label class="nc-r"><i>真名</i><input data-f="real" value="${esc(c.real)}"></label><select data-f="sex">${sexO(c.sex)}</select></div>
-<label class="nc-r"><i>备注</i><input data-f="remark" value="${esc(c.remark)}" placeholder="不填就显示网名"></label>
-<label class="nc-r"><i>拍一拍</i><span class="nc-pre">拍了拍TA</span><input data-f="ps" value="${esc(c.ps)}" placeholder="后缀，可留空"></label>
-<label class="nc-r"><i>语言</i><select data-f="lang">${langO(c.lang)}</select></label>${c.sign ? `<small class="nc-sg">签名 · ${esc(c.sign)}</small>` : ''}</div></div>`;
   const s = sheet({
-    cls: 'rv', noBack: 1, title: `<b>✨ 生成了 ${st.c.length} 位联系人${st.g.length ? ` · ${st.g.length} 个群` : ''}</b><small>还没加进手机。不要的点右上角圆圈取消勾选，内容都可以直接改</small>`,
-    body: () => `<div class="nc-top"><span></span><b data-pk="all"></b></div>` + st.c.map((c, i) => card('c' + i, c)).join('')
-      + (st.g.length ? `<div class="nc-g"><small>群聊（点一下取消）</small>${st.g.map((g, i) => `<span class="gk on" data-pk="g${i}">👥 ${esc(g.name)}</span>`).join('')}</div>` : '')
-      + `<div class="rv-ft"><button data-rv="no">取消</button><button data-rv="yes" class="pri"></button></div>`,
+    cls: 'rv rv2', noBack: 1, title: `<b>✨ 生成了 ${st.c.length} 位联系人${st.g.length ? ` · ${st.g.length} 个群` : ''}</b><small>还没加进手机 · 点一行展开修改，点圆圈选择要不要</small>`,
+    body: () => `<div class="nc-top"><span></span><b data-all></b></div>` + (st.c.length ? `<h6 class="rk-t">联系人</h6><div class="rk-l">${items.filter(x => x[0][0] == 'c').map(row).join('')}</div>` : '')
+      + (st.g.length ? `<h6 class="rk-t">群聊</h6><div class="rk-l">${items.filter(x => x[0][0] == 'g').map(row).join('')}</div>` : '') + '<div class="rk-sp"></div>',
+    foot: () => `<div class="rv-ft"><button data-rv="no">取消</button><button data-rv="yes" class="pri"></button></div>`,
     after: el => {
-      const sync = () => { el.querySelectorAll('[data-pk]').forEach(x => x.dataset.pk != 'all' && x.classList.toggle('on', keep.has(x.dataset.pk))); $('.nc-top span', el).textContent = `已选 ${keep.size} / 共 ${total}`; $('.nc-top b', el).textContent = keep.size == total ? '全不选' : '全选'; $('[data-rv="yes"]', el).textContent = keep.size ? `添加 (${keep.size})` : '一个都不要'; };
-      el.addEventListener('click', e => {
-        const r = e.target.closest('[data-rv]'); if (r) { e.stopPropagation(); finish(r.dataset.rv == 'yes'); return s.close(); }
-        if (e.target.closest('input,select,label')) return; const p = e.target.closest('[data-pk]'); if (!p) return; e.stopPropagation();
-        const id = p.dataset.pk; id == 'all' ? (keep.size == total ? keep.clear() : items.forEach(x => keep.add(x[0]))) : keep.has(id) ? keep.delete(id) : keep.add(id); sync();
+      const sync = () => { el.querySelectorAll('.rk').forEach(x => x.classList.toggle('on', keep.has(x.dataset.pk))); $('.nc-top span', el).textContent = `已选 ${keep.size} / 共 ${total}`; $('[data-all]', el).textContent = keep.size == total ? '全不选' : '全选'; $('[data-rv="yes"]', el).textContent = keep.size ? `添加 (${keep.size})` : '一个都不要'; };
+      const grow = t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
+      el.querySelectorAll('textarea').forEach(grow); sync();
+      if (el._rk) return; el._rk = 1; // 事件只绑一次（展开 / 收起会重绘内容）
+      el.addEventListener('input', e => { const f = e.target.dataset?.f, r = e.target.closest('[data-pk]'); if (!f || !r) return; const x = byId[r.dataset.pk]; x[f] = e.target.value; e.target.tagName == 'TEXTAREA' && grow(e.target);
+        const sm = $('[data-sum]', r); sm && (sm.textContent = r.dataset.pk[0] == 'g' ? sumG(x) : sumC(x)); const b = $('.rk-m b', r); f == (r.dataset.pk[0] == 'g' ? 'name' : 'nick') && b && (b.firstChild.textContent = e.target.value); });
+      el.addEventListener('change', e => { const f = e.target.dataset?.f, r = e.target.closest('[data-pk]'); if (!f || !r) return; byId[r.dataset.pk][f] = e.target.value; e.target.tagName == 'SELECT' && s.reb(); });
+      el.addEventListener('click', async e => {
+        const t = e.target, r = t.closest('[data-pk]'), id = r?.dataset.pk, x = id && byId[id];
+        if (t.closest('[data-rv]')) { e.stopPropagation(); finish(t.closest('[data-rv]').dataset.rv == 'yes'); return s.close(); }
+        if (t.closest('[data-all]')) { e.stopPropagation(); keep.size == total ? keep.clear() : items.forEach(i => keep.add(i[0])); return sync(); }
+        if (!r) return; e.stopPropagation();
+        if (t.closest('[data-ck]')) { keep.has(id) ? keep.delete(id) : keep.add(id); return sync(); }
+        if (t.closest('[data-av]')) { const v = await pickImg(400, 'av'); if (v != null) { drop(x.av); x.av = v; s.reb(); } return; }
+        const out = t.closest('[data-out]')?.dataset.out; if (out) { x.members = x.members.filter(n => n != out); x.admins = x.admins.filter(n => n != out); x.owner == out && (x.owner = ''); return s.reb(); }
+        const ad = t.closest('[data-adm]')?.dataset.adm; if (ad) { x.admins = x.admins.includes(ad) ? x.admins.filter(n => n != ad) : [...x.admins, ad]; return s.reb(); }
+        if (t.closest('[data-tg]')) { open = open == id ? '' : id; s.reb(); }
       });
-      sync();
     },
     onClose: () => finish(true), // 点外面关掉：按当前勾选添加，不白白丢掉
   });
