@@ -1,6 +1,6 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
 import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop } from '../../core.js';
-import { get, blank, add, upsert, applyDelta, sty, rm, isMe, STY, TN, CN, FS, FN } from './data.js';
+import { get, blank, add, upsert, applyDelta, sty, rm, isMe, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 export { openChat, applyDelta };
 
@@ -13,11 +13,16 @@ export const SCAN = t => `【最新剧情】\n${t}\n\n任务：找出这段剧�
 // 提速：① 用「一行一个」的竖线格式代替 JSON（输出更短，流式收到一行就立刻加一个，超时也能保住已生成的部分）
 //       ② 自动关思考 ③ 世界书 / 正文只取够用的长度 ④ 限制数量、签名公告写短
 const LF = u => `【输出格式】不要JSON、不要解释、不要编号，每行一条，字段用 | 分隔：
-人|真实姓名|网名|备注|性别|个性签名
+人|真实姓名|网名|备注|性别|拍一拍后缀|语言|个性签名
 群|群名|群主真实姓名|管理员(逗号分隔，没有就空着)|成员真实姓名(逗号分隔，不写${u})|群公告
-说明：备注=${u}会怎么备注TA（如：哥 / 班长 / 沈学长）；性别写 男 或 女；签名15字内；公告25字内。先写完所有「人」再写「群」。
+字段说明：
+· 备注＝${u}自己手机通讯录里给TA存的名字，要像活人随手存的：亲近的用昵称 / 外号 / 叠字 / 带emoji / 带点吐槽，长辈就是「妈」「三叔」，不熟的直接写名字。绝对不要写「同班同学」「前不良少年」「热血班长」这种身份说明或人设介绍。例：「沈遥🐟」「狗头军师老周」「班长大人」「烦人精」「妈」「林老师（数学）」
+· 性别写 男 或 女
+· 拍一拍后缀＝别人拍TA时显示「拍了拍TA」后面接的那句，贴合人设、10字内，如「的小脑袋」「并说了声早安」「的头，他炸毛了」
+· 语言＝TA平时发消息用的语言，按剧情里TA实际怎么说话判断：说中文就写 中文；只有剧情里TA确实用外语交流才写 日语 / 英语 / 韩语 等
+· 签名15字内；群公告25字内。先写完所有「人」再写「群」
 示例：
-人|沈知遥|遥遥无期|沈学长|男|今天也在图书馆
+人|沈知遥|遥遥无期|遥遥🐟|男|的呆毛|中文|今天也在图书馆
 群|高三(2)班|林老师||沈知遥,周小满|周五前交志愿表`;
 const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，按剧情实际需要（联系人一般不超过12个、群聊不超过4个），不要凑数。`}
 规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成）。不要包含${u}自己。已有：${names()}，不要重复。
@@ -25,14 +30,19 @@ const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `�
 ${LF(u)}`; };
 const sp = s => String(s || '').split(/[,，、;；\s]+/).map(x => x.trim()).filter(x => x && !/^(无|空|没有|-+|—+|null)$/i.test(x));
 // 解析一行：人|… 或 群|…
+// 语言名 → 翻译设置代码；中文 / 没写 = 不翻译
+const LN = { 中文: '', 汉语: '', 普通话: '', 简体中文: '', 粤语: '', 英文: 'en', english: 'en', 日文: 'ja', japanese: 'ja', 韩文: 'ko', 朝鲜语: 'ko', korean: 'ko', 繁中: 'zh-TW', 繁體中文: 'zh-TW' };
+const langOf = s => { s = String(s || '').trim().replace(/[（(].*$/, ''); if (!s) return null; const k = s.toLowerCase(); if (k in LN) return LN[k]; if (s in LN) return LN[s]; const x = LANGS.find(([c, n]) => c && (n == s || c == k || n.replace('语', '') == s.replace(/[语文]$/, ''))); return x ? x[0] : null; };
 export const pline = l => {
   const f = String(l).trim().replace(/^[-*•>\d.、)）\s]+/, '').replace(/^[「【[]|[」】\]]$/g, '').split(/\s*[|｜]\s*/), k = f[0];
-  if (/^(人|联系人|好友)$/.test(k) && f[1]) return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: f[3] || '', sex: (String(f[4]).match(/[男女]/) || [''])[0], sign: f.slice(5).join('|') }] };
+  if (/^(人|联系人|好友)$/.test(k) && f[1] && f.length <= 6) return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: f[3] || '', sex: (String(f[4]).match(/[男女]/) || [''])[0], sign: f[5] || '' }] }; // 旧的 6 段格式
+  if (/^(人|联系人|好友)$/.test(k) && f[1]) { const lg = langOf(f[6]), sign = lg == null && f.length <= 7 ? f.slice(6).join('|') : f.slice(7).join('|'); // 模型漏写语言时第 7 段当签名
+    return { contacts: [{ real: f[1], nick: f[2] || f[1], remark: f[3] || '', sex: (String(f[4]).match(/[男女]/) || [''])[0], ps: (f[5] || '').replace(/^拍了拍\S*?(?=的|并|，)/, ''), lang: lg || '', sign }] }; }
   if (/^(群|群聊)$/.test(k) && f[1]) { const o = sp(f[2])[0]; return { groups: [{ name: f[1], owner: o, admins: sp(f[3]), members: sp(f[4]), notice: f.slice(5).join('|') }] }; }
   return null;
 };
 // 兼容模型仍然输出 JSON（旧短键 / 长键都认）
-const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, remark: x.r ?? x.remark, sign: x.s ?? x.sign, sex: x.x ?? x.sex })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
+const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, remark: x.r ?? x.remark, sign: x.s ?? x.sign, sex: x.x ?? x.sex, ps: x.ps ?? '', lang: langOf(x.lang) || '' })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
 /* ---------- 生成联系人：保证 2 分钟内出结果 ----------
    glm-5.3-flash 这类模型思考关不掉，思考长度主要取决于喂给它多少材料，所以：
    ① 不再把整本世界书塞进去，先在本地把世界书里的「人物条目」挑出来，压成「名字（性别）：一句简介」的名单；
@@ -159,7 +169,7 @@ async function aiInit() {
 function review(nw, gs) {
   const m = Object.fromEntries(nw.map(c => [c.id, c.remark || ''])), s = sheet({
     cls: 'rv', noBack: 1, model: () => m, save: () => {}, title: `<b>✨ 新增 ${nw.length} 位联系人</b><small>确认一下备注吧，AI 已经帮你填好，可以直接改</small>`,
-    body: () => nw.map(c => `<div class="nc"><img class="av" src="${esc(avOf({ ...c, remark: '' }))}"><div class="nc-m"><div class="nc-n"><b>${esc(c.nick || c.real)}</b><em>网名</em></div><small>真实姓名 · ${esc(c.real || '—')}</small><label class="nc-r"><i>备注</i><input data-k="${c.id}" value="${esc(m[c.id])}" placeholder="不填就显示网名"></label></div></div>`).join('')
+    body: () => nw.map(c => `<div class="nc"><img class="av" src="${esc(avOf({ ...c, remark: '' }))}"><div class="nc-m"><div class="nc-n"><b>${esc(c.nick || c.real)}</b><em>网名</em></div><small>真实姓名 · ${esc(c.real || '—')}</small>${c.ps || c.cfg?.lang ? `<small>${c.ps ? `拍一拍 · 拍了拍TA${esc(c.ps)}` : ''}${c.ps && c.cfg?.lang ? ' · ' : ''}${c.cfg?.lang ? `说${esc(lname(c.cfg.lang))}（自动翻译）` : ''}</small>` : ''}<label class="nc-r"><i>备注</i><input data-k="${c.id}" value="${esc(m[c.id])}" placeholder="不填就显示网名"></label></div></div>`).join('')
       + (gs.length ? `<div class="nc-g"><small>同时加入的群聊</small>${gs.map(g => `<span>👥 ${esc(g.name)}</span>`).join('')}</div>` : '') + btn('ok', '完成', '', 'pri'),
     acts: { ok: () => s.close() }, onClose: () => { nw.forEach(c => c.remark = ($(`[data-k="${c.id}"]`, s.el)?.value ?? m[c.id] ?? '').trim()); saveD(); emit('chat'); },
   });

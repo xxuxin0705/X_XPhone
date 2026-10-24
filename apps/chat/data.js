@@ -17,7 +17,8 @@ export const blank = (type, o) => ({ id: uid(), type, name: '', nick: '', real: 
 export const add = c => (D().chats.push(c), c);
 export const find = (n, type) => n && D().chats.find(c => (!type || c.type == type) && [c.real, c.nick, c.remark, c.name, c.id].includes(n));
 export const isMe = n => !!n && ['me', '我', '用户', C().name1, D().me.nick].includes(n);
-export const upsert = o => { const n = o.real || o.nick, c = find(o.real, 'p') || find(o.nick, 'p'); if (!c) return add(blank('p', { ...o, nick: o.nick || n, real: n })); ['nick', 'real', 'remark', 'sign', 'sex'].forEach(k => o[k] && !c[k] && (c[k] = o[k])); o.fr && (c.fr = 1); return c; };
+// lang：AI 生成联系人时给的默认翻译语言，写进聊天设置 cfg.lang（已有设置不覆盖）
+export const upsert = ({ lang, ...o }) => { const n = o.real || o.nick; let c = find(o.real, 'p') || find(o.nick, 'p'); if (!c) { c = add(blank('p', { ...o, nick: o.nick || n, real: n })); lang && (c.cfg.lang = lang); return c; } ['nick', 'real', 'remark', 'sign', 'sex', 'ps'].forEach(k => o[k] && !c[k] && (c[k] = o[k])); lang && !c.cfg?.lang && ((c.cfg ||= {}).lang = lang); o.fr && (c.fr = 1); return c; };
 // 只是群成员、没加好友的人 fr=0：不进通讯录和消息列表
 export const member = (g, n) => { const c = upsert({ real: n, fr: 0 }); g.members.includes(c.id) || g.members.push(c.id); return c.id; };
 export const viewing = id => top()?.chat == id && ui.root.classList.contains('on');
