@@ -1,6 +1,6 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
-import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, notify, emit, drop } from '../../core.js';
-import { get, blank, add, upsert, applyDelta, sty, rm, STY, TN, CN, FS, FN } from './data.js';
+import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop } from '../../core.js';
+import { get, blank, add, upsert, applyDelta, sty, rm, isMe, STY, TN, CN, FS, FN } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 export { openChat, applyDelta };
 
@@ -33,19 +33,62 @@ export const pline = l => {
 };
 // 兼容模型仍然输出 JSON（旧短键 / 长键都认）
 const unz = d => ({ contacts: (d?.c || d?.contacts || []).map(x => ({ real: x.n ?? x.real, nick: x.k ?? x.nick, remark: x.r ?? x.remark, sign: x.s ?? x.sign, sex: x.x ?? x.sex })), groups: (d?.g || d?.groups || []).map(x => ({ name: x.n ?? x.name, owner: x.o ?? x.owner, admins: x.a ?? x.admins, members: x.m ?? x.members, notice: x.t ?? x.notice })) });
-// 边收边加：每收到完整一行就立刻加进手机；结束 / 超时 / 取消后弹出确认卡
-export async function genContacts(sys, prompt, desc, sg, prog) {
-  const old = new Set(D().chats.map(c => c.id)); let done = 0, np = 0, ng = 0, raw = '', err;
-  const eat = (txt, end) => { const ls = String(txt).split('\n'), n = end ? ls.length : ls.length - 1; for (; done < n; done++) { const d = pline(ls[done]); d && (applyDelta(d), d.contacts ? np++ : ng++); } (np || ng) && prog?.(`已收到 ${np} 人 · ${ng} 群`); };
-  try {
-    raw = await llm(sys, prompt, desc, sg, { fast: 1, aux: 1, onText: t => eat(t), onThink: n => np + ng || prog?.(`模型思考中 ${n}字`) });
-    eat(raw, 1); if (!np && !ng) { const j = json(raw); j && applyDelta(unz(j)); }
-  } catch (e) { err = e; }
+/* ---------- 生成联系人：保证 2 分钟内出结果 ----------
+   glm-5.3-flash 这类模型思考关不掉，思考长度主要取决于喂给它多少材料，所以：
+   ① 不再把整本世界书塞进去，先在本地把世界书里的「人物条目」挑出来，压成「名字（性别）：一句简介」的名单；
+   ② 45 秒还没出第一个联系人，就同时发一个只带名单的极简请求（几乎没什么可想的），谁先出结果用谁、另一路自动停掉；
+   ③ 115 秒硬性截止：先从模型的思考草稿里捞已经写好的「人|…」行，还没有就直接按世界书人物名单添加，绝不空等。 */
+const STOPW = /(设定|世界|规则|地点|地图|学校|学院|城市|国家|组织|历史|系统|背景|社团|班级|事件|剧情|道具|物品|技能|能力|种族|势力|格式|说明|开场|开头|状态|总览|大纲|时间|关系|指南|提示|风格|文风|nsfw|cot|思维|输出|规范|注意|前言|序章|简介|介绍|总则|变量|面板)/i;
+const cutS = (s, n) => (s = String(s || '').replace(/\s+/g, ' ').trim()).length > n ? s.slice(0, n) + '…' : s;
+export async function people() {
+  const out = [], seen = new Set(), add = (n, b = '', sex = '') => { n = String(n || '').replace(/[【】\[\]《》「」『』()（）★☆♡♥✦·\s]/g, '').trim(); if (!n || n.length > 10 || seen.has(n) || isMe(n)) return; seen.add(n); out.push({ n, b, sex }); };
+  for (const bk of await wiBooks()) for (const e of Object.values((await loadBook(bk))?.entries || {})) {
+    if (e.disable) continue; const t = String(e.comment || e.key?.[0] || '').trim(), c = String(e.content || '');
+    const nm2 = c.match(/(?:姓名|名字|全名|角色名|Name)\s*[:：]\s*([^\n，,。;；|/]{2,10})/i)?.[1], human = nm2 || (/性别|年龄|身高|性格|外貌|生日|身份/.test(c) && t && t.length <= 10 && !STOPW.test(t));
+    human && add(nm2 || t, cutS(c, 80), c.match(/性别\s*[:：]\s*([男女])/)?.[1] || '');
+  }
+  (C().chat || []).slice(-40).forEach(m => !m.is_user && !m.is_system && add(m.name));
+  return out.slice(0, 30);
+}
+const pplTxt = P => P.map(p => `${p.n}${p.sex ? `（${p.sex}）` : ''}${p.b ? '：' + p.b : ''}`).join('\n');
+// 精简上下文：人设 + 角色卡 + 世界书人物名单 + 最近几条剧情
+async function contactSys(P) {
+  const c = C(), ch = c.characters?.[c.characterId], sb = (s, n) => cutS(c.substituteParams?.(s || '') ?? s, n), strip = s => String(s || '').replace(/<[^>]*>/g, '');
+  const wi = P.length ? `【世界书里的人物】\n${cutS(pplTxt(P), 2600).replace(/…$/, '')}` : `【世界书】${sb(await wiText((c.chat || []).slice(-6).map(m => m.mes).join(' ')), 1500)}`;
+  return `你是小手机的数据生成器，严格按要求的格式输出。思考要非常简短（几句话即可），想好立刻输出，不要反复推敲。
+【用户】${c.name1}：${sb(c.powerUserSettings?.persona_description, 500)}
+【角色卡】${c.name2}：${sb(ch?.description, 1500)}
+${wi}
+【最近剧情】${cutS((c.chat || []).filter(m => !m.is_system).slice(-6).map(m => `${m.name}: ${cutS(strip(m.mes), 260)}`).join('\n'), 1500)}`;
+}
+const quickP = (P, r) => { const u = C().name1; return `${r?.mode == 'me' ? `按这段信息生成${u}的联系人：${r.info}\n` : ''}从下面这些人里挑出${u}认识、会加好友的人（不超过12个），直接输出，不要分析：\n${P.map(p => p.n + (p.sex ? `（${p.sex}）` : '')).join('、') || C().name2}\n${LF(u)}\n群可以不写。`; };
+// o: { lim 截止毫秒, bk 备用请求启动毫秒, quick: {sys, prompt}, people }（数字可调，测试用）
+export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
+  const old = new Set(D().chats.map(c => c.id)), LIM = o.lim ?? 115e3, BK = o.bk ?? 45e3, ac = new AbortController();
+  let got = 0, settle, alive = 0, lastErr, bkOn = 0, how = ''; const fin = new Promise(r => settle = r), drafts = [], t0 = Date.now();
+  const stopAll = () => ac.abort(), cancel = () => { stopAll(); settle('cancel'); }; sg?.aborted ? cancel() : sg?.addEventListener('abort', cancel);
+  const count = () => `已收到 ${D().chats.filter(c => !old.has(c.id) && (c.type == 'g' || c.fr !== 0)).length} 个`;
+  const run = (s, p, d) => {
+    let done = 0, rs = ''; const i = drafts.push('') - 1; alive++;
+    const eat = (txt, end) => { const ls = String(txt).split('\n'), n = end ? ls.length : ls.length - 1; for (; done < n; done++) { const x = pline(ls[done]); x && (applyDelta(x), got++); } got && prog?.(count()); };
+    llm(s, p, d, ac.signal, { fast: 1, aux: 1, onText: t => eat(t), onThink: (n, r) => { drafts[i] = rs += r; got || prog?.(`模型思考中 ${n}字 · ${(Date.now() - t0) / 1e3 | 0}s`); } })
+      .then(raw => { eat(raw, 1); if (!got) { const j = json(raw); j && applyDelta(unz(j)); } settle('ok'); },
+        e => { lastErr = e; if (ac.signal.aborted) return; if (--alive) return; o.quick && !bkOn ? backup() : settle('err'); });
+  };
+  const backup = () => { if (bkOn || ac.signal.aborted || !o.quick) return; bkOn = 1; prog?.('同时用精简方式生成…'); run(o.quick.sys, o.quick.prompt, desc + '·精简'); };
+  const bt = setTimeout(() => got || backup(), BK), dt = setTimeout(() => settle('late'), LIM);
+  run(sys, prompt, desc);
+  const res = await fin; clearTimeout(bt); clearTimeout(dt); sg?.removeEventListener('abort', cancel); stopAll(); // 有结果了 / 到点了：另一路停掉
+  const added = () => D().chats.some(c => !old.has(c.id));
+  if (res != 'ok' && !sg?.aborted && !added()) { for (const d of drafts) for (const l of d.split('\n')) { const x = pline(l); x && applyDelta(x); } added() && (how = '（模型还在思考，已从它的草稿里取出）'); }
+  res == 'late' && got && (how = '（2 分钟到了，先保存已经生成的部分）');
+  if (res == 'late' && !sg?.aborted && !added() && o.people?.length) { applyDelta({ contacts: o.people.slice(0, 12).map(p => ({ real: p.n, nick: p.n, sex: p.sex })) }); how = '（模型太慢，已先按世界书人物添加，网名和签名可以稍后再改）'; }
   const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), gs = D().chats.filter(c => c.type == 'g' && !old.has(c.id));
   nw.length && setTimeout(() => review(nw, gs), 500);
-  if (err) throw nw.length || gs.length ? Error(`${err.message}（已先保存 ${nw.length} 位联系人 · ${gs.length} 个群）`) : err;
-  if (!nw.length && !gs.length) throw Error(String(raw).trim() ? '没有识别到新的联系人（可能都已存在，或返回格式不对，可在调用日志查看）' : '模型返回为空');
-  return `已添加 ${nw.length} 位联系人 · ${gs.length} 个群`;
+  if (sg?.aborted) throw Error('已取消');
+  if (!nw.length && !gs.length) throw res == 'late' ? Error('模型 2 分钟内没有给出结果，世界书里也没找到人物条目，可以换个不思考的「生成用模型」再试') : lastErr || Error('没有识别到新的联系人（可能都已存在，或返回格式不对，可在调用日志查看）');
+  if (res == 'err' && lastErr) throw Error(`${lastErr.message}（已先保存 ${nw.length} 位联系人 · ${gs.length} 个群）`);
+  return `已添加 ${nw.length} 位联系人 · ${gs.length} 个群${how}`;
 }
 export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1 }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 
@@ -104,7 +147,10 @@ async function aiInit() {
   const r = mode == 'me' ? await form('按我提供的信息生成', [['info', '联系人信息', 'area', '例：3个大学室友，一个是学生会长，一个是暗恋我的学弟…'], ['n', '联系人个数', 'number'], ['g', '群聊个数', 'number']], { n: 3, g: 1 }) : {};
   if (!r) return; if (mode == 'me' && !r.info?.trim()) return toast('请先填写联系人信息'); r.mode = mode;
   // 联系人只需要人物关系：世界书 5000 字、正文最近 10 条 / 4000 字就够；按我的信息生成时不读世界书
-  task('AI 正在生成联系人', (sg, prog) => (prog('读取人设与世界书'), sysCtx(mode == 'me' ? true : { n: 10, rc: 4000, wi: 5000, desc: 2500 })).then(sys => (prog('等待模型返回'), genContacts(sys, INIT(r), '生成联系人', sg, prog))));
+  task('AI 正在生成联系人', async (sg, prog) => {
+    prog('整理世界书人物'); const P = await people(), sys = await contactSys(P);
+    prog('等待模型返回'); return genContacts(sys, INIT(r), '生成联系人', sg, prog, { people: r.mode == 'me' ? [] : P, quick: { sys: '你是小手机的数据生成器，直接按格式输出，不要思考分析。', prompt: quickP(P, r) } });
+  });
 }
 // 新联系人确认卡：展示网名 / 真实姓名，备注默认填 AI 生成的、可直接改
 function review(nw, gs) {

@@ -295,7 +295,7 @@ async function readAI(r, cx, o) {
     l = l.trim(); if (!l.startsWith('data:')) return; sse = 1; const d = l.slice(5).trim(); if (!d || d == '[DONE]') return;
     let j; try { j = JSON.parse(d); } catch { return; } if (j.error) throw Error(j.error.message || JSON.stringify(j.error));
     const c = j.choices?.[0], dl = c?.delta || c?.message || {}, rs = dl.reasoning_content || dl.reasoning || '';
-    rs && (th += rs.length, o.onThink?.(th)); dl.content && (out += dl.content, o.onText?.(out)); cx.part(out || `（模型正在思考，已经想了 ${th} 字。这是模型内部的思考过程，不是返回结果，也不会加进手机；想完才开始输出）`, th);
+    rs && (th += rs.length, o.onThink?.(th, rs)); dl.content && (out += dl.content, o.onText?.(out)); cx.part(out || `（模型正在思考，已经想了 ${th} 字。这是模型内部的思考过程，不是返回结果，也不会加进手机；想完才开始输出）`, th);
   };
   for (;;) {
     const { done, value } = await rd.read(); if (done) break; cx.kick();
