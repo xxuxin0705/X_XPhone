@@ -51,21 +51,6 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('#stp .off').click()`); await open(); await p.waitForTimeout(400); await swipeUp();
   await p.keyboard.type('1314'); await p.waitForTimeout(700); ok(!(await E(`lk.isLocked()`)), 'keyboard typing works on desktop');
 
-  console.log('L3 gesture password + backup button');
-  await E(`core.S.lock.type = 'gesture'; lk.askGest()`); await p.waitForTimeout(500);
-  const draw = async (sel, seq) => { const bx = await p.evaluate(s => { const r = [...document.querySelectorAll(s)].pop().getBoundingClientRect(); return [r.left, r.top, r.width]; }, sel); const pt = i => [bx[0] + ((i % 3) + .5) / 3 * bx[2], bx[1] + (((i / 3) | 0) + .5) / 3 * bx[2]];
-    await p.mouse.move(...pt(seq[0])); await p.mouse.down(); for (const i of seq.slice(1)) { const [x, y] = pt(i); await p.mouse.move(x, y, { steps: 6 }); } await p.mouse.up(); await p.waitForTimeout(250); };
-  await draw('.sheet .lk-gest', [0, 1]); ok(/至少连接 4 个点/.test(await E(`document.querySelector('.sheet .lk-msg').textContent`)), 'too short pattern rejected');
-  await p.waitForTimeout(800); await draw('.sheet .lk-gest', [0, 2, 4, 6]); await shot('gest_set'); await p.waitForTimeout(300); await draw('.sheet .lk-gest', [0, 2, 4, 6]); await p.waitForTimeout(400);
-  ok(!!(await E(`core.S.lock.gest`)), 'gesture stored (L passing 0→2 auto-includes 1)');
-  await E(`document.querySelector('#stp .off').click()`); await open(); await p.waitForTimeout(400); await swipeUp(); await p.waitForTimeout(300);
-  await draw('.lock .lk-gest', [0, 3, 6, 7]); ok(/图案错误/.test(await E(`document.querySelector('.lock .lk-msg').textContent`)), 'wrong pattern rejected'); await shot('lock_gest_bad');
-  await p.waitForTimeout(900); await draw('.lock .lk-gest', [0, 2, 4, 6]); await p.waitForTimeout(600); ok(!(await E(`lk.isLocked()`)), 'pattern 0-1-2-4-6 unlocks');
-  await E(`document.querySelector('#stp .off').click()`); await open(); await p.waitForTimeout(400); await swipeUp(); await p.waitForTimeout(300);
-  await E(`[...document.querySelectorAll('.lock .lk-ft b')].find(b => b.textContent.includes('备用')).click()`); await p.waitForTimeout(300);
-  ok(/备用密码/.test(await E(`document.querySelector('.lock .lk-t').textContent`)), 'gesture screen → 使用备用密码 opens PIN pad');
-  await tapLock('0000'); await p.waitForTimeout(600); ok(!(await E(`lk.isLocked()`)), 'backup 0000 works from gesture screen');
-
   console.log('L4 media: uploads go to XPhone folder; deleting follows');
   const before = log.length;
   const url = await E(`(async () => { const c = document.createElement('canvas'); c.width = c.height = 20; const b = await new Promise(r => c.toBlob(r, 'image/png')); return core.putMedia(b, 'img'); })()`);

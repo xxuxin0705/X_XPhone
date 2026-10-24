@@ -1,7 +1,7 @@
 // 小手机 · 动态锁屏「雪夜」：一张实拍雪夜照片（圣诞树 + 发光的小雪人）做底，所有动效叠在照片上
 // 互动：点圣诞树（暖光 → 彩灯 → 关）、长按圣诞树（抖落积雪）、点树顶星星、点雪人（晃一晃、亮一下、冒小雪花）、长按雪人（换身体里灯的颜色）、
-//       雪地上写字（WebGL 实时算凹槽的明暗，新雪会慢慢把字盖住）、点飞过镜头的大冰晶（贴在玻璃上慢慢化成水珠滑下去）、
-//       双击天空 / 摇手机（像摇雪花水晶球）、放着不动窗边会结霜（用手指擦掉）、倾斜手机有景深视差。
+//       雪地上写字（WebGL 实时算凹槽的明暗，雪印约 3 秒被新雪抹平）、点飞过镜头的大冰晶（贴在玻璃上慢慢化成水珠滑下去）、
+//       双击天空 / 摇手机（像摇雪花水晶球）、放着不动窗边会结霜（用手指擦掉）。画面固定不动，倾斜手机只改变落雪的风向。
 // 每次打开锁屏都重新初始化：写的字、擦的霜都会恢复原样。
 export const SCENES = [['snownight', '雪夜']];
 const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a);
@@ -171,6 +171,7 @@ function grooves(w, h, k) {
 }
 
 /* ================= 场景 ================= */
+const FADE = age => clamp(1 - (age - 1.2) / 1.8); // 雪印的深浅：1.2 秒后开始变浅，3 秒消失
 const COLS = ['#ff4d5e', '#ffd25a', '#5fe08a', '#58b4ff', '#ff8ad8', '#ffffff'];
 const SMC = [null, '#ff6fa8', '#6fb6ff', '#7dffb0', '#c89bff']; // 雪人身体里的灯：默认暖黄 → 粉 → 蓝 → 绿 → 紫
 const snownight = {
@@ -267,7 +268,7 @@ const snownight = {
     }
     // 1. 照片（随手机倾斜微微平移）
     s.fadeIn = s.ready ? Math.min(1, s.fadeIn + dt * 2.5) : 0;
-    const px = s.tilt * 6, tw = s.shake && t - s.shake < .6 ? Math.sin((t - s.shake) * 40) * 1.5 * (1 - (t - s.shake) / .6) : 0;
+    const px = 0, tw = s.shake && t - s.shake < .6 ? Math.sin((t - s.shake) * 40) * 1.5 * (1 - (t - s.shake) / .6) : 0;
     c.fillStyle = '#05070b'; c.fillRect(0, 0, W, H);
     if (IMG.bg) { c.globalAlpha = s.fadeIn; c.drawImage(IMG.bg, s.ox + px * .4, s.oy, META.W * s.sc, META.H * s.sc); c.globalAlpha = 1; }
     const gx = px * .4;
@@ -296,13 +297,14 @@ const snownight = {
     c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     // 4. 雪地上写的字
     if (s.dabs.length) {
-      if (t - s.rebuildT > 1) { s.rebuildT = t; s.dabs = s.dabs.filter(d => t - d.t < 240); s.hx.globalAlpha = 1; s.hx.fillStyle = '#808080'; s.hx.fillRect(0, 0, W, H); for (const d of s.dabs) this.paint(s, d, Math.exp(-(t - d.t) / 85)); s.hDirty = 1; }
+      // 雪印：留 1 秒多，大约 3 秒内被新雪抹平
+      if (t - s.rebuildT > .08 && s.dabs.some(d => t - d.t > 1.2)) { s.rebuildT = t; s.dabs = s.dabs.filter(d => t - d.t < 3); s.hx.globalAlpha = 1; s.hx.fillStyle = '#808080'; s.hx.fillRect(0, 0, W, H); for (const d of s.dabs) this.paint(s, d, FADE(t - d.t)); s.hDirty = 1; }
       if (s.gl) { if (s.hDirty) { s.gl.tex(s.hm); s.hDirty = 0; } s.gl.draw(t, [m.cx, m.by - s.y0, .6 + m.glow * 1.4], [tr.x, tr.by - s.y0, s.lights * 1.4]); c.drawImage(s.gl.c, 0, s.y0, W, H - s.y0); }
-      else for (const d of s.dabs.slice(-1500)) { const a = Math.exp(-(t - d.t) / 85); c.globalAlpha = .14 * a; c.drawImage(s.core, d.x - d.r * .7, d.y + s.y0 - d.r * .5, d.r * 1.6, d.r * 1.6); c.globalAlpha = 1; }
+      else for (const d of s.dabs.slice(-1500)) { const a = FADE(t - d.t); c.globalAlpha = .14 * a; c.drawImage(s.core, d.x - d.r * .7, d.y + s.y0 - d.r * .5, d.r * 1.6, d.r * 1.6); c.globalAlpha = 1; }
     }
     // 5. 雪人：单独一层（离镜头更近，视差更大），点一下晃一晃
     m.glow = Math.max(0, m.glow - dt * .6); m.colT = Math.min(1, m.colT + dt * 1.5);
-    const mx = px * 1.25, wob = t - m.wobT < 1.6 ? Math.sin((t - m.wobT) * 11) * .09 * Math.exp(-(t - m.wobT) * 2.2) : 0, sq = t - m.wobT < .25 ? Math.sin((t - m.wobT) / .25 * Math.PI) * .05 : 0;
+    const mx = 0, wob = t - m.wobT < 1.6 ? Math.sin((t - m.wobT) * 11) * .09 * Math.exp(-(t - m.wobT) * 2.2) : 0, sq = t - m.wobT < .25 ? Math.sin((t - m.wobT) / .25 * Math.PI) * .05 : 0;
     const gl2 = .22 + .05 * Math.sin(t * 1.6) + m.glow * .5, gr = m.w * .95;
     c.globalCompositeOperation = 'lighter'; c.globalAlpha = gl2 * .5 * s.fadeIn; c.drawImage(s.smGlow[m.col], m.cx - gr + mx, m.by - m.h * .42 - gr, gr * 2, gr * 2); c.globalCompositeOperation = 'source-over';
     if (IMG.sm) {

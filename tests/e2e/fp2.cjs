@@ -10,7 +10,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const hold = async (sel, ms) => { const r = await p.evaluate(s => { const x = [...document.querySelectorAll(s)].pop().getBoundingClientRect(); return [x.left + x.width / 2, x.top + x.height / 2]; }, sel); await p.mouse.move(...r); await p.mouse.down(); await p.waitForTimeout(ms); await p.mouse.up(); await p.waitForTimeout(150); };
   await E(`Object.assign(core.S.lock, { on: true, pw: true }); core.APPS.settings.open()`); await p.waitForTimeout(300); await E(`core.top().acts.lockp()`); await p.waitForTimeout(500);
   const segs = await E(`[...document.querySelectorAll('[data-k2="lock.type"]')].map(b => b.textContent).join('/')`);
-  ok(segs == '数字密码/手势密码/指纹' && !(await E(`!!document.querySelector('[data-k="lock.fp"]')`)), 'password type is one 3-way choice: ' + segs);
+  ok(segs == '数字密码/指纹' && !(await E(`!!document.querySelector('[data-k="lock.fp"]')`)), '密码只有二选一（没有手势密码）：' + segs);
   await E(`document.querySelector('[data-k2="lock.type"][data-x="fp"]').click()`); await p.waitForTimeout(600);
   ok(await E(`!!document.querySelector('.sheet .lk-enr')`), 'choosing 指纹 opens enrollment');
   await hold('.sheet .lk-fp', 300); ok(/请按住不要松开/.test(await E(`document.querySelector('.sheet .lk-msg').textContent`)), 'releasing too early → 请按住不要松开');
@@ -24,13 +24,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await hold('.lock .lk-fp', 750); await p.waitForTimeout(500); ok(!(await E(`lk.isLocked()`)), 'press & hold unlocks');
   await E(`document.querySelector('#stp .off').click()`); await p.click('#stp-ball'); await p.waitForTimeout(600);
   { const r = await E(`(() => { const b = document.querySelector('#stp .lock').getBoundingClientRect(); return [b.left + b.width / 2, b.bottom - 30]; })()`); await p.mouse.move(r[0], r[1]); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(r[0], r[1] - i * 30); await p.mouse.up(); } await p.waitForTimeout(500);
-  ok(await E(`document.querySelector('.lock .lk-t').textContent == '输入备用密码' && document.querySelector('.lock .lk-msg').textContent == '备用密码 0000'`), 'fingerprint mode: swipe up → backup pad saying 备用密码 0000');
-  ok(await E(`getComputedStyle(document.querySelector('.lk-ui')).opacity == '0'`), 'clock / sensor / hint hidden behind the keypad (no overlap)');
-  await p.screenshot({ path: path.join(OUT, 'fp2_backup.png') });
-  for (const d of '0000') await p.click(`.lock .lk-pad [data-n="${d}"]`); await p.waitForTimeout(600); ok(!(await E(`lk.isLocked()`)), '0000 unlocks');
+  ok(await E(`lk.isLocked() && document.querySelector('.lock .lk-auth').hidden && !document.querySelector('.lock .lk-pad')`), '指纹模式：上滑不会出现数字密码');
+  ok(/请按住指纹/.test(await E(`document.querySelector('.lock .lk-hint span').textContent`)) && await E(`document.querySelector('.lock .lk-fp').classList.contains('nudge')`), '上滑只会提示按住指纹（感应区抖一下）');
+  await p.screenshot({ path: path.join(OUT, 'fp2_nudge.png') });
+  await hold('.lock .lk-fp', 750); await p.waitForTimeout(500); ok(!(await E(`lk.isLocked()`)), '还是按住指纹解锁');
   await E(`Object.assign(core.S.lock, { type: 'pin', pin: '' }); lk.lock()`); await p.waitForTimeout(800);
   { const r = await E(`(() => { const b = document.querySelector('#stp .lock').getBoundingClientRect(); return [b.left + b.width / 2, b.bottom - 30]; })()`); await p.mouse.move(r[0], r[1]); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(r[0], r[1] - i * 30); await p.mouse.up(); } await p.waitForTimeout(400);
   await E(`[...document.querySelectorAll('.lock .lk-ft b')].find(b => b.textContent.includes('忘记')).click()`); await p.waitForTimeout(200);
   ok(await E(`document.querySelector('.lock .lk-msg').textContent == '备用密码 0000'`), 'PIN mode: 忘记密码？ → 备用密码 0000');
   ok(!(await E(`!!document.querySelector('.lock .lk-fp')`)), 'PIN mode shows no fingerprint sensor');
+  await E(`Object.assign(core.S.lock, { type: 'gesture', gest: 'xx', fpSet: false }); lk.lockMig()`); ok(await E(`core.S.lock.type == 'pin' && !('gest' in core.S.lock)`), '旧的手势密码设置自动换成数字密码');
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

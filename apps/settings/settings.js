@@ -2,12 +2,12 @@
 import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, voices, TCAT, PDEF, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
-import { lock, askPin, askGest, askFp, wpName, lockMig } from '../../lock.js';
+import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
-const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'gesture' ? '手势密码' : '数字密码') : '无密码') : '未开启') : '';
+const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
@@ -200,7 +200,7 @@ on('log', () => { const t = top(); t?.isLog && t.reb(); });
 
 /* ---------- 锁屏与密码 ---------- */
 function lockp() {
-  lockMig(); const need = () => { const L = S.lock, r = () => pg.re(); L.type == 'gesture' ? L.gest || askGest(r) : L.type == 'fp' ? L.fpSet || askFp(r) : L.pin || askPin(r); };
+  lockMig(); const need = () => { const L = S.lock, r = () => pg.re(); L.type == 'fp' ? L.fpSet || askFp(r) : L.pin || askPin(r); };
   const pg = page({
     title: '锁屏与密码', onClose: rf,
     onChange: k => { // 打开密码 / 换类型时，没设过就立刻让用户设置
@@ -208,14 +208,13 @@ function lockp() {
     },
     body: () => { const f = fx(S), L = S.lock; return sec('lock', [
       ['l', '锁屏', f.tog('lock.on', '启用锁屏') + (L.on ? f.inp('lock.text', '锁屏签名', 'text', '显示在时间下面，可留空') + `<div class="row go" data-a="lwp"><span>锁屏壁纸</span><small>${esc(wpName())}</small></div>` : '')
-        + `<p class="tip">开启后，每次收起或关掉小手机再打开，会先显示锁屏，向上滑动解锁。锁屏壁纸在「主题」里切换。</p>` + btn('lprev', '预览锁屏')],
-      L.on && ['p', '密码', f.tog('lock.pw', '启用密码') + (L.pw ? f.seg('lock.type', [['pin', '数字密码'], ['gesture', '手势密码'], ['fp', '指纹']])
-        + (L.type == 'gesture' ? `<div class="row go" data-a="sgest"><span>${L.gest ? '修改' : '设置'}手势密码</span><small>${L.gest ? '已设置' : '未设置'}</small></div>`
-          : L.type == 'fp' ? `<div class="row go" data-a="sfp"><span>${L.fpSet ? '重新录入指纹' : '录入指纹'}</span><small>${L.fpSet ? '已录入' : '未录入'}</small></div><p class="tip">指纹是模拟效果：锁屏底部会出现指纹感应区，按住、纹路扫满就解锁（网页拿不到真实指纹，谁按都能开）。上滑可以输入备用密码。</p>`
+        + `<p class="tip">开启后，每次收起或关掉小手机再打开，会先显示锁屏，从底部向上滑动解锁。锁屏壁纸在「主题」里切换。</p>` + btn('lprev', '预览锁屏')],
+      L.on && ['p', '密码', f.tog('lock.pw', '启用密码') + (L.pw ? f.seg('lock.type', [['pin', '数字密码'], ['fp', '指纹']])
+        + (L.type == 'fp' ? `<div class="row go" data-a="sfp"><span>${L.fpSet ? '重新录入指纹' : '录入指纹'}</span><small>${L.fpSet ? '已录入' : '未录入'}</small></div><p class="tip">指纹是模拟效果：锁屏底部会出现指纹感应区，按住、纹路扫满就解锁（网页拿不到真实指纹，谁按都能开）。指纹模式下没有数字密码，只能按指纹解锁。</p>`
           : `<div class="row go" data-a="spin"><span>${L.pin ? '修改' : '设置'}数字密码</span><small>${L.pin ? '已设置' : '未设置'}</small></div>`) : '')
-        + '<p class="tip">🔑 备用密码 <b>0000</b>：不能修改，永远有效。忘记密码时在锁屏输入 0000 就能进入。</p>'],
+        + (L.pw && L.type == 'pin' ? '<p class="tip">🔑 备用密码 <b>0000</b>：不能修改，永远有效。忘记数字密码时在锁屏输入 0000 就能进入。</p>' : '')],
     ]); },
-    acts: { lprev: () => lock(true), lwp: () => openApp('theme'), spin: () => askPin(() => pg.re()), sgest: () => askGest(() => pg.re()), sfp: () => askFp(() => pg.re()) },
+    acts: { lprev: () => lock(true), lwp: () => openApp('theme'), spin: () => askPin(() => pg.re()), sfp: () => askFp(() => pg.re()) },
   });
 }
 

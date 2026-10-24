@@ -1,14 +1,12 @@
-// 小手机 · 锁屏：动态壁纸 / 时间 / 上滑解锁 / 4 位数字密码或手势密码
-// 密码三选一：4 位数字 / 手势 / 指纹（模拟）。备用密码 0000：不能修改、永远有效
+// 小手机 · 锁屏：动态壁纸 / 时间 / 从底部上滑解锁
+// 密码二选一：4 位数字密码（备用密码 0000：不能修改、永远有效）或指纹（模拟，选了指纹就只能按指纹解锁）
 import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc } from './core.js';
 import { mountScene, sceneInk, sceneKey, SCENES } from './lockfx.js';
 
 export const BACKUP = '0000';
 const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };
 export const setPin = p => (S.lock.pin = hash('p' + p), save());
-export const setGest = g => (S.lock.gest = hash('g' + g), save());
 const okPin = p => p == BACKUP || (!!S.lock.pin && hash('p' + p) == S.lock.pin);
-const okGest = g => !!S.lock.gest && hash('g' + g) == S.lock.gest;
 export const wpName = () => S.lock.wp == 'video' ? '自定义视频' : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
 
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
@@ -16,7 +14,7 @@ const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const LET = ['', 'ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQRS', 'TUV', 'WXYZ'];
 const WEEK = '日一二三四五六';
 
-/* ---------- 可复用：数字键盘 / 手势九宫格（锁屏解锁和设置密码共用） ---------- */
+/* ---------- 可复用：数字键盘（锁屏解锁和设置密码共用） ---------- */
 // onDone(code, reset, fail) —— 输满 4 位时调用；fail() 抖动并清空
 export function pinPad(host, title, onDone) {
   let v = '';
@@ -29,34 +27,6 @@ export function pinPad(host, title, onDone) {
     key: n => { if (n == 'del') { v = v.slice(0, -1); return show(); } if (v.length >= 4) return; v += n; show(); v.length == 4 && setTimeout(() => onDone(v, api), 140); },
   };
   host.querySelectorAll('[data-n]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); api.key(b.dataset.n); }));
-  return api;
-}
-// 手势：3×3 点阵，连线经过中间的点会自动连上（和安卓一样）；onDone(pattern '0-1-2-5', api)
-export function gesturePad(host, title, onDone) {
-  host.innerHTML = `<p class="lk-t">${esc(title)}</p><p class="lk-msg"></p><div class="lk-gest"><canvas></canvas>${Array.from({ length: 9 }, (_, i) => `<i data-i="${i}"></i>`).join('')}</div>`;
-  const box = $('.lk-gest', host), cv = $('canvas', box), ctx = cv.getContext('2d'), dots = [...box.querySelectorAll('i')], msg = $('.lk-msg', host);
-  let path = [], cur = null, drawing = false, bad = false;
-  const pos = i => [(i % 3 + .5) / 3, ((i / 3 | 0) + .5) / 3];
-  const paint = () => {
-    const w = box.clientWidth, h = box.clientHeight, d = Math.min(devicePixelRatio || 1, 2); if (cv.width != w * d) { cv.width = w * d; cv.height = h * d; }
-    ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, w, h);
-    dots.forEach((el, i) => { el.classList.toggle('on', path.includes(i)); el.classList.toggle('bad', bad && path.includes(i)); }); if (!path.length) return;
-    ctx.lineWidth = 4; ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = bad ? 'rgba(255,90,90,.85)' : 'rgba(255,255,255,.75)'; ctx.beginPath();
-    path.forEach((i, j) => { const [x, y] = pos(i); j ? ctx.lineTo(x * w, y * h) : ctx.moveTo(x * w, y * h); }); cur && drawing && ctx.lineTo(cur[0], cur[1]); ctx.stroke();
-  };
-  const hit = (x, y) => { const w = box.clientWidth, h = box.clientHeight; for (let i = 0; i < 9; i++) { const [px, py] = pos(i); if (Math.hypot(px * w - x, py * h - y) < w * .12) return i; } return -1; };
-  const add = i => { if (i < 0 || path.includes(i)) return; const l = path.at(-1); if (l != null) { const m = (l + i) / 2; Number.isInteger(m) && (l % 3 + i % 3) % 2 == 0 && ((l / 3 | 0) + (i / 3 | 0)) % 2 == 0 && !path.includes(m) && path.push(m); } path.push(i); navigator.vibrate?.(8); };
-  const xy = e => { const r = box.getBoundingClientRect(), s = r.width / box.clientWidth || 1; return [(e.clientX - r.left) / s, (e.clientY - r.top) / s]; };
-  const api = {
-    title: t => $('.lk-t', host).textContent = t, msg: (t, b) => { msg.textContent = t || ''; msg.classList.toggle('bad', !!b); },
-    reset: () => { path = []; bad = false; paint(); },
-    fail: t => { bad = true; paint(); navigator.vibrate?.([30, 40, 30]); api.msg(t, 1); setTimeout(api.reset, 700); },
-  };
-  box.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); box.setPointerCapture?.(e.pointerId); api.reset(); drawing = true; api.msg(''); const [x, y] = xy(e); add(hit(x, y)); cur = [x, y]; paint(); });
-  box.addEventListener('pointermove', e => { if (!drawing) return; e.stopPropagation(); const [x, y] = xy(e); add(hit(x, y)); cur = [x, y]; paint(); });
-  const end = e => { if (!drawing) return; e.stopPropagation(); drawing = false; cur = null; paint(); if (!path.length) return; if (path.length < 4) return api.fail('至少连接 4 个点'); onDone(path.join('-'), api); };
-  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
-  requestAnimationFrame(paint);
   return api;
 }
 
@@ -72,16 +42,6 @@ export function askPin(done) {
     pad.msg('备用密码 0000 始终有效');
   } });
 }
-export function askGest(done) {
-  let first = '';
-  const s = sheet({ title: '设置手势密码', noBack: 1, cls: 'lk-sheet', body: () => '<div class="lk-auth lk-set"></div>', after: el => {
-    gesturePad($('.lk-set', el), '画出解锁图案', (g, p) => {
-      if (!first) { first = g; p.reset(); p.title('再画一次确认'); return p.msg(''); }
-      if (g != first) { first = ''; p.title('画出解锁图案'); return p.fail('两次不一致，请重新绘制'); }
-      setGest(g); s.close(); toast('手势密码已设置'); done?.();
-    }).msg('至少连接 4 个点');
-  } });
-}
 
 
 /* ---------- 模拟指纹（网页拿不到真实指纹：按住感应区、纹路扫满就算通过） ---------- */
@@ -90,7 +50,8 @@ const FPP = ['M9 20c2.6-6 8.4-10 15-10s12.4 4 15 10', 'M13 37c1.6-3.2 2.2-6.4 2.
 export const fpSvg = () => `<svg viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-width="2.3"><g class="fpb" stroke="currentColor">${FPP.map(d => `<path d="${d}"/>`).join('')}</g><g class="fpc">${FPP.map(d => `<path pathLength="1" d="${d}"/>`).join('')}</g></svg>`;
 export const fpOn = () => !!(S.lock.pw && S.lock.type == 'fp' && S.lock.fpSet);
 // 旧版指纹是单独开关：改成三选一里的「指纹」
-export const lockMig = () => { const L = S.lock; if (!('fp' in L)) return; L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; save(); };
+// 旧版：指纹是单独开关 / 有手势密码 → 现在只有「数字密码」「指纹」二选一（手势密码录过指纹就换成指纹，否则换成数字密码）
+export const lockMig = () => { const L = S.lock; let ch = 0; if ('fp' in L) { L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; ch = 1; } if (L.type == 'gesture') { L.type = L.fpSet ? 'fp' : 'pin'; ch = 1; } if ('gest' in L) { delete L.gest; ch = 1; } ch && save(); };
 // 按住 ms 毫秒算一次成功；提前松手算失败
 function holdSensor(btn, ms, ok, early) {
   let tm, t0;
@@ -136,11 +97,12 @@ export function lock(preview) {
   swipe(preview);
   const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑用备用密码'), 1600); });
 }
-const hintText = preview => preview ? '预览 · 从底部上滑退出' : fpOn() ? '按住指纹解锁 · 上滑用备用密码' : '从底部向上滑动解锁';
+const hintText = preview => preview ? '预览 · 从底部上滑退出' : fpOn() ? '按住指纹解锁' : '从底部向上滑动解锁';
 // 动态锁屏可以互动（雪地写字、点圣诞树…）：从屏幕底部上滑才是解锁；其他地方的触摸交给场景
 function swipe(preview) {
   const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0;
-  const go = () => preview || !S.lock.pw ? unlock() : auth(S.lock.type == 'fp'); // 指纹模式上滑 = 备用密码
+  // 指纹模式只能按指纹，上滑只是提示一下，不会出现数字密码
+  const go = () => preview || !S.lock.pw ? unlock() : fpOn() ? fpNudge() : auth();
   let mode = '', x0 = 0;
   u.addEventListener('pointerdown', e => {
     if (e.target.closest('.lk-auth,.lk-fp,.lk-note') || el.classList.contains('authing')) return;
@@ -163,20 +125,19 @@ function swipe(preview) {
   el.onkeydown = e => { if (/^\d$/.test(e.key)) el._pad?.key?.(e.key); else if (e.key == 'Backspace') el._pad?.key?.('del'); else if (e.key == 'Enter' && !el.classList.contains('authing')) go(); };
   el.tabIndex = 0; requestAnimationFrame(() => el.focus?.({ preventScroll: true }));
 }
-function auth(backup) {
-  const a = $('.lk-auth', el), gest = S.lock.type == 'gesture' && !!S.lock.gest && !backup; a.hidden = false; el.classList.add('authing');
+const fpNudge = () => { const b = $('.lk-fp', el), h = $('.lk-hint span', el); if (!b) return; b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); navigator.vibrate?.(20); h.textContent = '请按住指纹感应区解锁'; setTimeout(() => locked && h.isConnected && (h.textContent = hintText()), 1800); };
+function auth() {
+  const a = $('.lk-auth', el); a.hidden = false; el.classList.add('authing');
   const box = Object.assign(document.createElement('div'), { className: 'lk-box' }); a.innerHTML = ''; a.append(box);
-  if (gest) { el._pad = null; gesturePad(box, '绘制解锁图案', (g, p) => okGest(g) ? (p.msg(''), unlock()) : p.fail('图案错误，再试一次')); }
-  else el._pad = pinPad(box, backup ? '输入备用密码' : '输入密码', (v, p) => okPin(v) ? unlock() : p.fail(backup ? '备用密码是 0000' : S.lock.pin ? '密码错误' : '还没设置数字密码，备用密码 0000'));
-  backup && el._pad?.msg('备用密码 0000');
+  el._pad = pinPad(box, '输入密码', (v, p) => okPin(v) ? unlock() : p.fail(S.lock.pin ? '密码错误' : '还没设置数字密码，备用密码 0000'));
   const ft = Object.assign(document.createElement('div'), { className: 'lk-ft' });
-  ft.innerHTML = `<b data-x="c">取消</b><b data-x="f">${gest ? '使用备用密码' : '忘记密码？'}</b>`; a.append(ft);
-  ft.onclick = e => { const x = e.target.dataset?.x; e.stopPropagation(); if (x == 'c') { a.hidden = true; el.classList.remove('authing'); } if (x == 'f') gest ? auth(true) : el._pad?.msg('备用密码 0000'); };
+  ft.innerHTML = '<b data-x="c">取消</b><b data-x="f">忘记密码？</b>'; a.append(ft);
+  ft.onclick = e => { const x = e.target.dataset?.x; e.stopPropagation(); if (x == 'c') { a.hidden = true; el.classList.remove('authing'); } if (x == 'f') el._pad?.msg('备用密码 0000'); };
 }
 export function unlock() {
   if (!el || !locked) return; locked = false; el.classList.add('out'); ui.scr.classList.remove('locked'); clearInterval(iv);
   $('.lk-ic', el) && ($('.lk-ic', el).innerHTML = UNLOCK);
   setTimeout(() => { if (locked) return; fx?.stop(); fx = null; el.hidden = true; el.innerHTML = ''; vurl && URL.revokeObjectURL(vurl); vurl = ''; }, 480);
 }
-// 手机收起 / 关机时调用：下次打开就是锁屏状态
-export const relock = () => S.lock.on && !locked && lock();
+// 手机收起 / 关机时调用：下次打开就是锁屏状态，而且锁屏重新开始（写的字、亮的灯都恢复原样）
+export const relock = () => S.lock.on && lock();

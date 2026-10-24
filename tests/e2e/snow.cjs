@@ -39,5 +39,16 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.mouse.move(...r); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(r[0], r[1] - i * 30); await p.mouse.up(); await W(700);
   ok(!(await E('lk.isLocked()')), '从底部上滑解锁');
   await E('lk.lock()'); await W(900); s = await st(); ok(s.dabs == 0 && s.mode == 0 && s.frost == 0, '重新打开锁屏：写的字、灯、霜都恢复原样');
+  // 关机再开（不解锁）：锁屏也要恢复原样
+  s = await st(); await tap(await at(`[s.tree.x, s.tree.by - s.tree.h * .45]`)); const [gx2, gy2] = await at(`[s.W * .3, s.ground + (s.H - s.ground) * .5]`);
+  await p.mouse.move(gx2, gy2); await p.mouse.down(); for (let i = 1; i <= 6; i++) await p.mouse.move(gx2 + i * 8, gy2); await p.mouse.up(); s = await st(); ok(s.mode == 1 && s.dabs > 5, '（亮灯、写了字）');
+  await E(`document.querySelector('#stp .off').click()`); await W(300); await p.click('#stp-ball'); await W(900); s = await st(); ok(await E('lk.isLocked()') && s.mode == 0 && s.dabs == 0, '点关机再打开：锁屏回到初始样子');
+  // 雪印 3 秒左右消失
+  await p.mouse.move(gx2, gy2); await p.mouse.down(); for (let i = 1; i <= 6; i++) await p.mouse.move(gx2 + i * 8, gy2); await p.mouse.up();
+  await E(`lk.lockFx().advance(1, 10)`); s = await st(); ok(s.dabs > 5, '1 秒时雪印还在');
+  await E(`lk.lockFx().advance(2.4, 30)`); s = await st(); ok(s.dabs == 0, '3 秒多雪印就没了');
+  // 倾斜手机：雪人和照片不动
+  const pos = () => E(`(() => { const s = lk.lockFx().state(); return [s.ox, s.sm.x, s.sm.cx].join(); })()`); const p0 = await pos();
+  await E(`dispatchEvent(Object.assign(new Event('deviceorientation'), { gamma: 30, beta: 0 })); lk.lockFx().advance(1, 20)`); ok(await pos() == p0 && await E(`lk.lockFx().state().tiltT`) > .5, '倾斜手机：雪人和画面固定不动（只有落雪的风向变）');
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })();
