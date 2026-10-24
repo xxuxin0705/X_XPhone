@@ -1,6 +1,6 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
 import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop } from '../../core.js';
-import { get, blank, add, upsert, applyDelta, sty, rm, isMe, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
+import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 export { openChat, applyDelta };
 
@@ -16,13 +16,21 @@ const LF = u => `【输出格式】不要JSON、不要解释、不要编号，�
 人|真实姓名|网名|备注|性别|拍一拍后缀|语言|个性签名
 群|群名|群主真实姓名|管理员(逗号分隔，没有就空着)|成员真实姓名(逗号分隔，不写${u})|群公告
 字段说明：
-· 备注＝${u}自己手机通讯录里给TA存的名字，要像活人随手存的：亲近的用昵称 / 外号 / 叠字 / 带emoji / 带点吐槽，长辈就是「妈」「三叔」，不熟的直接写名字。绝对不要写「同班同学」「前不良少年」「热血班长」这种身份说明或人设介绍。例：「沈遥🐟」「狗头军师老周」「班长大人」「烦人精」「妈」「林老师（数学）」
+· 网名＝TA自己在社交软件上起的昵称，要像真实中文互联网上的人，按性格来，同一批人风格要拉开：
+  - 软萌 / 爱卖萌：叠字、小动物、零食，常带颜文字或小符号，如「软糖不软ᐟ」「芋泥啵啵(｡･ω･｡)」「小熊不吃香菜ʕ•ᴥ•ʔ」「桃桃乌龙.」
+  - 中二 / 非主流：用怪符号包起来，如「†漆黑之翼†」「꧁深渊回响꧂」「ℓ夜行のReaper」「゛黑化肥发灰」
+  - 冷淡 / 话少：极简，一个字、一个标点、首字母、拼音或英文，如「。」「z」「Lin」「wy」「-」
+  - 文艺：「晚风与你」「人间理想」「指针朝北」
+  - 沙雕 / 搞笑：「今天也没暴富」「退休了别找我」「云吸咸鱼」
+  - 长辈 / 打工人：「岁月静好🌸」「宁静致远」「老王装修」
+  - 也可以是英文名、名字谐音、中日英混搭（如「森林の鹿」）
+· 备注＝${u}自己手机通讯录里给TA存的名字，像活人随手存的：亲近的用昵称 / 外号 / 叠字 / 带emoji / 带点吐槽，长辈就是「妈」「三叔」，不熟的直接写名字。绝对不要写「同班同学」「前不良少年」「热血班长」这种身份说明。例：「沈遥🐟」「狗头军师老周」「班长大人」「烦人精」「林老师（数学）」
 · 性别写 男 或 女
-· 拍一拍后缀＝别人拍TA时显示「拍了拍TA」后面接的那句，贴合人设、10字内，如「的小脑袋」「并说了声早安」「的头，他炸毛了」
+· 拍一拍后缀＝别人拍TA时显示在「拍了拍TA」后面的那句，要有网感、有梗，像微信里真有人设置的那样，按人设来编（中二的就中二，高冷的可以只有一个「。」），20字内。风格参考（别照抄）：「的存款+1」「的木鱼功德+1」「并留下了小猫脚印🐾」「说：500万，离开我儿子」「的小脑瓜然后变成猪」「发现没拍到ōÓ」「的肩膀叫了声富婆💰」「的肚子duangduang」「被反手一巴掌打翻在地」「的次数太多，已拍死」。不要写「的头发」「的肩膀」这种平淡的
 · 语言＝TA平时发消息用的语言，按剧情里TA实际怎么说话判断：说中文就写 中文；只有剧情里TA确实用外语交流才写 日语 / 英语 / 韩语 等
 · 签名15字内；群公告25字内。先写完所有「人」再写「群」
 示例：
-人|沈知遥|遥遥无期|遥遥🐟|男|的呆毛|中文|今天也在图书馆
+人|沈知遥|晚风与你|遥遥🐟|男|的存款+1|中文|今天也在图书馆
 群|高三(2)班|林老师||沈知遥,周小满|周五前交志愿表`;
 const INIT = r => { const u = C().name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊，按剧情实际需要（联系人一般不超过12个、群聊不超过4个），不要凑数。`}
 规则：只从${u}本人的视角出发——联系人必须是${u}认识并已加为好友的人；群聊必须是${u}本人已加入的群（${u}不在的群一律不要生成）。不要包含${u}自己。已有：${names()}，不要重复。
@@ -73,31 +81,35 @@ ${wi}
 }
 const quickP = (P, r) => { const u = C().name1; return `${r?.mode == 'me' ? `按这段信息生成${u}的联系人：${r.info}\n` : ''}从下面这些人里挑出${u}认识、会加好友的人（不超过12个），直接输出，不要分析：\n${P.map(p => p.n + (p.sex ? `（${p.sex}）` : '')).join('、') || C().name2}\n${LF(u)}\n群可以不写。`; };
 // o: { lim 截止毫秒, bk 备用请求启动毫秒, quick: {sys, prompt}, people }（数字可调，测试用）
+export const GC = { review: null }; // 测试钩子：直接拿到暂存结果
 export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
-  const old = new Set(D().chats.map(c => c.id)), LIM = o.lim ?? 115e3, BK = o.bk ?? 45e3, ac = new AbortController();
+  const LIM = o.lim ?? 115e3, BK = o.bk ?? 45e3, ac = new AbortController();
+  // 先放进暂存区，用户在确认卡里点「添加」之后才真正进手机
+  const st = { c: [], g: [] }, seen = new Set(), size = () => st.c.length + st.g.length;
+  const put = x => { x?.contacts?.forEach(c => { const n = c.real || c.nick, k = 'p:' + n, ex = n && (find(c.real, 'p') || find(c.nick, 'p')); if (!n || seen.has(k) || isMe(n) || ex && ex.fr !== 0) return; seen.add(k); st.c.push({ real: n, nick: c.nick || n, remark: c.remark || '', sex: c.sex || '', ps: c.ps || '', lang: c.lang || '', sign: c.sign || '' }); });
+    x?.groups?.forEach(g => { const k = 'g:' + g.name; if (!g.name || seen.has(k) || find(g.name, 'g')) return; seen.add(k); st.g.push({ ...g }); }); };
   let got = 0, settle, alive = 0, lastErr, bkOn = 0, how = ''; const fin = new Promise(r => settle = r), drafts = [], t0 = Date.now();
   const stopAll = () => ac.abort(), cancel = () => { stopAll(); settle('cancel'); }; sg?.aborted ? cancel() : sg?.addEventListener('abort', cancel);
-  const count = () => `已收到 ${D().chats.filter(c => !old.has(c.id) && (c.type == 'g' || c.fr !== 0)).length} 个`;
+  const count = () => `已收到 ${size()} 个`;
   const run = (s, p, d) => {
     let done = 0, rs = ''; const i = drafts.push('') - 1; alive++;
-    const eat = (txt, end) => { const ls = String(txt).split('\n'), n = end ? ls.length : ls.length - 1; for (; done < n; done++) { const x = pline(ls[done]); x && (applyDelta(x), got++); } got && prog?.(count()); };
+    const eat = (txt, end) => { const ls = String(txt).split('\n'), n = end ? ls.length : ls.length - 1; for (; done < n; done++) { const x = pline(ls[done]); x && (put(x), got++); } got && prog?.(count()); };
     llm(s, p, d, ac.signal, { fast: 1, aux: 1, onText: t => eat(t), onThink: (n, r) => { drafts[i] = rs += r; got || prog?.(`模型思考中 ${n}字 · ${(Date.now() - t0) / 1e3 | 0}s`); } })
-      .then(raw => { eat(raw, 1); if (!got) { const j = json(raw); j && applyDelta(unz(j)); } settle('ok'); },
+      .then(raw => { eat(raw, 1); if (!got) { const j = json(raw); j && put(unz(j)); } settle('ok'); },
         e => { lastErr = e; if (ac.signal.aborted) return; if (--alive) return; o.quick && !bkOn ? backup() : settle('err'); });
   };
   const backup = () => { if (bkOn || ac.signal.aborted || !o.quick) return; bkOn = 1; prog?.('同时用精简方式生成…'); run(o.quick.sys, o.quick.prompt, desc + '·精简'); };
   const bt = setTimeout(() => got || backup(), BK), dt = setTimeout(() => settle('late'), LIM);
   run(sys, prompt, desc);
   const res = await fin; clearTimeout(bt); clearTimeout(dt); sg?.removeEventListener('abort', cancel); stopAll(); // 有结果了 / 到点了：另一路停掉
-  const added = () => D().chats.some(c => !old.has(c.id));
-  if (res != 'ok' && !sg?.aborted && !added()) { for (const d of drafts) for (const l of d.split('\n')) { const x = pline(l); x && applyDelta(x); } added() && (how = '（模型还在思考，已从它的草稿里取出）'); }
-  res == 'late' && got && (how = '（2 分钟到了，先保存已经生成的部分）');
-  if (res == 'late' && !sg?.aborted && !added() && o.people?.length) { applyDelta({ contacts: o.people.slice(0, 12).map(p => ({ real: p.n, nick: p.n, sex: p.sex })) }); how = '（模型太慢，已先按世界书人物添加，网名和签名可以稍后再改）'; }
-  const nw = D().chats.filter(c => c.type == 'p' && c.fr !== 0 && !old.has(c.id)), gs = D().chats.filter(c => c.type == 'g' && !old.has(c.id));
-  (nw.length || gs.length) && setTimeout(() => review(nw, gs, old), 500);
+  if (res != 'ok' && !sg?.aborted && !size()) { for (const d of drafts) for (const l of d.split('\n')) put(pline(l)); size() && (how = '（模型还在思考，已从它的草稿里取出）'); }
+  res == 'late' && got && (how = '（2 分钟到了，先给你看已经生成的部分）');
+  if (res == 'late' && !sg?.aborted && !size() && o.people?.length) { put({ contacts: o.people.slice(0, 12).map(p => ({ real: p.n, nick: p.n, sex: p.sex })) }); how = '（模型太慢，先按世界书人物列出来，网名等可以在确认卡里改）'; }
+  const nw = st.c, gs = st.g;
   if (sg?.aborted) throw Error('已取消');
+  size() && (GC.review ? GC.review(st) : setTimeout(() => review(st), 300));
   if (!nw.length && !gs.length) throw res == 'late' ? Error('模型 2 分钟内没有给出结果，世界书里也没找到人物条目，可以换个不思考的「生成用模型」再试') : lastErr || Error('没有识别到新的联系人（可能都已存在，或返回格式不对，可在调用日志查看）');
-  if (res == 'err' && lastErr) throw Error(`${lastErr.message}（已生成的 ${nw.length} 位联系人 · ${gs.length} 个群可以确认添加）`);
+  if (res == 'err' && lastErr) throw Error(`${lastErr.message}（已生成的 ${nw.length} 位联系人 · ${gs.length} 个群可以在确认卡里添加）`);
   return `已生成 ${nw.length} 位联系人 · ${gs.length} 个群，请确认${how}`;
 }
 export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1 }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
@@ -166,36 +178,42 @@ async function aiInit() {
   });
 }
 // 新联系人确认卡：展示网名 / 真实姓名，备注默认填 AI 生成的、可直接改
-// 新联系人确认卡：默认全选，可以取消勾选不要的；「取消」= 这次生成的全都不要，「添加」= 只留勾选的
-// 没勾选、但在保留下来的群里的人：留作普通群成员（不进好友列表），群里的消息不会变成「已删除」
-function review(nw, gs, old) {
-  const m = Object.fromEntries(nw.map(c => [c.id, c.remark || ''])), keep = new Set([...nw, ...gs].map(c => c.id)), total = keep.size; let done = 0;
+// 新联系人确认卡：生成结果先在这里，默认全选；每个人的网名 / 真实姓名 / 性别 / 备注 / 拍一拍 / 语言都能改
+// 「取消」= 这次生成的全都不要；「添加」= 只把勾选的加进手机。没勾选、但在保留下来的群里的人，会作为普通群成员留在群里（不进好友列表）
+function review(st) {
+  const items = [...st.c.map((c, i) => ['c' + i, c]), ...st.g.map((g, i) => ['g' + i, g])], keep = new Set(items.map(x => x[0])), total = keep.size; let done = 0;
+  const sexO = v => [['', '性别'], ['男', '男'], ['女', '女']].map(([a, b]) => `<option value="${a}" ${a == v ? 'selected' : ''}>${b}</option>`).join('');
+  const langO = v => LANGS.map(([a, b]) => `<option value="${a}" ${a == v ? 'selected' : ''}>${a ? b : '中文（不翻译）'}</option>`).join('');
+  const val = (id, f) => $(`[data-pk="${id}"] [data-f="${f}"]`, s.el)?.value?.trim() ?? '';
   const finish = ok => {
     if (done) return; done = 1;
-    nw.forEach(c => c.remark = ($(`[data-k="${c.id}"]`, s.el)?.value ?? m[c.id] ?? '').trim());
-    const K = ok ? keep : new Set(), inG = id => D().chats.some(g => g.type == 'g' && (g.members.includes(id) || g.owner == id || g.admins.includes(id)));
-    gs.filter(g => !K.has(g.id)).forEach(rm);
-    nw.filter(c => !K.has(c.id)).forEach(c => inG(c.id) ? (c.fr = 0) : rm(c));
-    D().chats.filter(c => c.type == 'p' && c.fr === 0 && !old.has(c.id) && !c.msgs.length && !inG(c.id)).forEach(rm); // 随群一起生成、现在没群可待的成员
-    saveD(); emit('chat');
-    const np = nw.filter(c => K.has(c.id)).length, ng = gs.filter(g => K.has(g.id)).length;
-    toast(np || ng ? `已添加 ${np} 位联系人${ng ? ` · ${ng} 个群` : ''}` : '已取消，这次生成的都没有添加');
+    if (!ok) return toast('已取消，这次生成的都没有添加');
+    const ren = {}, C = st.c.map((c, i) => { const id = 'c' + i, real = val(id, 'real') || c.real; real != c.real && (ren[c.real] = real); return keep.has(id) && { ...c, real, nick: val(id, 'nick') || real, remark: val(id, 'remark'), sex: val(id, 'sex'), ps: val(id, 'ps'), lang: val(id, 'lang') }; }).filter(Boolean);
+    const R = n => ren[n] || n, G = st.g.filter((g, i) => keep.has('g' + i)).map(g => ({ ...g, owner: R(g.owner), admins: (g.admins || []).map(R), members: (g.members || []).map(R) }));
+    applyDelta({ contacts: C, groups: G }); C.forEach(c => { const x = find(c.real, 'p'); x && Object.assign(x, { remark: c.remark, ps: c.ps, sex: c.sex, nick: c.nick }); }); saveD(); emit('chat'); // 改过的字段以确认卡为准
+    toast(C.length || G.length ? `已添加 ${C.length} 位联系人${G.length ? ` · ${G.length} 个群` : ''}` : '一个都没添加');
   };
+  const card = (id, c) => `<div class="nc on" data-pk="${id}"><i class="nc-ck"></i><img class="av" src="${esc(avOf({ nick: c.nick || c.real }))}"><div class="nc-m">
+<div class="nc-n"><input class="nc-nick" data-f="nick" value="${esc(c.nick)}" placeholder="网名"><em>网名</em></div>
+<div class="nc-2"><label class="nc-r"><i>真名</i><input data-f="real" value="${esc(c.real)}"></label><select data-f="sex">${sexO(c.sex)}</select></div>
+<label class="nc-r"><i>备注</i><input data-f="remark" value="${esc(c.remark)}" placeholder="不填就显示网名"></label>
+<label class="nc-r"><i>拍一拍</i><span class="nc-pre">拍了拍TA</span><input data-f="ps" value="${esc(c.ps)}" placeholder="后缀，可留空"></label>
+<label class="nc-r"><i>语言</i><select data-f="lang">${langO(c.lang)}</select></label>${c.sign ? `<small class="nc-sg">签名 · ${esc(c.sign)}</small>` : ''}</div></div>`;
   const s = sheet({
-    cls: 'rv', noBack: 1, model: () => m, save: () => {}, title: `<b>✨ 生成了 ${nw.length} 位联系人${gs.length ? ` · ${gs.length} 个群` : ''}</b><small>不想要的点一下取消勾选，备注可以直接改</small>`,
-    body: () => `<div class="nc-top"><span></span><b data-pk="all"></b></div>` + nw.map(c => `<div class="nc on" data-pk="${c.id}"><i class="nc-ck"></i><img class="av" src="${esc(avOf({ ...c, remark: '' }))}"><div class="nc-m"><div class="nc-n"><b>${esc(c.nick || c.real)}</b><em>网名</em></div><small>真实姓名 · ${esc(c.real || '—')}</small>${c.ps || c.cfg?.lang ? `<small>${c.ps ? `拍一拍 · 拍了拍TA${esc(c.ps)}` : ''}${c.ps && c.cfg?.lang ? ' · ' : ''}${c.cfg?.lang ? `说${esc(lname(c.cfg.lang))}（自动翻译）` : ''}</small>` : ''}<label class="nc-r"><i>备注</i><input data-k="${c.id}" value="${esc(m[c.id])}" placeholder="不填就显示网名"></label></div></div>`).join('')
-      + (gs.length ? `<div class="nc-g"><small>同时加入的群聊（点一下取消）</small>${gs.map(g => `<span class="gk on" data-pk="${g.id}">👥 ${esc(g.name)}</span>`).join('')}</div>` : '')
+    cls: 'rv', noBack: 1, title: `<b>✨ 生成了 ${st.c.length} 位联系人${st.g.length ? ` · ${st.g.length} 个群` : ''}</b><small>还没加进手机。不要的点右上角圆圈取消勾选，内容都可以直接改</small>`,
+    body: () => `<div class="nc-top"><span></span><b data-pk="all"></b></div>` + st.c.map((c, i) => card('c' + i, c)).join('')
+      + (st.g.length ? `<div class="nc-g"><small>群聊（点一下取消）</small>${st.g.map((g, i) => `<span class="gk on" data-pk="g${i}">👥 ${esc(g.name)}</span>`).join('')}</div>` : '')
       + `<div class="rv-ft"><button data-rv="no">取消</button><button data-rv="yes" class="pri"></button></div>`,
     after: el => {
-      const sync = () => { el.querySelectorAll('[data-pk]').forEach(x => x.dataset.pk != 'all' && x.classList.toggle('on', keep.has(x.dataset.pk))); $('.nc-top span', el).textContent = `已选 ${keep.size} / 共 ${total}`; $('.nc-top b', el).textContent = keep.size == total ? '全不选' : '全选'; const y = $('[data-rv="yes"]', el); y.textContent = keep.size ? `添加 (${keep.size})` : '一个都不要'; };
+      const sync = () => { el.querySelectorAll('[data-pk]').forEach(x => x.dataset.pk != 'all' && x.classList.toggle('on', keep.has(x.dataset.pk))); $('.nc-top span', el).textContent = `已选 ${keep.size} / 共 ${total}`; $('.nc-top b', el).textContent = keep.size == total ? '全不选' : '全选'; $('[data-rv="yes"]', el).textContent = keep.size ? `添加 (${keep.size})` : '一个都不要'; };
       el.addEventListener('click', e => {
         const r = e.target.closest('[data-rv]'); if (r) { e.stopPropagation(); finish(r.dataset.rv == 'yes'); return s.close(); }
-        if (e.target.closest('input,label')) return; const p = e.target.closest('[data-pk]'); if (!p) return; e.stopPropagation();
-        const id = p.dataset.pk; id == 'all' ? (keep.size == total ? keep.clear() : [...nw, ...gs].forEach(c => keep.add(c.id))) : keep.has(id) ? keep.delete(id) : keep.add(id); sync();
+        if (e.target.closest('input,select,label')) return; const p = e.target.closest('[data-pk]'); if (!p) return; e.stopPropagation();
+        const id = p.dataset.pk; id == 'all' ? (keep.size == total ? keep.clear() : items.forEach(x => keep.add(x[0]))) : keep.has(id) ? keep.delete(id) : keep.add(id); sync();
       });
       sync();
     },
-    onClose: () => finish(true), // 点外面关掉：按当前勾选保留，不白白丢掉
+    onClose: () => finish(true), // 点外面关掉：按当前勾选添加，不白白丢掉
   });
 }
 async function fromWi() {
