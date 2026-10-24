@@ -104,11 +104,11 @@ function api(t) {
 }
 function link() {
   page({
-    title: '联动模式与时间', onClose: rf, onChange: k => k == 'mode' && saveD(),
+    title: '联动模式与时间', onClose: rf, onChange: k => (k == 'mode' || k == 'inline') && saveD(),
     body: () => { const f = fx(S); return sec('link', [
       ['m', '模式', f.seg('mode', [['linked', '正文联动'], ['online', '线上模式']]) + `<p class="tip">${S.mode == 'linked' ? '正文联动：正文里的线上事件会同步到手机；你确认“注入正文”的手机聊天（聊天设置或长按消息），角色在正文里也会知道。' : '线上模式：只有正文影响手机，手机里发生的事不会传回正文。'}<br>两种模式下，正文出现发消息 / 拉群 / 加好友等线上内容，都会在手机里弹出并显示。</p>`],
       ['t', '时间', f.seg('time', [['story', '跟随剧情'], ['real', '现实时间']]) + `<p class="tip">当前手机时间：${now().toLocaleString('zh-CN')}</p>` + btn('rt', '从剧情重新识别时间')],
-      ['s', '同步', f.tog('scan', '正文出现发消息 / 拉群等线上事件时，自动同步到手机（每次额外调用一次 API，默认关）') + f.tog('notify', '新消息弹窗') + f.area('kw', '触发关键词（正则）') + btn('sync', '立即同步最新一条剧情', '', 'pri')]]); },
+      ['s', '同步', f.tog('inline', '正文里的手机消息自动进手机（不额外调用 API）') + '<p class="tip">开启后，正文的 AI 会在回复最后顺手写一个 <手机> 小块（谁发了什么消息、朋友圈、拉群、转账…），小手机直接读出来放进手机，并把这个块从正文里去掉，不会多花一次 API。</p>' + f.tog('notify', '新消息弹窗') + btn('sync', '用 AI 补同步最新一条剧情（会调用一次 API）')]]); },
     acts: {
       rt: (x, t, e, pg) => { scanTime(recent()); pg.re(); toast('已从剧情识别'); },
       sync: () => { const m = C().chat?.findLast(m => !m.is_user && !m.is_system); m ? (toast('同步中…'), syncStory(m.mes)) : toast('还没有剧情'); },

@@ -124,6 +124,27 @@ export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
   if (res == 'err' && lastErr) throw Error(`${lastErr.message}（已生成的 ${nw.length} 位联系人 · ${gs.length} 个群可以在确认卡里添加）`);
   return `已生成 ${nw.length} 位联系人 · ${gs.length} 个群，请确认${how}`;
 }
+/* ---------- 正文联动（不额外调 API）：主模型在正文末尾写 <手机>…</手机>，这里本地解析进手机，并从正文里去掉这个块 ---------- */
+const PHB = /<手机>([\s\S]*?)<\/手机>/g;
+export function inlineSync(id) {
+  const c = C(), m = c.chat?.[id]; if (!m || !PHB.test(String(m.mes))) return 0; PHB.lastIndex = 0;
+  const d = { contacts: [], groups: [], msgs: [], posts: [] }, u = c.name1, me = n => isMe(n) || n == u;
+  for (const [, b] of String(m.mes).matchAll(PHB)) for (const l of b.split('\n')) {
+    const f = l.trim().replace(/^[-*•\d.、\s]+/, '').split(/\s*[|｜]\s*/), k = f[0], rest = i => f.slice(i).join('|').trim();
+    if (k == '私聊' && f.length >= 4) { me(f[1]) ? d.msgs.push({ chat: f[2], from: u, text: rest(3) }) : me(f[2]) && d.msgs.push({ chat: f[1], from: f[1], text: rest(3) }); }
+    else if (k == '群聊' && f.length >= 4) { d.groups.push({ name: f[1], members: me(f[2]) ? [] : [f[2]] }); d.msgs.push({ chat: f[1], from: me(f[2]) ? u : f[2], text: rest(3) }); }
+    else if ((k == '朋友圈' || k == '动态') && f[2]) d.posts.push({ author: me(f[1]) ? u : f[1], text: rest(2) });
+    else if (k == '加好友' && f[1] && !me(f[1])) d.contacts.push({ real: f[1], nick: f[2] || f[1] });
+    else if (k == '拉群' && f[1]) d.groups.push({ name: f[1], members: String(f[2] || '').split(/[,，、]/).map(x => x.trim()).filter(x => x && !me(x)) });
+    else if (k == '转账' && f.length >= 4) { const t = { type: 'transfer', amount: parseFloat(f[3]) || 0, text: rest(4) }; me(f[2]) ? d.msgs.push({ chat: f[1], from: f[1], ...t }) : me(f[1]) && d.msgs.push({ chat: f[2], from: u, ...t }); }
+    else if (k == '拍一拍' && f[1] && !me(f[1])) d.msgs.push({ chat: f[1], from: f[1], type: 'pat', text: rest(2) || '拍了拍你' });
+  }
+  const out = applyDelta(d); out.forEach(([ch, x]) => notify(ch, x));
+  m.mes = String(m.mes).replace(PHB, '').replace(/\n{3,}/g, '\n\n').trim(); // 正文里不显示这个块
+  setTimeout(() => { c.updateMessageBlock?.(id, m); c.saveChat?.(); });
+  return out.length;
+}
+// 手动补同步：会调用一次 API（只在设置里点按钮时用）
 export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1 }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 
 /* ---------- 渲染 ---------- */
@@ -134,7 +155,7 @@ const vis = () => D().chats.filter(c => c.fr !== 0 || c.msgs.length);
 const list = () => vis().sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
   const m = c.msgs.at(-1);
   return `<div class="cl ${c.pin ? 'pin' : ''} ${msel ? 'msel' : ''} ${msel?.has(c.id) ? 'on' : ''}" data-a="open" data-x="${c.id}" data-lp="clp">${msel ? '<i class="ck"></i>' : ''}<div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${gsz(c)})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
-}).join('') || `<div class="empty"><p>还没有联系人 ✧</p>${btn('aiInit', '✨ AI 生成联系人', '', 'pri')}${btn('plus', '手动添加')}</div>`;
+}).join('') || `<div class="empty"><p>还没有聊天 ✧</p>${btn('tab', '去通讯录添加联系人', 'ct', 'pri')}</div>`;
 const post = (p, fs) => {
   const a = p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' }, me = nm(meObj()), lk = p.likes.includes(me);
   return `<article class="po"><img class="av" src="${esc(avOf(a))}" data-a="pfeed" data-x="${p.a}"><div class="po-m"><b class="po-n">${esc(nm(a))}</b>${fs == 'tw' ? `<small class="po-h">@${esc(a.nick || a.real)} · ${ago(p.ts)}</small>` : ''}<p>${esc(p.c)}</p>${p.url ? `<img class="po-i" src="${esc(p.url)}">` : p.imgd ? `<div class="picd">🖼 ${esc(p.imgd)}</div>` : ''}
@@ -314,7 +335,7 @@ reg({
   open: () => page({
     cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; },
     title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: FN[S.style], me: '我' })[tab],
-    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'list' || tab == 'ct' ? `<b data-a="plus">${I.plus}</b>` : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
+    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'ct' ? `<b data-a="plus">${I.plus}</b>` : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
     body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => stCls(el, 'chatapp st-' + S.style),
     onChange: k => k == '$style' && emit('chat'),
     acts: {

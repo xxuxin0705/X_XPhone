@@ -259,7 +259,7 @@
 .ib .go{background:var(--sac);color:#fff}
 .st-kk .ib .go{color:#3b2a1a;background:#fee500}
 .ib .go svg{width:18px;height:18px}
-.go .s2,.go.has .s1{display:none}.go.has .s2{display:block}
+/* 旧的双图标规则已移除 */
 .pan{display:none;max-height:250px;overflow:auto;padding:0 12px 24px;margin-top:-14px;background:var(--hb)}
 .pan.on{display:block}
 .tl{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11.5px;color:#888;cursor:pointer}
@@ -603,3 +603,8 @@
 .rk-mr i.on{color:#fff;background:#ffb300}
 .rk-more{display:block;margin-top:6px;font-size:11.5px;color:#999}
 .mem .mfr{flex:none;font-style:normal;font-size:11.5px;padding:3px 9px;border-radius:10px;background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac);cursor:pointer}
+
+/* 发送键：一个图标；等回复时变成 ■（有字时仍显示发送） */
+#stp .go .s-stop{display:none}#stp .go.wait:not(.has) .s-send{display:none}#stp .go.wait:not(.has) .s-stop{display:block}
+.go.wait:not(.has){animation:gowait 1.4s ease-in-out infinite}
+@keyframes gowait{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--sac) 22%,transparent)}}

@@ -17,7 +17,7 @@ export const merge = (t, d) => { for (const k in d) if (t[k] === undefined) t[k]
 /* ---------- 状态：S 全局设置（extensionSettings） / D() 当前聊天的手机数据（chatMetadata） ---------- */
 const api = x => ({ src: 'tavern', cur: '', list: [], ...x });
 const DEF = {
-  api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, notify: true,
+  api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', gest: '', wp: 'cathedral', video: '', text: '' }, media: {},
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
@@ -483,7 +483,8 @@ ${wi ? `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')), wi)}
 export function syncInject() {
   const c = C(); let t = '';
   if (S.mode == 'linked') t = D().chats.map(ch => { const ms = ch.msgs.filter(m => m.inj || ch.cfg?.inj).slice(-15); return ms.length ? `[${ch.type == 'g' ? '群聊「' + ch.name + '」' : '与' + rn(ch) + '的私聊'}]\n` + ms.map(m => `${m.f == 'me' ? meObj().nick : rn(byId(m.f))}: ${brief(m)}`).join('\n') : ''; }).filter(Boolean).join('\n');
-  c.setExtensionPrompt?.('st_phone', t && `<手机聊天记录>\n以下是${c.name1}手机里的聊天，相关角色知道这些内容：\n${t}\n</手机聊天记录>`, 1, 2, false, 0);
+  const u = c.name1, inl = S.inline ? `<手机同步格式>\n剧情里有人用手机（发消息、发朋友圈、加好友、拉群、转账、拍一拍）时，在本条回复最后附一个 <手机>…</手机> 块，一行一件事，只写${u}的手机上能看到的：\n私聊|发送者|接收者|内容\n群聊|群名|发送者|内容\n朋友圈|作者|内容\n加好友|真实姓名|网名\n拉群|群名|成员1,成员2\n转账|发送者|接收者|金额|备注\n拍一拍|谁|动作\n人名都写真实姓名，${u}就写「${u}」。没有手机上的事就不要写这个块。这个块会自动收进手机，不会显示在正文里。\n</手机同步格式>` : '';
+  c.setExtensionPrompt?.('st_phone', [t && `<手机聊天记录>\n以下是${u}手机里的聊天，相关角色知道这些内容：\n${t}\n</手机聊天记录>`, inl].filter(Boolean).join('\n'), 1, 2, false, 0); // 跟着正文一起输出，不额外调 API
 }
 
 /* ---------- 消息弹窗 ---------- */

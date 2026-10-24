@@ -2,7 +2,7 @@
 import { C, S, ui, G, $, on, initS, bind, save, home, top, hm, now, scanTime, syncInject, gc } from './core.js';
 import { relock, unlock, isLocked } from './lock.js';
 import { renderDesk, initDesk } from './desk.js';
-import { openChat, syncStory } from './apps/chat/chat.js';
+import { openChat, syncStory, inlineSync } from './apps/chat/chat.js';
 import './apps/settings/settings.js';
 import { applyTheme } from './apps/theme/theme.js';
 
@@ -46,8 +46,9 @@ function init() {
   E.GROUP_CHAT_DELETED && c.eventSource.on(E.GROUP_CHAT_DELETED, name => gc(new Set(), String(name).replace(/\.jsonl$/, '')));
   // 只对 AI 正常生成的新回复做处理：打开聊天时的开场白、切换 swipe、扩展 / 指令插入的消息都不算
   c.eventSource.on(E.MESSAGE_RECEIVED, (id, type) => {
-    const m = C().chat?.[id]; if (!m || m.is_user || m.is_system || (type && type != 'normal')) return;
-    scanTime(m.mes); S.scan && new RegExp(S.kw).test(m.mes) && syncStory(m.mes); // 自动同步默认关闭；手机里回复时本来就会读取最近的正文
+    const m = C().chat?.[id]; if (!m || m.is_user || m.is_system) return;
+    S.inline && inlineSync(id); // 正文里带的 <手机> 块：本地解析，不调 API
+    if (type && type != 'normal') return; scanTime(m.mes); S.scan && new RegExp(S.kw).test(m.mes) && syncStory(m.mes); // 旧的「额外调 API 同步」默认关闭
   });
   setInterval(tick, 3e4); tick(); syncInject(); relock();
   // 锁屏时钟字体（加载不到就用系统衬线体）

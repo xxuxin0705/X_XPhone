@@ -52,20 +52,27 @@ ${tl.length ? `【语言】${tl.join('；')}：这些人的文字和语音直接
 }
 
 /* ---------- 生成 ---------- */
-let busy = 0;
+// 发送键只有一个（输入框空着点：等回复时 = 停止，否则 = 让对方回）：发出消息后稍等 1.5 秒（期间还能接着发）对方开始回复；等回复时按钮变成 ■，点一下停止
+let busy = 0, CTL = null; const PEND = new Map();
+const goSync = () => { const t = top(); t?.chat && $('.go', t.el)?.classList.toggle('wait', busy == t.chat || PEND.has(t.chat)); };
+export const later = (ch, ms = 1500) => { clearTimeout(PEND.get(ch.id)); PEND.set(ch.id, setTimeout(() => { PEND.delete(ch.id); busy ? (ch._again = 1) : gen(ch); }, ms)); goSync(); };
+export const stopGen = ch => { clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id); ch._again = 0; busy == ch.id && CTL?.abort(); goSync(); };
 export async function gen(ch) {
-  if (busy) return toast('上一轮回复还在生成中…'); busy = ch.id; ch.msgs.forEach(m => m.f == 'me' && (m.rd = 1)); saveD(); emit('chat');
+  clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id);
+  if (busy) { busy == ch.id ? (ch._again = 1) : toast('上一轮回复还在生成中…'); return; }
+  busy = ch.id; const ac = CTL = new AbortController(); ch.msgs.forEach(m => m.f == 'me' && (m.rd = 1)); saveD(); emit('chat'); goSync();
   try {
-    const ms = parseReply(await llm(await sysCtx(), replyP(ch, ch.cfg.pat && Math.random() < .3), '聊天回复'), ch);
-    for (const m of ms) { const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
-  } catch (e) { fail(`${nm(ch)} · 回复失败：${e.message}`); } finally { busy = 0; emit('chat'); }
+    const ms = parseReply(await llm(await sysCtx(), replyP(ch, ch.cfg.pat && Math.random() < .3), '聊天回复', ac.signal), ch);
+    for (const m of ms) { if (ac.signal.aborted) break; const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
+  } catch (e) { ac.signal.aborted ? toast('已停止回复') : fail(`${nm(ch)} · 回复失败：${e.message}`); }
+  finally { busy = 0; CTL = null; emit('chat'); goSync(); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
 }
 const push = (ch, m) => {
-  const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat');
+  const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); later(ch);
   if (ch.cfg.trMine && ch.cfg.lang && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, ch.cfg.lang).then(t => { x.orig = x.c; x.c = t; }).catch(e => toast('翻译失败：' + e.message)).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
   return x;
 };
-on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('.pg-t', t.el).innerHTML = t.title()) : t.re(); });
+on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('.pg-t', t.el).innerHTML = t.title(), goSync()) : t.re(); });
 
 /* ---------- 渲染 ---------- */
 export const tT = ts => { const d = new Date(ts); return (d.toDateString() == now().toDateString() ? '' : `${d.getMonth() + 1}月${d.getDate()}日 `) + hm(d); };
@@ -116,7 +123,7 @@ export function openChat(id) {
     chat: id, live: 1, model: () => ch, cls: cls(), onClose: () => setTimeout(() => emit('chat')),
     title: () => `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
     right: () => `<b data-a="cset">${I.more}</b>`, body: () => msgs(ch),
-    foot: () => `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="发消息…"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go" data-a="send"><span class="s1">${I.spark}</span>${I.send.replace('<svg', '<svg class="s2"')}</button></div><div class="pan"></div>`,
+    foot: () => `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="发消息…"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg></button></div><div class="pan"></div>`,
     after: el => {
       const keep = el.classList.contains('in'); el.className = `pg ${cls()}${keep ? ' in' : ''}`;
       const b = $('.pg-b', el), ip = $('.ip', el), go = $('.go', el); b.style.background = cf.bg ? `url("${cf.bg}") center/cover` : ''; b.scrollTop = b.scrollHeight;
@@ -124,7 +131,7 @@ export function openChat(id) {
       ip.onkeydown = e => e.key == 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), pg.acts.send());
     },
     acts: {
-      send: () => { const ip = $('.ip', pg.el), v = ip.value.trim(); if (!v) return gen(ch); const m = q != null && ch.msgs[q]; ip.value = ''; ip.oninput(); push(ch, { c: v, ...(m && { q: { w: who(ch, m.f), c: brief(m).slice(0, 40) } }) }); q = null; qbar(); },
+      send: () => { const ip = $('.ip', pg.el), v = ip.value.trim(); if (!v) return busy == ch.id || PEND.has(ch.id) ? stopGen(ch) : gen(ch); const m = q != null && ch.msgs[q]; ip.value = ''; ip.oninput(); push(ch, { c: v, ...(m && { q: { w: who(ch, m.f), c: brief(m).slice(0, 40) } }) }); q = null; qbar(); },
       pan, cset: () => cset(ch), qx: () => { q = null; qbar(); },
       ptab: x => { ptab = x; $('.pan', pg.el).innerHTML = panHtml('stk'); },
       emo: e => { const ip = $('.ip', pg.el); ip.value += e; ip.oninput(); },
