@@ -2,7 +2,7 @@
 import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, prof, LOG, saveLog, stopCall, TTSP, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
-import { lock, askPin, askGest, askFp, wpName } from '../../lock.js';
+import { lock, askPin, askGest, askFp, wpName, lockMig } from '../../lock.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
@@ -163,17 +163,20 @@ on('log', () => { const t = top(); t?.isLog && t.reb(); });
 
 /* ---------- 锁屏与密码 ---------- */
 function lockp() {
+  lockMig(); const need = () => { const L = S.lock, r = () => pg.re(); L.type == 'gesture' ? L.gest || askGest(r) : L.type == 'fp' ? L.fpSet || askFp(r) : L.pin || askPin(r); };
   const pg = page({
     title: '锁屏与密码', onClose: rf,
     onChange: k => { // 打开密码 / 换类型时，没设过就立刻让用户设置
-      const L = S.lock; if (k == 'lock.fp' && L.fp && !L.fpSet) { L.fp = false; askFp(() => pg.re()); } if (k == 'lock.pw' && L.pw || k == 'lock.type') { L.type == 'gesture' ? L.gest || askGest(() => pg.re()) : L.pin || askPin(() => pg.re()); } pg.re();
+      (k == 'lock.pw' && S.lock.pw || k == 'lock.type') && need(); pg.re();
     },
     body: () => { const f = fx(S), L = S.lock; return sec('lock', [
       ['l', '锁屏', f.tog('lock.on', '启用锁屏') + (L.on ? f.inp('lock.text', '锁屏签名', 'text', '显示在时间下面，可留空') + `<div class="row go" data-a="lwp"><span>锁屏壁纸</span><small>${esc(wpName())}</small></div>` : '')
         + `<p class="tip">开启后，每次收起或关掉小手机再打开，会先显示锁屏，向上滑动解锁。锁屏壁纸在「主题」里切换。</p>` + btn('lprev', '预览锁屏')],
-      L.on && ['p', '密码', f.tog('lock.pw', '启用密码') + (L.pw ? f.seg('lock.type', [['pin', '4位数字密码'], ['gesture', '手势密码']])
-        + `<div class="row go" data-a="spin"><span>${L.pin ? '修改' : '设置'}数字密码</span><small>${L.pin ? '已设置' : '未设置'}</small></div><div class="row go" data-a="sgest"><span>${L.gest ? '修改' : '设置'}手势密码</span><small>${L.gest ? '已设置' : '未设置'}</small></div>` + f.tog('lock.fp', '指纹解锁') + `<div class="row go" data-a="sfp"><span>${L.fpSet ? '重新录入指纹' : '录入指纹'}</span><small>${L.fpSet ? '已录入' : '未录入'}</small></div><p class="tip">指纹是模拟效果：锁屏底部会出现屏下指纹感应区，按住一下、纹路扫满就解锁。网页拿不到真实指纹，所以谁按都能开，只是还原解锁的手感；数字 / 手势密码和备用密码照常能用。</p>` : '')
-        + '<p class="tip">🔑 初始备用密码 <b>0000</b>：不能修改，永远有效。忘记自己设的密码时，在锁屏输入 0000 就能进入；手势锁屏点「使用备用密码」再输入 0000。</p>'],
+      L.on && ['p', '密码', f.tog('lock.pw', '启用密码') + (L.pw ? f.seg('lock.type', [['pin', '数字密码'], ['gesture', '手势密码'], ['fp', '指纹']])
+        + (L.type == 'gesture' ? `<div class="row go" data-a="sgest"><span>${L.gest ? '修改' : '设置'}手势密码</span><small>${L.gest ? '已设置' : '未设置'}</small></div>`
+          : L.type == 'fp' ? `<div class="row go" data-a="sfp"><span>${L.fpSet ? '重新录入指纹' : '录入指纹'}</span><small>${L.fpSet ? '已录入' : '未录入'}</small></div><p class="tip">指纹是模拟效果：锁屏底部会出现指纹感应区，按住、纹路扫满就解锁（网页拿不到真实指纹，谁按都能开）。上滑可以输入备用密码。</p>`
+          : `<div class="row go" data-a="spin"><span>${L.pin ? '修改' : '设置'}数字密码</span><small>${L.pin ? '已设置' : '未设置'}</small></div>`) : '')
+        + '<p class="tip">🔑 备用密码 <b>0000</b>：不能修改，永远有效。忘记密码时在锁屏输入 0000 就能进入。</p>'],
     ]); },
     acts: { lprev: () => lock(true), lwp: () => openApp('theme'), spin: () => askPin(() => pg.re()), sgest: () => askGest(() => pg.re()), sfp: () => askFp(() => pg.re()) },
   });

@@ -1,5 +1,5 @@
 // 小手机 · 锁屏：动态壁纸 / 时间 / 上滑解锁 / 4 位数字密码或手势密码
-// 初始备用密码 0000：不能修改、永远有效——忘记自己设的密码时输入 0000 就能进去（手势锁屏点「使用备用密码」）
+// 密码三选一：4 位数字 / 手势 / 指纹（模拟）。备用密码 0000：不能修改、永远有效
 import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc } from './core.js';
 import { mountScene, sceneInk, SCENES } from './lockfx.js';
 
@@ -88,7 +88,9 @@ export function askGest(done) {
 const FPP = ['M9 20c2.6-6 8.4-10 15-10s12.4 4 15 10', 'M13 37c1.6-3.2 2.2-6.4 2.2-10 0-5 4-8.8 8.8-8.8s8.8 3.8 8.8 8.8v2', 'M19 41c1.6-3.6 2.6-7.8 2.6-12.4 0-1.4 1-2.4 2.4-2.4s2.4 1 2.4 2.4c0 5.2-1 9.8-3 13.8',
   'M30 41.5c1.4-3.2 2.4-6.9 2.6-11', 'M38.6 33c-.5 2.6-1.3 4.8-2.2 6.7', 'M8.4 28.5c0-1.6.2-3.1.6-4.6', 'M15 14.2c2.6-1.6 5.7-2.5 9-2.5 6.2 0 11.6 3.3 14.4 8.3', 'M9.6 33.8c-.7-1.6-1.1-3.4-1.2-5.3', 'M26.5 29.2c0 4.1-.9 8.1-2.6 11.6'];
 export const fpSvg = () => `<svg viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-width="2.3"><g class="fpb" stroke="currentColor">${FPP.map(d => `<path d="${d}"/>`).join('')}</g><g class="fpc">${FPP.map(d => `<path pathLength="1" d="${d}"/>`).join('')}</g></svg>`;
-export const fpOn = () => !!(S.lock.pw && S.lock.fp && S.lock.fpSet);
+export const fpOn = () => !!(S.lock.pw && S.lock.type == 'fp' && S.lock.fpSet);
+// 旧版指纹是单独开关：改成三选一里的「指纹」
+export const lockMig = () => { const L = S.lock; if (!('fp' in L)) return; L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; save(); };
 // 按住 ms 毫秒算一次成功；提前松手算失败
 function holdSensor(btn, ms, ok, early) {
   let tm, t0;
@@ -97,14 +99,12 @@ function holdSensor(btn, ms, ok, early) {
   btn.addEventListener('pointerup', end); btn.addEventListener('pointercancel', end); btn.addEventListener('pointerleave', end);
 }
 // 录入：按 6 次，纹路一点点亮起来
+// 录入：按住一次，纹路扫满就录好了
 export function askFp(done) {
-  let n = 0; const N = 6;
-  const s = sheet({ title: '录入指纹', noBack: 1, cls: 'lk-sheet', body: () => `<div class="lk-auth lk-set lk-enr"><p class="lk-t">把手指放在感应区上</p><p class="lk-msg">按住，感觉到震动后抬起，重复几次</p><b class="lk-fp big">${fpSvg()}</b><p class="lk-pct">0%</p></div>`, after: el => {
-    const b = $('.lk-fp', el), set = () => { b.style.setProperty('--fp', 1 - n / N); $('.lk-pct', el).textContent = Math.round(n / N * 100) + '%'; }; set();
-    holdSensor(b, 450, () => { n++; set(); $('.lk-msg', el).classList.remove('bad');
-      $('.lk-msg', el).textContent = n < N ? ['很好，抬起再按', '继续，换个角度', '再来几次', '快好了', '最后一次'][n - 1] : '录入成功';
-      if (n >= N) { b.classList.add('ok'); S.lock.fpSet = true; S.lock.fp = true; save(); setTimeout(() => { s.close(); toast('指纹已录入'); done?.(); }, 700); }
-    }, () => { const m = $('.lk-msg', el); m.textContent = '请按住不要太快抬起'; m.classList.add('bad'); });
+  const s = sheet({ title: '录入指纹', noBack: 1, cls: 'lk-sheet', body: () => `<div class="lk-auth lk-set lk-enr"><p class="lk-t">把手指放在感应区上</p><p class="lk-msg">按住不动，纹路扫满就录好了</p><b class="lk-fp big rec">${fpSvg()}</b></div>`, after: el => {
+    const b = $('.lk-fp', el), m = $('.lk-msg', el);
+    holdSensor(b, 900, () => { b.classList.add('ok'); m.classList.remove('bad'); m.textContent = '录入成功'; S.lock.fpSet = true; save(); setTimeout(() => { s.close(); toast('指纹已录入'); done?.(); }, 650); },
+      () => { m.textContent = '请按住不要松开'; m.classList.add('bad'); });
   } });
 }
 
@@ -126,17 +126,17 @@ async function wallpaper() {
   bg.innerHTML = '<canvas></canvas>'; fx = mountScene($('canvas', bg), k, { active: () => locked && visible() });
 }
 export function lock(preview) {
-  el ||= ui.lock; if (!el) return;
+  el ||= ui.lock; if (!el) return; lockMig();
   locked = true; el.hidden = false; el.className = 'lock' + (preview ? ' pv' : '') + (fpOn() ? ' fp' : ''); ui.scr.classList.add('locked');
   el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock"><small class="lk-date"></small><b class="lk-time"></b>${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
-<div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${preview ? '预览 · 上滑退出' : fpOn() ? '按住指纹解锁 · 上滑输入密码' : '向上滑动解锁'}</span></div></div><div class="lk-auth" hidden></div>`;
+<div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${preview ? '预览 · 上滑退出' : fpOn() ? '按住指纹解锁 · 上滑用备用密码' : '向上滑动解锁'}</span></div></div><div class="lk-auth" hidden></div>`;
   wallpaper(); clock(); clearInterval(iv); iv = setInterval(() => locked && visible() && clock(), 1e3);
   swipe(preview);
-  const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑输入密码'), 1600); });
+  const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑用备用密码'), 1600); });
 }
 function swipe(preview) {
   const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0;
-  const go = () => preview || !S.lock.pw ? unlock() : auth();
+  const go = () => preview || !S.lock.pw ? unlock() : auth(S.lock.type == 'fp'); // 指纹模式上滑 = 备用密码
   u.addEventListener('pointerdown', e => { if (e.target.closest('.lk-auth')) return; y0 = e.clientY; t0 = Date.now(); dy = 0; u.style.transition = 'none'; });
   u.addEventListener('pointermove', e => { if (y0 == null) return; dy = Math.min(0, e.clientY - y0); u.style.transform = `translateY(${dy * .6}px)`; u.style.opacity = 1 + dy / 420; });
   const up = () => { if (y0 == null) return; y0 = null; u.style.transition = ''; u.style.transform = u.style.opacity = ''; (dy < -70 || dy / Math.max(1, Date.now() - t0) < -.5) && go(); };
@@ -149,10 +149,11 @@ function auth(backup) {
   const a = $('.lk-auth', el), gest = S.lock.type == 'gesture' && !!S.lock.gest && !backup; a.hidden = false; el.classList.add('authing');
   const box = Object.assign(document.createElement('div'), { className: 'lk-box' }); a.innerHTML = ''; a.append(box);
   if (gest) { el._pad = null; gesturePad(box, '绘制解锁图案', (g, p) => okGest(g) ? (p.msg(''), unlock()) : p.fail('图案错误，再试一次')); }
-  else el._pad = pinPad(box, backup ? '输入备用密码' : '输入密码', (v, p) => okPin(v) ? unlock() : p.fail(S.lock.pin ? '密码错误' : '还没设置密码，可以用备用密码进入'));
+  else el._pad = pinPad(box, backup ? '输入备用密码' : '输入密码', (v, p) => okPin(v) ? unlock() : p.fail(backup ? '备用密码是 0000' : S.lock.pin ? '密码错误' : '还没设置数字密码，备用密码 0000'));
+  backup && el._pad?.msg('备用密码 0000');
   const ft = Object.assign(document.createElement('div'), { className: 'lk-ft' });
   ft.innerHTML = `<b data-x="c">取消</b><b data-x="f">${gest ? '使用备用密码' : '忘记密码？'}</b>`; a.append(ft);
-  ft.onclick = e => { const x = e.target.dataset?.x; e.stopPropagation(); if (x == 'c') { a.hidden = true; el.classList.remove('authing'); } if (x == 'f') gest ? auth(true) : el._pad?.msg('忘记了就输入初始备用密码（可在设置里查看）'); };
+  ft.onclick = e => { const x = e.target.dataset?.x; e.stopPropagation(); if (x == 'c') { a.hidden = true; el.classList.remove('authing'); } if (x == 'f') gest ? auth(true) : el._pad?.msg('备用密码 0000'); };
 }
 export function unlock() {
   if (!el || !locked) return; locked = false; el.classList.add('out'); ui.scr.classList.remove('locked'); clearInterval(iv);

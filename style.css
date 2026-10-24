@@ -522,3 +522,7 @@
 .lk-enr{align-items:center}.lk-enr .lk-fp{position:relative;bottom:auto;left:auto;margin:22px 0 10px;width:110px;height:110px}.lk-enr .lk-fp svg{width:66px;height:66px}
 .lk-enr .lk-fp.on .fpc path{stroke-dashoffset:var(--fp);transition:stroke-dashoffset .35s}
 .lk-pct{font-size:13px;opacity:.75;letter-spacing:.1em}
+
+/* 弹出密码面板时把锁屏的时钟、指纹、提示都藏起来，避免透出来叠在一起 */
+.lock.authing .lk-ui{opacity:0!important;pointer-events:none;transition:opacity .2s}
+.lk-enr .lk-fp.rec.on .fpc path{stroke-dashoffset:0;transition:stroke-dashoffset .9s linear}
