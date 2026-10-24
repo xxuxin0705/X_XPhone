@@ -1,5 +1,5 @@
 // 聊天 · 数据层：联系人/群/消息的增删改，以及剧情同步 delta 的应用
-import { C, S, D, saveD, uid, ui, top, now, genImg, emit, merge, byId, nm, meObj, fail } from '../../core.js';
+import { C, S, D, saveD, uid, ui, top, now, genImg, emit, merge, byId, nm, meObj, fail, drop } from '../../core.js';
 
 export const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', lang: '', trOpen: false, trMine: false, inj: false, read: true, pat: true };
 export const STY = [['wx', '仿微信'], ['qq', '仿QQ'], ['kk', '仿KakaoTalk'], ['line', '仿LINE']];
@@ -58,4 +58,4 @@ export function applyDelta(d, cur) {
   });
   saveD(); emit('chat'); return out;
 }
-export const rm = c => { D().chats = D().chats.filter(x => x != c); D().chats.forEach(g => { g.members = g.members.filter(m => m != c.id); g.admins = g.admins.filter(m => m != c.id); }); };
+export const rm = c => { drop(c); D().chats = D().chats.filter(x => x != c); D().chats.forEach(g => { g.members = g.members.filter(m => m != c.id); g.admins = g.admins.filter(m => m != c.id); }); };

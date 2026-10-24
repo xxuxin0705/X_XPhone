@@ -1,13 +1,16 @@
 // 小手机 · 设置：API（聊天 / 生图渠道 / 语音渠道）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
 import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, prof, LOG, saveLog, stopCall, TTSP, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
+import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
+import { lock, askPin, askGest, wpName } from '../../lock.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
-const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? '酒馆' : prof(x) ? (x == 'chat' ? '' : pn(x, prof(x).prov) + ' · ') + (prof(x).name || '未命名') : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : '';
+const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? '酒馆' : prof(x) ? (x == 'chat' ? '' : pn(x, prof(x).prov) + ' · ') + (prof(x).name || '未命名') : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'gesture' ? '手势密码' : '数字密码') : '无密码') : '未开启') : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
+  ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
   ['通用', [['disp', '显示方式', '#64d2ff', '▣'], ['logs', '调用日志', '#8e8e93', '≡'], ['data', '数据管理', '#30b0c7', '⇪']]]];
 
 reg({
@@ -15,7 +18,7 @@ reg({
   open: () => page({
     title: '设置', cls: 'set',
     body: () => ROWS.map(([h, rs]) => `<h6>${h}</h6><div class="card">${rs.map(([a, x, c, i]) => `<div class="row go" data-a="${a}" data-x="${a == 'api' ? x : ''}"><i class="ri" style="background:${c}">${i}</i><span>${T[x] || x}</span><small>${esc(sub(a, x))}</small></div>`).join('')}</div>`).join(''),
-    acts: { api, link, ctx, disp, logs, data },
+    acts: { api, link, ctx, disp, logs, data, lockp },
   }),
 });
 
@@ -157,17 +160,36 @@ function logs() {
 G.openLogs = () => top()?.isLog || logs();
 on('log', () => { const t = top(); t?.isLog && t.reb(); });
 
+/* ---------- 锁屏与密码 ---------- */
+function lockp() {
+  const pg = page({
+    title: '锁屏与密码', onClose: rf,
+    onChange: k => { // 打开密码 / 换类型时，没设过就立刻让用户设置
+      const L = S.lock; if (k == 'lock.pw' && L.pw || k == 'lock.type') { L.type == 'gesture' ? L.gest || askGest(() => pg.re()) : L.pin || askPin(() => pg.re()); } pg.re();
+    },
+    body: () => { const f = fx(S), L = S.lock; return sec('lock', [
+      ['l', '锁屏', f.tog('lock.on', '启用锁屏') + (L.on ? f.inp('lock.text', '锁屏签名', 'text', '显示在时间下面，可留空') + `<div class="row go" data-a="lwp"><span>锁屏壁纸</span><small>${esc(wpName())}</small></div>` : '')
+        + `<p class="tip">开启后，每次收起或关掉小手机再打开，会先显示锁屏，向上滑动解锁。锁屏壁纸在「主题」里切换。</p>` + btn('lprev', '预览锁屏')],
+      L.on && ['p', '密码', f.tog('lock.pw', '启用密码') + (L.pw ? f.seg('lock.type', [['pin', '4位数字密码'], ['gesture', '手势密码']])
+        + `<div class="row go" data-a="spin"><span>${L.pin ? '修改' : '设置'}数字密码</span><small>${L.pin ? '已设置' : '未设置'}</small></div><div class="row go" data-a="sgest"><span>${L.gest ? '修改' : '设置'}手势密码</span><small>${L.gest ? '已设置' : '未设置'}</small></div>` : '')
+        + '<p class="tip">🔑 初始备用密码 <b>0000</b>：不能修改，永远有效。忘记自己设的密码时，在锁屏输入 0000 就能进入；手势锁屏点「使用备用密码」再输入 0000。</p>'],
+    ]); },
+    acts: { lprev: () => lock(true), lwp: () => openApp('theme'), spin: () => askPin(() => pg.re()), sgest: () => askGest(() => pg.re()) },
+  });
+}
+
 const dl = (n, o) => Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([JSON.stringify(o, null, 1)])), download: n }).click();
 const readJ = async () => { const f = await pickFile('.json'); try { return f && JSON.parse(await f.text()); } catch { toast('文件格式错误'); } };
 function data() {
   page({
     title: '数据管理',
-    body: () => `<div class="card">${btn('ex', '导出本聊天的手机数据')}${btn('im', '导入手机数据')}${btn('exs', '导出全局设置与素材（含API Key）')}${btn('ims', '导入全局设置与素材')}${btn('rs', '清空本聊天的手机数据', '', 'danger')}</div><p class="tip">联系人 / 聊天 / 动态跟随每个酒馆聊天文件分别保存；API、主题、素材、桌面为全局设置。</p>`,
+    body: () => `<div class="card">${btn('ex', '导出本聊天的手机数据')}${btn('im', '导入手机数据')}${btn('exs', '导出全局设置与素材（含API Key）')}${btn('ims', '导入全局设置与素材')}${btn('rs', '清空本聊天的手机数据', '', 'danger')}</div><p class="tip">联系人 / 聊天 / 动态跟随每个酒馆聊天文件分别保存；API、主题、素材、桌面为全局设置。</p><h6>图片与视频</h6><div class="card">${btn('mig', '把旧图片搬进文件夹')}</div><p class="tip">上传的图片、视频、AI 生成的图都存在 SillyTavern/data/你的用户名/user/images/${MDIR}/ 文件夹里，不占聊天数据。删掉消息、表情包、头像、壁纸或整个联系人时，没有别处再用到的文件会自动一起删除。旧版本存在数据里的图片可以点上面的按钮搬过去，聊天文件会小很多。</p>`,
     acts: {
+      mig: () => task('正在搬运旧图片', async (sg, prog) => `已搬运 ${await migrateMedia(n => prog(`${n} 张`))} 张`),
       ex: () => dl('phone-data.json', D()), exs: () => dl('phone-settings.json', S),
-      im: async () => { const d = await readJ(); d && (Object.assign(D(), d), saveD(), emit('chat'), toast('已导入')); },
-      ims: async () => { const d = await readJ(); d && (Object.assign(S, d), save(), toast('已导入，刷新页面后完全生效')); },
-      rs: async () => { if (await ok('清空后无法恢复，确定？')) { Object.assign(D(), { chats: [], posts: [] }); saveD(); toast('已清空'); } },
+      im: async () => { const d = await readJ(); d && (drop(structuredClone(D())), Object.assign(D(), d), saveD(), emit('chat'), toast('已导入')); },
+      ims: async () => { const d = await readJ(); d && (Object.assign(S, { ...d, media: { ...(d.media || {}), ...S.media } }), save(), toast('已导入，刷新页面后完全生效')); },
+      rs: async () => { if (await ok('清空后无法恢复，确定？（这个聊天里上传的图片也会一起删除）')) { drop({ c: D().chats, p: D().posts, m: D().me }); Object.assign(D(), { chats: [], posts: [] }); saveD(); toast('已清空'); } },
     },
   });
 }

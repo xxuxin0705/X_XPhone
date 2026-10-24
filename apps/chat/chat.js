@@ -1,5 +1,5 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
-import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, notify, emit } from '../../core.js';
+import { C, S, D, saveD, esc, uid, $, reg, page, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, notify, emit, drop } from '../../core.js';
 import { get, blank, add, upsert, applyDelta, sty, rm, STY, TN, CN, FS, FN } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 export { openChat, applyDelta };
@@ -91,7 +91,7 @@ const FA = {
     task('等待评论回复', async sg => { json(await llm(await sysCtx(), `${rn(get(p.a))}发了动态：“${p.c}”\n评论区：${p.cm.map(c => c.f + '：' + c.c).join('；')}\n请生成${rn(get(p.a))}（以及可能路过的联系人）对最新评论的回复1-2条。只输出JSON：{"comments":[{"from":"名字","text":""}]}`, '动态评论', sg))?.comments?.forEach(c => p.cm.push({ f: c.from, c: c.text })); saveD(); emit('chat'); return '收到回复'; });
   },
   pfeed: id => openFeed(id), myfeed: () => openFeed('me'),
-  pdel: id => { D().posts = D().posts.filter(p => p.id != id); saveD(); emit('chat'); },
+  pdel: id => { drop(D().posts.filter(p => p.id == id)); D().posts = D().posts.filter(p => p.id != id); saveD(); emit('chat'); },
   post: async () => { const r = await form('发表动态', [['c', '这一刻的想法...', 'area'], ['url', '配图', 'img']]); if (!r?.c && !r?.url) return; D().posts.unshift({ id: uid(), a: 'me', c: r.c || '', url: r.url, ts: +now(), likes: [], cm: [] }); saveD(); emit('chat'); },
   fgen: (x, t, e, pg) => genFeed(pg.aid),
 };

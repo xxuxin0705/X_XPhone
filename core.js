@@ -19,6 +19,7 @@ const api = x => ({ src: 'tavern', cur: '', list: [], ...x });
 const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
+  lock: { on: false, pw: false, type: 'pin', pin: '', gest: '', wp: 'cathedral', video: '', text: '' }, media: {},
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
@@ -34,7 +35,7 @@ export const initS = () => (S = merge(C().extensionSettings.st_phone ??= {}, DEF
 export const save = () => C().saveSettingsDebounced();
 const BLANK = { chats: [], posts: [], me: { nick: '', sign: '', av: '', cover: '', wallet: 520 }, plot: null };
 export const D = () => merge((C().chatMetadata ??= {}).st_phone ??= {}, BLANK);
-export const saveD = () => { const c = C(); (c.saveMetadataDebounced || c.saveMetadata)?.call(c); syncInject(); };
+let gct; export const saveD = () => { const c = C(); (c.saveMetadataDebounced || c.saveMetadata)?.call(c); syncInject(); clearTimeout(gct); gct = setTimeout(() => gc(), 3e3); };
 
 /* ---------- 名字 / 头像 ---------- */
 export const nm = c => c ? c.remark || c.nick || c.real || c.name || '?' : '?';
@@ -134,7 +135,7 @@ export const fx = m => {
 // fields 可以是数组，也可以是 m => 数组（字段随填写内容变化，如切换渠道）；chg(k, v, m, s) 在任意字段改动后调用
 export const form = (title, fields, obj = {}, ext = {}, chg) => new Promise(res => {
   const m = structuredClone(obj), f = fx(m); let done;
-  const s = sheet({ title, noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => chg?.(k, v, m, s), body: () => (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); } }, onClose: () => done || res(null) });
+  const s = sheet({ title, noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => chg?.(k, v, m, s), body: () => (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); drop(obj); } }, onClose: () => done || (drop(m), res(null)) });
 });
 // 可折叠、长按拖拽排序的分组
 export const sec = (pk, list) => { const o = S.ui.order[pk] || [], ix = k => o.indexOf(k) + 1 || 99; return `<div class="secs" data-secs="${pk}">${list.filter(Boolean).sort((a, b) => ix(a[0]) - ix(b[0])).map(([k, t, h]) => `<div class="sec ${S.ui.fold[pk + k] ? 'fold' : ''}" data-sec="${esc(k)}"><div class="sec-h" data-a="fold" data-x="${esc(pk + k)}" data-lp="secDrag"><b>${t}</b>${I.chev}</div><div class="sec-b">${h}</div></div>`).join('')}</div>`; };
@@ -147,10 +148,56 @@ export const readImg = (f, max = 400) => new Promise(r => {
     im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = Object.assign(document.createElement('canvas'), { width: im.width * s, height: im.height * s }); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); r(c.toDataURL('image/webp', .86)); }; im.onerror = () => r(fr.result); im.src = fr.result;
   }; fr.readAsDataURL(f);
 });
-export async function pickImg(max) { const k = await menu([['f', '从相册上传'], ['u', '输入图片链接'], ['c', '清除', 'danger']]); if (k == 'f') { const f = await pickFile(); return f ? readImg(f, max) : null; } if (k == 'u') return (await form('图片链接', [['u', 'URL']]))?.u ?? null; return k == 'c' ? '' : null; }
+export async function pickImg(max, kind = 'img') { const k = await menu([['f', '从相册上传'], ['u', '输入图片链接'], ['c', '清除', 'danger']]); if (k == 'f') { const f = await pickFile(); return f ? putMedia(await readImg(f, max), kind) : null; } if (k == 'u') return (await form('图片链接', [['u', 'URL']]))?.u ?? null; return k == 'c' ? '' : null; }
+
+/* ---------- 媒体文件：上传的图片 / 视频统一存进酒馆 data/<用户>/user/images/XPhone/ 文件夹，不再塞进聊天数据 ----------
+   删除跟随：S.media 记着「哪个文件被哪些聊天用到」（酒馆建分支会复制手机数据，所以不能只看当前聊天），
+   某个文件在设置里、当前聊天里、其它聊天里都不再被用到时，才会把文件删掉。 */
+export const MDIR = 'XPhone';
+const MRE = /\/user\/images\/XPhone\/[\w.\-]+/g, IRE = /idb:[\w-]+/g;
+const MIME = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/bmp': 'bmp', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
+const toB64 = b => new Promise((r, j) => { const f = new FileReader(); f.onload = () => r(String(f.result).split(',')[1]); f.onerror = () => j(f.error); f.readAsDataURL(b); });
+const jh = () => ({ ...C().getRequestHeaders?.(), 'Content-Type': 'application/json' });
+const idb = () => new Promise((r, j) => { const q = indexedDB.open('st_phone_media', 1); q.onupgradeneeded = () => q.result.createObjectStore('f'); q.onsuccess = () => r(q.result); q.onerror = () => j(q.error); });
+const idbDo = async (mode, f) => { const db = await idb(); return new Promise((r, j) => { const tx = db.transaction('f', mode), q = f(tx.objectStore('f')); tx.oncomplete = () => r(q?.result); tx.onerror = () => j(tx.error); }); };
+let warned;
+export async function putMedia(src, kind = 'img') {
+  if (!src || typeof src == 'string' && !src.startsWith('data:')) return src; // 网络链接原样保留
+  const b = typeof src == 'string' ? await (await fetch(src)).blob() : src, fmt = MIME[b.type] || (b.type.startsWith('video') ? 'mp4' : 'png');
+  try {
+    const r = await fetch('/api/images/upload', { method: 'POST', headers: jh(), body: JSON.stringify({ image: await toB64(b), format: fmt, ch_name: MDIR, filename: `${kind}_${uid()}` }) });
+    if (!r.ok) throw Error('HTTP ' + r.status); const u = (await r.json()).path; if (!u) throw Error('no path');
+    return u.startsWith('/') ? u : '/' + u;
+  } catch {
+    if (b.type.startsWith('video')) { const k = 'idb:' + uid(); await idbDo('readwrite', st => st.put(b, k)); return k; } // 视频太大，不进设置：存浏览器本地数据库
+    warned || (warned = 1, toast('当前酒馆不支持上传文件，图片暂存在数据里'));
+    return typeof src == 'string' ? src : `data:${b.type};base64,${await toB64(b)}`;
+  }
+}
+// 视频等存在本地数据库里的，用之前换成可播放的地址
+export const mediaSrc = async u => typeof u == 'string' && u.startsWith('idb:') ? URL.createObjectURL(await idbDo('readonly', st => st.get(u))) : u;
+export const mediaIn = x => { const s = typeof x == 'string' ? x : JSON.stringify(x ?? ''); return [...new Set([...(s.match(MRE) || []), ...(s.match(IRE) || [])])]; };
+const rmMedia = u => u.startsWith('idb:') ? idbDo('readwrite', st => st.delete(u)).catch(() => {}) : fetch('/api/images/delete', { method: 'POST', headers: jh(), body: JSON.stringify({ path: u }) }).catch(() => {});
+const ck = () => { const c = C(); return String(c.getCurrentChatId?.() ?? c.chatId ?? ''); };
+// 记录当前聊天在用的文件，并删掉已经没人用的（cands：刚被替换 / 删除的文件）
+export function gc(cands = new Set(), gone) {
+  const R = S.media ||= {}, k = ck(), used = new Set(mediaIn(C().chatMetadata?.st_phone));
+  if (gone) for (const u in R) R[u].includes(gone) && (R[u] = R[u].filter(x => x != gone), cands.add(u)); // 整个聊天被删
+  if (k) { used.forEach(u => (R[u] ||= []).includes(k) || R[u].push(k)); for (const u in R) if (!used.has(u) && R[u].includes(k)) { R[u] = R[u].filter(x => x != k); cands.add(u); } }
+  if (cands.size) { const { media, ...rest } = S, gs = JSON.stringify(rest); for (const u of cands) { if (used.has(u) || R[u]?.length || gs.includes(u)) continue; delete R[u]; rmMedia(u); } }
+  for (const u in R) R[u].length || used.has(u) || delete R[u];
+  save();
+}
+// 某个值被删除 / 替换后调用：稍等数据改完再检查，仍有地方在用就保留
+export const drop = x => { const us = mediaIn(x); us.length && setTimeout(() => gc(new Set(us)), 1500); };
+// 把旧版直接存在数据里的图片（data:）搬进文件夹
+export async function migrateMedia(prog) {
+  let n = 0; const walk = async o => { for (const k in o) { const v = o[k]; if (typeof v == 'string' && /^data:(image|video)\//.test(v) && v.length > 2048) { const u = await putMedia(v, 'old'); u != v && (o[k] = u, n++, prog?.(n)); } else if (v && typeof v == 'object') await walk(v); } };
+  await walk(S); await walk(D()); save(); saveD(); return n;
+}
 
 /* ---------- 事件委托：data-a 点击 / data-lp 长按 / data-k 绑定 ---------- */
-function set(pg, k, val) { const g = k[0] == '$', m = g || !pg?.model ? S : pg.model(); setP(m, g ? k.slice(1) : k, val); g || !pg?.model ? save() : (pg.save || saveD)(); pg?.onChange?.(k, val); emit('cfg', g ? k.slice(1) : k); }
+function set(pg, k, val) { const g = k[0] == '$', m = g || !pg?.model ? S : pg.model(), old = getP(m, g ? k.slice(1) : k); setP(m, g ? k.slice(1) : k, val); old !== val && drop(old); g || !pg?.model ? save() : (pg.save || saveD)(); pg?.onChange?.(k, val); emit('cfg', g ? k.slice(1) : k); }
 export function bind(R) {
   let lp, lpd, swp = 0;
   // 右滑返回：任意页面横向右滑，跟手移动，松手超过30%宽度或快速滑动即返回上一级
@@ -395,7 +442,7 @@ export async function genImg(prompt, sg) {
   own && p.pre?.trim() && (prompt = p.pre.trim().replace(/,\s*$/, '') + ', ' + prompt);
   return call('img', '生图', prompt, async (p, sig) => {
     if (tav('img')) return slash('/sd quiet=true ' + prompt);
-    const r = await (IMG[p.prov] || IMG.openai)(p, prompt, sig); if (!r) throw Error('没有返回图片'); return shrink(r);
+    const r = await (IMG[p.prov] || IMG.openai)(p, prompt, sig); if (!r) throw Error('没有返回图片'); return putMedia(await shrink(r), 'ai');
   }, sg);
 }
 // 拉取模型：OpenAI 兼容 /models；本地 SD 读 sd-models；ComfyUI 读底模文件列表

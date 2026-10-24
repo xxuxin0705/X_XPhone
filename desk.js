@@ -1,5 +1,5 @@
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
-import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp } from './core.js';
+import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia } from './core.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
 const SZ = [['2x1', '小 2×1'], ['2x2', '方 2×2'], ['4x1', '长条 4×1'], ['4x2', '大 4×2'], ['4x3', '超大 4×3']];
@@ -87,7 +87,7 @@ Object.assign(G, {
   edDone: () => { edit = 0; ui.desk.classList.remove('edit'); clean(); },
   go: i => goPage(+i),
   tap: (_, t) => { if (Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder') return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); },
-  del: id => { const [l, i] = find(id), it = l[i]; it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
+  del: id => { const [l, i] = find(id), it = l[i]; dropMedia(it); it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
   wAdd: async () => {
     const k = await menu([...Object.entries(WK).filter(([k]) => k != 'custom').map(([k, v]) => [k, v.n]), ...S.assets.widget.map((a, i) => ['@' + i, '✦ ' + esc(a.name)])], '添加小组件'); if (!k) return;
     const a = k[0] == '@' && S.assets.widget[k.slice(1)], [w, h] = (a?.sz || '2x2').split('x').map(Number);
