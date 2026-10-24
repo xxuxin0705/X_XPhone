@@ -29,9 +29,14 @@ let nReq = 0, prompts = [];
   await p.waitForTimeout(2500); ok(await E(`_c.msgs.at(-1).c`) == '好的～' && await vis() == 'reply', '回复到了，按钮回到 ✦');
   await p.click('.chat .go'); await p.waitForTimeout(300); ok(nReq == 2 && await vis() == 'stop', '再点 ✦ 又能让对方回');
   await p.click('.chat .go'); await p.waitForTimeout(2500); ok(await vis() == 'reply' && await E(`_c.msgs.filter(m => m.c == '好的～').length`) == 1, '点停止方块：这次回复停掉');
+  // 我发的表情包：对方要知道是什么意思
+  await E(`_c.msgs.push({ f: 'me', t: 'sticker', c: '表情', d: '小狗哭得稀里哗啦', pk: '小白狗', img: 'https://img.test/x.png', ts: Date.now() }, { f: 'me', t: 'sticker', c: '哭哭', img: 'https://img.test/y.png', ts: Date.now() }); core.emit('chat')`); await p.waitForTimeout(200);
+  await p.click('.chat .go'); await p.waitForTimeout(400);
+  ok(/\[表情包：（小狗哭得稀里哗啦），「小白狗」里的\][\s\S]*\[表情包：哭哭\]/.test(prompts.at(-1)) && !/\[表情\]表情/.test(prompts.at(-1)), '我发的表情包：对方看到的是「[表情包：哭哭]」这种带意思的，不是「[表情]表情」');
+  await p.waitForTimeout(2600);
   // 打开「发完消息自动回复」
   await E(`_c.cfg.auto = true`); await type('自动吗'); await p.click('.chat .go'); await p.waitForTimeout(300);
-  ok(await vis() == 'stop' && nReq == 2, '打开自动回复后：发完先等着（方块）');
-  await p.waitForTimeout(1600); ok(nReq == 3, '1.5 秒后自动回复');
+  ok(await vis() == 'stop' && nReq == 3, '打开自动回复后：发完先等着（方块）');
+  await p.waitForTimeout(1600); ok(nReq == 4, '1.5 秒后自动回复');
   await p.waitForTimeout(2000);
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

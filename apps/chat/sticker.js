@@ -7,6 +7,7 @@
 //   · 网络表情（搜狗 / 百度表情，apihz.cn 免费接口；GIPHY 要自己的免费 Key）：只在库里不够时补充
 import { S, save, esc, $, page, back, toast, ok, uid, getJ, emit, menu, form, pickFile, readImg, putMedia, drop } from '../../core.js';
 import { WL, FL } from './sticker-data.js';
+import { readText } from './ocr.js';
 
 /* ---------- 图片线路：一个打不开自动换下一个 ---------- */
 globalThis.__stkAlt ||= img => { const a = (img.dataset.alt || '').split('|').filter(Boolean); if (!a.length) return img.classList.add('bad'); img.dataset.alt = a.slice(1).join('|'); img.src = a[0]; };
@@ -163,7 +164,7 @@ export async function stkFind(q) {
   try { const W = await webSearch(q); return W.length ? msgOf(W[Math.random() * Math.min(4, W.length) | 0], q) : ''; } catch { return null; } // null＝网络出错，下次还会再试
 }
 // 表情 → 消息字段
-export const msgOf = (x, q) => ({ t: 'sticker', c: x.l || q || '表情', img: x.img, ...(x.alt?.length && { alt: x.alt.join('|') }), ...(x.sm && { sz: 's' }) });
+export const msgOf = (x, q) => { const pk = x.k && x.k != 'web' && x.k != 'fav' ? packMeta(x.k)?.name : ''; return { t: 'sticker', c: x.l || q || '表情', img: x.img, ...(x.d && { d: x.d }), ...(pk && { pk }), ...(x.alt?.length && { alt: x.alt.join('|') }), ...(x.sm && { sz: 's' }) }; };
 export const stkRecent = q => { q = String(q || '').trim(); if (!q) return; S.stk.recent = [q, ...S.stk.recent.filter(x => x != q)].slice(0, 12); save(); };
 
 /* ---------- 页面 ---------- */
@@ -283,7 +284,6 @@ export function stkPage(send) {
 
 /* ---------- 我自己导入的表情包组 ---------- */
 const nameOf = n => String(n || '').replace(/\.[^.]+$/, '').replace(/^[\d_\-\s]+/, '').replace(/[_-]+/g, ' ').trim().slice(0, 16);
-// 往一个组里加表情：相册多选 / 图片链接（每行「名字 链接」或只有链接）
 // 从一段文字里找出表情链接和说明：一行一个，支持「链接（说明）」「说明 链接」「只有链接」；没有链接的第一行当组名
 // 说明只从文字里取（括号里的、前面的字），不会调用任何 API
 const URLRE = /https?:\/\/[^\s（()）"'<>，,、]+/g;
@@ -321,34 +321,67 @@ export async function fileText(f) {
   if (/\.docx$/i.test(f.name)) return docxText(await f.arrayBuffer());
   const t = await f.text(); return /\.html?$/i.test(f.name) ? t.replace(/<br\s*\/?>|<\/(p|div|li|tr)>/gi, '\n').replace(/<[^>]+>/g, ' ') : t;
 }
-// 导入链接页：可以直接粘贴（每行一个），也可以选一个文件（docx / txt / md / json / html）自动把里面的链接挑出来
-function linkPage(p, isNew, done) {
-  let res = { title: '', items: [] };
-  const prev = () => `<p class="lk-n">${res.items.length ? `识别到 <b>${res.items.length}</b> 个表情${res.items.filter(x => !x.l).length ? `（${res.items.filter(x => !x.l).length} 个没有说明，导入后可以长按改名字）` : ''}` : '还没有识别到链接'}</p><div class="sp-g lk-g">${res.items.slice(0, 40).map(x => `<div class="sks-i">${imgH({ img: x.img })}${x.l ? `<small>${esc(x.l)}</small>` : ''}</div>`).join('')}</div>`;
-  const parse = () => { res = parseLinks($('.lk-ta', P.el).value); const n = $('.lk-name', P.el); n && !n.dataset.e && res.title && (n.value = res.title); $('.lk-pv', P.el).innerHTML = prev(); $('.lk-go', P.el).textContent = res.items.length ? `导入 ${res.items.length} 个` : '导入'; };
+// 导入前的检查页（上传图片和导入链接共用）：
+//  · 链接：可以直接粘贴（每行一个），也可以选文件（docx / txt / md / json / html）自动挑出链接
+//  · 每个表情点一下＝保留 / 不要，可以全选 / 全不选；点下面的名字（或长按）改名字和说明
+//  · 没有说明的表情自动在本地读图里的字当名字（不调用任何 API）
+function reviewPage(p, isNew, done, files) {
+  let L = [], tm = 0, ocrOn = S.stk.ocr !== false, run = 0, msg = '';
+  const keep = () => L.filter(x => x.keep);
+  if (files) L = files.map(f => ({ img: URL.createObjectURL(f), f, l: nameOf(f.name), d: '', keep: true }));
+  const grid = () => `<div class="rv-bar"><span>${L.length ? `已选 <b>${keep().length}</b> / ${L.length}` : '还没有表情'}</span>${L.length ? '<b data-a="rvall">全选</b><b data-a="rvnone">全不选</b>' : ''}</div>${msg ? `<p class="rv-msg">${esc(msg)}</p>` : ''}
+<div class="sp-g rv-g">${L.map((x, i) => `<div class="sks-i rv-i ${x.keep ? '' : 'drop'}" data-a="rvt" data-lp="rvn" data-x="${i}">${imgH({ img: x.img })}<i class="rv-ck"></i><small data-a="rvn" data-x="${i}" class="${x.l ? '' : 'none'}">${esc(x.l || (x.ocr ? '读不出字·点这起名' : '点这起名字'))}</small></div>`).join('')}</div>`;
+  const draw = () => { const g = $('.rv-w', P.el); g && (g.innerHTML = grid()); const b = $('.lk-go', P.el); b && (b.textContent = keep().length ? `导入 ${keep().length} 个` : '导入'); };
+  // 没名字的挨个读图里的字（一次只读一张，换了内容就重新开始）
+  const ocr = async () => {
+    if (!ocrOn) return; const my = ++run, todo = L.filter(x => !x.l && !x.d && !x.ocr); if (!todo.length) return;
+    let n = 0;
+    for (const x of todo) {
+      if (my != run || !P.el.isConnected) return; msg = `正在本地读图里的字 ${++n}/${todo.length}…`; draw();
+      try { const t = await readText(x.f || x.img, s => { msg = s; draw(); }); x.ocr = 1; t && !x.l && (x.l = t, x.d ||= '图上写着：' + t); }
+      catch (e) { x.ocr = 1; if (/下载失败/.test(e.message)) { msg = '读字程序下载失败（网络不通），可以手动起名字'; return draw(); } }
+    }
+    msg = `读完了：${todo.filter(x => x.l).length} 个读出了字，其余的没有字（可以点名字自己起）`; draw();
+  };
+  const parse = () => {
+    const ta = $('.lk-ta', P.el); if (!ta) return; const r = parseLinks(ta.value), old = new Map(L.map(x => [x.img, x]));
+    L = r.items.map(x => old.get(x.img) || { ...x, keep: true });
+    const n = $('.lk-name', P.el); n && !n.dataset.e && r.title && (n.value = r.title);
+    draw(); clearTimeout(tm); tm = setTimeout(ocr, 900);
+  };
   const P = open({
-    title: '导入表情链接', cls: 'skspg lkpg',
+    title: files ? '导入图片' : '导入表情链接', cls: 'skspg lkpg',
     body: () => `${isNew ? `<label class="lk-f"><span>组名</span><input class="lk-name" placeholder="比如：呆猫八条（文件第一行是名字会自动填）" value="${esc(p.name || '')}"></label>` : ''}
-<div class="lk-f col"><span>每行一个链接，后面可以用括号写说明</span><textarea class="lk-ta" placeholder="https://xx.com/a.jpg（小猫举手配文“收到”）&#10;https://xx.com/b.gif 哭哭&#10;摸摸头 https://xx.com/c.png"></textarea></div>
-<div class="lk-bt"><button class="btn" data-a="lkfile">从文件里提取链接</button><button class="btn pri lk-go" data-a="lkgo">导入</button></div><div class="lk-pv">${prev()}</div>
-<p class="sp-cr">支持 Word（.docx）、txt、md、json、html 文件。说明只从文件里的文字读取（括号里的、链接前面的字），不会调用你的 API。</p>`,
-    after: el => { const ta = $('.lk-ta', el); ta.oninput = parse; const n = $('.lk-name', el); n && (n.oninput = () => n.dataset.e = 1); },
+${files ? '' : `<div class="lk-f col"><span>每行一个链接，后面可以用括号写说明</span><textarea class="lk-ta" placeholder="https://xx.com/a.jpg（小猫举手配文“收到”）&#10;https://xx.com/b.gif 哭哭&#10;摸摸头 https://xx.com/c.png"></textarea></div>`}
+<div class="lk-bt">${files ? '' : '<button class="btn" data-a="lkfile">从文件里提取链接</button>'}<button class="btn pri lk-go" data-a="lkgo">导入</button></div>
+<label class="row rv-ocr"><span>没有说明的，自动读图里的字当名字</span><input type="checkbox" class="sw" data-a="rvocr" ${ocrOn ? 'checked' : ''}></label>
+<div class="rv-w">${grid()}</div>
+<p class="sp-cr">点表情＝保留 / 不要；点名字或长按＝改名字。读字在你的设备上完成，不会调用你的 API；没有字的表情（比如只有动作）读不出意思，需要的话自己起个名字，AI 就会按名字挑表情。</p>`,
+    after: el => { const ta = $('.lk-ta', el); ta && (ta.oninput = parse); const n = $('.lk-name', el); n && (n.oninput = () => n.dataset.e = 1); },
     acts: {
+      rvt: i => { const x = L[i]; x && (x.keep = !x.keep, draw()); },
+      rvall: () => { L.forEach(x => x.keep = true); draw(); }, rvnone: () => { L.forEach(x => x.keep = false); draw(); },
+      rvn: async i => { const x = L[i]; if (!x) return; const r = await form('起名字', [['l', '名字（显示在表情下面）'], ['d', '说明（可空，AI 按名字和说明挑表情）', 'area']], { l: x.l || '', d: x.d || '' }); if (!r) return; x.l = r.l.trim(); x.d = r.d.trim(); x.keep = true; draw(); },
+      rvocr: (x, t) => { ocrOn = S.stk.ocr = t.checked; save(); ocrOn ? ocr() : (run++, msg = '', draw()); },
       lkfile: async () => { const f = await pickFile('.docx,.txt,.md,.json,.html,.htm,.csv,text/plain'); if (!f) return; try { const t = await fileText(f), r = parseLinks(t); if (!r.items.length) return toast('这个文件里没有找到图片链接'); const ta = $('.lk-ta', P.el); ta.value = r.items.map(x => x.img + (x.d ? `（${x.d}）` : '')).join('\n'); const n = $('.lk-name', P.el); n && !n.dataset.e && (n.value = r.title || nameOf(f.name)); parse(); toast(`从文件里找到 ${r.items.length} 个链接`); } catch (e) { toast('读取文件失败：' + e.message); } },
-      lkgo: () => { if (!res.items.length) return toast('还没有识别到链接'); const n = $('.lk-name', P.el); n && (p.name = n.value.trim() || res.title || p.name || '我的表情包'); p.items.push(...res.items); save(); back(); toast(`已导入 ${res.items.length} 个表情`); done?.(); },
+      lkgo: async () => {
+        const K = keep(); if (!K.length) return toast(L.length ? '一个都没选' : '还没有识别到表情'); run++;
+        const n = $('.lk-name', P.el); n && (p.name = n.value.trim() || p.name || '我的表情包');
+        const add = []; if (files) toast(`正在保存 ${K.length} 张…`);
+        for (const x of K) { const it = { l: x.l || '', d: x.d || '', img: x.img }; if (x.f) { try { it.img = await putMedia(await readImg(x.f, 360), 'stk'); } catch { continue; } } add.push(it); }
+        L.forEach(x => x.f && URL.revokeObjectURL(x.img));
+        p.items.push(...add); save(); back(); toast(`已导入 ${add.length} 个表情`); done?.();
+      },
     },
   });
+  files && setTimeout(ocr, 300);
 }
-// 往一个组里加表情：直接上传图片（相册多选），或者导入链接
+// 往一个组里加表情：上传图片（多选）或导入链接，导入前都能挑选、起名字
 async function importTo(p, done, isNew) {
   const k = await menu([['f', '上传图片（可以多选）'], ['l', '导入链接（粘贴，或从文件里提取）']], isNew ? '导入表情包组' : '添加到「' + p.name + '」'); if (!k) return;
-  if (k == 'l') return linkPage(p, isNew, done);
-  if (isNew) { const r = await form('给这组起个名字', [['n', '组名', 'text', '比如：小哭猫、奶龙']]); if (!r) return; p.name = r.n?.trim() || '我的表情包'; }
+  if (k == 'l') return reviewPage(p, isNew, done);
   const fs = await new Promise(r => { const i = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/*', multiple: true }); i.onchange = () => r([...i.files]); i.click(); });
-  if (!fs.length) return; toast(`正在导入 ${fs.length} 张…`); const add = [];
-  for (const f of fs) { try { add.push({ l: nameOf(f.name), img: await putMedia(await readImg(f, 360), 'stk') }); } catch { } }
-  if (!add.length) return toast('没有可以导入的图片');
-  p.items.push(...add); save(); toast(`已导入 ${add.length} 个表情`); done?.();
+  fs.length && reviewPage(p, isNew, done, fs);
 }
 export async function importPack(then) {
   const p = { id: 'c_' + uid(), name: '', items: [] };

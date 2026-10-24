@@ -15,6 +15,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR
   const pick = async x => { await E(`document.querySelector('.sheet.mnu.in [data-a=pick][data-x="${x}"]').click()`); await W(350); };
   const items = () => E(`[...document.querySelectorAll('.sheet.mnu.in .mi')].map(b => b.textContent).join()`);
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.sk = await import('/apps/chat/sticker.js'); window.chat = await import('/apps/chat/chat.js');
+    window._ocr = []; (await import('/apps/chat/ocr.js')).ocrHook.read = async u => { window._ocr.push(String(u.name || u)); return [/cat4/.test(u) ? '我要 辞职' : '', 92]; };
     core.S.assets.sticker = [{ id: 'a', name: '一', img: 'https://img.test/1.png' }, { id: 'b', name: '二', img: 'https://img.test/2.png' }, { id: 'c', name: '三', img: 'https://img.test/3.png' }];
     core.APPS.chat.open(); const c = dt.add(dt.blank('p', { real: '姜照临', nick: 'Jiang', fr: 1 })); core.saveD(); talk.openChat(c.id); window._c = c; })()`); await W(600);
   // 1. 表情面板里长按
@@ -42,35 +43,54 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR
   const ta = await E(`document.querySelector('.lkpg .lk-ta').value`);
   ok(ta.split('\n').length == 4 && /cat1\.jpg（小猫手里拿红包配文“九九成稀罕物）/.test(ta) && !/HYPERLINK/.test(ta), 'Word 文件：挑出 4 个链接和括号里的说明（不重复、不带域代码）');
   ok(await E(`document.querySelector('.lkpg .lk-name').value`) == '呆猫测试', '文件第一行没有链接的字自动当组名');
-  const pv = await E(`[...document.querySelectorAll('.lkpg .lk-g small')].map(x => x.textContent).join('|')`);
-  ok(pv == '九九成稀罕物|小猫躲在墙边偷看|收到', '名字从说明里取：有配文用配文，没有就用说明 ' + pv);
-  ok(/识别到 4 个表情（1 个没有说明/.test(await E(`document.querySelector('.lkpg .lk-n').textContent`)), '没有说明的会提示导入后可以改名字');
+  await W(1200); // 没说明的那个：本地读图里的字
+  const labs = () => E(`[...document.querySelectorAll('.lkpg .rv-i small')].map(x => x.textContent).join('|')`);
+  ok(await labs() == '九九成稀罕物|小猫躲在墙边偷看|收到|我要辞职', '名字：有配文用配文，有说明用说明，没说明的本地读图里的字 ' + await labs());
+  ok(/读完了：1 个读出了字/.test(await E(`document.querySelector('.lkpg .rv-msg').textContent`)) && await E(`window._ocr.length`) == 1, '只读没说明的那张（不调用 API）');
+  ok(/已选 4 \/ 4/.test(await E(`document.querySelector('.lkpg .rv-bar').textContent`)), '默认全部保留');
+  await E(`document.querySelector('.lkpg .rv-i[data-x="1"]').click()`); await W(150);
+  ok(/已选 3 \/ 4/.test(await E(`document.querySelector('.lkpg .rv-bar').textContent`)) && await E(`document.querySelector('.lkpg .rv-i[data-x="1"]').classList.contains('drop')`), '点一下：这个不要了（变灰）');
+  await E(`document.querySelector('.lkpg [data-a=rvnone]').click()`); await W(100); ok(/已选 0 \/ 4/.test(await E(`document.querySelector('.lkpg .rv-bar').textContent`)), '全不选');
+  await E(`document.querySelector('.lkpg [data-a=rvall]').click()`); await W(100); ok(/已选 4 \/ 4/.test(await E(`document.querySelector('.lkpg .rv-bar').textContent`)), '全选');
+  await E(`document.querySelector('.lkpg .rv-i[data-x="1"]').click()`); await W(100);
+  await lp('.lkpg .rv-i[data-x="0"] img'); await p.fill('.sheet.in [data-k=l]', '红包'); await p.press('.sheet.in [data-k=l]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(300);
+  ok((await labs()).startsWith('红包|'), '导入前长按（或点名字）就能改名字');
   await p.screenshot({ path: path.join(OUT, 'mine_b.png') });
+  ok(await E(`document.querySelector('.lkpg [data-a=lkgo]').textContent`) == '导入 3 个', '按钮写着要导入几个');
   await E(`document.querySelector('.lkpg [data-a=lkgo]').click()`); await W(600);
   const mp = await E(`JSON.stringify(core.S.stk.mine.map(p => [p.name, p.items.map(x => x.l + '|' + x.d)]))`);
-  ok(/呆猫测试/.test(mp) && /收到\|小猫举手配文“收到”/.test(mp), '导入成功：名字 + 完整说明都存下了 ' + mp.slice(0, 120));
+  ok(/呆猫测试/.test(mp) && /收到\|小猫举手配文“收到”/.test(mp) && /我要辞职\|图上写着：我要辞职/.test(mp) && !/墙边/.test(mp) && /红包/.test(mp), '只导入保留的 3 个，名字和说明都存下了 ' + mp.slice(0, 160));
   const id = await E(`core.S.stk.mine[0].id`);
   ok(await E(`core.S.stk.packs[0]`) == id && await E(`!!document.querySelector('.sppg.in')`), '导入的组排在面板最前面，并打开详情');
-  ok((await E(`sk.localSearch('稀罕').then(L => L[0]?.l)`)) == '九九成稀罕物', '说明里的字也能搜到，AI 发表情时也会用上');
-  await lp('.sppg .sks-i[data-x="3"]'); ok(/移到前面,改名字,删除/.test(await items()), '长按自己导入的表情：移到前面 / 改名字 / 删除'); await pick('ren');
-  await p.fill('.sheet.in [data-k=l]', '委屈'); await p.press('.sheet.in [data-k=l]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(400);
-  ok(await E(`core.S.stk.mine[0].items[3].l`) == '委屈', '没说明的表情改了名字');
-  await lp('.sppg .sks-i[data-x="1"]'); await pick('top'); ok(await E(`core.S.stk.mine[0].items[0].l`) == '小猫躲在墙边偷看', '移到前面');
+  ok((await E(`sk.localSearch('稀罕').then(L => L[0]?.l)`)) == '红包', '说明里的字也能搜到，AI 发表情时也会用上');
+  await lp('.sppg .sks-i[data-x="2"]'); ok(/移到前面,改名字,删除/.test(await items()), '导入以后长按也能：移到前面 / 改名字 / 删除'); await pick('ren');
+  await p.fill('.sheet.in [data-k=l]', '辞职'); await p.press('.sheet.in [data-k=l]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(400);
+  ok(await E(`core.S.stk.mine[0].items[2].l`) == '辞职', '改了名字');
+  await lp('.sppg .sks-i[data-x="1"]'); await pick('top'); ok(await E(`core.S.stk.mine[0].items[0].l`) == '收到', '移到前面');
   // 直接粘贴链接（每行一个）
   await E(`void sk.importPack()`); await W(400); await pick('l'); await W(400);
   await p.fill('.lkpg .lk-name', '小哭猫'); await E(`document.querySelector('.lkpg .lk-name').dispatchEvent(new Event('input'))`);
-  await p.fill('.lkpg .lk-ta', '哭哭 https://img.test/a.gif\nhttps://img.test/b.png（抱抱）\n乱写的一行'); await E(`document.querySelector('.lkpg .lk-ta').dispatchEvent(new Event('input'))`); await W(200);
+  await p.fill('.lkpg .lk-ta', '哭哭 https://img.test/a.gif\nhttps://img.test/b.png（抱抱）\n乱写的一行'); await E(`document.querySelector('.lkpg .lk-ta').dispatchEvent(new Event('input'))`); await W(300);
   await E(`document.querySelector('.lkpg [data-a=lkgo]').click()`); await W(500);
   ok(await E(`JSON.stringify(core.S.stk.mine.find(p => p.name == '小哭猫')?.items.map(x => x.l))`) == '["哭哭","抱抱"]', '直接粘贴：一行一个，说明写前面或括号里都行');
+  // 上传图片：也先挑一遍、读字
+  await E(`void sk.importPack()`); await W(400);
+  const [fc2] = await Promise.all([p.waitForEvent('filechooser'), pick('f')]);
+  await fc2.setFiles([{ name: 'dog_cry.png', mimeType: 'image/png', buffer: PNG }, { name: '1234.png', mimeType: 'image/png', buffer: PNG }]); await W(1200);
+  ok(await E(`!!document.querySelector('.lkpg.in') && document.querySelectorAll('.lkpg .rv-i').length == 2 && !document.querySelector('.lkpg .lk-ta')`), '上传图片：先进挑选页（没有链接框）');
+  ok(await labs() == 'dog cry|点这起名字' || await labs() == 'dog cry|读不出字·点这起名', '文件名能当名字的就用，读不出字的提示自己起 ' + await labs());
+  await p.fill('.lkpg .lk-name', '小白狗'); await E(`document.querySelector('.lkpg .lk-name').dispatchEvent(new Event('input'))`);
+  await E(`document.querySelector('.lkpg [data-a=lkgo]').click()`); await W(1200);
+  ok(await E(`core.S.stk.mine.find(p => p.name == '小白狗')?.items.length`) == 2, '上传的图片导入成功');
   await E(`core.back()`); await W(300);
   // 3. 我的表情页
   await E(`document.querySelector('.spstore [data-a=spmine]').click()`); await W(500);
   const rowsT = await E(`[...document.querySelectorAll('.spmine .sp-row b:first-child')].map(b => b.textContent).join()`);
-  ok(/添加的单个表情/.test(rowsT) && /小哭猫/.test(rowsT) && /呆猫测试/.test(rowsT) && /比心贴贴/.test(rowsT), '我的表情：单个表情 + 聊天面板中的整套表情 ' + rowsT);
+  ok(/添加的单个表情/.test(rowsT) && /小哭猫/.test(rowsT) && /小白狗/.test(rowsT) && /呆猫测试/.test(rowsT) && /比心贴贴/.test(rowsT), '我的表情：单个表情 + 聊天面板中的整套表情 ' + rowsT);
   await p.screenshot({ path: path.join(OUT, 'mine_c.png') });
   await E(`document.querySelector('.spmine [data-a=mrm][data-x=f-face]').click()`); await W(300); ok(!(await E(`core.S.stk.packs.includes('f-face')`)), '「移除」：整套表情从面板拿掉');
   await E(`document.querySelector('.spmine [data-a=mrm][data-x="${id}"]').click()`); await W(300); await pick('y');
-  ok(await E(`core.S.stk.mine.length`) == 1, '自己导入的组：确认后整组删除');
+  ok(await E(`core.S.stk.mine.length`) == 2, '自己导入的组：确认后整组删除');
   await E(`document.querySelector('.spmine [data-a=mfav]').click()`); await W(400);
   ok(await E(`document.querySelectorAll('.pg.in .sp-g .sks-i:not(.add)').length`) == 3, '「添加的单个表情」页能看到全部');
   await E(`core.home()`); await W(300);
