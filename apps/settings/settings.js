@@ -58,7 +58,7 @@ const TIP = {
   tts: {},
 };
 const fields = t => m => t == 'chat'
-  ? [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型', 'pull', '填好地址和Key后点拉取'], ['temp', '温度', 'number', '0.9'], ['fast', '低思考模式（更快，接口不支持会自动退回）', 'tog'], ['nostream', '关闭流式传输（接口不支持流式时才勾）', 'tog']]
+  ? [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型', 'pull', '填好地址和Key后点拉取'], ['temp', '温度', 'number', '0.9'], ['stream', '流式输出', 'tog'], ['fast', '低思考模式（更快，接口不支持会自动退回）', 'tog']]
   : [['name', '名称'], ['prov', '渠道', 'sel', PV[t]], ...(TIP[t][m.prov] ? [['', TIP[t][m.prov], 'tip']] : []), ...((t == 'tts' ? TF : IF)[m.prov] || (t == 'tts' ? TF : IF).openai)(m),
     ...(t == 'tts' ? [['voice', '默认音色', 'text', VPH[m.prov] || ''], ['vm', '男声兜底音色', 'text', '男性联系人没绑音色时用'], ['vf', '女声兜底音色', 'text', '女性联系人没绑音色时用']] : [])];
 
@@ -117,6 +117,10 @@ function provPage(t) {
   });
   const show = u => typeof u == 'string' && /^(data:|https?:|blob:)/.test(u) && sheet({ title: '测试图', noBack: 1, body: () => `<img class="tpic" src="${esc(u)}">` });
 }
+// 聊天配置里存的模型（同一个网站可以存好几个，点一下切换）
+const allM = p => [...new Set([...(p.models || []), p.model].filter(Boolean))];
+const keepM = (p, m) => { p.models = [...new Set([...allM(p), m])]; p.model = m; };
+const mchips = p => { const L = allM(p); return L.length > 1 || p.id ? `<div class="mchips">${L.map((m, i) => `<b class="mchip ${m == p.model ? 'on' : ''}" data-a="muse" data-x="${p.id}|${i}" data-lp="mdel">${esc(m)}</b>`).join('')}<b class="mchip add" data-a="pmod" data-x="${p.id}">＋ 模型</b></div>` : ''; };
 function api(t) {
   if (t != 'chat') return provPage(t);
   const a = S.api[t], cur = () => a.list.findIndex(p => p.id == a.cur);
@@ -124,7 +128,7 @@ function api(t) {
     title: T[t], model: () => a, save, onClose: rf,
     body: () => { const i = cur(), p = a.list[i]; return fx(a).seg('src', t == 'chat' ? [['tavern', '酒馆连接'], ['custom', '自定义 API']] : [['tavern', '酒馆扩展'], ['custom', '自选渠道']]) + (a.src == 'tavern'
       ? (t == 'chat' ? stPick(a) : `<p class="tip">${{ img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`)
-      : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}${t == 'chat' ? '' : `<em class="pv">${esc(pn(t, p.prov))}</em>`}</b><small>${esc(p.model || p.voice || '未选模型')}${p.url ? ' · ' + esc(p.url) : ''}</small></span></div>`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除</p>${btn('padd', '＋ 新增' + (t == 'chat' ? '配置' : '渠道'))}${p && (t == 'chat' || (p.prov || 'openai') == 'openai') ? btn('pmod', '拉取模型列表') : ''}`
+      : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}${t == 'chat' ? '' : `<em class="pv">${esc(pn(t, p.prov))}</em>`}</b><small>${esc(p.model || p.voice || '未选模型')}${p.url ? ' · ' + esc(p.url) : ''}</small></span></div>${t == 'chat' ? mchips(p) : ''}`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除${t == 'chat' ? ' · 点模型名直接换模型，长按模型名移除' : ''}</p>${btn('padd', '＋ 新增' + (t == 'chat' ? '配置' : '渠道'))}${p && t != 'chat' && (p.prov || 'openai') == 'openai' ? btn('pmod', '拉取模型列表') : ''}`
         + (t == 'tts' && p ? `<h6>兜底音色 · ${esc(p.name || pn(t, p.prov))}</h6><div class="card">${fx(a).inp(`list.${i}.vm`, '男声兜底', 'text', '男性联系人没绑音色时用')}${fx(a).inp(`list.${i}.vf`, '女声兜底', 'text', '女性联系人没绑音色时用')}</div><p class="tip">联系人没有绑定专属音色时，按联系人性别调用这里的男 / 女兜底音色；性别不明就用配置里的默认音色。联系人的性别和音色在「聊天信息」里改。</p>` : ''))
       + (t == 'chat' && (a.list.length || stProfiles()?.length) ? `<h6>生成用模型</h6><div class="card">${fx(a).sel('aux', '生成联系人 / 剧情同步', [['', '跟聊天模型一样'], ...a.list.map(p => [p.id, (p.name || '未命名') + (p.model ? ' · ' + p.model : '')]), ...(stProfiles() || []).map(p => ['st:' + p.id, '酒馆 · ' + (p.name || '未命名') + (p.model ? ' · ' + p.model : '')])])}</div><p class="tip">生成联系人、剧情同步、世界书解析、生图提示词这类「列清单」的活不需要思考。像 glm-5.3-flash 这种强制思考、关不掉的模型，会先想上万字再输出（日志里的「模型思考中 N字」就是它，不是联系人内容）。这里另选一个不思考的模型（同一个公益站里的非思考模型就行），会快很多；聊天回复仍用上面的模型。</p>` : '')
       + (t == 'chat' ? `<div class="card">${fx(a).inp('$tmo', '超时（秒）', 'number', '300')}</div><p class="tip">连续这么久没收到任何数据才判定失败（流式输出时边收边计时，默认5分钟）。想更快：开「低思考模式」、选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
@@ -132,14 +136,17 @@ function api(t) {
     acts: {
       pick: id => { a.cur = id; save(); pg.re(); }, stp: id => { a.stp = id; save(); pg.re(); }, padd: () => pe(),
       pedit: async id => { const p = a.list.find(x => x.id == id), k = await menu([['e', '编辑'], ['c', '复制'], ['d', '删除', 'danger']], esc(p.name)); k == 'e' && pe(p); k == 'c' && a.list.push({ ...structuredClone(p), id: uid(), name: p.name + ' 副本' }); k == 'd' && a.list.splice(a.list.indexOf(p), 1); save(); pg.re(); },
-      pmod: async () => { try { toast('拉取中…'); const m = await menu((await models(prof(t), t)).map(x => [x, esc(x)]), '选择模型'); m && (prof(t).model = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
+      pmod: async (id) => { const p = a.list.find(x => x.id == id) || prof(t); try { toast('拉取中…'); const m = await menu((await models(p, t)).map(x => [x, esc(x)]), '选择模型'); m && (keepM(p, m), a.cur = p.id, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
+      // 同一个网站存好几个模型：点一下就换，原来的还在
+      muse: x => { const [id, i] = x.split('|'), p = a.list.find(q => q.id == id), m = allM(p)[+i]; if (!p || !m) return; p.model = m; a.cur = id; save(); pg.re(); toast('换成 ' + m); },
+      mdel: async x => { const [id, i] = x.split('|'), p = a.list.find(q => q.id == id), m = allM(p)[+i]; if (!p || !m) return; if (allM(p).length < 2) return toast('至少留一个模型'); if (!await ok('移除模型 ' + m + '？')) return; p.models = allM(p).filter(v => v != m); p.model == m && (p.model = p.models[0]); save(); pg.re(); },
       test: () => task('测试连接中', async sg => t == 'chat' ? '✓ ' + String(await llm('Reply in one short sentence.', '用一句话打个招呼', '测试', sg)).slice(0, 30)
         : t == 'img' ? (show(await genImg('a cute cat, pastel colors, soft light', sg)), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试。', '', '', sg), '✓ 已播放')),
     },
   });
   const show = u => typeof u == 'string' && /^(data:|https?:|blob:)/.test(u) && sheet({ title: '测试图', noBack: 1, body: () => `<img class="tpic" src="${esc(u)}">` });
   const pe = async (p = {}) => {
-    const p0 = t == 'chat' ? p : p.id ? { ...p, prov: p.prov || 'openai' } : { prov: PV[t][0][0], ...PD[t][PV[t][0][0]] };
+    const p0 = t == 'chat' ? { ...p, stream: p.stream ?? !p.nostream } : p.id ? { ...p, prov: p.prov || 'openai' } : { prov: PV[t][0][0], ...PD[t][PV[t][0][0]] };
     let pv = p0.prov;
     const r = await form(p.id ? '编辑配置' : t == 'chat' ? '新增配置' : '新增渠道', fields(t), p0, {
       pull: async (k, el, e, s) => {
@@ -150,7 +157,7 @@ function api(t) {
       if (k == 'prov') { const d0 = PD[t][pv] || {}, d1 = PD[t][v] || {}; for (const x in d0) m[x] === d0[x] && delete m[x]; for (const x in d1) (m[x] == null || m[x] === '') && (m[x] = d1[x]); pv = v; }
       (k == 'prov' || k == 'ver') && s.reb();
     });
-    if (!r) return; r.name ||= t == 'chat' ? '未命名' : pn(t, r.prov);
+    if (!r) return; r.name ||= t == 'chat' ? '未命名' : pn(t, r.prov); t == 'chat' && (delete r.nostream, delete p.nostream, r.model && (r.models = [...new Set([r.model, ...(p.models || [])])]));
     r.id ? Object.assign(p, r) : (r.id = uid(), a.list.push(r), a.cur ||= r.id); save(); pg.re();
   };
 }
@@ -168,6 +175,7 @@ function link() {
   });
 }
 
+const entI = (o, st) => `<i class="st ${o == null ? 'auto' : ''} ${st ? 'on' : ''}">${o == null ? (st ? '跟随·开' : '跟随·关') : st ? '开' : '关'}</i>`;
 function ctx() {
   let bk = [], all = [], ents = {};
   const pg = page({
@@ -175,9 +183,13 @@ function ctx() {
     body: () => { const f = fx(S), r = recent(); return sec('ctx', [
       ['c', '上下文', f.inp('ctxN', '读取正文条数', 'number')],
       ['w', '世界书', f.tog('wi.follow', '跟随酒馆已开启的世界书') + (S.wi.follow ? `<p class="tip">当前：${esc(bk.join('、') || '无')}</p>` : f.multi('wi.books', '手动选择世界书', all.map(n => [n, n])))],
-      ...bk.map(b => ['b:' + b, '📖 ' + esc(b), Object.values(ents[b] || {}).map(e => { const o = S.wi.ov[b + '/' + e.uid], st = entState(b, e, r); return `<div class="ent" data-a="ent" data-x="${esc(b + '/' + e.uid)}"><i class="st ${o == null ? 'auto' : ''} ${st ? 'on' : ''}">${o == null ? (st ? '跟随·开' : '跟随·关') : o ? '强制开' : '强制关'}</i><span>${esc(e.comment || (e.key || []).join(',') || '#' + e.uid)}</span>${e.constant ? '<em>常驻</em>' : ''}</div>`; }).join('') || '<p class="tip">空</p>'])])
-      + '<p class="tip">点击条目切换：跟随（酒馆开启 + 常驻/关键词触发）→ 强制开 → 强制关</p>'; },
-    acts: { ent: x => { const o = S.wi.ov[x]; o == null ? (S.wi.ov[x] = 1) : o ? (S.wi.ov[x] = 0) : delete S.wi.ov[x]; save(); pg.re(); } },
+      ...bk.map(b => ['b:' + b, '📖 ' + esc(b), Object.values(ents[b] || {}).map(e => { const o = S.wi.ov[b + '/' + e.uid], st = entState(b, e, r); return `<div class="ent" data-a="ent" data-lp="entr" data-x="${esc(b + '/' + e.uid)}">${entI(o, st)}<span>${esc(e.comment || (e.key || []).join(',') || '#' + e.uid)}</span>${e.constant ? '<em>常驻</em>' : ''}</div>`; }).join('') || '<p class="tip">空</p>'])])
+      + '<p class="tip">点一下开 / 关 · 长按恢复跟随酒馆</p>'; },
+    // 点一下：现在开着就关、关着就开（只改这一条，页面不跳）；长按：恢复跟随酒馆
+    acts: {
+      ent: (x, el) => { const [b, ...u] = x.split('/'), e = Object.values(ents[b] || {}).find(e => String(e.uid) == u.join('/')); if (!e) return; const on = entState(b, e, recent()); S.wi.ov[x] = on ? 0 : 1; save(); el.querySelector('.st').outerHTML = entI(S.wi.ov[x], !on); },
+      entr: (x, el) => { const [b, ...u] = x.split('/'), e = Object.values(ents[b] || {}).find(e => String(e.uid) == u.join('/')); if (!e || S.wi.ov[x] == null) return; delete S.wi.ov[x]; save(); el.querySelector('.st').outerHTML = entI(null, entState(b, e, recent())); toast('已恢复跟随酒馆'); },
+    },
   });
   const load = async () => { all = await allBooks(); bk = await wiBooks(); for (const b of bk) ents[b] = (await loadBook(b))?.entries; pg.re(); }; load();
 }

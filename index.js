@@ -3,6 +3,7 @@ import { C, S, ui, G, $, on, initS, bind, save, home, top, hm, now, scanTime, sy
 import { relock, unlock, isLocked } from './lock.js';
 import { preloadScene } from './lockfx.js';
 import { applyBall } from './ball.js';
+import { randWall } from './apps/theme/theme.js';
 import { renderDesk, initDesk } from './desk.js';
 import { openChat, syncStory, inlineSync } from './apps/chat/chat.js';
 import './apps/settings/settings.js';
@@ -21,7 +22,7 @@ function drag(el, h, key, tap) {
 }
 const pos = () => [[ui.root, 'win'], [$('#stp-ball'), 'ball']].forEach(([el, k]) => { el.style.left = el.style.top = el.style.right = el.style.bottom = ''; S.pos[k] && place(el, ...S.pos[k]); });
 // 收起手机 = 熄屏：开了锁屏的话，下次打开先看到锁屏
-const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || relock(); $('#stp-ball').classList.remove('dot'); tick(); } else was && setTimeout(() => ui.root.classList.contains('on') || relock(true), 320); }; // 等收起动画结束再把锁屏重置好、画好
+const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || (randWall(), relock()); $('#stp-ball').classList.remove('dot'); tick(); } else was && setTimeout(() => ui.root.classList.contains('on') || relock(true), 320); }; // 等收起动画结束再把锁屏重置好、画好
 function tick() { $('.sb-t', ui.root).textContent = hm(now()); ui.root.classList.contains('on') && !ui.desk.classList.contains('edit') && renderDesk(); }
 function show() {
   $('#stp-ball').hidden = S.show != 'float'; applyBall(); $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', 1); ui.root.style.setProperty('--fz', .92 * (S.fzp ?? 100) / 100); // 字体：100% = 原来的默认大小
@@ -41,6 +42,7 @@ function init() {
   ui.sheets.addEventListener('click', e => e.target == ui.sheets && ui.sheets.lastElementChild?._pg.close());
   on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz)/.test(k) && show(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(); });
   on('open-chat', id => { toggle(true); openChat(id); });
+  on('home', () => randWall());
   on('badge', () => ui.root.classList.contains('on') || $('#stp-ball').classList.add('dot'));
   const c = C(), E = c.eventTypes || c.event_types;
   c.eventSource.on(E.CHAT_CHANGED, () => { home(); renderDesk(); syncInject(); tick(); setTimeout(() => gc(), 800); });

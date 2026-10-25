@@ -20,7 +20,7 @@ const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', img: '', text: '' }, media: {},
-  stk: { see: true, v: 3, packs: ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
+  stk: { see: true, v: 3, packs: ['qq', 'weibo', 'tieba'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, fzp: 100, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
@@ -88,7 +88,7 @@ function mk(o, cls, box) {
 const close = o => { o.el.classList.remove('in'); o.onClose?.(); setTimeout(() => o.el.remove(), 330); };
 export const page = o => (stack.push(o), mk(o, 'pg', ui.stack));
 export const top = () => stack.at(-1);
-export const back = () => { const o = stack.pop(); o && close(o); };
+export const back = () => { const o = stack.pop(); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
 export const home = () => { while (stack.length) back(); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };
@@ -386,7 +386,7 @@ export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const R = route
   const once = async img => {
     if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: user });
     if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : user, sig, cx, o);
-    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : user }], ...(!p.nostream && { stream: true }) };
+    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : user }], ...((p.stream ?? !p.nostream) && { stream: true }) };
     const x = p.fast || o.fast ? noThink(p.model) : null; let r;
     try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
     catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }

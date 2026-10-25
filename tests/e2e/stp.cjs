@@ -51,5 +51,27 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // chat page screenshot like user's
   await E(`(async () => { while (core.top()) { core.back(); await new Promise(r => setTimeout(r, 50)); } const ch = await import('/apps/chat/chat.js'); const D = core.D(); D.chats.push({ id: 'g1', type: 'g', name: '一天到晚干嘛呢！', members: ['a','b','c'], msgs: [] }); core.APPS.chat.open(); ch.openChat('g1'); })()`); await p.waitForTimeout(900);
   await p.screenshot({ path: path.join(OUT, 'stp_b.png') });
+  // 聊天模型：流式输出（默认开、在低思考上面）；同一个网站存好几个模型，点一下就换
+  await E(`(async () => { while (core.top()) { core.back(); await new Promise(r => setTimeout(r, 50)); } core.S.api.chat = { src: 'custom', cur: 'c1', list: [{ id: 'c1', name: '公益站', url: 'https://x.test/v1', key: 'k', model: 'glm-5.3', nostream: false }] }; core.APPS.settings.open(); })()`); await p.waitForTimeout(400);
+  await E(`document.querySelector('[data-a=api][data-x=chat]').click()`); await p.waitForTimeout(500);
+  await E(`document.querySelector('.pg:last-child [data-a=padd]').click()`); await p.waitForTimeout(500);
+  const fl = await E(`[...document.querySelectorAll('.sheet.in .row span')].map(e => e.textContent).join('|')`);
+  ok(/流式输出\|低思考模式/.test(fl) && !/关闭流式/.test(fl) && await E(`document.querySelector('.sheet.in [data-k=stream]').checked`), '新增配置：「流式输出」默认打开，排在低思考模式上面 ' + fl);
+  await E(`document.querySelector('.sheet.in [data-a=x], .sheet.in .pg-back')?.click(); document.querySelector('.sheet.in')?._pg?.close?.()`); await p.waitForTimeout(400);
+  ok(await E(`core.llm.toString().length > 0`) && await E(`(() => { const p = core.S.api.chat.list[0]; return (p.stream ?? !p.nostream) === true; })()`), '老配置没关流式的：还是开着');
+  await E(`(() => { const p = core.S.api.chat.list[0]; p.models = ['glm-5.3', 'gemini-3.8']; core.top().re(); })()`); await p.waitForTimeout(300);
+  ok(await E(`[...document.querySelectorAll('.pg:last-child .mchip')].map(b => b.textContent).join()`) == 'glm-5.3,gemini-3.8,＋ 模型', '配置下面列出存的模型');
+  await E(`document.querySelectorAll('.pg:last-child .mchip')[1].click()`); await p.waitForTimeout(300);
+  ok(await E(`core.S.api.chat.list[0].model`) == 'gemini-3.8' && await E(`core.S.api.chat.list.length`) == 1 && await E(`core.S.api.chat.list[0].models.join()`) == 'glm-5.3,gemini-3.8', '点 gemini：换成 gemini，原来的 glm 还在，不用另存一个配置');
+  await p.screenshot({ path: path.join(OUT, 'stp_models.png') });
+  // 上下文与世界书：点一下就是开 / 关，页面不跳
+  await E(`(async () => { core.back(); await new Promise(r => setTimeout(r, 300)); const c = SillyTavern.getContext(); c.loadWorldInfo = async () => ({ entries: Object.fromEntries(Array.from({ length: 30 }, (_, i) => [i, { uid: i, comment: '条目' + i, constant: i % 2 == 0, key: [], content: 'x' }])) }); core.S.wi = { follow: false, books: ['书'], ov: {} }; document.querySelector('[data-a=ctx]').click(); })()`); await p.waitForTimeout(900);
+  await E(`document.querySelector('.pg:last-child .pg-b').scrollTop = 400`); await p.waitForTimeout(100);
+  const st0 = await E(`document.querySelector('.ent[data-x="书/4"] .st').textContent`);
+  await E(`document.querySelector('.ent[data-x="书/4"]').click()`); await p.waitForTimeout(200);
+  ok(st0 == '跟随·开' && await E(`document.querySelector('.ent[data-x="书/4"] .st').textContent`) == '关' && await E(`core.S.wi.ov['书/4']`) === 0, '开着的条目点一下：直接关掉 ' + st0);
+  await E(`document.querySelector('.ent[data-x="书/4"]').click()`); await p.waitForTimeout(200);
+  ok(await E(`document.querySelector('.ent[data-x="书/4"] .st').textContent`) == '开', '再点一下：开');
+  ok(await E(`document.querySelector('.pg:last-child .pg-b').scrollTop`) == 400, '页面没有跳到最上面');
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })();

@@ -91,7 +91,7 @@ export const countNow = id => mine(id) ? mine(id).items.length : id.startsWith('
 let warmP = null; export const warm = () => bq || warmP || (warmP = loadBqb().then(() => emit('stk'), () => { }).finally(() => warmP = null), 0);
 // 旧版默认的几组（大家觉得不好看）换成新的软萌默认组；自己加过 / 删过的不动
 const OLD = 'hoyoverse-hi3,b049,bilibili,b010';
-export const DEFP = ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'];
+export const DEFP = ['qq', 'weibo', 'tieba']; // 默认内置：QQ / 微博 / 贴吧
 export const stkMig = () => { const c = S.stk; if (c.v >= 3) return; c.mine ||= [];
   if (!c.v || c.v < 2) c.packs.join() == OLD && (c.packs = [...DEFP]);
   ['qq', 'weibo', 'tieba'].forEach(id => c.packs.includes(id) || c.packs.push(id)); // v3：QQ / 微博 / 贴吧表情默认内置

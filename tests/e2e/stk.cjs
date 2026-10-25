@@ -34,7 +34,11 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   // 1. 表情面板
   await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(500);
   const icons = await E(`[...document.querySelectorAll('.pan.on .pbar .pi')].map(b => b.dataset.x || b.dataset.a)`);
-  ok(JSON.stringify(icons) == JSON.stringify(['stks', 'emo', 'fav', 'f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3', 'pstore']), '旧版默认的几组自动换成软萌新组，并内置 QQ / 微博 / 贴吧表情 ' + icons);
+  ok(JSON.stringify(icons) == JSON.stringify(['stks', 'emo', 'fav', 'qq', 'weibo', 'tieba', 'pstore']), '旧版默认的几组：换成默认的 QQ / 微博 / 贴吧三组 ' + icons);
+  // 后面的测试要用到萌宠这些组：手动加上
+  await E(`(() => { core.S.stk.packs = ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3']; core.emit('stk'); document.querySelector('.chat [data-a=pan][data-x=stk]').click(); })()`); await W(300);
+  await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(500);
+  await E(`document.querySelector('.pan.on .pbar [data-x="f-pets"]')?.click()`); await W(400);
   ok(/萌宠动起来/.test(await E(`document.querySelector('.pan .ph').textContent`)) && await E(`document.querySelectorAll('.pan .pgrid .sk').length`) > 50, '默认打开「萌宠动起来」');
   ok(await E(`[...document.querySelectorAll('.pan .pgrid .sk small')].map(s => s.textContent).slice(0, 3).join()`) == '猫猫,开心猫,笑嘻嘻猫', '表情下面有中文名字');
   ok(/fluent-emoji-3d\/1\.1\.0\/files\/assets\/1f431\.webp/.test(await E(`document.querySelector('.pan .pgrid .sk img').src`)), '面板里是静态 3D 小图');

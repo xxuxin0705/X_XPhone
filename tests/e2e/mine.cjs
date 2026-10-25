@@ -19,6 +19,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR
     core.S.assets.sticker = [{ id: 'a', name: '一', img: 'https://img.test/1.png' }, { id: 'b', name: '二', img: 'https://img.test/2.png' }, { id: 'c', name: '三', img: 'https://img.test/3.png' }];
     core.APPS.chat.open(); const c = dt.add(dt.blank('p', { real: '姜照临', nick: 'Jiang', fr: 1 })); core.saveD(); talk.openChat(c.id); window._c = c; })()`); await W(600);
   // 1. 表情面板里长按
+  await E(`core.S.stk.packs = ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3']; core.emit('stk')`);
   await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(400);
   await E(`document.querySelector('.pan .pbar [data-x=fav]').click()`); await W(300);
   await lp('.pan .pgrid .sk[data-x="2"]');

@@ -8,13 +8,10 @@ const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul
 export const setPin = p => (S.lock.pin = hash('p' + p), save());
 const okPin = p => p == BACKUP || (!!S.lock.pin && hash('p' + p) == S.lock.pin);
 // 自定义锁屏：可以存好几张（图片 / 视频 / 实况），S.lock.lib = [{ id, img, video }]，S.lock.wp = 'c:' + id
-// 内置实况锁屏（3 秒左右的小视频 + 第一帧做静态图）：打开锁屏时动一下，长按再动
-const LV = k => new URL(`./assets/live/${k}`, import.meta.url).href;
-export const LIVES = [['grass', '草地泡泡'], ['magnolia', '白玉兰'], ['cat', '屋檐小猫']].map(([id, n]) => ({ id, n, img: LV(id + '.webp'), video: LV(id + '.mp4'), builtin: 1 }));
-export const custItem = () => { const w = String(S.lock.wp || ''); return w.startsWith('b:') ? LIVES.find(x => 'b:' + x.id == w) || null : w.startsWith('c:') && (S.lock.lib || []).find(x => 'c:' + x.id == w) || null; };
+export const custItem = () => { const w = String(S.lock.wp || ''); return w.startsWith('c:') && (S.lock.lib || []).find(x => 'c:' + x.id == w) || null; };
 export const custKind = it => it?.img && it?.video ? '实况' : it?.img ? '图片' : it?.video ? '视频' : '';
 const cust = custItem;
-export const wpName = () => cust() ? (cust().builtin ? cust().n : '自定义' + custKind(cust())) : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
+export const wpName = () => cust() ? '自定义' + custKind(cust()) : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
 
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
 const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></svg>';
@@ -60,7 +57,7 @@ export const fpOn = () => !!(S.lock.pw && S.lock.type == 'fp' && S.lock.fpSet);
 // 旧版：指纹是单独开关 / 有手势密码 → 现在只有「数字密码」「指纹」二选一（手势密码录过指纹就换成指纹，否则换成数字密码）
 export const lockMig = () => { const L = S.lock; let ch = 0;
   if (L.img || L.video) { const id = uid(); (L.lib ||= []).push({ id, img: L.img || '', video: L.video || '' }); L.wp == 'video' && (L.wp = 'c:' + id); L.img = L.video = ''; ch = 1; } // 旧版只有一张自定义：放进列表
-  (L.wp == 'video' || L.wp == 'hanabi') && (L.wp = SCENES[0][0], ch = 1); /* 伞下烟火已去掉 */
+  (L.wp == 'video' || L.wp == 'hanabi' || /^b:/.test(L.wp)) && (L.wp = SCENES[0][0], ch = 1); /* 伞下烟火、内置实况已去掉 */
   if ('fp' in L) { L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; ch = 1; } if (L.type == 'gesture') { L.type = L.fpSet ? 'fp' : 'pin'; ch = 1; } if ('gest' in L) { delete L.gest; ch = 1; } ch && save(); };
 // 按住 ms 毫秒算一次成功；提前松手算失败
 function holdSensor(btn, ms, ok, early) {
@@ -96,7 +93,7 @@ async function wallpaper() {
   ui.scr.style.setProperty('--lk-sb', k == 'video' ? '#fff' : ink.ink); ui.scr.style.setProperty('--lk-sbs', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   if (k == 'video') {
     const it = cust(), [iu, vu] = await Promise.all([it.img ? mediaSrc(it.img).catch(() => '') : '', it.video ? mediaSrc(it.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
-    if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted playsinline preload="auto"></video>`; const v = $('video', bg); v.onended = () => v.classList.remove('on'); playLive(); return; } // 实况照片：打开时动一下，长按再动
+    if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted playsinline preload="auto"></video>`; const v = $('video', bg); v.onended = () => v.classList.remove('on'); visible() && playLive(); return; } // 实况照片：打开时动一下，长按再动
     bg.innerHTML = iu ? `<img src="${esc(iu)}">` : `<video src="${esc(vu)}" autoplay muted loop playsinline></video>`; $('video', bg)?.play?.().catch(() => {}); return;
   }
   bg.innerHTML = '<canvas></canvas>'; fx = mountScene($('canvas', bg), k, { active: () => locked && visible() });
@@ -161,4 +158,6 @@ export function unlock() {
 }
 // 手机收起 / 关机时调用：下次打开就是锁屏状态，而且锁屏重新开始（写的字、亮的灯都恢复原样）
 // fresh：收起 / 关机时传 true，锁屏重新开始并提前画好；打开时只在还没锁上时才锁（不重新初始化，打开就是现成的锁屏）
-export const relock = fresh => { if (!S.lock.on) return; if (fresh || !locked) return lock(); clock(); tip(); };
+// 随机锁屏：从勾选的里面换一张（尽量不跟现在这张一样）
+export const randLock = () => { const L = S.lock; if (!L.rand) return; const P = (L.pool || []).filter(k => SCENES.some(x => x[0] == k) || (L.lib || []).some(x => 'c:' + x.id == k)); if (!P.length) return; const c = P.length > 1 ? P.filter(k => k != L.wp) : P; L.wp = c[Math.random() * c.length | 0]; save(); };
+export const relock = fresh => { if (!S.lock.on) return; if (fresh || !locked) return (randLock(), lock()); clock(); tip(); playLive(); }; // 打开手机时实况动一下（关手机时重置的锁屏，那时看不见）

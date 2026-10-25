@@ -2,7 +2,7 @@
 import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok } from '../../core.js';
 import { renderDesk, icon } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
-import { lock, lockMig, custKind, LIVES } from '../../lock.js';
+import { lock, lockMig, custKind } from '../../lock.js';
 import { ballGrid, setBall } from '../../ball.js';
 
 const BASE = { '--pg': '#f4f5f7', '--cd': '#fff', '--pt': '#1d1d1f', '--ln': 'rgba(0,0,0,.07)', '--gl': 'rgba(255,255,255,.45)', '--tx': '#fff', '--ink': '#333' };
@@ -31,10 +31,11 @@ const rf = () => { const t = top(); if (!t) return; const b = t.el?.querySelecto
 // 锁屏壁纸：动态场景（雪夜、伞下烟火）的实时小预览 + 自定义（图片 / 5 秒内的视频 / 实况照片）
 let pv = [];
 const LIB = () => S.lock.lib ||= [];
-const tile = it => `<div class="lw cu ${S.lock.wp == 'c:' + it.id ? 'on' : ''}" data-a="lwc" data-x="${it.id}" data-lp="lwcm">${it.img ? `<img data-i="${it.id}" alt="">` : `<video data-v="${it.id}" muted loop playsinline autoplay></video>`}${it.img && it.video ? '<em class="live">LIVE</em>' : ''}<span>${custKind(it)}</span></div>`;
-const btile = it => `<div class="lw bi ${S.lock.wp == 'b:' + it.id ? 'on' : ''}" data-a="lwb" data-x="${it.id}"><img src="${esc(it.img)}" alt=""><em class="live">LIVE</em><span>${esc(it.n)}</span></div>`;
-const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp) ? S.lock.wp : /^[cb]:/.test(String(S.lock.wp)) ? '' : SCENES[0][0];
-  return `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${sc == k ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}${LIVES.map(btile).join('')}${LIB().map(tile).join('')}<div class="lw vid" data-a="lwadd"><i>＋</i><span>自定义</span></div></div>`
+const tile = it => `<div class="lw cu ${lon('c:' + it.id) ? 'on' : ''}" data-a="lwc" data-x="${it.id}" data-lp="lwcm">${it.img ? `<img data-i="${it.id}" alt="">` : `<video data-v="${it.id}" muted loop playsinline autoplay></video>`}${it.img && it.video ? '<em class="live">LIVE</em>' : ''}<span>${custKind(it)}</span></div>`;
+// 随机锁屏开着时：格子上的勾＝参加随机（点一下加入 / 去掉）；关着时＝正在用的那张
+const lon = k => S.lock.rand ? (S.lock.pool || []).includes(k) : S.lock.wp == k;
+const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp) ? S.lock.wp : /^c:/.test(String(S.lock.wp)) ? '' : SCENES[0][0];
+  return fx(S).tog('lock.rand', '随机锁屏<small>每次打开手机随机换一张勾选的锁屏</small>') + `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${(S.lock.rand ? lon(k) : sc == k) ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}${LIB().map(tile).join('')}<div class="lw vid" data-a="lwadd"><i>＋</i><span>自定义</span></div></div>`
   + btn('lprev', '预览锁屏', '', 'pri') + (S.lock.on ? '' : '<p class="tip">还没有开启锁屏：设置 → 锁屏与密码</p>'); };
 const mountPv = (el, pg) => {
   pv.forEach(h => h.stop()); pv = [];
@@ -66,7 +67,7 @@ async function upVid() {
   task(img && v ? '正在保存实况照片' : img ? '正在保存锁屏图片' : '正在保存锁屏视频', async () => {
     const iu = img ? await putMedia(await readFull(img), 'lock') : '', vu = v ? await putMedia(v, 'lock') : '', id = uid();
     LIB().push({ id, img: iu, video: vu }); S.lock.wp = 'c:' + id; save(); rf();
-    return img && v ? '锁屏实况照片已设置' : img ? '锁屏图片已设置' : '锁屏视频已设置';
+    return img && v ? '锁屏实况照片已设置（打开手机时会动一下，长按再动）' : img ? (/jpe?g/i.test(img.type || img.name) ? '这张照片里没找到实况视频，存成了普通图片（实况照片要选原图；苹果实况要把照片和视频一起选上）' : '锁屏图片已设置') : '锁屏视频已设置';
   });
 }
 // 保存到手机：照片和视频各存一个文件（可以发给别人，或者以后再导入）
@@ -75,6 +76,25 @@ async function saveOut(it) {
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: `${n}.${ext}` }); document.body.append(a); a.click(); setTimeout(() => (URL.revokeObjectURL(a.href), a.remove()), 4000); };
   try { await one(it.img, 'xphone_lock_' + it.id); await one(it.video, 'xphone_lock_' + it.id); toast('已保存'); } catch (e) { toast('保存失败：' + e.message); }
 }
+// 选锁屏：随机关着＝换成这张；开着＝加入 / 去掉随机
+function pickLock(k) {
+  if (!S.lock.rand) { S.lock.wp = k; save(); return rf(); }
+  const P = S.lock.pool ||= []; P.includes(k) ? P.length > 1 ? P.splice(P.indexOf(k), 1) : toast('至少留一张') : P.push(k); save(); rf();
+}
+// 桌面壁纸：可以存好几张，随机壁纸开着时每次回到桌面 / 打开手机随机换一张勾选的（「主题」＝主题自带的壁纸）
+const WALLS = () => S.walls ||= [];
+const wallMig = () => { if (S.wall && !WALLS().some(w => w.img == S.wall)) { WALLS().push({ id: uid(), img: S.wall }); save(); } };
+const curWall = () => WALLS().find(w => w.img == S.wall)?.id || 'theme';
+const won = id => S.wrand ? (S.wpool || []).includes(id) : curWall() == id;
+const wallSec = () => { wallMig(); const t = THEMES[S.theme] || THEMES.matcha;
+  return fx(S).tog('wrand', '随机壁纸<small>每次回到桌面、打开手机随机换一张勾选的壁纸</small>') + `<div class="lwg wpg"><div class="lw ${won('theme') ? 'on' : ''}" data-a="wsel" data-x="theme"><i class="wth" style="background:${t.v['--wp']}"></i><span>主题壁纸</span></div>${WALLS().map(w => `<div class="lw cu ${won(w.id) ? 'on' : ''}" data-a="wsel" data-x="${w.id}" data-lp="wdel"><img src="${esc(w.img)}" alt=""><span>壁纸</span></div>`).join('')}<div class="lw vid" data-a="wadd"><i>＋</i><span>上传</span></div></div>`; };
+function pickWall(id) {
+  if (S.wrand) { const P = S.wpool ||= []; P.includes(id) ? P.length > 1 ? P.splice(P.indexOf(id), 1) : toast('至少留一张') : P.push(id); save(); return rf(); }
+  S.wall = id == 'theme' ? '' : WALLS().find(w => w.id == id)?.img || ''; save(); applyTheme(); rf();
+}
+async function addWall() { const f = await pickFile(); if (!f) return; task('正在保存壁纸', async () => { const u = await putMedia(await readFull(f), 'wall'), id = uid(); WALLS().push({ id, img: u }); S.wrand ? (S.wpool ||= []).push(id) : (S.wall = u); save(); applyTheme(); rf(); return '壁纸已添加'; }); }
+// 随机换：尽量不跟现在这张一样
+export function randWall() { if (!S.wrand) return; const P = (S.wpool || []).filter(id => id == 'theme' || WALLS().some(w => w.id == id)); if (!P.length) return; const cur = curWall(), c = P.length > 1 ? P.filter(x => x != cur) : P, id = c[Math.random() * c.length | 0]; S.wall = id == 'theme' ? '' : WALLS().find(w => w.id == id).img; save(); applyTheme(); }
 async function edit(k, a) { const r = await form((a ? '编辑' : '新建') + AK[k].n, AK[k].f, a || {}); if (!r) return; a ? Object.assign(a, r) : S.assets[k].push({ id: uid(), ...r }); save(); rf(); }
 
 reg({
@@ -85,16 +105,17 @@ reg({
     body: () => { const f = fx(S); return `<div class="thm-g">${Object.entries(THEMES).map(([k, t]) => `<div class="tc ${S.theme == k ? 'on' : ''}" data-a="th" data-x="${k}"><div class="tc-p" style="background:${t.v['--wp']}"><i style="background:${t.v['--ac']}"></i><i></i><i></i><i></i><b style="background:${t.v['--gl'] || BASE['--gl']}"></b></div><span>${t.n}</span></div>`).join('')}</div>` + sec('thm', [
       ['ball', '悬浮窗图标', ballGrid()],
       ['lk', '锁屏壁纸 · 动态', lockSec()],
-      ['wp', '壁纸', f.img('wall', '桌面壁纸（留空用主题壁纸）')],
+      ['wp', '壁纸', wallSec()],
       ...Object.entries(AK).map(([k, a]) => [k, `${a.n} · ${S.assets[k].length}`, `<div class="ag">${S.assets[k].map(x => `<div class="ai" data-a="ae" data-x="${k}:${x.id}" data-lp="ad">${x.img ? `<img src="${esc(x.img)}">` : `<b>${esc(x.name.slice(0, 2))}</b>`}<small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="${k}">＋</div></div>${a.file ? btn('af', '导入文件', k) : ''}${k == 'sticker' ? btn('ab', '批量导入链接') : ''}<p class="tip">点击编辑 · 长按删除${k == 'widget' ? ' / 添加到桌面' : ''}</p>`]),
       ['ic', '应用图标', Object.values(APPS).map(a => `<div class="row" data-a="ic" data-x="${a.id}"><span>${a.name}</span><div class="ico mini a-${a.id}">${icon(a.id)}</div></div>`).join('')],
       ['css', '自定义 CSS', f.area('css', '全局 CSS，作用于整个小手机（字体、颜色…）', '#stp{font-family:"LXGW WenKai"}')],
     ]); },
     acts: {
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
-      lw: k => { S.lock.wp = k; save(); rf(); }, lprev: () => lock(true),
-      lwc: id => { S.lock.wp = 'c:' + id; save(); rf(); },
-      lwb: id => { S.lock.wp = 'b:' + id; save(); rf(); },
+      lw: k => pickLock(k), lprev: () => lock(true),
+      lwc: id => pickLock('c:' + id),
+      wsel: id => pickWall(id), wadd: () => addWall(),
+      wdel: async id => { const w = WALLS().find(x => x.id == id); if (!w || !await ok('删除这张壁纸？')) return; WALLS().splice(WALLS().indexOf(w), 1); S.wpool = (S.wpool || []).filter(x => x != id); S.wall == w.img && (S.wall = ''); drop(w.img); save(); applyTheme(); rf(); },
       lwadd: () => upVid(),
       lwcm: async id => { const it = LIB().find(x => x.id == id); if (!it) return; const n = custKind(it), k = await menu([['s', '保存到手机'], ['d', '删除这张' + n, 'danger']], '自定义 · ' + n);
         if (k == 's') saveOut(it);
@@ -111,6 +132,6 @@ reg({
       ab: async () => { const r = await form('批量导入表情包', [['t', '每行一个：描述 + 空格 + 图片链接', 'area', '开心 https://xx.com/a.png\n委屈 https://xx.com/b.gif']]); let n = 0; r?.t?.split('\n').forEach(l => { const m = l.trim().match(/^(.*?)[\s:：|,，]*(https?:\/\/\S+)$/); if (m) { n++; S.assets.sticker.push({ id: uid(), name: m[1] || '表情' + n, img: m[2] }); } }); save(); toast(`已导入 ${n} 个`); rf(); },
       ic: async id => { const v = await pickImg(256, 'icon'), old = S.icons[id]; if (v == null) return; v ? (S.icons[id] = v) : delete S.icons[id]; save(); drop(old); renderDesk(); rf(); },
     },
-    onChange: k => /wall|css/.test(k) && applyTheme(),
+    onChange: k => { /wall|css/.test(k) && applyTheme(); k == 'wrand' && (S.wrand && !S.wpool?.length && (S.wpool = [curWall()]), save(), rf()); k == 'lock.rand' && (S.lock.rand && !S.lock.pool?.length && (S.lock.pool = [S.lock.wp]), save(), rf()); },
   }),
 });
