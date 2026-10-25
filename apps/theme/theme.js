@@ -3,6 +3,7 @@ import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toa
 import { renderDesk, icon } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
 import { lock } from '../../lock.js';
+import { ballGrid, setBall } from '../../ball.js';
 
 const BASE = { '--pg': '#f4f5f7', '--cd': '#fff', '--pt': '#1d1d1f', '--ln': 'rgba(0,0,0,.07)', '--gl': 'rgba(255,255,255,.45)', '--tx': '#fff', '--ink': '#333' };
 export const THEMES = {
@@ -70,6 +71,7 @@ reg({
     title: '主题美化', cls: 'thm',
     after: el => mountPv(el, top()), onClose: () => (pv.forEach(h => h.stop()), pv = []),
     body: () => { const f = fx(S); return `<div class="thm-g">${Object.entries(THEMES).map(([k, t]) => `<div class="tc ${S.theme == k ? 'on' : ''}" data-a="th" data-x="${k}"><div class="tc-p" style="background:${t.v['--wp']}"><i style="background:${t.v['--ac']}"></i><i></i><i></i><i></i><b style="background:${t.v['--gl'] || BASE['--gl']}"></b></div><span>${t.n}</span></div>`).join('')}</div>` + sec('thm', [
+      ['ball', '悬浮窗图标', ballGrid()],
       ['lk', '锁屏壁纸 · 动态', lockSec()],
       ['wp', '壁纸', f.img('wall', '桌面壁纸（留空用主题壁纸）')],
       ...Object.entries(AK).map(([k, a]) => [k, `${a.n} · ${S.assets[k].length}`, `<div class="ag">${S.assets[k].map(x => `<div class="ai" data-a="ae" data-x="${k}:${x.id}" data-lp="ad">${x.img ? `<img src="${esc(x.img)}">` : `<b>${esc(x.name.slice(0, 2))}</b>`}<small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="${k}">＋</div></div>${a.file ? btn('af', '导入文件', k) : ''}${k == 'sticker' ? btn('ab', '批量导入链接') : ''}<p class="tip">点击编辑 · 长按删除${k == 'widget' ? ' / 添加到桌面' : ''}</p>`]),
@@ -77,6 +79,7 @@ reg({
       ['css', '自定义 CSS', f.area('css', '全局 CSS，作用于整个小手机（字体、颜色…）', '#stp{font-family:"LXGW WenKai"}')],
     ]); },
     acts: {
+      ball: k => { setBall(k); rf(); },
       lw: k => { S.lock.wp = k; save(); rf(); }, lprev: () => lock(true),
       lwv: async () => { if (!custKind()) return upVid(); S.lock.wp = 'video'; save(); rf(); },
       lwvm: async () => { if (!custKind()) return upVid(); const n = custKind(), k = await menu([['c', '更换'], ['d', '删除' + n, 'danger']], '锁屏' + n); if (k == 'c') upVid(); if (k == 'd' && await ok(`删除这个锁屏${n}？文件也会一起删除`)) { drop([S.lock.img, S.lock.video]); S.lock.img = S.lock.video = ''; S.lock.wp == 'video' && (S.lock.wp = SCENES[0][0]); save(); rf(); } },

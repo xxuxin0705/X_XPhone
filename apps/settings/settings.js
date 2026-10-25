@@ -4,12 +4,13 @@ import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
 import { libList, voicePage, people } from '../chat/voice.js';
+import { ballPicker, ballUrl, ballName } from '../../ball.js';
 import { STKP, webSearch, localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
-const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗' : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
+const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? (S.show == 'float' ? '悬浮窗 · ' + ballName() : '魔法棒') : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
@@ -180,9 +181,9 @@ function disp() {
   page({
     title: '显示方式', onClose: rf,
     body: () => { const f = fx(S); return sec('disp', [
-      ['s', '入口', f.seg('show', [['float', '悬浮窗'], ['wand', '魔法棒菜单']]) + '<p class="tip">悬浮窗：可拖动的小图标。魔法棒：在输入框左侧的扩展菜单里打开。</p>'],
+      ['s', '入口', f.seg('show', [['float', '悬浮窗'], ['wand', '魔法棒菜单']]) + (S.show == 'float' ? `<div class="row bcur" data-a="ballpick"><span>悬浮窗图标</span><img src="${esc(ballUrl())}" alt=""><small>${esc(ballName())}</small><i class="chev">›</i></div>` : '') + '<p class="tip">悬浮窗：可拖动的小图标。魔法棒：在输入框左侧的扩展菜单里打开。</p>'],
       ['z', '尺寸与字体', `<label class="row"><span>缩放</span><input type="range" min=".6" max="1.3" step=".05" data-k="scale" value="${S.scale}"></label><label class="row"><span>字体大小</span><input type="range" min=".8" max="1.15" step=".02" data-k="fz" value="${S.fz || .92}"></label>` + btn('rpos', '重置手机与悬浮窗位置')]]); },
-    acts: { rpos: () => { S.pos = {}; save(); emit('cfg', 'pos'); toast('已重置'); } },
+    acts: { rpos: () => { S.pos = {}; save(); emit('cfg', 'pos'); toast('已重置'); }, ballpick: (x, t, e, pg) => ballPicker(() => pg.re()) },
   });
 }
 

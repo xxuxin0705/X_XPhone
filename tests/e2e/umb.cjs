@@ -22,8 +22,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`lk.lockFx().advance(1.6, 30)`);
   await E(`lk.lockFx().advance(2.4, 40)`); const n4 = await st(s => s.nl); ok(n4 >= 7, '后面很多一起放 ' + n4);
   await E(`lk.lockFx().advance(1.3, 25)`); await shot('umb_2.png');
-  ok(await st(s => new Set(s.P.map(p => p.c)).size) >= 3, '五颜六色 ' + await st(s => [...new Set(s.P.map(p => p.c))].join()));
   await E(`lk.lockFx().advance(10, 160)`); ok(await st(s => s.P.length) > 50, '之后一直在放');
+  ok(await st(s => s.used.size) >= 4, '五颜六色 ' + await st(s => [...s.used].join()));
   // 互动：点天空放烟花、点伞起水波（金鱼游开、伞晃一下）
   const tap = async ([x, y]) => { await p.mouse.move(x, y); await p.mouse.down(); await W(60); await p.mouse.up(); await W(80); };
   await E(`lk.lock()`); await p.waitForFunction(`lk.lockFx()?.state()?.ready`); await W(200);

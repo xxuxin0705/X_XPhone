@@ -1,0 +1,34 @@
+// 悬浮窗图标：12 个造型，在主题美化里选（放在前面），设置 → 显示方式 里显示当前用的、可以换
+const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
+const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
+const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.html': 'text/html' };
+const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (MIME[path.extname(f)] || 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8793);
+let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
+(async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 900, height: 900 }, deviceScaleFactor: 2 });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto('http://localhost:8793/'); await p.waitForFunction('window.booted');
+  const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms);
+  ok(await E(`(() => { const i = document.querySelector('#stp-ball img'); return !!i && /ball\\/sprout\\.webp/.test(i.src); })()`), '悬浮窗默认是「森林小芽」造型');
+  await W(500); ok(await E(`document.querySelector('#stp-ball img').naturalWidth`) > 100, '图片加载出来了');
+  await p.locator('#stp-ball').screenshot({ path: path.join(OUT, 'ball_float.png') });
+  await p.click('#stp-ball'); await W(400);
+  await E(`(async () => { window.core = await import('/core.js'); core.home(); core.APPS.theme.open(); })()`); await W(700);
+  const secs = await E(`[...document.querySelectorAll('.pg.in:last-child .sec > h5, .pg.in:last-child [data-sec] > *:first-child')].map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)`);
+  ok(/悬浮窗图标/.test(await E(`document.querySelector('[data-sec=ball]')?.textContent`)) && await E(`(() => { const L = [...document.querySelectorAll('.pg.in:last-child [data-sec]')].map(e => e.dataset.sec); return L.indexOf('ball') == 0; })()`), '主题美化：「悬浮窗图标」排在最前面');
+  ok(await E(`document.querySelectorAll('.bgrid .bt').length`) == 12, '一共 12 个图标');
+  ok(await E(`[...document.querySelectorAll('.bgrid .bt span')].map(e => e.textContent).join()`) == '森林小芽,糖果,海洋,向日葵,霓虹,iPhone,古风,仙侠,魔法,蒸汽朋克,复古游戏机,秋日', '名字');
+  await p.waitForFunction(`[...document.querySelectorAll('.bgrid img')].every(i => i.complete && i.naturalWidth > 0)`, null, { timeout: 8000 }).catch(() => {});
+  ok(await E(`[...document.querySelectorAll('.bgrid img')].every(i => i.naturalWidth > 0)`), '12 张图都在');
+  await p.locator('[data-sec=ball]').screenshot({ path: path.join(OUT, 'ball_theme.png') });
+  await E(`document.querySelector('.bgrid .bt[data-x=witch]').click()`); await W(400);
+  ok(await E(`core.S.ball`) == 'witch' && /ball\/witch\.webp/.test(await E(`document.querySelector('#stp-ball img').src`)) && await E(`document.querySelector('.bgrid .bt.on')?.dataset.x`) == 'witch', '点「魔法」：悬浮窗马上换了，选中的高亮');
+  // 设置 → 显示方式
+  await E(`core.home(); core.APPS.settings.open()`); await W(500);
+  ok(/悬浮窗 · 魔法/.test(await E(`document.querySelector('[data-a=disp]')?.textContent || ''`)), '设置首页：显示方式写着「悬浮窗 · 魔法」');
+  await E(`document.querySelector('[data-a=disp]').click()`); await W(500);
+  ok(/悬浮窗图标[\s\S]*魔法/.test(await E(`document.querySelector('.bcur')?.textContent || ''`)) && /witch/.test(await E(`document.querySelector('.bcur img').src`)), '显示方式里显示当前用的图标');
+  await E(`document.querySelector('.bcur').click()`); await W(500);
+  ok(await E(`document.querySelectorAll('.sheet.in .bt').length`) == 12, '点它：弹出 12 个图标可以换');
+  await E(`document.querySelector('.sheet.in .bt[data-x=retro]').click()`); await W(500);
+  ok(await E(`core.S.ball`) == 'retro' && /retro/.test(await E(`document.querySelector('.bcur img').src`)) && /复古游戏机/.test(await E(`document.querySelector('.bcur').textContent`)), '换成复古游戏机：悬浮窗和设置里都更新了');
+  console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

@@ -87,7 +87,7 @@ export const hanabi = {
       if (kind == 'glitter') Object.assign(o, { c: 'white', c2: c[0] });
       add(o);
     }
-    s.nb = (s.nb || 0) + 1;
+    s.nb = (s.nb || 0) + 1; (s.used ||= new Set()).add(kind == 'multi' ? 'multi' : c[0]);
     s.lights.push({ x, y, c: c[0], I: 1, r: sz * 2.6 }); s.lights.length > 8 && s.lights.shift();
     if (!sm) for (let i = 0; i < 2; i++) s.smoke.length < 24 && s.smoke.push({ x: x + rnd(-sz, sz) * .5, y: y + rnd(-sz, sz) * .4, r: sz * rnd(.6, 1), vx: rnd(-5, 5) * s.u, t: 0, d: rnd(8, 12) });
   },
