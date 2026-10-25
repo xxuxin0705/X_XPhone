@@ -1,5 +1,5 @@
 // 小手机 · 设置：API（聊天 / 生图渠道 / 语音渠道）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
-import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, voices, TCAT, PDEF, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
+import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, voices, TCAT, PDEF, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, TURL, TFMT, tq, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
@@ -26,16 +26,17 @@ reg({
 
 /* ---------- 渠道：新建时的默认值 / 各渠道要填的字段 ---------- */
 const PD = PDEF;
-const K = (l = 'API Key') => ['key', l, 'password'], U = ph => ['url', '接口地址', 'text', ph], M = ph => ['model', '模型', 'text', ph], N = (k, l, ph = '') => [k, l, 'number', ph];
+const OU = ['url', '接口地址', 'official'], K = (l = 'API Key') => ['key', l, 'password'], U = ph => ['url', '接口地址', 'text', ph], M = ph => ['model', '模型', 'text', ph], N = (k, l, ph = '') => [k, l, 'number', ph];
 const TF = { // 语音：模型、音色另外画（带快速选择 / 拉取 / 试听）
-  mm: () => [U('留空用官方 https://api.minimaxi.com'), K(), ['gid', 'GroupId（可选）'], N('speed', '语速', '1')],
-  mmi: () => [U('留空用官方 https://api.minimax.io'), K(), ['gid', 'GroupId（可选）'], N('speed', '语速', '1')],
-  openai: () => [U('https://api.openai.com/v1'), K()],
-  fish: () => [K(), ['url', '中转地址（可空）', 'text', '留空直连 Fish 官方']],
-  eleven: () => [K(), N('speed', '语速', '1（0.7～1.2）')],
-  index: () => [U('完整地址，如 http://127.0.0.1:6006/audio/speech'), K('Key（可空）')],
-  mimo: () => [K(), U('留空用官方 api.xiaomimimo.com/v1')],
-  volc: m => [['appid', 'App ID'], K('Access Token'), ['ver', '接口版本', 'sel', [['v3', 'V3 单向流式（2.0音色，推荐）'], ['v1', 'V1 旧版']]], m.ver == 'v1' ? ['cluster', 'Cluster', 'text', 'volcano_tts'] : ['res', '资源ID', 'text', 'seed-tts-2.0（复刻音色用 seed-icl-2.0）'], N('speed', '语速', '1')],
+  mm: () => [OU, K(), ['gid', 'GroupId（可选）'], N('speed', '语速', '1')],
+  mmi: () => [OU, K(), ['gid', 'GroupId（可选）'], N('speed', '语速', '1')],
+  openai: () => [OU, K()],
+  fish: () => [OU, K()],
+  eleven: () => [OU, K(), N('speed', '语速', '1')],
+  index: () => [U('http://127.0.0.1:6006/audio/speech'), K('Key（可空）')],
+  mimo: () => [OU, K()],
+  third: m => [['fmt', '接口格式', 'sel', TFMT], U('https://你的中转地址'), K(), ...(m.fmt == 'mm' ? [['gid', 'GroupId（可选）']] : []), N('speed', '语速', '1')],
+  volc: m => [OU, ['appid', 'App ID'], K('Access Token'), ['ver', '接口版本', 'sel', [['v3', 'V3 单向流式（2.0音色，推荐）'], ['v1', 'V1 旧版']]], m.ver == 'v1' ? ['cluster', 'Cluster', 'text', 'volcano_tts'] : ['res', '资源ID', 'text', 'seed-tts-2.0（复刻音色用 seed-icl-2.0）'], N('speed', '语速', '1')],
 };
 const VPH = { mm: 'female-shaonv（系统音色或复刻音色ID）', mmi: 'female-shaonv', openai: 'alloy / nova / onyx…', fish: '音色模型ID（reference_id）', index: '参考音色 / 角色名', mimo: 'mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean', volc: 'zh_female_xiaohe_uranus_bigtts' };
 const NAIM = [['nai-diffusion-4-5-full', 'V4.5 Full'], ['nai-diffusion-4-5-curated', 'V4.5 Curated'], ['nai-diffusion-4-full', 'V4 Full'], ['nai-diffusion-4-curated-preview', 'V4 Curated'], ['nai-diffusion-3', 'V3 Anime']];
@@ -49,7 +50,7 @@ const IF = {
 };
 const TIP = {
   img: { nai: 'NAI 要求尺寸面积 ≤ 1024×1024、步数 ≤ 28 才不额外扣点。', sd: 'WebUI 启动参数加 --api --cors-allow-origins=*', comfy: 'ComfyUI 启动参数加 --enable-cors-header *', sf: '返回的图片链接1小时过期，小手机会自动转存。', openai: '' },
-  tts: { fish: '走 Fish 官方的网页接口，直接连，不用改酒馆后端（TauriTavern 也能用）。Key 在 fish.audio → API Keys；音色填 Fish 音色页面地址里那串 ID，或点「拉取」。drama-3 还没开放网页接口，暂时选不了。', eleven: 'Key 在 elevenlabs.io → Developers → API Keys。音色可从清单里选，或点「拉取」读出你账号里的音色。', mm: '国内站 platform.minimaxi.com 的 Key；音色可填系统音色或复刻音色 ID。', mmi: '国际站 minimax.io 的 Key。', volc: '火山引擎「豆包语音」控制台的 App ID 与 Access Token；2.0 音色必须用 V3。', index: '本地 IndexTTS API 服务的完整地址（OpenAI 格式或 /tts 格式都行），需开启跨域。', mimo: '小米 MiMo 开放平台的 Key。', openai: '' },
+  tts: {},
 };
 const fields = t => m => t == 'chat'
   ? [['name', '名称'], ['url', 'API 地址', 'text', 'https://xxx.com/v1'], ['key', 'API Key', 'password'], ['model', '模型', 'pull', '填好地址和Key后点拉取'], ['temp', '温度', 'number', '0.9'], ['fast', '低思考模式（更快，接口不支持会自动退回）', 'tog'], ['nostream', '关闭流式传输（接口不支持流式时才勾）', 'tog']]
@@ -69,35 +70,35 @@ const stPick = a => {
 function provPage(t) {
   const a = S.api[t]; prof(t);
   const pv = () => a.pv, K2 = k => `cfg.${pv()}.${k}`, P = () => a.cfg[pv()], F = fx(a);
-  const fld = ([k, l, ty = 'text', o]) => ty == 'tip' ? `<p class="tip">${l}</p>` : ty == 'sel' ? F.sel(K2(k), l, o) : ty == 'tog' ? F.tog(K2(k), l) : ty == 'area' ? F.area(K2(k), l, o)
+  const fld = ([k, l, ty = 'text', o]) => ty == 'official' ? `<div class="row"><span>${l}</span><input class="ro" readonly value="${esc(TURL[pv()] || '')}"></div>` : ty == 'tip' ? `<p class="tip">${l}</p>` : ty == 'sel' ? F.sel(K2(k), l, o) : ty == 'tog' ? F.tog(K2(k), l) : ty == 'area' ? F.area(K2(k), l, o)
     : ty == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(o || '')}"><b class="pull" data-a="pullf" data-x="${k}">拉取</b></div>`
     : ty == 'password' ? `<div class="row"><span>${l}</span><input type="password" data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(o || '')}"><b class="pull eye" data-a="eye">显示</b></div>` : F.inp(K2(k), l, ty, o);
   const pick = (k, l, ph, acts) => `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(ph)}">${acts}</div>`;
-  const vbtn = k => (TCAT[pv()]?.voices.length ? `<b class="pull" data-a="qv" data-x="${k}">快选</b>` : '') + (['fish', 'eleven', 'mm', 'mmi'].includes(pv()) ? `<b class="pull" data-a="pv" data-x="${k}">拉取</b>` : '');
+  const fp = () => pv() == 'third' ? P().fmt || 'openai' : pv(), cat = () => TCAT[fp()] || { models: [], voices: [] }; // 第三方按接口格式走对应的快选 / 拉取
+  const vbtn = k => (cat().voices.length ? `<b class="pull" data-a="qv" data-x="${k}">快选</b>` : '') + (['fish', 'eleven', 'mm', 'mmi'].includes(fp()) ? `<b class="pull" data-a="pv" data-x="${k}">拉取</b>` : '');
   const body = () => {
     const p = P(), tip = TIP[t][pv()], tts = t == 'tts';
     let h = F.seg('src', tts ? [['tavern', '酒馆扩展'], ['custom', '自选服务商']] : [['tavern', '酒馆扩展'], ['custom', '自选服务商']]);
-    if (a.src == 'tavern') return h + `<p class="tip">${tts ? '调用酒馆「TTS」扩展（/speak），用酒馆里设置好的语音。' : '调用酒馆「图像生成」扩展（/sd），用酒馆里设置好的生图。'}</p>` + (tts ? '' : `<div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`) + btn('test', '测试连接', '', 'pri');
-    if (tts) h += `<h6>每个人用哪个服务商</h6>${F.seg('mode', [['unified', '统一用一个渠道'], ['per', '每个人用自己的渠道']])}<p class="tip">${a.mode == 'per' ? '每个联系人在「聊天信息 → 专属音色」里选自己的服务商、填各自的音色；没选的用下面这个默认服务商。下面切换服务商就能分别填每家的 Key 和设置，各自保存。' : '所有人都用下面这个服务商；联系人在「聊天信息 → 专属音色」里填这个服务商的音色，没填就用兜底音色。'}</p>`;
+    if (a.src == 'tavern') return h + (tts ? '' : '<p class="tip">调用酒馆「图像生成」扩展（/sd），用酒馆里设置好的生图。</p>') + (tts ? '' : `<div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`) + btn('test', '测试连接', '', 'pri');
+    if (tts) h += `<h6>每个人用哪个服务商</h6>${F.seg('mode', [['unified', '统一用一个渠道'], ['per', '每个人用自己的渠道']])}`;
     h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商（联系人没单独选时用）' : 'TTS 服务商') : '生图供应商', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
     if (tts) {
       const noModel = pv() == 'volc';
-      h += `<div class="card">${TF[pv()](p).map(fld).join('')}${noModel ? '' : pick('model', '语音模型', TCAT[pv()]?.models[0] || '可空', (TCAT[pv()]?.models.length ? '<b class="pull" data-a="qm">快选</b>' : '') + (['fish', 'eleven', 'openai', 'index'].includes(pv()) ? '<b class="pull" data-a="pullf" data-x="model">拉取</b>' : ''))}
-        ${pick('voice', '音色 ID', VPH[pv()] || '', vbtn('voice'))}</div><div class="tts-ops"><b data-a="try" data-x="voice">▶ 试听当前音色</b><b class="danger" data-a="vclr" data-x="voice">清空当前音色</b></div>
-        <h6>全局兜底音色</h6><div class="card">${pick('vm', '男声兜底', '男性联系人没绑音色时用', vbtn('vm'))}${pick('vf', '女声兜底', '女性联系人没绑音色时用', vbtn('vf'))}</div>
-        <p class="tip">联系人没有绑定专属音色时，按联系人性别用这里的男 / 女兜底音色；性别不明就用上面的音色。联系人的性别和专属音色在「聊天信息」里改。</p>`;
+      h += `<div class="card">${TF[pv()](p).map(fld).join('')}${noModel ? '' : pick('model', '语音模型', cat().models[0] || '', (cat().models.length ? '<b class="pull" data-a="qm">快选</b>' : '') + (['fish', 'eleven', 'openai', 'index'].includes(fp()) ? '<b class="pull" data-a="pullf" data-x="model">拉取</b>' : ''))}
+        ${pick('voice', '音色 ID', VPH[fp()] || '', vbtn('voice'))}</div><div class="tts-ops"><b data-a="try" data-x="voice">▶ 试听当前音色</b><b class="danger" data-a="vclr" data-x="voice">清空当前音色</b></div>
+        <h6>全局默认音色</h6><div class="card">${F.tog('fb', '没配音色的联系人用全局默认音色')}${a.fb !== false ? pick('vm', '男声默认', '', vbtn('vm')) + pick('vf', '女声默认', '', vbtn('vf')) : ''}</div>`;
     } else h += `<div class="card">${IF[pv()](p).map(fld).join('')}</div><div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`;
     return h + btn('test', '测试连接', '', 'pri');
   };
   const pg = page({
     title: T[t], model: () => a, save, onClose: rf, body,
-    onChange: k => { k == 'pv' ? (prof(t), save(), pg.re()) : /\.(ver|prov)$/.test(k) && pg.re(); },
+    onChange: k => { k == 'pv' ? (prof(t), save(), pg.re()) : (/\.(ver|prov|fmt)$/.test(k) || k == 'fb') && pg.re(); },
     acts: {
       eye: (x, el) => { const i = el.previousElementSibling; i.type = i.type == 'password' ? 'text' : 'password'; el.textContent = i.type == 'password' ? '显示' : '隐藏'; },
-      qm: async () => { const m = await menu(TCAT[pv()].models.map(x => [x, esc(x)]), '选择模型'); m && (P().model = m, save(), pg.re()); },
-      qv: async k => { const v = await menu(TCAT[pv()].voices.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), '选择音色'); v && (P()[k] = v, save(), pg.re()); },
-      pv: async k => { try { toast('正在读取音色…'); const L = await voices(prof(t)); if (!L.length) return toast('没有读到音色'); const v = await menu(L.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), `选择音色 · ${L.length}个`); v && (P()[k] = v, save(), pg.re()); } catch (e) { toast('读取失败：' + e.message); } },
-      pullf: async k => { try { toast('正在拉取…'); const L = await models(prof(t), t); if (!L.length) return toast('没有拉到可选项'); const m = await menu(L.map(x => [x, esc(x)]), `选择 · ${L.length}个`); m && (P()[k] = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
+      qm: async () => { const m = await menu(cat().models.map(x => [x, esc(x)]), '选择模型'); m && (P().model = m, save(), pg.re()); },
+      qv: async k => { const v = await menu(cat().voices.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), '选择音色'); v && (P()[k] = v, save(), pg.re()); },
+      pv: async k => { try { toast('正在读取音色…'); const L = await voices(tq(prof(t))); if (!L.length) return toast('没有读到音色'); const v = await menu(L.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), `选择音色 · ${L.length}个`); v && (P()[k] = v, save(), pg.re()); } catch (e) { toast('读取失败：' + e.message); } },
+      pullf: async k => { try { toast('正在拉取…'); const L = await models(t == 'tts' ? tq(prof(t)) : prof(t), t); if (!L.length) return toast('没有拉到可选项'); const m = await menu(L.map(x => [x, esc(x)]), `选择 · ${L.length}个`); m && (P()[k] = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
       try: k => task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', P()[k] || '', '', sg), '✓ 已播放')),
       vclr: k => { P()[k] = ''; save(); pg.re(); },
       test: () => task('测试连接中', async sg => t == 'img' ? (show(await genImg('a cute cat, pastel colors, soft light', sg)), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试。', '', '', sg), '✓ 已播放')),

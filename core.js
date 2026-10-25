@@ -261,9 +261,23 @@ export const prof = t => {
     [cur, ...L].forEach(p => { const k = p?.prov || 'openai'; p && !a.cfg[k] && (a.cfg[k] = { ...structuredClone(PDEF[t][k] || {}), ...p }); });
     a.pv ||= cur ? cur.prov || 'openai' : t == 'tts' ? 'mm' : 'nai';
   }
+  if (t == 'tts' && !(a.v >= 2)) ttsMig(a);
   const P = t == 'tts' ? TTSP : IMGP; a.pv = P.some(x => x[0] == a.pv) ? a.pv : P[0][0];
   const c = a.cfg[a.pv] ||= structuredClone(PDEF[t][a.pv] || {}); c.prov = a.pv; c.name = P.find(x => x[0] == a.pv)[1]; return c;
 };
+// 语音设置升级：以前帮你预填的男 / 女兜底音色清空；官方服务商里填过的中转地址挪到「第三方」（不然换成官方地址就连不上了）
+const OLDV = ['male-qn-qingse', 'female-shaonv', 'onyx', 'nova', 'JBFqnCBsd6RMkjVDRZzb', 'EXAVITQu4vr4xnSDxMaL', '苏打', '冰糖', 'zh_female_xiaohe_uranus_bigtts'];
+function ttsMig(a) {
+  a.v = 2; a.fb ??= true;
+  for (const [k, c] of Object.entries(a.cfg || {})) {
+    OLDV.includes(c.vm) && (c.vm = ''); OLDV.includes(c.vf) && (c.vf = '');
+    const u = trim(c.url || ''), off = TURL[k] && trim(TURL[k]);
+    if (off && u && u != off && !(k == 'fish' && u == 'https://api.fish.audio/v1') && !a.cfg.third?.url) {
+      a.cfg.third = { ...c, prov: 'third', fmt: k == 'mmi' ? 'mm' : k, url: u, name: '第三方' }; a.pv == k && (a.pv = 'third');
+    }
+    off && delete c.url;
+  }
+}
 const tav = t => S.api[t].src == 'tavern';
 // 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
 async function call(t, desc, rq, fn, sg, pO, raw) {
@@ -403,15 +417,21 @@ export const json = s => { s = String(s ?? '').replace(/<think(ing)?>[\s\S]*?<\/
 export const slash = async s => { const c = C(), r = await (c.executeSlashCommandsWithOptions || c.executeSlashCommands)(s); return r?.pipe ?? r; };
 
 /* ---------- 语音 TTS 渠道 ---------- */
-export const TTSP = [['mm', 'MiniMax国内'], ['mmi', 'MiniMax国际'], ['openai', 'OpenAI'], ['fish', 'Fish Audio'], ['eleven', 'ElevenLabs'], ['index', 'IndexTTS本地'], ['mimo', 'MiMo-V2.5-TTS'], ['volc', '豆包 / 火山引擎']];
+export const TTSP = [['mm', 'MiniMax国内'], ['mmi', 'MiniMax国际'], ['openai', 'OpenAI'], ['fish', 'Fish Audio'], ['eleven', 'ElevenLabs'], ['index', 'IndexTTS本地'], ['mimo', 'MiMo-V2.5-TTS'], ['volc', '豆包 / 火山引擎'], ['third', '第三方']];
+// 官方接口地址：选了哪家就用哪家的官方地址（只有「第三方」和本地 IndexTTS 能自己填地址）
+export const TURL = { mm: 'https://api.minimaxi.com', mmi: 'https://api.minimax.io', openai: 'https://api.openai.com/v1', fish: 'https://api.fish.audio', eleven: 'https://api.elevenlabs.io', mimo: 'https://api.xiaomimimo.com/v1', volc: 'https://openspeech.bytedance.com' };
+// 第三方的接口格式
+export const TFMT = [['openai', 'OpenAI 格式'], ['mm', 'MiniMax 格式'], ['fish', 'Fish Audio 格式'], ['eleven', 'ElevenLabs 格式'], ['mimo', 'MiMo 格式']];
+// 真正请求用的设置：官方服务商固定官方地址；第三方按选的格式、用自己填的地址
+export const tq = p => !p ? p : p.prov == 'third' ? { ...p, prov: p.fmt || 'openai', name: p.name } : TURL[p.prov] ? { ...p, url: TURL[p.prov] } : p;
 // 各服务商的默认设置
 export const PDEF = {
   tts: {
-    mm: { model: 'speech-2.6-hd', voice: 'female-shaonv', vm: 'male-qn-qingse', vf: 'female-shaonv' }, mmi: { model: 'speech-2.6-hd', voice: 'female-shaonv', vm: 'male-qn-qingse', vf: 'female-shaonv' },
-    openai: { url: 'https://api.openai.com/v1', model: 'tts-1', voice: 'alloy', vm: 'onyx', vf: 'nova' }, fish: { model: 's2.1-pro' },
-    eleven: { model: 'eleven_multilingual_v2', voice: 'EXAVITQu4vr4xnSDxMaL', vm: 'JBFqnCBsd6RMkjVDRZzb', vf: 'EXAVITQu4vr4xnSDxMaL' },
-    index: { url: 'http://127.0.0.1:6006/audio/speech' }, mimo: { model: 'mimo-v2.5-tts', voice: 'mimo_default', vm: '苏打', vf: '冰糖' },
-    volc: { ver: 'v3', res: 'seed-tts-2.0', voice: 'zh_female_xiaohe_uranus_bigtts', vf: 'zh_female_xiaohe_uranus_bigtts' },
+    mm: { model: 'speech-2.6-hd', voice: 'female-shaonv' }, mmi: { model: 'speech-2.6-hd', voice: 'female-shaonv' },
+    openai: { model: 'tts-1', voice: 'alloy' }, fish: { model: 's2.1-pro' },
+    eleven: { model: 'eleven_multilingual_v2', voice: 'EXAVITQu4vr4xnSDxMaL' },
+    index: { url: 'http://127.0.0.1:6006/audio/speech' }, mimo: { model: 'mimo-v2.5-tts', voice: 'mimo_default' },
+    volc: { ver: 'v3', res: 'seed-tts-2.0', voice: 'zh_female_xiaohe_uranus_bigtts' }, third: { fmt: 'openai', url: '' },
   },
   img: {
     nai: { model: 'nai-diffusion-4-5-full', size: '832x1216', steps: 28, scale: 5, sampler: 'k_euler_ancestral', pre: 'masterpiece, best quality, very aesthetic', tag: true },
@@ -496,13 +516,19 @@ export const voiceOf = c => {
 };
 // 名字读音：合成前把「写法」换成「读音」（比如日文名字）
 const sayAs = (t, L) => (L || []).reduce((s, [w, r]) => w && r ? s.split(w).join(r) : s, t);
-// 音色优先级：联系人专属音色 → 按性别的男/女兜底音色 → 配置里的默认音色。o：{ c: 联系人 }，按这个人的服务商、朗读语言、名字读音来读
+// 这个人实际用哪个音色：专属音色 → （开了「用全局默认音色」才往下）按性别的男 / 女默认音色 → 服务商的音色 ID
+export const pickVoice = (c, p, sex) => { const vo = c ? voiceOf(c) : null, sx = c?.sex || sex;
+  if (vo?.voice) return { v: vo.voice, from: 'own' };
+  if (c && S.api.tts.fb === false) return { v: '', from: 'none' };
+  const g = sx == '男' ? p.vm : sx == '女' ? p.vf : ''; return g ? { v: g, from: sx } : { v: p.voice || '', from: p.voice ? 'pv' : 'none' }; };
+// o：{ c: 联系人 }，按这个人的服务商、朗读语言、名字读音来读
 export const tts = (text, voice, sex, sg0, o = {}) => {
   const vo = o.c ? voiceOf(o.c) : null, pO = vo && vo.pv != prof('tts').prov ? ttsCfg(vo.pv) : null;
   return call('tts', '语音', text, async (p, sg) => {
     if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`);
-    const sx = o.c?.sex || sex, v = voice || vo?.voice || (sx == '男' ? p.vm : sx == '女' ? p.vf : '') || p.voice || '', t = sayAs(text, o.c?.tv?.say);
-    const b = await (TTS[p.prov] || TTS.openai)({ ...p, ...(o.c?.tv?.lang && { lang: o.c.tv.lang }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
+    const pk = voice ? { v: voice } : pickVoice(o.c, p, sex), v = pk.v, t = sayAs(text, o.c?.tv?.say), q = tq(p);
+    if (o.c && pk.from == 'none') throw Error('还没给 TA 配音色');
+    const b = await (TTS[q.prov] || TTS.openai)({ ...q, ...(o.c?.tv?.lang && { lang: o.c.tv.lang }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
     await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · ${p.name || p.prov} · 音色 ${v || '默认'}]`;
   }, sg0, pO);
 };

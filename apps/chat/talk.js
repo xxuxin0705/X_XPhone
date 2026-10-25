@@ -1,6 +1,6 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
 import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
-import { voiceOf, ttsCfg, TTSP, prof, task } from '../../core.js';
+import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task } from '../../core.js';
 import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang } from './data.js';
 import { openFeed } from './chat.js';
@@ -289,17 +289,18 @@ export function openChat(id) {
 
 /* ---------- 聊天设置 ---------- */
 // 聊天信息 · 专属音色（仿正文朗读插件）：服务商、朗读语言、每个服务商各自的音色 ID、名字读音
-const VPH2 = { mm: '例如 female-shaonv', mmi: '例如 female-shaonv', openai: '例如 alloy / nova', fish: '填 Fish 的 reference_id', eleven: '填 ElevenLabs 的 voice_id', index: '例如 default.wav / 角色.wav', mimo: '例如 mimo_default / 冰糖', volc: '例如 zh_female_xiaohe_uranus_bigtts' };
+const VPH2 = { third: '音色 ID', mm: '例如 female-shaonv', mmi: '例如 female-shaonv', openai: '例如 alloy / nova', fish: '填 Fish 的 reference_id', eleven: '填 ElevenLabs 的 voice_id', index: '例如 default.wav / 角色.wav', mimo: '例如 mimo_default / 冰糖', volc: '例如 zh_female_xiaohe_uranus_bigtts' };
 const MML = [['auto', '自动识别'], ['Chinese', '中文'], ['Chinese,Yue', '粤语'], ['English', '英语'], ['Japanese', '日语'], ['Korean', '韩语'], ['French', '法语'], ['German', '德语'], ['Spanish', '西班牙语'], ['Russian', '俄语'], ['Thai', '泰语'], ['Vietnamese', '越南语']];
 function vSec(ch, f) {
-  const a = S.api.tts, vo = voiceOf(ch), cur = ttsCfg(vo.pv), tv = ch.tv || {}, per = a.mode == 'per';
-  return `<div class="vbox"><b>🎙 正在使用 <em>${esc(a.src == 'tavern' ? '酒馆 TTS 扩展' : cur.name)}</em></b><small>${vo.voice ? '音色：' + esc(vo.voice) : '未填写（用全局兜底音色）'}</small></div>`
-    + (per ? f.sel('tv.pv', '语音服务商<small>留空跟随全局设置</small>', [['', '跟随全局'], ...TTSP]) : `<p class="tip">设置 → 语音 选的是「统一用一个渠道」（${esc(ttsCfg(prof('tts').prov).name)}），只会用下面这个服务商的音色；想让每个人用自己的服务商，在那里改成「每个人用自己的渠道」。</p>`)
-    + f.sel('tv.lang', '朗读语言<small>仅 MiniMax 使用</small>', MML)
+  const a = S.api.tts, vo = voiceOf(ch), cur = ttsCfg(vo.pv), tv = ch.tv || {}, per = a.mode == 'per', pk = pickVoice(ch, cur);
+  const now = pk.from == 'own' ? '音色：' + esc(pk.v) : pk.from == '男' || pk.from == '女' ? `${pk.from}声默认：${esc(pk.v)}` : pk.from == 'pv' ? '默认音色：' + esc(pk.v) : '还没配音色';
+  return `<div class="vbox"><b>🎙 正在使用 <em>${esc(a.src == 'tavern' ? '酒馆 TTS 扩展' : cur.name)}</em></b><small>${now}</small></div>`
+    + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])
+    + (per ? f.sel('tv.pv', '语音服务商', [['', '跟随全局'], ...TTSP]) : '')
+    + f.sel('tv.lang', '朗读语言<small>仅 MiniMax</small>', MML)
     + TTSP.map(([k, n]) => `<label class="col vrow"><span>${esc(n)}${k == vo.pv ? ' <em class="using">使用中</em>' : ''}</span><input data-k="tv.v.${k}" value="${esc(tv.v?.[k] || '')}" placeholder="${esc(VPH2[k] || '音色 ID')}"></label>`).join('')
     + `<div class="tts-ops"><b data-a="vtry">▶ 试听这个人的声音</b></div>`
-    + `<div class="col"><span>名字读音<small>朗读时把名字换成这个读音再念，比如「悟 → さとる」「硝子 → しょうこ」，对 TA 所有的语音都生效</small></span>${(tv.say || []).map(([w, r], i) => `<div class="row say"><span>${esc(w)} → ${esc(r)}</span><b class="lnk danger" data-a="sayx" data-x="${i}">×</b></div>`).join('')}${btn('sayadd', '＋ 添加读音')}</div>`
-    + '<p class="tip">改完自动保存；微信语音点播放就会按新音色重新生成。</p>';
+    + `<div class="col"><span>名字读音</span>${(tv.say || []).map(([w, r], i) => `<div class="row say"><span>${esc(w)} → ${esc(r)}</span><b class="lnk danger" data-a="sayx" data-x="${i}">×</b></div>`).join('')}${btn('sayadd', '＋ 添加读音')}</div>`;
 }
 // 聊天信息 · 翻译（私聊 / 群聊）
 function trSec(ch, f, g) {
@@ -315,10 +316,10 @@ export function cset(ch) {
   const f = fx(ch), g = ch.type == 'g', mem = () => ch.members.map(i => [i, nm(get(i))]);
   page({
     title: g ? '群聊信息' : '聊天信息', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
-    onChange: k => /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; }),
+    onChange: k => /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; }),
     body: () => sec('cset', [
       ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
-        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])],
+        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋')],
       g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}<p class="tip">「加好友」：把群里还不认识的人加进通讯录，就能私聊了。</p>`],
       !g && ['voice', '专属音色', vSec(ch, f)],
       ['tr', '翻译', trSec(ch, f, g)],

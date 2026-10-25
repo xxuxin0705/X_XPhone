@@ -25,7 +25,7 @@ const reqs = [];
   const v = await E(`JSON.stringify([document.querySelector('select[data-k=pv]').value, document.querySelector('[data-k="cfg.fish.key"]').value, document.querySelector('[data-k="cfg.fish.model"]').value, document.querySelector('[data-k="cfg.fish.voice"]').value])`);
   ok(v == JSON.stringify(['fish', 'k1', 's1', 'v1']), '旧配置迁移：服务商、Key、模型、音色都在 ' + v);
   ok(await E(`core.S.api.tts.cfg.mm.key`) == 'mmkey', '另一个旧渠道（MiniMax）的设置也保留了');
-  ok(await E(`[...document.querySelectorAll('select[data-k=pv] option')].map(o => o.textContent.replace(/ ?✓/, '')).join()`) == 'MiniMax国内,MiniMax国际,OpenAI,Fish Audio,ElevenLabs,IndexTTS本地,MiMo-V2.5-TTS,豆包 / 火山引擎', '服务商列表（含 ElevenLabs）');
+  ok(await E(`[...document.querySelectorAll('select[data-k=pv] option')].map(o => o.textContent.replace(/ ?✓/, '')).join()`) == 'MiniMax国内,MiniMax国际,OpenAI,Fish Audio,ElevenLabs,IndexTTS本地,MiMo-V2.5-TTS,豆包 / 火山引擎,第三方', '服务商列表（含 ElevenLabs）');
   await p.screenshot({ path: path.join(OUT, 'prov_fish.png') });
   // Fish：网页接口
   reqs.length = 0; await E(`document.querySelector('[data-a=try][data-x=voice]').click()`); await W(800);

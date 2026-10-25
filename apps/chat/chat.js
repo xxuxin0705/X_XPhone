@@ -355,7 +355,7 @@ const mayRow = (c, st) => {
   return `<div class="may may-${st}" data-q="${dq(c)}"><img class="av" src="${esc(avOf(c))}" data-a="prof" data-x="${c.id}"><div class="cl-m" data-a="prof" data-x="${c.id}"><b>${esc(nm(c))}</b>${tags}</div>${ad ? `<span class="done">${btnT[1]}</span>` : `<button data-a="addfr" data-x="${c.id}">${btnT[0]}</button>${st == 'wx' ? '' : `<b class="x" data-a="nosug" data-x="${c.id}">${CI.x}</b>`}`}</div>`;
 };
 // 加好友页：微信「新的朋友」/ QQ「新朋友」/ Kakao「친구 추가」/ LINE·Ins「发现用户」
-async function addF() { const r = await form('添加好友', [['av', '头像', 'img'], ['nick', '昵称（网名）'], ['real', '真实姓名'], ['remark', '备注'], ['sign', '个性签名']]); r && (r.nick || r.real) && (add(blank('p', r)), saveD(), emit('chat'), toast('已添加')); }
+async function addF() { const r = await form('添加好友', [['av', '头像', 'img'], ['nick', '昵称（网名）'], ['real', '真实姓名'], ['remark', '备注'], ['sex', '性别', 'sel', [['', '未知'], ['男', '男'], ['女', '女']]], ['sign', '个性签名']]); r && (r.nick || r.real) && (add(blank('p', r)), saveD(), emit('chat'), toast('已添加')); }
 async function addG() { const r = await form('发起群聊', [['av', '群头像', 'img'], ['name', '群名'], ['notice', '群公告', 'area'], ['members', '选择成员', 'multi', D().chats.filter(c => c.type == 'p').map(c => [c.id, nm(c)])]]); r?.name && (add(blank('g', { ...r, members: r.members || [] })), saveD(), emit('chat'), toast('群聊已创建')); }
 const CTA = {
   newfr: () => newFr(), groups: () => page({ title: '群聊', cls: 'st-' + S.style, body: () => D().chats.filter(c => c.type == 'g').map(c => crow(c, 'open')).join('') || '<p class="empty">还没有群聊</p>', acts: { open: id => (back(), openChat(id)) } }),
@@ -380,7 +380,7 @@ export function newFr() {
 function prof(id) {
   const c = get(id), g = c.type == 'g';
   page({ title: '', cls: 'profpg', live: 1, body: () => `<div class="pf"><img class="av" src="${esc(avOf(c))}"><div><b>${esc(nm(c))}</b>${c.remark && c.nick ? `<small>昵称：${esc(c.nick)}</small>` : ''}${c.real && !g ? `<small>真实姓名：${esc(c.real)}</small>` : ''}<small>${g ? '群号：' + c.no : '账号：' + esc(c.nick || c.id)}</small></div></div>
-<div class="card">${c.sign || c.notice ? `<div class="row"><span>${g ? '群公告' : '个性签名'}</span><small>${esc(g ? c.notice : c.sign)}</small></div>` : ''}${g ? `<div class="row"><span>群成员</span><small>${gsz(c)} 人</small></div>` : `<div class="row"><span>分组</span><small>${esc(c.grp || '我的好友')}</small></div>`}</div>
+<div class="card">${c.sign || c.notice ? `<div class="row"><span>${g ? '群公告' : '个性签名'}</span><small>${esc(g ? c.notice : c.sign)}</small></div>` : ''}${g ? `<div class="row"><span>群成员</span><small>${gsz(c)} 人</small></div>` : `<div class="row"><span>性别</span><small>${esc(c.sex || '未知')}</small></div><div class="row"><span>分组</span><small>${esc(c.grp || '我的好友')}</small></div>`}</div>
 ${btn('pchat', g ? '进入群聊' : '发消息', '', 'pri')}${g ? '' : btn('pfd', '查看' + FN[sty(c)])}${btn('pset', '资料与聊天设置')}`,
     acts: { pchat: () => { back(); openChat(id); }, pfd: () => openFeed(id), pset: () => cset(c) } });
 }

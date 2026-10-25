@@ -113,11 +113,11 @@ console.log('T4 non-stream JSON reply, cancel, task failure notice');
 console.log('T5 CORS fallback via /proxy/');
 {
   routes = [[/^\/proxy\/https:\/\/api\.minimaxi\.com/, c => new Response(JSON.stringify({ base_resp: { status_code: 0 }, data: { audio: '494433' } }), { headers: { 'content-type': 'application/json' } })], [/^https:\/\/api\.minimaxi/, () => { throw new TypeError('Failed to fetch'); }]];
-  S.api.tts = { src: 'custom', cur: 't', list: [{ id: 't', prov: 'mm', key: 'mk', model: 'speech-2.6-hd', vm: 'male-qn-qingse', vf: 'female-shaonv' }] };
+  S.api.tts = { src: 'custom', cur: 't', list: [{ id: 't', prov: 'mm', key: 'mk', model: 'speech-2.6-hd', vm: 'male-qn-jingying', vf: 'female-yujie' }] };
   const r = await core.tts('你好', '', '男');
   const c = calls.at(-1);
   ok(c.url == '/proxy/https://api.minimaxi.com/v1/t2a_v2' && c.o.headers['X-CSRF-Token'] == 't' && c.o.headers.Authorization == 'Bearer mk', 'retried through ST proxy with CSRF + auth');
-  ok(c.body.voice_setting.voice_id == 'male-qn-qingse' && c.body.model == 'speech-2.6-hd', 'male fallback voice used for 男 contact');
+  ok(c.body.voice_setting.voice_id == 'male-qn-jingying' && c.body.model == 'speech-2.6-hd', 'male fallback voice used for 男 contact');
   routes = [[/^\/proxy\//, () => new Response('CORS proxy is disabled. Enable it in config.yaml', { status: 404 })], [/api\.minimaxi/, () => { throw new TypeError('Failed to fetch'); }]];
   let e; try { await core.tts('你好'); } catch (x) { e = x; } ok(/连不上 api\.minimaxi\.com/.test(e?.message) && /enableCorsProxy/.test(e.message), 'proxy disabled → friendly message');
 }
@@ -142,7 +142,22 @@ console.log('T6 TTS providers');
   P({ prov: 'fish', voice: 'ref123' }); routes = [[/api\.fish\.audio\/compat\/v1\/audio\/speech/, () => au.clone()]];
   await core.tts('嗨'); c = calls.at(-1); ok(c.body.voice == 'ref123' && c.body.model == 'fish-audio/s2.1-pro' && c.body.input == '嗨' && c.o.headers.Authorization == 'Bearer K', 'Fish Audio（网页接口，浏览器可直连）');
   P({ prov: 'eleven' }); routes = [[/api\.elevenlabs\.io\/v1\/text-to-speech\//, () => au.clone()]];
-  await core.tts('嗨', '', '男'); c = calls.at(-1); ok(/text-to-speech\/JBFqnCBsd6RMkjVDRZzb\?/.test(c.url) && c.o.headers['xi-api-key'] == 'K' && c.body.model_id == 'eleven_multilingual_v2', 'ElevenLabs（男声兜底默认 George）');
+  await core.tts('嗨', '', '男'); c = calls.at(-1); ok(/text-to-speech\/EXAVITQu4vr4xnSDxMaL\?/.test(c.url) && c.o.headers['xi-api-key'] == 'K' && c.body.model_id == 'eleven_multilingual_v2', 'ElevenLabs（男声默认空着 → 用服务商的音色 ID）');
+  ok(core.PDEF.tts.mm.vm == null && core.PDEF.tts.eleven.vf == null, '男 / 女默认音色不再预填');
+  // 官方服务商：地址固定官方（以前填的中转挪到「第三方」）
+  S.api.tts = { src: 'custom', pv: 'fish', cfg: { fish: { key: 'K', url: 'https://my-relay.test', voice: 'r1', vm: 'male-qn-qingse' }, mm: { key: 'M', url: 'https://api.minimaxi.com/' } } }; core.prof('tts');
+  const T = S.api.tts; ok(T.pv == 'third' && T.cfg.third.fmt == 'fish' && T.cfg.third.url == 'https://my-relay.test' && T.cfg.third.key == 'K' && !T.cfg.fish.url && !T.cfg.mm.url && T.cfg.fish.vm == '' && T.fb === true, '升级：Fish 里填过的中转地址挪到「第三方」（Fish 格式）；预填的兜底音色清空；默认用全局默认音色');
+  routes = [[/my-relay\.test\/compat\/v1\/audio\/speech/, () => au.clone()]];
+  await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://my-relay.test/compat/v1/audio/speech' && c.body.voice == 'r1', '第三方（Fish 格式）走自己填的地址');
+  T.cfg.third = { prov: 'third', fmt: 'mm', url: 'https://mm-relay.test', key: 'X', voice: 'v9' }; routes = [[/mm-relay\.test\/v1\/t2a_v2/, () => new Response(JSON.stringify({ base_resp: { status_code: 0 }, data: { audio: 'fffb9064' } }))]];
+  await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://mm-relay.test/v1/t2a_v2' && c.body.voice_setting.voice_id == 'v9', '第三方（MiniMax 格式）');
+  T.pv = 'openai'; T.cfg.openai = { key: 'O', url: 'https://evil.test/v1', voice: 'nova' }; routes = [[/api\.openai\.com\/v1\/audio\/speech/, () => au.clone()]];
+  await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://api.openai.com/v1/audio/speech', '官方服务商一律用官方地址');
+  // 没配音色的联系人：开了全局默认音色就用男 / 女默认，关了就不读
+  T.cfg.openai.vm = 'onyx'; const man = { sex: '男', tv: {} };
+  await core.tts('嗨', '', '', undefined, { c: man }); c = calls.at(-1); ok(c.body.voice == 'onyx', '全局默认音色开着：男性联系人用男声默认');
+  T.fb = false; let e2; try { await core.tts('嗨', '', '', undefined, { c: man }); } catch (x) { e2 = x; } ok(/还没给 TA 配音色/.test(e2?.message), '全局默认音色关了：没配音色的联系人不读');
+  man.tv = { v: { openai: 'echo' } }; await core.tts('嗨', '', '', undefined, { c: man }); c = calls.at(-1); ok(c.body.voice == 'echo', '配了专属音色照常读'); T.fb = true;
   P({ prov: 'index', url: 'http://127.0.0.1:6006/audio/speech', voice: 'hutao' }); routes = [[/127\.0\.0\.1:6006\/audio\/speech/, () => au.clone()]];
   await core.tts('嗨'); c = calls.at(-1); ok(c.body.input == '嗨' && c.body.character == 'hutao', 'IndexTTS local');
   P({ prov: 'openai', url: 'https://api.openai.com/v1', voice: 'alloy' }); routes = [[/api\.openai\.com\/v1\/audio\/speech/, () => au.clone()]];
