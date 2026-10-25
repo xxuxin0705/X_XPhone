@@ -80,6 +80,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const pm = await E(`JSON.stringify(X.parseXhs(${JSON.stringify(mob)}))`), pp = await E(`JSON.stringify(X.parseXhs(${JSON.stringify(pc)}))`);
   ok(/"title":"35张氛围感实况"/.test(pm) && JSON.parse(pm).items.length == 3 && JSON.parse(pm).items.filter(x => x.live).length == 2 && JSON.parse(pm).items[0].img == 'https://ci.xiaohongshu.com/m1' && /sns-video/.test(JSON.parse(pm).items[0].video), '手机页：认出 3 张图，2 张实况（带视频地址）' + pm.slice(0, 160));
   ok(JSON.parse(pp).items.length == 2 && JSON.parse(pp).items[1].live && JSON.parse(pp).items[1].video == 'https://sns-video-bd.xhscdn.com/v2.mp4' && JSON.parse(pp).items[0].img.startsWith('https://sns-webpic'), '电脑页：也能认（\\u002F、undefined、http 都处理了）');
+  const pv = JSON.parse(await E(`JSON.stringify(X.parseXhs(${JSON.stringify(fs.readFileSync(path.join(here, '../fixtures/xhs_video.html'), 'utf8'))}))`));
+  ok(pv.items.length == 2 && pv.items[1].isVideo && pv.items[1].video == 'https://sns-video-bd.xhscdn.com/whole.mp4' && pv.items[1].img == 'https://ci.xiaohongshu.com/cover', '视频笔记：整条视频也能当锁屏（封面做静态图）' + JSON.stringify(pv.items[1]));
   ok(await E(`X.linkIn('35张氛围感实况素材 拿了留痕 https://xhslink.cn/o/8tBFM07AP4X 前往【小红书】看看')`) == 'https://xhslink.cn/o/8tBFM07AP4X', '从整段分享文字里找出链接');
   ok(/登录/.test(await E(`(() => { try { X.parseXhs('<html>请登录</html>'); } catch (e) { return e.message; } })()`)), '要登录才能看的：提示得明白');
   // 整个导入流程（假网络）

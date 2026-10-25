@@ -10,7 +10,9 @@ async function net(url, blob) {
   if (xhsHook.get) return xhsHook.get(url, blob);
   const h = { 'User-Agent': UA, Referer: REF }, out = r => blob ? r.blob() : r.text();
   const tf = globalThis.__TAURI__?.http?.fetch;
-  if (tf) try { const r = await tf(url, { method: 'GET', headers: h }); if (r.ok) return out(r); } catch { }
+  if (tf) try { // 短链会 302 跳到笔记页：原生请求不一定自动跟，手动跟几次
+    let u = url; for (let i = 0; i < 4; i++) { const r = await tf(u, { method: 'GET', headers: h, redirect: 'manual' }); const loc = r.headers?.get?.('location') || r.headers?.location; if (r.status >= 300 && r.status < 400 && loc) { u = new URL(loc, u).href; continue; } if (r.ok) return out(r); break; }
+  } catch { }
   try { const r = await fetch(url, { headers: h, referrerPolicy: 'no-referrer' }); if (r.ok) return out(r); } catch { }
   let r; try { r = await fetch('/proxy/' + url, { headers: { ...C().getRequestHeaders?.(), ...h } }); } catch { }
   if (!r?.ok) throw Error('连不上小红书：TauriTavern 里可以直接用；网页版酒馆要在 config.yaml 设 enableCorsProxy: true 后重启');
@@ -26,13 +28,19 @@ export function parseXhs(html) {
   let st; try { st = JSON.parse(m[1].trim().replace(/;\s*$/, '').replace(/:\s*undefined\b/g, ':null').replace(/\[undefined\]/g, '[null]')); } catch { throw Error('笔记数据看不懂（小红书可能改版了）'); }
   let note = null; const seen = new Set();
   const walk = o => { if (note || !o || typeof o != 'object' || seen.has(o)) return; seen.add(o); if (Array.isArray(o.imageList) && o.imageList.length) return void (note = o); Object.values(o).forEach(walk); };
-  walk(st); if (!note) throw Error('这篇笔记里没有图片');
+  walk(st);
+  if (!note) { const seen2 = new Set(); const w2 = o => { if (note || !o || typeof o != 'object' || seen2.has(o)) return; seen2.add(o); if (o.video && (o.title != null || o.desc != null)) return void (note = o); Object.values(o).forEach(w2); }; w2(st); }
+  if (!note) throw Error('这篇笔记里没有图片');
   const vid = o => { let u = ''; const w = x => { if (u || !x || typeof x != 'object') return; for (const [k, v] of Object.entries(x)) { if (typeof v == 'string' && /^(https?:)?\/\//.test(v) && (/masterUrl|backupUrl|url/i.test(k) && /video|stream|\.mp4|sns-video/i.test(v))) return void (u = v); if (Array.isArray(v) && /backupUrls/i.test(k) && typeof v[0] == 'string') return void (u = v[0]); w(v); } }; w(o); return u; };
   const items = note.imageList.map((it, i) => {
     const img = fix(it.urlDefault || it.url || it.infoList?.find(x => /DFT/i.test(x.imageScene))?.url || it.infoList?.[0]?.url || it.urlPre);
     const s = it.stream || {}, v = [...(s.h264 || []), ...(s.h265 || []), ...(s.av1 || [])][0], video = fix(v?.masterUrl || v?.backupUrls?.[0] || vid(it.stream || it.livePhotoInfo || {}));
     return { i, img, video, live: !!video };
   }).filter(x => x.img);
+  // 视频笔记：整条视频也可以当锁屏视频（封面做静态图）
+  const V = note.video || {}, vs = V.media?.stream || {}, vv = [...(vs.h264 || []), ...(vs.h265 || []), ...(vs.av1 || [])][0];
+  const vurl = fix(vv?.masterUrl || vv?.backupUrls?.[0] || (V.consumer?.originVideoKey ? 'https://sns-video-bd.xhscdn.com/' + V.consumer.originVideoKey : '') || V.url || '');
+  if (vurl && !items.some(x => x.video)) items.push({ i: items.length, img: items[0]?.img || fix(V.image?.firstFrameFileid ? '' : note.cover?.urlDefault || note.cover?.url || ''), video: vurl, live: true, isVideo: true });
   return { title: note.title || String(note.desc || '').slice(0, 24) || '小红书笔记', items };
 }
 const readImg = b => new Promise((res, rej) => { const u = URL.createObjectURL(b), im = new Image(); im.onload = () => { const s = Math.min(1, 1600 / Math.max(im.width, im.height)), c = Object.assign(document.createElement('canvas'), { width: Math.round(im.width * s), height: Math.round(im.height * s) }); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL('image/webp', .9)); }; im.onerror = () => { URL.revokeObjectURL(u); rej(Error('图片打不开')); }; im.src = u; });
@@ -44,7 +52,7 @@ export async function importXhs(done, ask) {
   const nl = note.items.filter(x => x.live).length; if (!nl) toast('这篇笔记里没有实况图，只能导入成静态图片');
   const pick = new Set(note.items.filter(x => x.live).length <= 6 ? note.items.filter(x => x.live).map(x => x.i) : []), urls = {};
   const s = sheet({ title: note.title, noBack: 1, cls: 'xhs-pk',
-    body: () => `<p class="xhs-h">${note.items.length} 张图 · ${nl} 张实况　点选要导入的</p><div class="xhs-g">${note.items.map(x => `<div class="xhs-t ${pick.has(x.i) ? 'on' : ''}" data-a="xp" data-x="${x.i}"><img data-xi="${x.i}" alt="">${x.live ? '<em>LIVE</em>' : ''}<i>✓</i></div>`).join('')}</div><button class="btn pri" data-a="xgo">导入选中的 ${pick.size} 张</button>`,
+    body: () => `<p class="xhs-h">${note.items.length} 张图 · ${nl} 张实况${note.items.some(x => x.isVideo) ? '（含整条视频）' : ''}　点选要导入的</p><div class="xhs-g">${note.items.map(x => `<div class="xhs-t ${pick.has(x.i) ? 'on' : ''}" data-a="xp" data-x="${x.i}"><img data-xi="${x.i}" alt="">${x.isVideo ? '<em>视频</em>' : x.live ? '<em>LIVE</em>' : ''}<i>✓</i></div>`).join('')}</div><button class="btn pri" data-a="xgo">导入选中的 ${pick.size} 张</button>`,
     after: el => el.querySelectorAll('img[data-xi]').forEach(im => urls[im.dataset.xi] && (im.src = urls[im.dataset.xi])),
     onClose: () => Object.values(urls).forEach(u => URL.revokeObjectURL(u)),
     acts: {
