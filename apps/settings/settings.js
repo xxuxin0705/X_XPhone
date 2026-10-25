@@ -1,5 +1,5 @@
 // 小手机 · 设置：API（聊天 / 生图渠道 / 语音渠道）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
-import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, voices, TCAT, PDEF, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, TURL, TFMT, tq, IMGP, ISITE, iq, APPS_IMG, APPS_TTS, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
+import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, voices, TCAT, PDEF, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, TURL, TFMT, tq, IMGP, IURL, iq, APPS_IMG, APPS_TTS, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
@@ -42,17 +42,20 @@ const TF = { // 语音：模型、音色另外画（带快速选择 / 拉取 / �
 };
 const VPH = { mm: 'female-shaonv（系统音色或复刻音色ID）', mmi: 'female-shaonv', openai: 'alloy / nova / onyx…', fish: '音色模型ID（reference_id）', index: '参考音色 / 角色名', mimo: 'mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean', volc: 'zh_female_xiaohe_uranus_bigtts' };
 const NAIM = [['nai-diffusion-4-5-full', 'V4.5 Full'], ['nai-diffusion-4-5-curated', 'V4.5 Curated'], ['nai-diffusion-4-full', 'V4 Full'], ['nai-diffusion-4-curated-preview', 'V4 Curated'], ['nai-diffusion-3', 'V3 Anime']];
-const SZ = ['size', '尺寸（宽x高）'], ST = N('steps', '步数'), CF = N('scale', 'CFG'), SP = ['sampler', '采样器'], PRE = ['pre', '画风 / 质量前缀', 'area', '自动加在每次提示词前面'], NG = ['neg', '负面提示词', 'area', '留空用内置'], TG = ['tag', '中文描述先转成英文标签（多调一次聊天模型）', 'tog'];
-// NAI / GPT 的接口站点：官方站点 / 公益站点 / 自定义地址，各存一份地址和 Key
-const SITE = (m, ph) => { const st = m.site || 'official'; return [['site', '接口站点', 'sel', ISITE],
-  ...(st == 'public' ? [['purl', '公益站地址', 'text', ph], ['pkey', '公益站 Key', 'password']] : st == 'custom' ? [['curl', '自定义地址', 'text', ph], ['ckey', '自定义站 Key', 'password']] : [['key', '官方站 Key', 'password']])]; };
+const SZ = ['size', '尺寸（宽x高）'], ST = N('steps', '步数'), CF = N('scale', 'CFG'), SP = ['sampler', '采样器'], NG = ['neg', '负面提示词', 'area', '留空用内置'];
+// 生图：上面是连接（接口地址默认填官方的、可以改 + Key），下面是「方案」（模型、尺寸、步数、CFG、采样器、画师串、正面质量词、负面提示词…）
+const IU = ['url', '接口地址', 'official'], ART = ['art', '画师串', 'area', '如：artist:xxx, artist:yyy'], QL = ['pre', '正面质量词', 'area', '自动加在每次提示词前面'];
 const IF = {
-  nai: m => [...SITE(m, 'https://你的公益站地址'), ['queue', '排队服务地址（可选）', 'text', '多人共用一个 NAI Key 时填；留空直连'], ['model', '模型', 'sel', NAIM], SZ, ST, CF, SP, PRE, NG, TG],
-  openai: m => [...SITE(m, 'https://你的公益站地址/v1'), ['omode', '请求方式', 'sel', [['img', '生图接口（images/generations）'], ['chat', '聊天接口（chat/completions）']]], ['model', '模型', 'pull', 'gpt-image-1'], SZ],
-  sd: () => [U('http://127.0.0.1:7860'), ['model', '底模（空=当前）', 'pull'], SZ, ST, CF, SP, PRE, NG, TG],
-  comfy: () => [U('http://127.0.0.1:8188'), ['ckpt', '底模文件名', 'pull'], SZ, ST, CF, SP, PRE, NG, ['wf', '自定义工作流（可空）', 'area', 'ComfyUI「导出(API)」的 JSON。占位符：%prompt% %negative_prompt% %seed% %width% %height% %steps% %scale% %sampler% %model%'], TG],
-  sf: () => [K(), M('Kwai-Kolors/Kolors'), SZ, ST, CF, NG, U('留空用官方 api.siliconflow.cn/v1')],
+  nai: () => [IU, K(), ['model', '模型', 'sel', NAIM], SZ, ST, CF, SP, ART, QL, NG],
+  openai: () => [IU, K(), ['omode', '请求方式', 'sel', [['img', '生图接口（images/generations）'], ['chat', '聊天接口（chat/completions）']]], ['model', '模型', 'pull', 'gpt-image-1'], SZ],
+  sd: () => [IU, ['model', '底模（空=当前）', 'pull'], SZ, ST, CF, SP, ART, QL, NG],
+  comfy: () => [IU, ['ckpt', '底模文件名', 'pull'], SZ, ST, CF, SP, ART, QL, NG, ['wf', '自定义工作流（可空）', 'area', 'ComfyUI「导出(API)」的 JSON。占位符：%prompt% %negative_prompt% %seed% %width% %height% %steps% %scale% %sampler% %model%']],
+  sf: () => [IU, K(), M('Kwai-Kolors/Kolors'), SZ, ST, CF, NG],
 };
+const CONN = ['url', 'key', 'omode']; // 不算方案的（连接）
+const pkeys = pv => IF[pv]().map(f => f[0]).filter(k => k && !CONN.includes(k));
+// 方案：没有就用现在的设置建一个「默认方案」
+const presets = (c, pv) => { if (!c.presets?.length) { const id = uid(); c.presets = [{ id, n: '默认方案', v: Object.fromEntries(pkeys(pv).map(k => [k, c[k] ?? ''])) }]; c.pid = id; } c.presets.some(x => x.id == c.pid) || (c.pid = c.presets[0].id); return c.presets; };
 const TIP = {
   img: { nai: 'NAI 要求尺寸面积 ≤ 1024×1024、步数 ≤ 28 才不额外扣点。', sd: 'WebUI 启动参数加 --api --cors-allow-origins=*', comfy: 'ComfyUI 启动参数加 --enable-cors-header *', sf: '返回的图片链接1小时过期，小手机会自动转存。', openai: '' },
   tts: {},
@@ -75,7 +78,7 @@ const stPick = a => {
 function provPage(t) {
   const a = S.api[t]; prof(t);
   const pv = () => a.pv, K2 = k => `cfg.${pv()}.${k}`, P = () => a.cfg[pv()], F = fx(a);
-  const fld = ([k, l, ty = 'text', o]) => ty == 'official' ? `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] || TURL[pv()] || '')}"></div>` : ty == 'tip' ? `<p class="tip">${l}</p>` : ty == 'sel' ? F.sel(K2(k), l, o) : ty == 'tog' ? F.tog(K2(k), l) : ty == 'area' ? F.area(K2(k), l, o)
+  const fld = ([k, l, ty = 'text', o]) => ty == 'official' ? `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] || (t == 'tts' ? TURL : IURL)[pv()] || '')}"></div>` : ty == 'tip' ? `<p class="tip">${l}</p>` : ty == 'sel' ? F.sel(K2(k), l, o) : ty == 'tog' ? F.tog(K2(k), l) : ty == 'area' ? F.area(K2(k), l, o)
     : ty == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(o || '')}"><b class="pull" data-a="pullf" data-x="${k}">拉取</b></div>`
     : ty == 'password' ? `<div class="row"><span>${l}</span><input type="password" data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(o || '')}"><b class="pull eye" data-a="eye">显示</b></div>` : F.inp(K2(k), l, ty, o);
   const pick = (k, l, ph, acts) => `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(ph)}">${acts}</div>`;
@@ -89,20 +92,24 @@ function provPage(t) {
     let h = tts ? F.seg('tab', [['ch', '语音渠道'], ['lib', '角色库']]) : '';
     if (tts && a.tab == 'lib') return h + libList();
     if (tts) h += `<h6>每个人用哪个服务商</h6>${F.seg('mode', [['unified', '统一用一个渠道'], ['per', '每个人用自己的渠道']])}`;
-    h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商' : 'TTS 服务商') : '生图供应商', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
+    h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商' : 'TTS 服务商') : '生图渠道', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
     if (tts) {
       const noModel = pv() == 'volc';
       h += `<div class="card">${TF[pv()](p).map(fld).join('')}${noModel ? '' : pick('model', '语音模型', cat().models[0] || '', (cat().models.length ? '<b class="pull" data-a="qm">快选</b>' : '') + (['fish', 'eleven', 'openai', 'index'].includes(fp()) ? '<b class="pull" data-a="pullf" data-x="model">拉取</b>' : ''))}
         ${pick('voice', '音色 ID', VPH[fp()] || '', vbtn('voice'))}</div><div class="tts-ops"><b data-a="try" data-x="voice">▶ 试听当前音色</b><b class="danger" data-a="vclr" data-x="voice">清空当前音色</b></div>
         <h6>全局默认音色</h6><div class="card">${F.tog('fb', '没配音色的联系人用全局默认音色')}${a.fb !== false ? pick('vm', '男声默认', '', tbtn('vm')) + pick('vf', '女声默认', '', tbtn('vf')) : ''}</div>`;
-    } else h += `<div class="card">${IF[pv()](p).map(fld).join('')}</div><div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`;
+    } else { const fs = IF[pv()](p), L = presets(p, pv());
+      h += `<div class="card">${fs.filter(f => CONN.includes(f[0])).map(fld).join('')}</div>`
+        + `<h6>方案</h6><div class="mchips pchips">${L.map(x => `<b class="mchip ${x.id == p.pid ? 'on' : ''}" data-a="puse" data-x="${x.id}" data-lp="pdel">${esc(x.n)}</b>`).join('')}<b class="mchip add" data-a="pnew">＋ 新建方案</b></div>`
+        + `<div class="card">${fs.filter(f => !CONN.includes(f[0])).map(fld).join('')}</div><div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`; }
     const AP = tts ? APPS_TTS : APPS_IMG, B = a.bind ||= {};
     h += `<h6>按应用选渠道</h6><div class="card">${AP.map(([k, n]) => F.sel('bind.' + k, n, [['', '跟随默认（' + (PV[t].find(x => x[0] == pv())?.[1] || '') + '）'], ...PV[t]])).join('')}</div>`;
     return h + btn('test', '测试连接', '', 'pri');
   };
   const pg = page({
     title: T[t], model: () => a, save, onClose: rf, body,
-    onChange: k => { k == 'pv' ? (prof(t), save(), pg.re()) : (/\.(ver|prov|fmt|site|omode)$/.test(k) || k == 'fb') && pg.re(); },
+    onChange: k => { const m = t == 'img' && k.match(/^cfg\.(\w+)\.(\w+)$/); if (m && !CONN.includes(m[2])) { const c = a.cfg[m[1]], x = presets(c, m[1]).find(x => x.id == c.pid); x && (x.v[m[2]] = c[m[2]], save()); } // 改了就存进当前方案
+      k == 'pv' ? (prof(t), save(), pg.re()) : (/\.(ver|prov|fmt|omode)$/.test(k) || k == 'fb') && pg.re(); },
     acts: {
       eye: (x, el) => { const i = el.previousElementSibling; i.type = i.type == 'password' ? 'text' : 'password'; el.textContent = i.type == 'password' ? '显示' : '隐藏'; },
       qm: async () => { const m = await menu(cat().models.map(x => [x, esc(x)]), '选择模型'); m && (P().model = m, save(), pg.re()); },
@@ -111,6 +118,10 @@ function provPage(t) {
       pullf: async k => { try { toast('正在拉取…'); const L = await models(t == 'tts' ? tq(prof(t)) : t == 'img' ? iq(prof(t)) : prof(t), t); if (!L.length) return toast('没有拉到可选项'); const m = await menu(L.map(x => [x, esc(x)]), `选择 · ${L.length}个`); m && (P()[k] = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
       try: k => !P()[k] ? toast('先填音色 ID') : task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', P()[k] || '', '', sg), '✓ 已播放')),
       vclr: k => { P()[k] = ''; save(); pg.re(); },
+      // 方案：点一下切换、＋新建（用现在的设置）、长按删除
+      puse: id => { const c = P(), x = presets(c, pv()).find(x => x.id == id); if (!x) return; Object.assign(c, x.v); c.pid = id; save(); pg.re(); toast('换成「' + x.n + '」'); },
+      pnew: async () => { const c = P(), r = await form('新建方案', [['n', '方案名字', 'text', '如：厚涂 / 日常自拍']]); if (!r) return; const id = uid(); presets(c, pv()).push({ id, n: (r.n || '').trim() || '方案' + (c.presets.length + 1), v: Object.fromEntries(pkeys(pv()).map(k => [k, c[k] ?? ''])) }); c.pid = id; save(); pg.re(); toast('已新建，下面改的都存进这个方案'); },
+      pdel: async id => { const c = P(), L = presets(c, pv()), x = L.find(x => x.id == id); if (!x) return; if (L.length < 2) return toast('至少留一个方案'); if (!await ok('删除方案「' + x.n + '」？')) return; L.splice(L.indexOf(x), 1); if (c.pid == id) { c.pid = L[0].id; Object.assign(c, L[0].v); } save(); pg.re(); },
       vopen: id => { const c = people().find(x => x.id == id); c && voicePage(c, () => setTimeout(() => pg.re())); },
       test: () => task('测试连接中', async sg => t == 'img' ? (show(await genImg('a cute cat, pastel colors, soft light', sg)), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试。', '', '', sg), '✓ 已播放')),
     },

@@ -67,7 +67,7 @@ export function applyDelta(d, cur) {
   d.msgs?.forEach(m => { const ch = cur || find(m.chat) || upsert({ real: isMe(m.from) ? m.chat : m.from }), x = ch && addMsg(ch, m); x && out.push([ch, x]); });
   d.posts?.forEach(p => {
     const po = { id: uid(), a: isMe(p.author) ? 'me' : upsert({ real: p.author }).id, c: p.text || '', imgd: p.img || '', ts: +now() - Math.random() * 18e6, likes: p.likes || [], cm: (p.comments || []).map(c => ({ f: c.from, c: c.text })) };
-    D().posts.unshift(po); po.imgd && S.api.img.auto && genImg(po.imgd, undefined, 'moments').then(u => { po.url = u; saveD(); emit('chat'); }).catch(e => fail('动态配图失败：' + e.message));
+    D().posts.unshift(po); po.imgd && S.api.img.auto && genImg(po.imgd, undefined, 'chat').then(u => { po.url = u; saveD(); emit('chat'); }).catch(e => fail('动态配图失败：' + e.message));
   });
   saveD(); emit('chat'); return out;
 }

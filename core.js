@@ -262,7 +262,7 @@ export const prof = t => {
     a.pv ||= cur ? cur.prov || 'openai' : t == 'tts' ? 'mm' : 'nai';
   }
   if (t == 'tts' && !(a.v >= 2)) ttsMig(a);
-  if (t == 'img' && !(a.v >= 2)) imgMig(a);
+  if (t == 'img' && !(a.v >= 3)) imgMig(a);
   const P = t == 'tts' ? TTSP : IMGP; a.pv = P.some(x => x[0] == a.pv) ? a.pv : P[0][0];
   const c = a.cfg[a.pv] ||= structuredClone(PDEF[t][a.pv] || {}); c.prov = a.pv; c.name = P.find(x => x[0] == a.pv)[1]; return c;
 };
@@ -274,11 +274,14 @@ function ttsMig(a) {
     OLDV.includes(c.vm) && (c.vm = ''); OLDV.includes(c.vf) && (c.vf = '');
   }
 }
-// 生图设置升级：NAI 以前的「排队服务地址」放进 queue；OpenAI 以前填的地址算「自定义地址」
+// 生图设置升级：不再走酒馆扩展；以前的「接口站点」（官方 / 公益站 / 自定义）合成一个接口地址；去掉排队服务、中文转标签
 function imgMig(a) {
-  a.v = 2; a.src = 'custom'; const n = a.cfg?.nai, o = a.cfg?.openai;
-  if (n) { n.url && !n.queue && (n.queue = n.url); delete n.url; n.site ||= 'official'; }
-  if (o) { const u = trim(o.url || ''); if (u && u != trim(IURL.openai)) Object.assign(o, { site: 'custom', curl: u, ckey: o.key || '' }); o.site ||= 'official'; delete o.url; }
+  a.v = 3; a.src = 'custom';
+  for (const [k, c] of Object.entries(a.cfg || {})) {
+    if (c.site == 'public') Object.assign(c, { url: c.purl || '', key: c.pkey || '' }); else if (c.site == 'custom') Object.assign(c, { url: c.curl || '', key: c.ckey || '' }); else if (c.site == 'official' && k != 'sd' && k != 'comfy') c.url = '';
+    ['site', 'purl', 'pkey', 'curl', 'ckey', 'queue', 'tag'].forEach(x => delete c[x]);
+  }
+  a.bind && delete a.bind.moments;
 }
 const tav = t => t == 'chat' && S.api[t].src == 'tavern'; // 语音、生图只用自选服务商
 // 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
@@ -436,10 +439,10 @@ export const PDEF = {
     volc: { ver: 'v3', res: 'seed-tts-2.0', voice: 'zh_female_xiaohe_uranus_bigtts' }, third: { fmt: 'openai', url: '' },
   },
   img: {
-    nai: { site: 'official', model: 'nai-diffusion-4-5-full', size: '832x1216', steps: 28, scale: 5, sampler: 'k_euler_ancestral', pre: 'masterpiece, best quality, very aesthetic', tag: true },
-    openai: { site: 'official', model: 'gpt-image-1', size: '1024x1024' },
-    sd: { url: 'http://127.0.0.1:7860', size: '512x768', steps: 20, scale: 7, sampler: 'Euler a', tag: true },
-    comfy: { url: 'http://127.0.0.1:8188', size: '512x768', steps: 20, scale: 7, sampler: 'euler_ancestral', tag: true },
+    nai: { model: 'nai-diffusion-4-5-full', size: '832x1216', steps: 28, scale: 5, sampler: 'k_euler_ancestral', pre: 'masterpiece, best quality, very aesthetic' },
+    openai: { model: 'gpt-image-1', size: '1024x1024' },
+    sd: { url: 'http://127.0.0.1:7860', size: '512x768', steps: 20, scale: 7, sampler: 'Euler a' },
+    comfy: { url: 'http://127.0.0.1:8188', size: '512x768', steps: 20, scale: 7, sampler: 'euler_ancestral' },
     sf: { model: 'Kwai-Kolors/Kolors', size: '1024x1024', steps: 20, scale: 7.5 },
   },
 };
@@ -538,14 +541,11 @@ export const tts = (text, voice, sex, sg0, o = {}) => {
 /* ---------- 生图渠道 ---------- */
 export const IMGP = [['nai', 'NovelAI / NAI'], ['openai', 'GPT / OpenAI兼容'], ['sd', '本地SD'], ['comfy', 'ComfyUI'], ['sf', '硅基流动']];
 // NAI / GPT：官方站点 / 公益站点 / 自定义地址，三个各存一份地址和 Key
-export const IURL = { nai: 'https://image.novelai.net', openai: 'https://api.openai.com/v1' };
-export const ISITE = [['official', '官方站点'], ['public', '公益站点'], ['custom', '自定义地址']];
-export const iq = p => { if (!p || !IURL[p.prov]) return p; const st = p.site || 'official';
-  const url = st == 'public' ? p.purl : st == 'custom' ? p.curl : IURL[p.prov], key = st == 'public' ? p.pkey : st == 'custom' ? p.ckey : p.key;
-  if (st != 'official' && !trim(url || '')) throw Error(st == 'public' ? '请先填写公益站地址' : '请先填写自定义地址');
-  return { ...p, url: trim(url), key: key || '' }; };
+// 接口地址：默认填官方的（本地 SD / ComfyUI 是默认的本机地址），可以改成公益站 / 中转
+export const IURL = { nai: 'https://image.novelai.net', openai: 'https://api.openai.com/v1', sd: 'http://127.0.0.1:7860', comfy: 'http://127.0.0.1:8188', sf: 'https://api.siliconflow.cn/v1' };
+export const iq = p => p && IURL[p.prov] ? { ...p, url: trim(p.url || '') || IURL[p.prov] } : p;
 // 按应用选渠道：S.api.img.bind = { chat: 'nai', moments: 'openai' }；空＝跟随默认
-export const APPS_IMG = [['chat', '聊天发图'], ['moments', '朋友圈配图']], APPS_TTS = [['p', '私聊语音'], ['g', '群聊语音']];
+export const APPS_IMG = [['chat', '聊天（含朋友圈）']], APPS_TTS = [['p', '私聊语音'], ['g', '群聊语音']];
 const bindOf = (t, app) => { const a = S.api[t], k = app && a.bind?.[app], P = t == 'tts' ? TTSP : IMGP; return k && P.some(x => x[0] == k) ? k : ''; };
 export const imgCfg = pv => { prof('img'); const a = S.api.img, c = a.cfg[pv] ||= structuredClone(PDEF.img[pv] || {}); c.prov = pv; c.name = IMGP.find(x => x[0] == pv)?.[1] || pv; return c; };
 const wh = (s, w, h) => { const m = String(s || '').match(/(\d+)\s*[x×*]\s*(\d+)/); return m ? [+m[1], +m[2]] : [w, h]; };
@@ -588,7 +588,7 @@ const IMG = {
     const [w, h] = wh(p.size, 832, 1216), m = p.model || 'nai-diffusion-4-5-full', neg = p.neg || NEG, v4 = /diffusion-4/.test(m);
     const prm = { params_version: 3, width: w, height: h, scale: +p.scale || 5, sampler: p.sampler || 'k_euler_ancestral', steps: +p.steps || 28, n_samples: 1, seed: seed(), ucPreset: 0, qualityToggle: true, noise_schedule: 'karras', cfg_rescale: 0, sm: false, sm_dyn: false, dynamic_thresholding: false, legacy: false, add_original_image: true, negative_prompt: neg,
       ...(v4 && { v4_prompt: { caption: { base_caption: pr, char_captions: [] }, use_coords: false, use_order: true }, v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] }, legacy_uc: false } }) };
-    const r = await post(trim(p.queue || p.url || IURL.nai) + '/ai/generate-image', { input: pr, model: m, action: 'generate', parameters: prm }, { Authorization: B + p.key }, sg);
+    const r = await post(trim(p.url || IURL.nai) + '/ai/generate-image', { input: pr, model: m, action: 'generate', parameters: prm }, { Authorization: B + p.key }, sg);
     return unzip1(new Uint8Array(await r.arrayBuffer()));
   },
   comfy: async (p, pr, sg) => {
@@ -608,13 +608,10 @@ const IMG = {
 };
 // 结果统一压成 webp 存进聊天数据（链接会过期的渠道也能留住图）；拿不到就保留原链接
 const shrink = async s => { try { return await readImg(s instanceof Blob ? s : await (await fetch(s)).blob(), 1280); } catch { return s instanceof Blob ? URL.createObjectURL(s) : s; } };
-const TAGP = 'Convert the image description into concise comma-separated English Danbooru-style tags (subject, appearance, clothing, expression, pose, scene, lighting). Output tags only.';
 export async function genImg(prompt, sg, app) {
   const b = bindOf('img', app), pO = b && b != prof('img').prov ? imgCfg(b) : null, p = pO || prof('img'), own = p;
-  if (own && p.tag && ['nai', 'sd', 'comfy'].includes(p.prov) && /[一-龥]/.test(prompt)) {
-    try { prompt = String(await llm(TAGP, prompt, '生图提示词', sg, { fast: 1, aux: 1 })).replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/\s*[,，]?\s*\n+\s*/g, ', ').replace(/^[\s,]+|[\s,]+$/g, '') || prompt; } catch (e) { if (sg?.aborted) throw e; }
-  }
-  own && p.pre?.trim() && (prompt = p.pre.trim().replace(/,\s*$/, '') + ', ' + prompt);
+  // 画师串、正面质量词放在提示词前面（不再多调一次聊天模型翻译）
+  const lead = [p.art, p.pre].map(x => String(x || '').trim().replace(/,\s*$/, '')).filter(Boolean); lead.length && (prompt = [...lead, prompt].join(', '));
   return call('img', '生图', prompt, async (p, sig) => {
     const r = await (IMG[p.prov] || IMG.openai)(iq(p), prompt, sig); if (!r) throw Error('没有返回图片'); return putMedia(await shrink(r), 'ai');
   }, sg, pO);
