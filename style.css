@@ -2,9 +2,9 @@
 #stp{--sc:1;--fz:.92;--sbh:38px;--ac:#6fbf80;position:fixed;right:24px;bottom:24px;z-index:10050;width:390px;height:812px;max-height:calc((100vh - 24px) / var(--sc));padding:11px;border-radius:60px;
   background:linear-gradient(145deg,#34343a,#0c0c0e 60%);box-shadow:inset 0 0 0 1.5px #44444a,inset 0 0 0 4px #111,0 30px 80px rgba(0,0,0,.45);
   transform:scale(var(--sc)) translateY(40px);transform-origin:top left;opacity:0;pointer-events:none;transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.15);
-  font:calc(14px*var(--fz,1))/1.45 -apple-system,"SF Pro Text","PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",sans-serif;color:var(--pt);-webkit-font-smoothing:antialiased;user-select:none;text-align:left}
+  font:calc(14px*var(--fz,1))/1.45 -apple-system,"SF Pro Text","PingFang SC","HarmonyOS Sans SC","MiSans","Roboto","Microsoft YaHei",sans-serif!important;color:var(--pt);-webkit-font-smoothing:antialiased;user-select:none;text-align:left}
 #stp.on{opacity:1;pointer-events:auto;transform:scale(var(--sc))}
-#stp *{box-sizing:border-box}
+#stp *{box-sizing:border-box}#stp,#stp :where(:not(i):not(.wp-m b):not(.wp-r b):not(.wc-t):not(.wc-s):not(.wc-d b):not(.wd-n):not(.lk-time):not(.lk-date):not(pre):not(code)){font-family:inherit}
 #stp svg{display:block}
 #stp img{max-width:none;margin:0}
 #stp p{margin:0}
