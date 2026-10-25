@@ -1,6 +1,6 @@
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickImg } from './core.js';
-import { ccdHtml, CCD_BODY, CCD_BG } from './apps/theme/ccd.js';
+import { ccdHtml, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
 // 尺寸：宽 1～4 格 × 高 1～4 格，任意组合（按宽度分组）
@@ -15,9 +15,9 @@ export const WK = {
   days: { n: '纪念日', w: 2, h: 2, f: [['title', '标题'], ['from', '起始日', 'date'], ['bday', '生日', 'date']], r: p => `<small>${esc(p.title || '你在世界已经')}</small><b class="wd-n">${dd(p.from)}<i>天</i></b><small>生日还有 <b>${bd(p.bday)}</b> 天</small>` },
   text: { n: '文字', w: 4, h: 1, f: [['text', '内容', 'area']], r: p => `<p>${esc(p.text || 'HAPPY EVERYDAY ♡')}</p>` },
   ccd: { n: 'CCD 相机', w: 2, h: 2, cls: 'ccd',
-    f: [['img', '照片', 'img'], ['body', '机身颜色', 'sel', CCD_BODY], ['zoom', '照片缩放 %', 'number', '100'], ['px', '左右位置 %', 'number', '50'], ['py', '上下位置 %', 'number', '50'],
+    f: [['img', '照片', 'img'], ['body', '机身颜色', 'color'], ['zoom', '照片缩放 %', 'number', '100'], ['px', '左右位置 %', 'number', '50'], ['py', '上下位置 %', 'number', '50'],
       ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
-    r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
+    d: { body: CCD_PINK, bgC: '#ffffff', bgC2: '#ffd6e7' }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },
 };
 const def = () => ({
@@ -87,7 +87,7 @@ function folder(it) {
 // CCD：点一下换照片
 async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == null) return; const old = it.p.img; it.p.img = v || ''; save(); old && dropMedia(old); renderDesk(); }
 async function editW(it) {
-  const K = WK[it.k], r = await form(K.n, [...(K.f || []), ['sz', '尺寸', 'sel', SZ]], { ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
+  const K = WK[it.k], r = await form(K.n, [...(K.f || []), ['sz', '尺寸', 'sel', SZ]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
   const { sz, ...p } = r; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk();
 }
 Object.assign(G, {
@@ -99,7 +99,7 @@ Object.assign(G, {
   wAdd: async () => {
     const k = await menu([...Object.entries(WK).filter(([k]) => k != 'custom').map(([k, v]) => [k, v.n]), ...S.assets.widget.map((a, i) => ['@' + i, '✦ ' + esc(a.name)])], '添加小组件'); if (!k) return;
     const a = k[0] == '@' && S.assets.widget[k.slice(1)], [w, h] = (a?.sz || '2x2').split('x').map(Number);
-    S.desk.pages[cur].push(a ? W('custom', w, h, { html: a.html }) : W(k, WK[k].w, WK[k].h)); clean();
+    S.desk.pages[cur].push(a ? W('custom', w, h, { html: a.html }) : W(k, WK[k].w, WK[k].h, { ...WK[k].d })); clean();
   },
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
 });

@@ -1,15 +1,13 @@
-// 小手机 · 桌面小组件「CCD 相机」：一台小 CCD 的背面，你的照片铺满它的屏幕；右边是快门、两个转盘，顶上一颗变焦钮。
-// 机身三种颜色（银 / 紫 / 粉），相机后面还有一层「背景」：默认透明，也可以毛玻璃 / 纯色 / 渐变，后三种能调透明度。
-// 照片：直接上传；缩放和位置可以微调（照片比屏幕大时也能挑想露出来的部分）。
+// 小手机 · 桌面小组件「CCD 相机」：一台真的 CCD 背面（assets/ccd/body.webp，抠好的图：机身以外透明、屏幕也是透明的），你的照片从屏幕里透出来。
+// 机身颜色随便选：拿机身图的明暗（高光、阴影都保留），换成你选的色相和饱和度，整体亮度往你选的颜色靠。算一次缓存一次。
+// 相机后面还有一层「背景」：默认透明，也可以毛玻璃 / 纯色 / 渐变，后三种能调透明度。照片可以缩放、挪位置。
 import { esc } from '../../core.js';
 
-export const CCD_BODY = [['silver', '银色'], ['lilac', '淡紫'], ['pink', '粉色']];
+export const CCD_URL = new URL('../../assets/ccd/body.webp', import.meta.url).href;
+export const CCD_W = 900, CCD_H = 777; // 机身图尺寸
+export const CCD_SCR = { x: 11.45, y: 13.54, w: 52.76, h: 75.79 }; // 屏幕在机身图里的位置（%）
+export const CCD_PINK = '#f2a7c4'; // 原图就是这个粉，选它就不用算
 export const CCD_BG = [['none', '透明'], ['glass', '毛玻璃'], ['solid', '纯色'], ['grad', '渐变']];
-const B = { // 机身用的几个颜色：主色、亮面、暗面、转盘
-  silver: ['#d9d9de', '#f3f3f5', '#aeb0b6', '#c6c7cc'],
-  lilac: ['#cdb9f0', '#ebe0ff', '#a48ed0', '#dccfff'],
-  pink: ['#f2a7c4', '#ffd5e4', '#d57a9d', '#ffc2d8'],
-};
 // 背景层的样式（相机后面那一层）
 export function ccdBg(p) {
   const a = Math.max(0, Math.min(1, (p.bgA ?? 60) / 100)), c = p.bgC || '#ffffff', c2 = p.bgC2 || '#ffd6e7';
@@ -18,33 +16,34 @@ export function ccdBg(p) {
   if (p.bg == 'glass') return `background:${hexa(c, a * .45)};backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3)`;
   return '';
 }
-const hexa = (h, a) => { const n = parseInt(String(h).replace('#', '').padEnd(6, '0').slice(0, 6), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
-// 画相机：用 SVG，机身按组件的宽高自动铺满；屏幕的位置算出来给照片用
-export function ccdSvg(p, W = 2, H = 2) {
-  const [c, hi, lo, dial] = B[p.body] || B.silver, sq = W == H;
-  // 相机比例 1.22:1；组件不是正方形时相机居中
-  const vw = 244, vh = 200;
-  const scr = { x: 14, y: 16, w: 150, h: 168 }; // 屏幕
-  return { scr, vw, vh, svg: `<svg viewBox="0 0 ${vw} ${vh}" preserveAspectRatio="xMidYMid meet" class="ccd-svg">
-<defs><linearGradient id="ccdb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hi}"/><stop offset=".55" stop-color="${c}"/><stop offset="1" stop-color="${lo}"/></linearGradient>
-<radialGradient id="ccdd" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="${hi}"/><stop offset="1" stop-color="${lo}"/></radialGradient></defs>
-<rect x="2" y="8" width="${vw - 4}" height="${vh - 10}" rx="26" fill="url(#ccdb)" stroke="${lo}" stroke-width="1.5"/>
-<rect x="6" y="11" width="${vw - 12}" height="30" rx="20" fill="${hi}" opacity=".35"/>
-<rect x="196" y="0" width="32" height="16" rx="7" fill="${lo}"/><rect x="199" y="2" width="26" height="9" rx="4.5" fill="${hi}" opacity=".75"/>
-<rect x="${scr.x - 4}" y="${scr.y - 4}" width="${scr.w + 8}" height="${scr.h + 8}" rx="10" fill="#1b1b1f"/>
-<rect x="${scr.x}" y="${scr.y}" width="${scr.w}" height="${scr.h}" rx="7" fill="#2a2a30"/>
-<circle cx="200" cy="50" r="13" fill="url(#ccdd)" stroke="${lo}" stroke-width="1.5"/><circle cx="200" cy="50" r="7" fill="none" stroke="${lo}" stroke-width="1" opacity=".6"/><circle cx="200" cy="50" r="2.5" fill="${lo}" opacity=".6"/>
-<rect x="180" y="78" width="42" height="26" rx="9" fill="${lo}" opacity=".3"/><rect x="184" y="82" width="34" height="18" rx="6" fill="${hi}" opacity=".35"/>
-<circle cx="200" cy="130" r="20" fill="url(#ccdd)" stroke="${lo}" stroke-width="1.5"/><circle cx="200" cy="130" r="13" fill="${dial}" stroke="${lo}" stroke-width="1"/><circle cx="200" cy="130" r="4" fill="${lo}"/>
-<circle cx="200" cy="170" r="12" fill="url(#ccdd)" stroke="${lo}" stroke-width="1.5"/><circle cx="200" cy="170" r="4" fill="${lo}" opacity=".6"/>
-<text x="178" y="31" font-size="6.5" fill="${lo}" font-family="sans-serif" font-weight="600" letter-spacing="1.2" opacity=".85">CCD</text>
-</svg>` };
+const hex = h => { const n = parseInt(String(h).replace('#', '').padEnd(6, '0').slice(0, 6), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const hexa = (h, a) => `rgba(${hex(h).join(',')},${a})`;
+const norm = h => /^#[0-9a-f]{6}$/i.test(h || '') ? h.toLowerCase() : CCD_PINK;
+
+/* ---------- 换机身颜色 ---------- */
+const rgb2hsl = (r, g, b) => { r /= 255; g /= 255; b /= 255; const M = Math.max(r, g, b), m = Math.min(r, g, b), l = (M + m) / 2; if (M == m) return [0, 0, l]; const d = M - m, s = l > .5 ? d / (2 - M - m) : d / (M + m); const h = M == r ? (g - b) / d + (g < b ? 6 : 0) : M == g ? (b - r) / d + 2 : (r - g) / d + 4; return [h / 6, s, l]; };
+const hsl2rgb = (h, s, l) => { if (!s) return [l, l, l].map(x => x * 255); const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q, f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; }; return [f(h + 1 / 3), f(h), f(h - 1 / 3)].map(x => x * 255); };
+const cache = new Map(); // 颜色 → 算好的图（data URL）
+let base; // 原图的像素（算一次）
+const loadBase = () => base ||= new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { const c = document.createElement('canvas'); c.width = CCD_W; c.height = CCD_H; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, CCD_W, CCD_H); let s = 0, n = 0; for (let i = 0; i < d.data.length; i += 4) if (d.data[i + 3] > 128) { s += rgb2hsl(d.data[i], d.data[i + 1], d.data[i + 2])[2]; n++; } res({ d, mean: n ? s / n : .7, cv: c }); }; im.onerror = () => res(null); im.src = CCD_URL; });
+// 算出某个颜色的机身：像素亮度 = 选的颜色的亮度 + (原像素亮度 − 原图平均亮度)，色相 / 饱和度用选的颜色
+async function recolor(c) {
+  const b = await loadBase(); if (!b) return '';
+  const [h, s, l0] = rgb2hsl(...hex(c)), l = Math.max(.12, Math.min(.88, l0)), src = b.d.data, out = new ImageData(CCD_W, CCD_H), o = out.data;
+  for (let i = 0; i < src.length; i += 4) { const a = src[i + 3]; if (!a) continue; const L = rgb2hsl(src[i], src[i + 1], src[i + 2])[2], [r, g, bl] = hsl2rgb(h, s, Math.max(0, Math.min(1, l + (L - b.mean)))); o[i] = r; o[i + 1] = g; o[i + 2] = bl; o[i + 3] = a; }
+  b.cv.getContext('2d').putImageData(out, 0, 0); return b.cv.toDataURL('image/png');
 }
-// 整个组件：背景层 + 相机 + 照片（照片放在屏幕的位置上）
+const pending = new Set();
+// 这个颜色的机身图：算过的直接给；没算过先给原图，算完把桌面上同色的机身换掉
+export function ccdSrc(c, onReady) {
+  c = norm(c); if (c == CCD_PINK) return CCD_URL; if (cache.has(c)) return cache.get(c);
+  if (!pending.has(c)) { pending.add(c); recolor(c).then(u => { pending.delete(c); if (!u) return; cache.set(c, u); document.querySelectorAll(`img.ccd-body[data-c="${c}"]`).forEach(im => im.src = u); onReady?.(c, u); }); }
+  return CCD_URL;
+}
+// 整个组件：背景层 + 机身 + 照片（照片在屏幕的位置，机身盖在上面）
 export function ccdHtml(p, W = 2, H = 2) {
-  const { scr, vw, vh, svg } = ccdSvg(p, W, H), z = Math.max(50, +p.zoom || 100) / 100, px = p.px ?? 50, py = p.py ?? 50;
-  const img = p.img ? `<img src="${esc(p.img)}" style="object-position:${px}% ${py}%;transform:scale(${z})" alt="">` : `<i class="ccd-ph">＋<small>点我换照片</small></i>`;
-  // 屏幕区域按 SVG 的 viewBox 比例定位（用百分比，组件任何尺寸都对得上）
-  const sty = `left:${scr.x / vw * 100}%;top:${scr.y / vh * 100}%;width:${scr.w / vw * 100}%;height:${scr.h / vh * 100}%`;
-  return `<div class="ccd-bg" style="${ccdBg(p)}"></div><div class="ccd-cam">${svg}<div class="ccd-scr" style="${sty}">${img}</div></div>`;
+  const z = Math.max(50, +p.zoom || 100) / 100, px = p.px ?? 50, py = p.py ?? 50, c = norm(p.body);
+  const img = p.img ? `<img src="${esc(p.img)}" style="object-position:${px}% ${py}%;transform:scale(${z})" alt="">` : `<i class="ccd-ph">＋</i>`;
+  const sty = `left:${CCD_SCR.x}%;top:${CCD_SCR.y}%;width:${CCD_SCR.w}%;height:${CCD_SCR.h}%`;
+  return `<div class="ccd-bg" style="${ccdBg(p)}"></div><div class="ccd-cam"><div class="ccd-scr" style="${sty}">${img}</div><img class="ccd-body" data-c="${c}" src="${esc(ccdSrc(c))}" alt="" draggable="false"></div>`;
 }

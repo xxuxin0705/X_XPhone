@@ -20,12 +20,16 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(szs.length == 16 && szs[0] == '1x1' && szs.includes('3x3') && szs.includes('1x4') && szs.at(-1) == '4x4', '尺寸：1～4 宽 × 1～4 高，一共 16 种 ' + szs.join(','));
   ok(/机身颜色[\s\S]*背景[\s\S]*背景不透明度/.test(await E(`document.querySelector('.sheet.in').textContent`)), '设置里有机身颜色、背景、透明度');
   await E(`document.querySelector('.sheet.in select[data-k=sz]').value = '1x1'; document.querySelector('.sheet.in select[data-k=sz]').dispatchEvent(new Event('change', { bubbles: true }))`);
-  await E(`document.querySelector('.sheet.in select[data-k=body]').value = 'pink'; document.querySelector('.sheet.in select[data-k=body]').dispatchEvent(new Event('change', { bubbles: true }))`);
+  ok(await E(`document.querySelector('.sheet.in input[data-k=body]').type == 'color' && document.querySelector('.sheet.in input[data-k=body]').value == '#f2a7c4'`), '机身颜色是取色器，默认原图的粉');
+  await E(`document.querySelector('.sheet.in input[data-k=body]').value = '#3366cc'; document.querySelector('.sheet.in input[data-k=body]').dispatchEvent(new Event('change', { bubbles: true }))`);
   await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(500);
   ok(await E(`!!document.querySelector('.desk .it.ccd.w1.h1')`), '改成 1×1：真的变成一格');
   const r1 = await E(`(() => { const r = document.querySelector('.desk .it.ccd .ccd-cam').getBoundingClientRect(), b = document.querySelector('.desk .it.ccd').getBoundingClientRect(); return [r.width / b.width, r.height / b.height, r.width / r.height]; })()`);
-  ok(r1[0] <= 1 && r1[1] <= 1 && Math.abs(r1[2] - 244 / 200) < .05, '相机在格子里不超出、比例不变 ' + r1.map(x => x.toFixed(2)));
-  ok(/#f2a7c4/i.test(await E(`document.querySelector('.desk .it.ccd svg').innerHTML`)), '粉色机身');
+  ok(r1[0] <= 1 && r1[1] <= 1 && Math.abs(r1[2] - 900 / 777) < .05, '相机在格子里不超出、比例不变 ' + r1.map(x => x.toFixed(2)));
+  ok(/assets\/ccd\/body\.webp/.test(await E(`document.querySelector('.desk .it.ccd img.ccd-body').src`)) || /^data:/.test(await E(`document.querySelector('.desk .it.ccd img.ccd-body').src`)), '机身用的是抠好的相机图');
+  await W(1500);
+  const bc = await E(`(() => { const im = document.querySelector('.desk .it.ccd img.ccd-body'); if (!im.src.startsWith('data:')) return null; const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data; let r = 0, g = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; } return [r / n, g / n, b / n]; })()`);
+  ok(bc && bc[2] > bc[0] + 30 && bc[2] > bc[1], '选了蓝色：机身真的变成蓝色（算出来的新图，平均色偏蓝）' + (bc || []).map(x => x | 0));
   // 背景
   const setBg = async (bg, a) => { await E(`(() => { const it = core.S.desk.pages[0][0]; it.p.bg = '${bg}'; it.p.bgA = ${a}; it.p.bgC = '#3366ff'; it.p.bgC2 = '#ff0000'; it.w = 2; it.h = 2; core.save(); dk.renderDesk(); })()`); await W(200); return E(`getComputedStyle(document.querySelector('.desk .it.ccd .ccd-bg')).backgroundImage + '|' + getComputedStyle(document.querySelector('.desk .it.ccd .ccd-bg')).backgroundColor + '|' + getComputedStyle(document.querySelector('.desk .it.ccd .ccd-bg')).backdropFilter`); };
   ok(/^none\|rgba\(0, 0, 0, 0\)\|none$/.test(await setBg('none', 60)), '背景默认透明');
