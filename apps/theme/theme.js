@@ -2,7 +2,8 @@
 import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok } from '../../core.js';
 import { renderDesk, icon } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
-import { lock, lockMig, custKind } from '../../lock.js';
+import { lock, lockMig, custKind, lockClk } from '../../lock.js';
+import { clkHtml, clkFam, CLK_FONTS, clkWt } from './clock.js';
 import { ballGrid, setBall } from '../../ball.js';
 
 const BASE = { '--pg': '#f4f5f7', '--cd': '#fff', '--pt': '#1d1d1f', '--ln': 'rgba(0,0,0,.07)', '--gl': 'rgba(255,255,255,.45)', '--tx': '#fff', '--ink': '#333' };
@@ -37,6 +38,13 @@ const lon = k => S.lock.rand ? (S.lock.pool || []).includes(k) : S.lock.wp == k;
 const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp) ? S.lock.wp : /^c:/.test(String(S.lock.wp)) ? '' : SCENES[0][0];
   return fx(S).tog('lock.rand', '随机锁屏<small>每次打开手机随机换一张勾选的锁屏</small>') + `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${(S.lock.rand ? lon(k) : sc == k) ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}${LIB().map(tile).join('')}<div class="lw vid" data-a="lwadd"><i>＋</i><span>自定义</span></div></div>`
   + btn('lprev', '预览锁屏', '', 'pri') + (S.lock.on ? '' : '<p class="tip">还没有开启锁屏：设置 → 锁屏与密码</p>'); };
+// 锁屏时间：预览 + 字体（每个格子用那个字体写出时间）+ 日期在上 / 下 + 农历 + 粗细 + 颜色
+const clkSec = () => { const c = lockClk(), f = fx(S);
+  return `<div class="clk-set"><div class="clk-pv">${clkHtml(c, new Date())}</div><div class="clk-fs">${CLK_FONTS.map(([k, n]) => `<div class="clk-f ${c.font == k ? 'on' : ''}" data-a="clkf" data-x="${k}"><b style="font-family:${clkFam(k)};font-weight:${clkWt(k)}">06:39</b><span>${n}</span></div>`).join('')}</div>`
+    + `<div class="seg">${[['top', '日期在上'], ['bot', '日期在下']].map(([k, n]) => `<button data-a="clkp" data-x="${k}" class="${(c.pos || 'top') == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
+    + f.tog('lock.clk.lunar', '农历') + f.inp('lock.clk.wt', '粗细（100～900）', 'number', String(clkWt(c.font))) + f.tog('lock.clk.auto', '跟随壁纸配色')
+    + (c.auto === false ? f.inp('lock.clk.c', '颜色', 'color') + f.inp('lock.clk.a', '不透明度 %', 'number', '100') : '') + '</div>'; };
+const reClk = () => { const b = top()?.el.querySelector('.clk-set'); b && (b.outerHTML = clkSec()); };
 const mountPv = (el, pg) => {
   pv.forEach(h => h.stop()); pv = [];
   el.querySelectorAll('canvas[data-fx]').forEach(cv => pv.push(mountScene(cv, cv.dataset.fx, { fps: 24, active: () => top() == pg && ui.root.classList.contains('on') && !cv.closest('.fold') })));
@@ -105,6 +113,7 @@ reg({
     body: () => { const f = fx(S); return `<div class="thm-g">${Object.entries(THEMES).map(([k, t]) => `<div class="tc ${S.theme == k ? 'on' : ''}" data-a="th" data-x="${k}"><div class="tc-p" style="background:${t.v['--wp']}"><i style="background:${t.v['--ac']}"></i><i></i><i></i><i></i><b style="background:${t.v['--gl'] || BASE['--gl']}"></b></div><span>${t.n}</span></div>`).join('')}</div>` + sec('thm', [
       ['ball', '悬浮窗图标', ballGrid()],
       ['lk', '锁屏壁纸 · 动态', lockSec()],
+      ['lkc', '锁屏时间', clkSec()],
       ['wp', '壁纸', wallSec()],
       ...Object.entries(AK).map(([k, a]) => [k, `${a.n} · ${S.assets[k].length}`, `<div class="ag">${S.assets[k].map(x => `<div class="ai" data-a="ae" data-x="${k}:${x.id}" data-lp="ad">${x.img ? `<img src="${esc(x.img)}">` : `<b>${esc(x.name.slice(0, 2))}</b>`}<small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="${k}">＋</div></div>${a.file ? btn('af', '导入文件', k) : ''}${k == 'sticker' ? btn('ab', '批量导入链接') : ''}<p class="tip">点击编辑 · 长按删除${k == 'widget' ? ' / 添加到桌面' : ''}</p>`]),
       ['ic', '应用图标', Object.values(APPS).map(a => `<div class="row" data-a="ic" data-x="${a.id}"><span>${a.name}</span><div class="ico mini a-${a.id}">${icon(a.id)}</div></div>`).join('')],
@@ -113,6 +122,7 @@ reg({
     acts: {
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
       lw: k => pickLock(k), lprev: () => lock(true),
+      clkf: k => { lockClk().font = k; S.lock.clk.wt = ''; save(); reClk(); }, clkp: k => { lockClk().pos = k; save(); reClk(); },
       lwc: id => pickLock('c:' + id),
       wsel: id => pickWall(id), wadd: () => addWall(),
       wdel: async id => { const w = WALLS().find(x => x.id == id); if (!w || !await ok('删除这张壁纸？')) return; WALLS().splice(WALLS().indexOf(w), 1); S.wpool = (S.wpool || []).filter(x => x != id); S.wall == w.img && (S.wall = ''); drop(w.img); save(); applyTheme(); rf(); },
@@ -132,6 +142,6 @@ reg({
       ab: async () => { const r = await form('批量导入表情包', [['t', '每行一个：描述 + 空格 + 图片链接', 'area', '开心 https://xx.com/a.png\n委屈 https://xx.com/b.gif']]); let n = 0; r?.t?.split('\n').forEach(l => { const m = l.trim().match(/^(.*?)[\s:：|,，]*(https?:\/\/\S+)$/); if (m) { n++; S.assets.sticker.push({ id: uid(), name: m[1] || '表情' + n, img: m[2] }); } }); save(); toast(`已导入 ${n} 个`); rf(); },
       ic: async id => { const v = await pickImg(256, 'icon'), old = S.icons[id]; if (v == null) return; v ? (S.icons[id] = v) : delete S.icons[id]; save(); drop(old); renderDesk(); rf(); },
     },
-    onChange: k => { /wall|css/.test(k) && applyTheme(); k == 'wrand' && (S.wrand && !S.wpool?.length && (S.wpool = [curWall()]), save(), rf()); k == 'lock.rand' && (S.lock.rand && !S.lock.pool?.length && (S.lock.pool = [S.lock.wp]), save(), rf()); },
+    onChange: k => { /wall|css/.test(k) && applyTheme(); k.startsWith('lock.clk') && reClk(); k == 'wrand' && (S.wrand && !S.wpool?.length && (S.wpool = [curWall()]), save(), rf()); k == 'lock.rand' && (S.lock.rand && !S.lock.pool?.length && (S.lock.pool = [S.lock.wp]), save(), rf()); },
   }),
 });

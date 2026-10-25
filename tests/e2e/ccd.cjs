@@ -14,7 +14,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('[data-a=wAdd]').click()`); await W(400);
   ok(/CCD 相机/.test(await E(`document.querySelector('.sheet.wadd').textContent`)), '添加小组件里有「CCD 相机」');
   const cards = await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].map(x => x.dataset.k + ':' + x.dataset.sz)`);
-  ok(!cards.some(x => /^(pill|clock|photo|cal|days|text):/.test(x)), '其他内置组件都没了 ' + cards.join(','));
+  ok(!cards.some(x => /^(pill|photo|cal|days|text):/.test(x)), '其他内置组件都没了 ' + cards.join(','));
   ok(['ccd:1x1', 'ccd:2x2', 'ccd:3x3', 'ccd:4x4'].every(x => cards.includes(x)) && !cards.includes('ccd:2x1'), 'CCD 按比例给出 1×1 / 2×2 / 3×3 / 4×4 四张卡片');
   ok(await E(`!!document.querySelector('.sheet.wadd .wcard[data-sz="3x3"] img.ccd-body')`), '卡片里是实际渲染的相机预览');
   const chips = await E(`[...document.querySelectorAll('.sheet.wadd .szf b')].map(x => x.textContent)`);

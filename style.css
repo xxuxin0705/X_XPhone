@@ -4,7 +4,7 @@
   transform:scale(var(--sc)) translateY(40px);transform-origin:top left;opacity:0;pointer-events:none;transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.15);
   font:calc(14px*var(--fz,1))/1.45 -apple-system,"SF Pro Text","PingFang SC","HarmonyOS Sans SC","MiSans","Roboto","Microsoft YaHei",sans-serif!important;color:var(--pt);-webkit-font-smoothing:antialiased;user-select:none;text-align:left}
 #stp.on{opacity:1;pointer-events:auto;transform:scale(var(--sc))}
-#stp *{box-sizing:border-box}#stp,#stp :where(:not(i):not(.lk-time):not(.lk-date):not(pre):not(code)){font-family:inherit}
+#stp *{box-sizing:border-box}#stp,#stp :where(:not(i):not(.clk-t):not(.clk-d):not(pre):not(code)){font-family:inherit}
 #stp svg{display:block}
 #stp img{max-width:none;margin:0}
 #stp p{margin:0}
@@ -422,8 +422,13 @@
 .lk-ui{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding-top:60px;touch-action:none;transition:transform .35s cubic-bezier(.2,.9,.3,1),opacity .35s}
 .lk-ic{width:20px;height:20px;opacity:.88;filter:drop-shadow(0 1px 4px var(--lk-shade))}
 .lk-clock{margin-top:8px;text-align:center;text-shadow:0 0 22px var(--lk-shade),0 1px 3px var(--lk-shade)}
-.lk-date{display:block;font:500 calc(16px*var(--fz,1))/1.2 -apple-system,"PingFang SC","HarmonyOS Sans SC",sans-serif;letter-spacing:.08em;opacity:.95}
-.lk-time{display:block;margin-top:2px;font:300 calc(96px*var(--fz,1))/1 "Cormorant Garamond","Cormorant",Didot,"Bodoni 72",Georgia,"Songti SC",serif;letter-spacing:.01em;font-variant-numeric:lining-nums}
+.lk-clock .clk-d{font-size:calc(17px*var(--fz,1))}
+.lk-clock .clk-t{font-size:calc(104px*var(--fz,1))}
+/* 时间样式（锁屏 / 时间小组件共用） */
+.clk{display:flex;flex-direction:column;align-items:center;gap:.06em;font-family:var(--clk-f)}.clk.al-l{align-items:flex-start;text-align:left}.clk.al-r{align-items:flex-end;text-align:right}
+.clk-t{display:block;font:var(--clk-w) 1em/1 var(--clk-f);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.clk-d{display:block;font:var(--clk-dw) 1em/1.25 var(--clk-f);letter-spacing:.04em;white-space:nowrap;opacity:.95}
+.clk.bot .clk-d{margin-top:.15em}
 .lk-text{margin-top:6px!important;font:italic 400 calc(16px*var(--fz,1))/1.4 "Cormorant Garamond",Georgia,"Songti SC",serif;letter-spacing:.1em;opacity:.92}
 .lk-note{position:absolute;left:14px;right:14px;bottom:96px;display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:20px;background:rgba(255,255,255,.2);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);color:#fff;animation:tin .5s}
 .lk-note[hidden]{display:none}.lk-note>i{font-style:normal;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#34c759;font-size:calc(17px*var(--fz,1))}
@@ -909,6 +914,16 @@
 .it.wg.ccd{background:none;box-shadow:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;padding:0;overflow:visible}
 .ccd-bg{position:absolute;inset:0;border-radius:inherit;overflow:hidden}
 .it.wg.ccd{container-type:size}
+/* 时间小组件 */
+.it.wg.clkw{background:none;box-shadow:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;padding:0;overflow:visible;container-type:size;display:grid;place-items:center}
+.clkw .clk{position:relative;width:100%;padding:0 6%}.clkw .clk-t{font-size:min(33cqw,60cqh)}.clkw .clk-d{font-size:min(5.4cqw,15cqh)}
+.clkw:not(:has(.ccd-bg[style*=background])) .clk{text-shadow:0 1px 8px rgba(0,0,0,.08)}
+/* 主题 → 锁屏时间 */
+.clk-pv{position:relative;margin:4px 0 12px;padding:22px 10px;border-radius:18px;background:var(--wpi);color:#fff;text-shadow:0 0 18px rgba(0,0,0,.25),0 1px 3px rgba(0,0,0,.2);overflow:hidden}.clk-pv .clk-t{font-size:calc(70px*var(--fz,1))}.clk-pv .clk-d{font-size:calc(13px*var(--fz,1))}
+.clk-fs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.clk-f{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px 7px;border-radius:14px;background:var(--cd);border:2px solid transparent;cursor:pointer}.clk-f.on{border-color:var(--ac)}
+.clk-f b{font-size:calc(26px*var(--fz,1));line-height:1.1;white-space:nowrap}.clk-f span{font-size:calc(11.5px*var(--fz,1));opacity:.7}
+.clk-set .seg{margin-bottom:8px}
 /* 添加小组件：尺寸筛选 + 预览卡片 */
 .wadd .pg-b{padding:0 14px 22px}
 .szf{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:4px 0 14px}

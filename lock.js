@@ -2,6 +2,9 @@
 // 密码二选一：4 位数字密码（备用密码 0000：不能修改、永远有效）或指纹（模拟，选了指纹就只能按指纹解锁）
 import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc, uid } from './core.js';
 import { mountScene, sceneInk, sceneKey, SCENES } from './lockfx.js';
+import { clkHtml, dateText, CLK_DEF } from './apps/theme/clock.js';
+// 锁屏时间的样式（字体 / 日期在上还是下 / 农历 / 颜色）
+export const lockClk = () => { const c = S.lock.clk ||= {}; for (const k in CLK_DEF) c[k] ??= CLK_DEF[k]; return c; };
 
 export const BACKUP = '0000';
 const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };
@@ -16,7 +19,6 @@ export const wpName = () => cust() ? '自定义' + custKind(cust()) : SCENES.fin
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
 const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></svg>';
 const LET = ['', 'ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQRS', 'TUV', 'WXYZ'];
-const WEEK = '日一二三四五六';
 
 /* ---------- 可复用：数字键盘（锁屏解锁和设置密码共用） ---------- */
 // onDone(code, reset, fail) —— 输满 4 位时调用；fail() 抖动并清空
@@ -83,7 +85,7 @@ export const lockFx = () => fx; // 测试 / 调试用：当前锁屏场景
 const visible = () => ui.root?.classList.contains('on');
 function clock() {
   if (!el) return; const d = now(), u = D().chats.reduce((a, c) => a + (c.unread || 0), 0);
-  $('.lk-time', el).textContent = hm(d); $('.lk-date', el).textContent = `${d.getMonth() + 1}月${d.getDate()}日 星期${WEEK[d.getDay()]}`;
+  $('.lk-time', el).textContent = hm(d); $('.lk-date', el).textContent = dateText(d, lockClk().lunar !== false);
   const n = $('.lk-note', el); n.hidden = !u; u && ($('b', n).textContent = `${u} 条未读消息`);
 }
 async function wallpaper() {
@@ -102,7 +104,7 @@ export function lock(preview) {
   preview && S.lock.rand && randLock(); // 随机锁屏开着时预览：每次从勾选的里面随机一张
   el ||= ui.lock; if (!el) return; lockMig();
   locked = true; el.hidden = false; el.className = 'lock' + (preview ? ' pv' : '') + (fpOn() ? ' fp' : ''); ui.scr.classList.add('locked');
-  el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock"><small class="lk-date"></small><b class="lk-time"></b>${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
+  el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock">${clkHtml(lockClk(), now()).replace('class="clk-d"', 'class="clk-d lk-date"').replace('class="clk-t"', 'class="clk-t lk-time"')}${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
 <div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${hintText(preview)}</span></div></div><div class="lk-auth" hidden></div>`;
   wallpaper(); clock(); clearInterval(iv); iv = setInterval(() => locked && visible() && clock(), 1e3);
   visible() && tip(preview);
