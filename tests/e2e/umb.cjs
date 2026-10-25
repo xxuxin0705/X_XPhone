@@ -8,34 +8,34 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8791/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.locator('#stp .stp-scr').screenshot({ path: path.join(OUT, n) });
-  await E(`(async () => { window.core = await import('/core.js'); window.lk = await import('/lock.js'); core.S.lock.on = true; core.S.lock.wp = 'hanabi'; core.S.lock.pw = false; lk.lock(); })()`); await W(800);
+  await E(`(async () => { window.FX = (await import('/lockfx.js')).FX; window.core = await import('/core.js'); window.lk = await import('/lock.js'); core.S.lock.on = true; core.S.lock.wp = 'hanabi'; core.S.lock.pw = false; lk.lock(); })()`); await W(800);
   const st = f => E(`(() => { const s = lk.lockFx().state(); return (${f})(s); })()`);
   await p.waitForFunction(`lk.lockFx()?.state()?.ready`, null, { timeout: 8000 });
-  ok(await st(s => s.bursts.length + s.rockets.length) == 0 && await st(s => s.G) == 0, '刚打开：天上还没有烟花');
+  ok(await st(s => s.P.length + s.rk.length) == 0, '刚打开：天上还没有烟花');
+  const plan = await st(s => s.plan.map(q => [+(q[0] - s.t0).toFixed(1), q[1]]));
+  ok(JSON.stringify(plan) == '[[0,1],[2.6,1],[4.6,4],[5.2,2]]', '节目单：先放一个 → 隔一会儿又一个 → 接着很多一起 ' + JSON.stringify(plan));
   await W(300); await shot('umb_0.png');
   const f0 = await st(s => s.fish.map(f => f.x.toFixed(3)).join());
-  await E(`lk.lockFx().advance(2, 30)`); ok(await st(s => s.fish.map(f => f.x.toFixed(3)).join()) != f0, '金鱼在游');
-  await E(`lk.lockFx().advance(3.6, 50)`); ok(await st(s => s.rockets.length + s.bursts.length) > 0, '过几秒开始一朵一朵放烟花');
-  // 摆几朵正在炸开的（不同阶段）拍一张
-  await E(`(async () => { window.FX = (await import('/lockfx.js')).FX; const s = lk.lockFx().state(); s.rockets.length = 0; s.bursts.length = 0; s.next = 1e9;
-    [[250, 330, .22], [640, 230, .75], [430, 560, 1.5]].forEach(([x, y, a]) => { FX.hanabi.burst(s, x, y); s.bursts.at(-1).t = a; }); lk.lockFx().advance(.016, 1); })()`); await W(100);
-  await shot('umb_1.png');
-  await E(`lk.lockFx().advance(16, 240)`); ok(await st(s => s.G) > .99 && await st(s => s.F) > .99, '后面满天烟花 + 地面瀑布焰火');
-  await shot('umb_2.png');
-  // 互动：点天空放烟花、点伞面起水波（金鱼游开）、点挂件会晃
-  const at = (bx, by) => E(`(() => { const s = lk.lockFx().state(), r = document.querySelector('.lk-bg canvas').getBoundingClientRect(); return [r.left + (s.ox + ${bx} * s.sc) * r.width / s.W, r.top + (s.oy + ${by} * s.sc) * r.height / s.H]; })()`);
+  await E(`lk.lockFx().advance(1.5, 25)`); ok(await st(s => s.fish.map(f => f.x.toFixed(3)).join()) != f0, '金鱼在伞面上游');
+  await E(`lk.lockFx().advance(1.2, 20)`); ok(await st(s => s.rk.length + s.P.length) > 0 && await st(s => s.rk.length) <= 1, '忽然放了一个');
+  await E(`lk.lockFx().advance(1.1, 20)`); await shot('umb_1.png');
+  await E(`lk.lockFx().advance(1.6, 30)`);
+  await E(`lk.lockFx().advance(2.4, 40)`); const n4 = await st(s => s.nl); ok(n4 >= 7, '后面很多一起放 ' + n4);
+  await E(`lk.lockFx().advance(1.3, 25)`); await shot('umb_2.png');
+  ok(await st(s => new Set(s.P.map(p => p.c)).size) >= 3, '五颜六色 ' + await st(s => [...new Set(s.P.map(p => p.c))].join()));
+  await E(`lk.lockFx().advance(10, 160)`); ok(await st(s => s.P.length) > 50, '之后一直在放');
+  // 互动：点天空放烟花、点伞起水波（金鱼游开、伞晃一下）
   const tap = async ([x, y]) => { await p.mouse.move(x, y); await p.mouse.down(); await W(60); await p.mouse.up(); await W(80); };
   await E(`lk.lock()`); await p.waitForFunction(`lk.lockFx()?.state()?.ready`); await W(200);
-  await tap(await at(300, 400)); ok(await st(s => s.rockets.length) == 1 && await st(s => Math.abs(s.rockets[0].bx - 300) < 1), '点天空：在那里放一朵烟花');
-  ok(await st(s => s.t0) < 3.5, '还没开始放的时候点天空：烟花表演提前开始');
-  const fd = await st(s => s.fish.map(f => [f.x, f.y]));
-  const um = await E(`(() => { const s = lk.lockFx().state(), r = document.querySelector('.lk-bg canvas').getBoundingClientRect(); return [r.left + (s.dx + s.fish[0].x * s.dr + 4) * r.width / s.W, r.top + (s.dy + s.fish[0].y * s.dr) * r.height / s.H]; })()`);
-  await tap(um); ok(await st(s => s.waves.length) == 1, '点伞面：水波荡开');
+  const sky = await E(`(() => { const r = document.querySelector('.lk-bg canvas').getBoundingClientRect(); return [r.left + r.width * .3, r.top + r.height * .36]; })()`);
+  await tap(sky); ok(await st(s => s.rk.length) == 1, '点天空：在那里放一朵烟花');
+  ok(await st(s => s.plan[0][0] - s.t) < 1.5, '还没开始放的时候点天空：后面的提前开始');
+  const um = await E(`(() => { const s = lk.lockFx().state(), r = document.querySelector('.lk-bg canvas').getBoundingClientRect(), M = window.FX.hanabi.umbM(s), q = M.transformPoint(new DOMPoint(316 + s.fish[0].x * 253, 330 + s.fish[0].y * 233)); return [r.left + q.x * r.width / s.W + 3, r.top + q.y * r.height / s.H]; })()`);
+  await tap(um); ok(await st(s => s.waves.length) == 1, '点伞：水波荡开');
   ok(await st(s => Math.hypot(s.fish[0].vx, s.fish[0].vy)) > .5, '旁边的金鱼被吓得游开');
-  const ch = await E(`(() => { const f = lk.lockFx(), s = f.state(), r = document.querySelector('.lk-bg canvas').getBoundingClientRect(); return window.FX.hanabi.chPos(s).map((v, i) => i ? r.top + v * r.height / s.H : r.left + v * r.width / s.W); })()`);
-  const en = () => st(s => .5 * s.ch.v ** 2 + 30 * (1 - Math.cos(s.ch.a))), e0 = await en(); await tap(ch); ok(await en() > e0 + 2, '点挂着的小金鱼：晃起来');
-  ok(await E(`document.querySelector('.lock .lk-hint span').textContent`) != '' && !(await E(`document.querySelector('.lock').hidden`)), '点来点去都不会解锁');
-  await E(`lk.lockFx().advance(1.2, 20)`); await shot('umb_3.png');
+  ok(await st(s => s.kick > 0 && s.t - s.kick < 1), '伞晃一下');
+  ok(!(await E(`document.querySelector('.lock').hidden`)), '点来点去都不会解锁');
+  await E(`lk.lockFx().advance(.5, 10)`); await shot('umb_3.png');
   // 主题页：两个动态场景 + 自定义
   await E(`lk.unlock()`); await W(500); await E(`core.home(); core.APPS.theme.open()`); await W(1200);
   ok(await E(`[...document.querySelectorAll('.lwg .lw span')].map(e => e.textContent).join()`) == '雪夜,伞下烟火,自定义', '锁屏壁纸：雪夜、伞下烟火、自定义');
