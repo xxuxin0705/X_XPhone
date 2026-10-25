@@ -1,4 +1,4 @@
-// 时间样式：锁屏大时间换成圆润字体；字体可选（15 种）、日期在上 / 下、农历、粗细、颜色；桌面「时间」小组件（2×1 / 4×2）同样能选
+// 时间样式：字体可选（14 种内置 + 上传自己的字体）、日期在上 / 下、农历、粗细、颜色；桌面「时间」小组件（2×1 / 4×2）同样能选
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.woff': 'font/woff', '.html': 'text/html' };
@@ -15,8 +15,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const ld = await E(`[ck.lunar(new Date(2026, 1, 17)), ck.lunar(new Date(2026, 2, 8)), ck.lunar(new Date(2026, 2, 13))]`);
   ok(/正月初一$/.test(ld[0]) && /二十$/.test(ld[1]) && /廿五$/.test(ld[2]), '农历日子：初一 / 二十 / 廿五 ' + ld.join(' '));
   // 锁屏默认：圆润字体，日期在上，有农历
-  ok(/xp-round/.test(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily`)), '锁屏时间默认用「圆润」字体');
-  ok(await E(`document.fonts.check('80px xp-round')`), '字体文件加载好了');
+  ok(/xp-nunito/.test(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily`)), '「圆润」去掉了，默认「圆体」');
+  ok(await E(`document.fonts.check('80px xp-nunito')`), '字体文件加载好了');
+  ok(await E(`(() => { core.S.lock.clk.font = 'round'; lk.lock(); return /xp-nunito/.test(getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily); })()`), '以前选过「圆润」的自动换成「圆体」');
   ok(await E(`(() => { const c = document.querySelector('.lock .clk'); return c.firstElementChild.classList.contains('clk-d') && /·.*年/.test(c.firstElementChild.textContent); })()`), '默认日期在时间上面，带农历');
   await shot('clk_lock.png');
   // 日期在下、关农历、自选颜色
@@ -25,8 +26,16 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).color`) == 'rgba(255, 0, 0, 0.5)', '自选颜色 + 50% 不透明度');
   ok(/xp-bebas/.test(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily`)), '换成「窄高」字体');
   // 主题 → 锁屏时间
-  await E(`(() => { Object.assign(lk.lockClk(), { pos: 'top', lunar: true, auto: true, font: 'round' }); lk.unlock(); core.home(); core.APPS.theme.open(); })()`); await W(1000);
-  ok(await E(`document.querySelectorAll('[data-sec=lkc] .clk-f').length`) == 15, '主题里有「锁屏时间」，15 种字体，每格用那个字体写时间');
+  await E(`(() => { Object.assign(lk.lockClk(), { pos: 'top', lunar: true, auto: true, font: 'nunito' }); lk.unlock(); core.home(); core.APPS.theme.open(); })()`); await W(1000);
+  ok(await E(`document.querySelectorAll('[data-sec=lkc] .clk-f:not(.add)').length`) == 14 && !(await E(`!!document.querySelector('[data-sec=lkc] .clk-f[data-x=round]')`)), '主题里有「锁屏时间」，14 种字体（没有圆润了）');
+  // 上传自己的字体
+  const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('[data-sec=lkc] [data-a=clkup]').click()`)]);
+  await fc.setFiles([{ name: 'SF Pro Rounded.woff', mimeType: 'font/woff', buffer: fs.readFileSync(path.join(root, 'assets/fonts/clk-shrikhand.woff')) }]); await W(1500);
+  ok(await E(`core.S.fonts.length == 1 && core.S.fonts[0].n == 'SF Pro Rounded' && /^idb:/.test(core.S.fonts[0].src) && core.S.lock.clk.font == 'u:' + core.S.fonts[0].id`), '上传字体：存进本地，自动选上 ' + await E(`JSON.stringify(core.S.fonts)`));
+  ok(await E(`(async () => { await document.fonts.ready; return document.fonts.check('80px xp-u-' + core.S.fonts[0].id) && /xp-u-/.test(getComputedStyle(document.querySelector('.clk-pv .clk-t')).fontFamily); })()`), '上传的字体真的能用，预览马上换上');
+  await E(`(() => { lk.lock(); })()`); await W(800);
+  ok(/xp-u-/.test(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily`)) && await E(`document.querySelector('.lock .lk-time').getBoundingClientRect().width > 100`), '锁屏也用上传的字体');
+  await E(`lk.unlock(); core.home(); core.APPS.theme.open()`); await W(1000); await E(`document.querySelector('[data-sec=lkc]').scrollIntoView()`); await W(200);
   await E(`document.querySelector('[data-sec=lkc]').scrollIntoView()`); await W(200);
   const sc0 = await E(`document.querySelector('.pg-b').scrollTop`);
   await E(`document.querySelector('[data-sec=lkc] .clk-f[data-x=pacifico]').click()`); await W(300);
@@ -41,16 +50,18 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(() => { core.home(); core.S.lock.on = false; core.S.desk.pages = [[]]; core.save(); dk.renderDesk(); core.G.dlp('', document.querySelector('.desk .page'), new PointerEvent('pointerdown')); })()`); await W(200);
   await E(`document.querySelector('[data-a=wAdd]').click()`); await W(500);
   const cards = await E(`[...document.querySelectorAll('.sheet.wadd .wcard[data-k=clock]')].map(x => x.dataset.sz)`);
-  ok(cards.join(',') == '2x1,4x2', '添加小组件里有「时间」：2×1 和 4×2 ' + cards);
-  await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock][data-sz="4x2"]').click()`); await W(600);
-  await E(`document.querySelector('.sheet.wadd .wcard') || 0`);
+  ok(cards.join(',') == '2x1', '添加小组件里「时间」只有一张（2×1） ' + cards);
+  ok(await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock] .wc-s').textContent == '2×1' && getComputedStyle(document.querySelector('.sheet.wadd .wcard[data-k=clock] .wc-s')).color != 'rgba(0, 0, 0, 0)'`), '尺寸标签看得见');
+  await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock]').click()`); await W(600);
   await E(`core.G.dlp('', document.querySelector('.desk .page'), new PointerEvent('pointerdown')); document.querySelector('[data-a=wAdd]').click()`); await W(500);
-  await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock][data-sz="2x1"]').click()`); await W(600);
+  await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock]').click()`); await W(600);
+  await E(`(() => { const it = core.S.desk.pages[0][0]; it.w = 4; it.h = 2; core.save(); dk.renderDesk(); })()`); await W(300);
   const fit = await E(`[...document.querySelectorAll('.desk .it.clkw')].map(t => { const a = t.getBoundingClientRect(), c = t.querySelector('.clk-t').getBoundingClientRect(), d = t.querySelector('.clk-d').getBoundingClientRect(); return c.width <= a.width + 1 && d.width <= a.width + 1 && c.height + d.height <= a.height + 2; })`);
   ok(fit.length == 2 && fit.every(Boolean), '4×2 和 2×1 的时间都放得下，不超出格子');
-  ok(/xp-round/.test(await E(`getComputedStyle(document.querySelector('.desk .it.clkw .clk-t')).fontFamily`)), '小组件默认也是圆润字体');
+  ok(/xp-nunito/.test(await E(`getComputedStyle(document.querySelector('.desk .it.clkw .clk-t')).fontFamily`)), '小组件默认「圆体」');
   await E(`document.querySelector('.desk .it.clkw').click()`); await W(400);
   const tx = await E(`document.querySelector('.sheet.in').textContent`);
+  ok(/SF Pro Rounded/.test(await E(`[...document.querySelectorAll('.sheet.in select[data-k=font] option')].map(o => o.textContent).join()`)), '小组件的字体里也有上传的字体');
   ok(/字体[\s\S]*粗细[\s\S]*日期位置[\s\S]*农历[\s\S]*颜色[\s\S]*背景/.test(tx), '小组件设置：字体、粗细、日期位置、农历、颜色、背景');
   ok(await E(`[...document.querySelectorAll('.sheet.in select[data-k=sz] option')].map(o => o.value).join(',')`) == '2x1,4x2', '调整大小只有 2×1 / 4×2');
   await E(`(() => { const s = document.querySelector('.sheet.in select[data-k=pos]'); s.value = 'bot'; s.dispatchEvent(new Event('change', { bubbles: true })); const f = document.querySelector('.sheet.in select[data-k=font]'); f.value = 'fredoka'; f.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('.sheet.in [data-a=ok]').click(); })()`); await W(500);

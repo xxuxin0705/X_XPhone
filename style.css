@@ -931,7 +931,9 @@
 .wgrid{display:flex;flex-wrap:wrap;gap:20px 18px;justify-content:center;align-items:flex-end}
 .wcard{display:flex;flex-direction:column;align-items:center;gap:6px}
 .wprev{position:relative}.wprev .it{position:absolute;inset:0;cursor:default}
-.wcard span{font-size:calc(13px*var(--fz,1));font-weight:600}.wcard small{font-size:calc(11px*var(--fz,1));opacity:.65;padding:1px 8px;border-radius:8px;background:rgba(127,127,127,.13)}
+.wcard .wc-n{font-size:calc(13px*var(--fz,1));font-weight:600}.wcard .wc-s{font-size:calc(11px*var(--fz,1));color:#8e8e93;padding:1px 8px;border-radius:8px;background:rgba(127,127,127,.13)}
+#stp .wprev small{background:none;filter:none;backdrop-filter:none;-webkit-backdrop-filter:none;color:inherit;padding:0;border-radius:0} /* 有的酒馆主题会给 small 加底色 */
+.clk-f.add b{font-family:inherit;font-weight:300;opacity:.6}
 .ccd-cam{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:900/777;width:min(94cqw,calc(94cqh * 900 / 777))}
 .ccd-body{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 5px 9px rgba(0,0,0,.2))}
 .ccd-scr{position:absolute;overflow:hidden;background:#2a2a30}

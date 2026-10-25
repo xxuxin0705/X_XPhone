@@ -1,18 +1,26 @@
 // 小手机 · 时间样式：锁屏的大时间和桌面「时间」小组件共用
-// 字体都是开源字体（SIL OFL），只截了数字和冒号（「圆润」另外带了日期里的常用汉字），每个只有几 KB，放在 assets/fonts
+// 内置字体都是开源字体（SIL OFL），只截了数字和冒号，每个只有几 KB，放在 assets/fonts
+// 也可以上传自己的字体文件（S.fonts = [{ id, n, src }]，文件存在浏览器本地数据库），key 是 'u:' + id
 // p = { font, wt: 粗细, pos: 'top' 日期在上 / 'bot' 日期在下, lunar: 农历, auto: 跟随壁纸配色, c: 颜色, a: 不透明度 %, al: 对齐 }
-import { esc, hm } from '../../core.js';
+import { S, esc, hm, mediaSrc } from '../../core.js';
 
 export const CLK_FONTS = [
-  ['round', '圆润', 800], ['nunito', '圆体', 800], ['baloo', '泡泡', 700], ['fredoka', '软糖', 600], ['rubik', '胖胖', 700], ['outfit', '几何', 600],
+  ['nunito', '圆体', 800], ['baloo', '泡泡', 700], ['fredoka', '软糖', 600], ['rubik', '胖胖', 700], ['outfit', '几何', 600],
   ['quicksand', '纤细', 500], ['varela', '细圆', 400], ['bebas', '窄高', 400], ['serif', '优雅', 300], ['playfair', '杂志', 500], ['dmserif', '衬线', 400],
   ['pacifico', '手写', 400], ['shrikhand', '复古', 400], ['sys', '系统', 600],
 ];
 const FB = "-apple-system,'PingFang SC','HarmonyOS Sans SC','Microsoft YaHei',sans-serif"; // 单引号：要塞进 style="" 里
-export const clkFam = k => k == 'sys' || !CLK_FONTS.some(f => f[0] == k) ? FB : `'xp-${k}',${FB}`;
+const mig = k => k == 'round' || !k ? 'nunito' : k; // 「圆润」去掉了
+export const userFonts = () => S.fonts ||= [];
+// 上传的字体：第一次用到时从本地数据库读出来注册
+const loaded = new Map();
+export const loadFont = id => { if (loaded.has(id)) return loaded.get(id); const f = userFonts().find(x => x.id == id); if (!f || typeof FontFace == 'undefined') return Promise.resolve();
+  const p = mediaSrc(f.src).then(u => new FontFace('xp-u-' + id, `url(${u})`, { weight: '100 900' }).load()).then(ff => { document.fonts.add(ff); }).catch(() => loaded.delete(id)); loaded.set(id, p); return p; };
+export const clkFonts = () => [...userFonts().map(f => ['u:' + f.id, f.n, 0]), ...CLK_FONTS];
+export const clkFam = k => { k = mig(k); if (k.startsWith('u:')) { loadFont(k.slice(2)); return `'xp-u-${k.slice(2)}',${FB}`; } return k == 'sys' || !CLK_FONTS.some(f => f[0] == k) ? FB : `'xp-${k}',${FB}`; };
 const fam = clkFam;
-export const CLK_DEF = { font: 'round', pos: 'top', lunar: true, al: 'c', auto: true, c: '#ffffff', a: 100 };
-export const clkWt = k => CLK_FONTS.find(f => f[0] == k)?.[2] || 600;
+export const CLK_DEF = { font: 'nunito', pos: 'top', lunar: true, al: 'c', auto: true, c: '#ffffff', a: 100 };
+export const clkWt = k => { k = mig(k); return k.startsWith('u:') ? 600 : CLK_FONTS.find(f => f[0] == k)?.[2] || 600; };
 // 字体文件只在第一次用到时加载
 (() => { if (typeof document == 'undefined' || !document.getElementById || !document.head || document.getElementById('xp-clk-fonts')) return;
   const st = Object.assign(document.createElement('style'), { id: 'xp-clk-fonts' });
@@ -29,9 +37,9 @@ export function lunar(d) {
 export const dateText = (d, lu) => { const l = lu ? lunar(d) : ''; return `${d.getMonth() + 1}月${d.getDate()}日周${WEEK[d.getDay()]}${l ? ' · ' + l : ''}`; };
 const hexa = (h, a) => { const n = parseInt(String(h || '#ffffff').replace('#', '').padEnd(6, '0').slice(0, 6), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
 // 字体 / 粗细 / 颜色（auto 时不写颜色，跟外面走）
-export const clkStyle = p => { const k = p.font || 'round', w = +p.wt || clkWt(k), a = Math.max(0, Math.min(100, p.a ?? 100)) / 100;
+export const clkStyle = p => { const k = mig(p.font), w = +p.wt || clkWt(k), a = Math.max(0, Math.min(100, p.a ?? 100)) / 100;
   return `--clk-f:${fam(k)};--clk-w:${w};--clk-dw:${Math.min(700, Math.max(500, w))}` + (p.auto === false ? `;color:${hexa(p.c, a)}` : ''); };
 export function clkHtml(p, d = new Date()) {
-  const dt = `<small class="clk-d">${esc(dateText(d, p.lunar !== false))}</small>`, tm = `<b class="clk-t">${hm(d)}</b>`;
+  const dt = `<span class="clk-d">${esc(dateText(d, p.lunar !== false))}</span>`, tm = `<b class="clk-t">${hm(d)}</b>`;
   return `<div class="clk ${p.pos == 'bot' ? 'bot' : ''} al-${p.al || 'c'}" style="${clkStyle(p)}">${p.pos == 'bot' ? tm + dt : dt + tm}</div>`;
 }

@@ -1,7 +1,7 @@
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickImg } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
-import { clkHtml, CLK_FONTS, CLK_DEF } from './apps/theme/clock.js';
+import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
 // 尺寸：只能按原比例放大缩小（2×2 → 1×1 / 3×3 / 4×4；2×1 → 4×2），最大 4 格
@@ -14,7 +14,7 @@ export const WK = {
       ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
     d: { body: CCD_PINK, bgC: '#ffffff', bgC2: '#ffd6e7' }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
   clock: { n: '时间', w: 2, h: 1, cls: 'clkw',
-    f: [['font', '字体', 'sel', CLK_FONTS.map(([k, n]) => [k, n])], ['wt', '粗细（100～900）', 'number'], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['lunar', '农历', 'tog'], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
+    f: () => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['wt', '粗细（100～900）', 'number'], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['lunar', '农历', 'tog'], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
       ['auto', '跟随主题配色', 'tog'], ['c', '颜色', 'color'], ['a', '不透明度 %', 'number', '100'], ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
     d: { ...CLK_DEF, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: p => `<div class="ccd-bg" style="${ccdBg(p)}"></div>${clkHtml(p, now())}` },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },
@@ -82,17 +82,17 @@ function folder(it) {
 // CCD：点一下换照片
 async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == null) return; const old = it.p.img; it.p.img = v || ''; save(); old && dropMedia(old); renderDesk(); }
 async function editW(it) {
-  const K = WK[it.k], r = await form(K.n, [...(K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
+  const K = WK[it.k], r = await form(K.n, [...(typeof K.f == 'function' ? K.f() : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
   const { sz, ...p } = r; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk();
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
 const CELL = 64; // 预览里一格的边长
 function wAddSheet() {
-  const all = [...Object.entries(WK).filter(([k]) => k != 'custom').flatMap(([k, v]) => sizes(v.w, v.h).map(([w, h]) => ({ k, w, h, n: v.n, cls: v.cls || '', p: { ...v.d }, mk: () => W(k, w, h, { ...v.d }) }))),
+  const all = [...Object.entries(WK).filter(([k]) => k != 'custom').map(([k, v]) => ({ k, w: v.w, h: v.h, n: v.n, cls: v.cls || '', p: { ...v.d }, mk: () => W(k, v.w, v.h, { ...v.d }) })), // 每个组件一张，按它自己的尺寸；大小加到桌面后长按再改
     ...S.assets.widget.map(a => { const [w, h] = (a.sz || '2x2').split('x').map(Number); return { k: 'custom', w, h, n: a.name, cls: '', p: { html: a.html }, mk: () => W('custom', w, h, { html: a.html }) }; })];
   const szs = [...new Set(all.map(e => `${e.w}x${e.h}`))].sort((a, b) => a.split('x').reduce((x, y) => x * y) - b.split('x').reduce((x, y) => x * y) || a.localeCompare(b));
   let fz = '';
-  const card = (e, i) => `<div class="wcard" data-a="pick" data-x="${i}" data-k="${e.k}" data-sz="${e.w}x${e.h}"><div class="wprev" style="width:${e.w * CELL}px;height:${e.h * CELL}px"><div class="it wg w${e.w} h${e.h} k-${e.k} ${e.cls}">${tpl(WK[e.k].r(e.p, { w: e.w, h: e.h }))}</div></div><span>${esc(e.n)}</span><small>${e.w}×${e.h}</small></div>`;
+  const card = (e, i) => `<div class="wcard" data-a="pick" data-x="${i}" data-k="${e.k}" data-sz="${e.w}x${e.h}"><div class="wprev" style="width:${e.w * CELL}px;height:${e.h * CELL}px"><div class="it wg w${e.w} h${e.h} k-${e.k} ${e.cls}">${tpl(WK[e.k].r(e.p, { w: e.w, h: e.h }))}</div></div><span class="wc-n">${esc(e.n)}</span><span class="wc-s">${e.w}×${e.h}</span></div>`;
   const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件',
     body: () => `<div class="szf">${[['', '全部尺寸'], ...szs.map(z => [z, z.replace('x', '×')])].map(([v, l]) => `<b class="${fz == v ? 'on' : ''}" data-a="szf" data-x="${v}">${l}</b>`).join('')}</div><div class="wgrid">${all.map((e, i) => !fz || `${e.w}x${e.h}` == fz ? card(e, i) : '').join('')}</div>`,
     acts: { szf: v => { fz = v; s.reb(); }, pick: i => { S.desk.pages[cur].push(all[+i].mk()); s.close(); clean(); } } });

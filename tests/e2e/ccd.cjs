@@ -15,12 +15,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/CCD 相机/.test(await E(`document.querySelector('.sheet.wadd').textContent`)), '添加小组件里有「CCD 相机」');
   const cards = await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].map(x => x.dataset.k + ':' + x.dataset.sz)`);
   ok(!cards.some(x => /^(pill|photo|cal|days|text):/.test(x)), '其他内置组件都没了 ' + cards.join(','));
-  ok(['ccd:1x1', 'ccd:2x2', 'ccd:3x3', 'ccd:4x4'].every(x => cards.includes(x)) && !cards.includes('ccd:2x1'), 'CCD 按比例给出 1×1 / 2×2 / 3×3 / 4×4 四张卡片');
-  ok(await E(`!!document.querySelector('.sheet.wadd .wcard[data-sz="3x3"] img.ccd-body')`), '卡片里是实际渲染的相机预览');
+  ok(cards.filter(x => x.startsWith('ccd:')).join() == 'ccd:2x2', 'CCD 只有一张卡片（2×2），大小加到桌面后再改');
+  ok(await E(`!!document.querySelector('.sheet.wadd .wcard[data-k=ccd] img.ccd-body')`), '卡片里是实际渲染的相机预览');
   const chips = await E(`[...document.querySelectorAll('.sheet.wadd .szf b')].map(x => x.textContent)`);
-  ok(chips[0] == '全部尺寸' && chips.includes('1×1') && chips.includes('4×4'), '顶上有尺寸筛选 ' + chips.join(' '));
-  await E(`document.querySelector('.sheet.wadd .szf [data-x="3x3"]').click()`); await W(200);
-  ok(await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].every(x => x.dataset.sz == '3x3')`), '点 3×3：只剩 3×3 的卡片');
+  ok(chips[0] == '全部尺寸' && chips.includes('2×2') && chips.includes('2×1') && !chips.includes('4×4'), '顶上有尺寸筛选 ' + chips.join(' '));
+  await E(`document.querySelector('.sheet.wadd .szf [data-x="2x1"]').click()`); await W(200);
+  ok(await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].every(x => x.dataset.sz == '2x1')`), '点 2×1：只剩 2×1 的卡片');
   await E(`document.querySelector('.sheet.wadd .szf [data-x=""]').click()`); await W(200);
   ok(await E(`dk.sizes(2, 1).map(x => x.join('x')).join(',') == '2x1,4x2' && dk.sizes(4, 1).map(x => x.join('x')).join(',') == '4x1' && dk.sizes(1, 2).map(x => x.join('x')).join(',') == '1x2,2x4'`), '比例规则：2×1 → 4×2，4×1 只有自己，1×2 → 2×4');
   await E(`document.querySelector('.sheet.wadd .wcard[data-k=ccd][data-sz="2x2"]').click()`); await W(800);

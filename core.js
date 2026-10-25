@@ -168,6 +168,7 @@ const idbDo = async (mode, f) => { const db = await idb(); return new Promise((r
 let warned;
 export async function putMedia(src, kind = 'img') {
   if (!src || typeof src == 'string' && !src.startsWith('data:')) return src; // 网络链接原样保留
+  if (kind == 'font') { const k = 'idb:' + uid(); await idbDo('readwrite', st => st.put(src, k)); return k; } // 字体文件：存浏览器本地数据库
   const b = typeof src == 'string' ? await (await fetch(src)).blob() : src, fmt = MIME[b.type] || (b.type.startsWith('video') ? 'mp4' : 'png');
   try {
     const r = await fetch('/api/images/upload', { method: 'POST', headers: jh(), body: JSON.stringify({ image: await toB64(b), format: fmt, ch_name: MDIR, filename: `${kind}_${uid()}` }) });
