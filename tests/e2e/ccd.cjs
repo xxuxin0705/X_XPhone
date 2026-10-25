@@ -1,4 +1,4 @@
-// 桌面小组件：尺寸 1～4 任意宽高；CCD 相机组件（机身颜色、照片、背景透明 / 毛玻璃 / 纯色 / 渐变 + 透明度、点一下换照片）
+// 桌面小组件：只剩 CCD；添加时按尺寸筛选、带预览；调整大小只能同比例；CCD 相机组件（机身颜色、照片、背景透明 / 毛玻璃 / 纯色 / 渐变 + 透明度、点一下换照片）
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.html': 'text/html' };
@@ -12,12 +12,22 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 尺寸：1～4 任意组合
   await E(`core.G.dlp('', document.querySelector('.desk .page'), new PointerEvent('pointerdown'))`); await W(200);
   await E(`document.querySelector('[data-a=wAdd]').click()`); await W(400);
-  ok(/CCD 相机/.test(await E(`document.querySelector('.sheet.mnu').textContent`)), '添加小组件里有「CCD 相机」');
-  await E(`document.querySelector('.sheet.mnu [data-x=ccd]').click()`); await W(800);
+  ok(/CCD 相机/.test(await E(`document.querySelector('.sheet.wadd').textContent`)), '添加小组件里有「CCD 相机」');
+  const cards = await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].map(x => x.dataset.k + ':' + x.dataset.sz)`);
+  ok(!cards.some(x => /^(pill|clock|photo|cal|days|text):/.test(x)), '其他内置组件都没了 ' + cards.join(','));
+  ok(['ccd:1x1', 'ccd:2x2', 'ccd:3x3', 'ccd:4x4'].every(x => cards.includes(x)) && !cards.includes('ccd:2x1'), 'CCD 按比例给出 1×1 / 2×2 / 3×3 / 4×4 四张卡片');
+  ok(await E(`!!document.querySelector('.sheet.wadd .wcard[data-sz="3x3"] img.ccd-body')`), '卡片里是实际渲染的相机预览');
+  const chips = await E(`[...document.querySelectorAll('.sheet.wadd .szf b')].map(x => x.textContent)`);
+  ok(chips[0] == '全部尺寸' && chips.includes('1×1') && chips.includes('4×4'), '顶上有尺寸筛选 ' + chips.join(' '));
+  await E(`document.querySelector('.sheet.wadd .szf [data-x="3x3"]').click()`); await W(200);
+  ok(await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].every(x => x.dataset.sz == '3x3')`), '点 3×3：只剩 3×3 的卡片');
+  await E(`document.querySelector('.sheet.wadd .szf [data-x=""]').click()`); await W(200);
+  ok(await E(`dk.sizes(2, 1).map(x => x.join('x')).join(',') == '2x1,4x2' && dk.sizes(4, 1).map(x => x.join('x')).join(',') == '4x1' && dk.sizes(1, 2).map(x => x.join('x')).join(',') == '1x2,2x4'`), '比例规则：2×1 → 4×2，4×1 只有自己，1×2 → 2×4');
+  await E(`document.querySelector('.sheet.wadd .wcard[data-k=ccd][data-sz="2x2"]').click()`); await W(800);
   ok(await E(`!!document.querySelector('.desk .it.ccd.w2.h2')`), '加了一个 2×2 的 CCD');
   await E(`document.querySelector('.desk .it.ccd').click()`); await W(500);
   const szs = await E(`[...document.querySelectorAll('.sheet.in select[data-k=sz] option')].map(o => o.value)`);
-  ok(szs.length == 16 && szs[0] == '1x1' && szs.includes('3x3') && szs.includes('1x4') && szs.at(-1) == '4x4', '尺寸：1～4 宽 × 1～4 高，一共 16 种 ' + szs.join(','));
+  ok(szs.join(',') == '1x1,2x2,3x3,4x4', '调整大小只能选同比例：' + szs.join(','));
   ok(/机身颜色[\s\S]*背景[\s\S]*背景不透明度/.test(await E(`document.querySelector('.sheet.in').textContent`)), '设置里有机身颜色、背景、透明度');
   await E(`document.querySelector('.sheet.in select[data-k=sz]').value = '1x1'; document.querySelector('.sheet.in select[data-k=sz]').dispatchEvent(new Event('change', { bubbles: true }))`);
   ok(await E(`document.querySelector('.sheet.in input[data-k=body]').type == 'color' && document.querySelector('.sheet.in input[data-k=body]').value == '#f2a7c4'`), '机身颜色是取色器，默认原图的粉');
@@ -41,9 +51,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await fc.setFiles([{ name: 'p.jpg', mimeType: 'image/jpeg', buffer: fs.readFileSync(path.join(here, '../fixtures/still.jpg')) }]); await W(1500);
   ok(await E(`!!core.S.desk.pages[0][0].p.img && !!document.querySelector('.desk .it.ccd .ccd-scr img')`), '点一下 CCD：换照片，照片显示在屏幕上');
   await p.locator('#stp .desk').screenshot({ path: path.join(OUT, 'ccd.png') });
-  // 4×1 也放得下
-  await E(`(() => { const it = core.S.desk.pages[0][0]; it.w = 4; it.h = 1; core.save(); dk.renderDesk(); })()`); await W(300);
+  // 4×4 也放得下
+  await E(`(() => { const it = core.S.desk.pages[0][0]; it.w = 4; it.h = 4; core.save(); dk.renderDesk(); })()`); await W(300);
   const r2 = await E(`(() => { const r = document.querySelector('.desk .it.ccd .ccd-cam').getBoundingClientRect(), b = document.querySelector('.desk .it.ccd').getBoundingClientRect(); return [r.width / b.width, r.height / b.height]; })()`);
-  ok(r2[0] <= 1 && r2[1] <= 1 && r2[1] > .8, '4×1 长条：相机按高度放，不超出 ' + r2.map(x => x.toFixed(2)));
+  ok(r2[0] <= 1 && r2[1] <= 1 && r2[0] > .85, '4×4 大块：相机铺满、不超出 ' + r2.map(x => x.toFixed(2)));
   await p.locator('#stp .desk').screenshot({ path: path.join(OUT, 'ccd_wide.png') });
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

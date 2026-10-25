@@ -3,28 +3,18 @@ import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, def
 import { ccdHtml, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
-// 尺寸：宽 1～4 格 × 高 1～4 格，任意组合（按宽度分组）
-const SZ = [1, 2, 3, 4].flatMap(w => [1, 2, 3, 4].map(h => [`${w}x${h}`, `${w}×${h}${w == h && w == 1 ? '（小方块）' : w == 4 && h == 1 ? '（长条）' : w == 2 && h == 2 ? '（方）' : ''}`]));
-const DAY = 864e5, dd = s => s ? Math.floor((now() - new Date(s)) / DAY) : '—';
-const bd = s => { if (!s) return '—'; const n = now(), b = new Date(s); b.setFullYear(n.getFullYear()); b < n - DAY && b.setFullYear(n.getFullYear() + 1); return Math.ceil((b - n) / DAY); };
+// 尺寸：只能按原比例放大缩小（2×2 → 1×1 / 3×3 / 4×4；2×1 → 4×2），最大 4 格
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+export const sizes = (w, h) => { const g = gcd(w, h), rw = w / g, rh = h / g, o = []; for (let k = 1; k * rw <= 4 && k * rh <= 4; k++) o.push([k * rw, k * rh]); return o; };
+const szOpt = (w, h) => sizes(w, h).map(([a, b]) => [`${a}x${b}`, `${a}×${b}`]);
 export const WK = {
-  pill: { n: '资料胶囊', w: 4, h: 1, f: [['img', '头像', 'img'], ['name', '名字'], ['big', '右侧大字'], ['sub', '右侧小字']], r: p => `<img class="wp-a" src="${esc(p.img || defAv('♡'))}"><div class="wp-m"><b>${esc(p.name || '{{user}}')}</b><small>{{date}} 周{{week}}</small></div><div class="wp-r"><b>${esc(p.big || '♡')}</b><small>${esc(p.sub || '')}</small></div>` },
-  clock: { n: '时钟', w: 4, h: 1, f: [['text', '标语']], r: p => `<b class="wc-t">{{time}}</b><i class="wc-s">${esc(p.text || 'Carpe Diem')}</i><div class="wc-d"><b>{{md}}</b><small>{{weekEn}}</small></div>` },
-  photo: { n: '相片', w: 2, h: 2, f: [['img', '图片', 'img'], ['cap', '文字']], r: p => (p.img ? `<img src="${esc(p.img)}">` : '<div class="ph">✿<small>编辑桌面时点我换图</small></div>') + (p.cap ? `<span class="cap">${esc(p.cap)}</span>` : '') },
-  cal: { n: '日历', w: 2, h: 2, r: () => { const d = now(), y = d.getFullYear(), m = d.getMonth(); let s = '<i></i>'.repeat(new Date(y, m, 1).getDay()); for (let i = 1; i <= new Date(y, m + 1, 0).getDate(); i++) s += `<i class="${i == d.getDate() ? 'on' : ''}">${i}</i>`; return `<div class="wcal-h">${m + 1}月 <small>${y}</small></div><div class="wcal">${[...'日一二三四五六'].map(x => `<i class="wk">${x}</i>`).join('')}${s}</div>`; } },
-  days: { n: '纪念日', w: 2, h: 2, f: [['title', '标题'], ['from', '起始日', 'date'], ['bday', '生日', 'date']], r: p => `<small>${esc(p.title || '你在世界已经')}</small><b class="wd-n">${dd(p.from)}<i>天</i></b><small>生日还有 <b>${bd(p.bday)}</b> 天</small>` },
-  text: { n: '文字', w: 4, h: 1, f: [['text', '内容', 'area']], r: p => `<p>${esc(p.text || 'HAPPY EVERYDAY ♡')}</p>` },
   ccd: { n: 'CCD 相机', w: 2, h: 2, cls: 'ccd',
     f: [['img', '照片', 'img'], ['body', '机身颜色', 'color'], ['zoom', '照片缩放 %', 'number', '100'], ['px', '左右位置 %', 'number', '50'], ['py', '上下位置 %', 'number', '50'],
       ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
     d: { body: CCD_PINK, bgC: '#ffffff', bgC2: '#ffd6e7' }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },
 };
-const def = () => ({
-  pages: [[W('pill', 4, 1, { name: '{{user}}', big: '9°', sub: '☁ 多云' }), W('photo', 2, 2, { cap: '♡ lovely' }), W('cal', 2, 2), W('text', 4, 1, { text: '✧ you can do anything ✧' })],
-    [W('clock', 4, 1), W('days', 2, 2, { from: '2000-01-01' }), W('photo', 2, 2, { cap: 'yummy ✦' })]],
-  dock: [A('chat'), A('theme'), A('settings')],
-});
+const def = () => ({ pages: [[W('ccd', 2, 2, { ...WK.ccd.d })]], dock: [A('chat'), A('theme'), A('settings')] });
 
 let edit = 0, cur = 0, moved = 0;
 export const icon = id => S.icons[id] ? `<img src="${esc(S.icons[id])}">` : APPS[id]?.icon || '';
@@ -87,8 +77,20 @@ function folder(it) {
 // CCD：点一下换照片
 async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == null) return; const old = it.p.img; it.p.img = v || ''; save(); old && dropMedia(old); renderDesk(); }
 async function editW(it) {
-  const K = WK[it.k], r = await form(K.n, [...(K.f || []), ['sz', '尺寸', 'sel', SZ]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
+  const K = WK[it.k], r = await form(K.n, [...(K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
   const { sz, ...p } = r; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk();
+}
+// 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
+const CELL = 64; // 预览里一格的边长
+function wAddSheet() {
+  const all = [...Object.entries(WK).filter(([k]) => k != 'custom').flatMap(([k, v]) => sizes(v.w, v.h).map(([w, h]) => ({ k, w, h, n: v.n, cls: v.cls || '', p: { ...v.d }, mk: () => W(k, w, h, { ...v.d }) }))),
+    ...S.assets.widget.map(a => { const [w, h] = (a.sz || '2x2').split('x').map(Number); return { k: 'custom', w, h, n: a.name, cls: '', p: { html: a.html }, mk: () => W('custom', w, h, { html: a.html }) }; })];
+  const szs = [...new Set(all.map(e => `${e.w}x${e.h}`))].sort((a, b) => a.split('x').reduce((x, y) => x * y) - b.split('x').reduce((x, y) => x * y) || a.localeCompare(b));
+  let fz = '';
+  const card = (e, i) => `<div class="wcard" data-a="pick" data-x="${i}" data-k="${e.k}" data-sz="${e.w}x${e.h}"><div class="wprev" style="width:${e.w * CELL}px;height:${e.h * CELL}px"><div class="it wg w${e.w} h${e.h} k-${e.k} ${e.cls}">${tpl(WK[e.k].r(e.p, { w: e.w, h: e.h }))}</div></div><span>${esc(e.n)}</span><small>${e.w}×${e.h}</small></div>`;
+  const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件',
+    body: () => `<div class="szf">${[['', '全部尺寸'], ...szs.map(z => [z, z.replace('x', '×')])].map(([v, l]) => `<b class="${fz == v ? 'on' : ''}" data-a="szf" data-x="${v}">${l}</b>`).join('')}</div><div class="wgrid">${all.map((e, i) => !fz || `${e.w}x${e.h}` == fz ? card(e, i) : '').join('')}</div>`,
+    acts: { szf: v => { fz = v; s.reb(); }, pick: i => { S.desk.pages[cur].push(all[+i].mk()); s.close(); clean(); } } });
 }
 Object.assign(G, {
   dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it); },
@@ -96,14 +98,10 @@ Object.assign(G, {
   go: i => goPage(+i),
   tap: (_, t) => { if (Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder') return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' ? openApp(it.app) : WK[it.k]?.tap?.(it); }, // 不在编辑时点组件：有自己的点击动作就执行（CCD 换照片）
   del: id => { const [l, i] = find(id), it = l[i]; dropMedia(it); it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
-  wAdd: async () => {
-    const k = await menu([...Object.entries(WK).filter(([k]) => k != 'custom').map(([k, v]) => [k, v.n]), ...S.assets.widget.map((a, i) => ['@' + i, '✦ ' + esc(a.name)])], '添加小组件'); if (!k) return;
-    const a = k[0] == '@' && S.assets.widget[k.slice(1)], [w, h] = (a?.sz || '2x2').split('x').map(Number);
-    S.desk.pages[cur].push(a ? W('custom', w, h, { html: a.html }) : W(k, WK[k].w, WK[k].h, { ...WK[k].d })); clean();
-  },
+  wAdd: () => wAddSheet(),
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
 });
 export function initDesk() {
-  S.desk ||= def(); renderDesk();
+  S.desk ||= def(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); }); renderDesk(); // 去掉已经不存在的组件
   ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
 }
