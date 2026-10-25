@@ -100,7 +100,7 @@ export function lock(preview) {
   wallpaper(); clock(); clearInterval(iv); iv = setInterval(() => locked && visible() && clock(), 1e3);
   visible() && tip(preview);
   swipe(preview);
-  const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑用备用密码'), 1600); });
+  const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && h.isConnected && (h.textContent = hintText()), 1600); });
 }
 // 实况照片：从头放一遍，放完回到照片
 const playLive = () => { const v = el && $('.lk-bg video.live', el); if (!v) return; v.currentTime = 0; v.classList.add('on'); v.play?.().catch(() => v.classList.remove('on')); };

@@ -1,6 +1,7 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
 import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
 import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task } from '../../core.js';
+import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang } from './data.js';
 import { openFeed } from './chat.js';
@@ -245,7 +246,7 @@ export function openChat(id) {
       rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; saveD(); emit('chat'); },
       redit: i => { const m = ch.msgs[i], ip = $('.ip', pg.el); ip.value = m.old; ip.oninput(); ip.focus(); },
       tf: async i => { const m = ch.msgs[i]; if (m.f == 'me' || m.st || !await ok(`收下 ¥${m.amt}？`)) return; m.st = '已收款'; D().me.wallet = +D().me.wallet + m.amt; saveD(); emit('chat'); },
-      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? null : get(m.f); m.open = 1; saveD(); emit('chat'); tts(m.c, '', c?.sex, undefined, { c }).catch(e => fail('语音失败：' + e.message)); },
+      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? meVoice() : get(m.f); m.open = 1; saveD(); emit('chat'); tts(m.c, '', c?.sex, undefined, { c }).catch(e => fail('语音失败：' + e.message)); },
       mlp: async (i, t) => {
         const m = ch.msgs[i]; if (!m || /sys|pat/.test(m.t)) return; const mine = m.f == 'me', stk = m.t == 'sticker', text = /text|voice/.test(m.t);
         const has = stk && S.assets.sticker.some(x => x.img == m.img);
@@ -288,19 +289,6 @@ export function openChat(id) {
 }
 
 /* ---------- 聊天设置 ---------- */
-// 聊天信息 · 专属音色（仿正文朗读插件）：服务商、朗读语言、每个服务商各自的音色 ID、名字读音
-const VPH2 = { third: '音色 ID', mm: '例如 female-shaonv', mmi: '例如 female-shaonv', openai: '例如 alloy / nova', fish: '填 Fish 的 reference_id', eleven: '填 ElevenLabs 的 voice_id', index: '例如 default.wav / 角色.wav', mimo: '例如 mimo_default / 冰糖', volc: '例如 zh_female_xiaohe_uranus_bigtts' };
-const MML = [['auto', '自动识别'], ['Chinese', '中文'], ['Chinese,Yue', '粤语'], ['English', '英语'], ['Japanese', '日语'], ['Korean', '韩语'], ['French', '法语'], ['German', '德语'], ['Spanish', '西班牙语'], ['Russian', '俄语'], ['Thai', '泰语'], ['Vietnamese', '越南语']];
-function vSec(ch, f) {
-  const a = S.api.tts, vo = voiceOf(ch), cur = ttsCfg(vo.pv), tv = ch.tv || {}, per = a.mode == 'per', pk = pickVoice(ch, cur);
-  const now = pk.from == 'own' ? '音色：' + esc(pk.v) : pk.from == '男' || pk.from == '女' ? `${pk.from}声默认：${esc(pk.v)}` : pk.from == 'pv' ? '默认音色：' + esc(pk.v) : '还没配音色';
-  return `<div class="vbox"><b>🎙 正在使用 <em>${esc(a.src == 'tavern' ? '酒馆 TTS 扩展' : cur.name)}</em></b><small>${now}</small></div>`
-    + (per ? f.sel('tv.pv', '语音服务商', [['', '跟随全局'], ...TTSP]) : '')
-    + f.sel('tv.lang', '朗读语言<small>仅 MiniMax</small>', MML)
-    + TTSP.map(([k, n]) => `<label class="col vrow"><span>${esc(n)}${k == vo.pv ? ' <em class="using">使用中</em>' : ''}</span><input data-k="tv.v.${k}" value="${esc(tv.v?.[k] || '')}" placeholder="${esc(VPH2[k] || '音色 ID')}"></label>`).join('')
-    + `<div class="tts-ops"><b data-a="vtry">▶ 试听这个人的声音</b></div>`
-    + `<div class="col"><span>适配读音</span>${(tv.say || []).map(([w, r], i) => `<div class="row say"><span>${esc(w)} → ${esc(r)}</span><b class="lnk danger" data-a="sayx" data-x="${i}">×</b></div>`).join('')}${btn('sayadd', '＋ 添加')}</div>`;
-}
 // 聊天信息 · 翻译（私聊 / 群聊）
 function trSec(ch, f, g) {
   const c = ch.cfg, L1 = LANGS.slice(1), mine = f.tog('cfg.trMine', '自动翻译我发出的消息') + (c.trMine ? f.sel('cfg.trTo', '我的消息翻译为', [['', g ? '（请选择）' : '跟角色一样'], ...L1]) : '');
@@ -331,9 +319,7 @@ export function cset(ch) {
       ['dz', '更多', btn('clr', '清空聊天记录', '', 'danger') + btn('rm', g ? '删除并退出群聊' : '删除联系人', '', 'danger')]]),
     acts: {
       setfr: (x, t, e, pg) => { ch.cfg.frame = x; saveD(); pg.re(); },
-      vtry: () => task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', '', ch.sex, sg, { c: ch }), '✓ 已播放')),
-      sayadd: async (x, t, e, pg) => { const r = await form('适配读音', [['w', '写法'], ['r', '读音']]); if (!r?.w || !r?.r) return; ((ch.tv ||= {}).say ||= []).push([r.w.trim(), r.r.trim()]); saveD(); pg.re(); },
-      sayx: (i, t, e, pg) => { ch.tv.say.splice(+i, 1); saveD(); pg.re(); },
+      ...vActs(ch),
       mfr: async (i, t, e, pg) => { const c = get(i); if (!c || !await ok(`加「${nm(c)}」为好友？加完就能私聊了`)) return; c.fr = 1; saveD(); toast('已添加到通讯录'); pg.re(); },
       mdel: (i, t, e, pg) => { ch.members = ch.members.filter(x => x != i); ch.admins = ch.admins.filter(x => x != i); saveD(); pg.re(); },
       madd: async (x, t, e, pg) => { const k = await menu(D().chats.filter(c => c.type == 'p' && !ch.members.includes(c.id)).map(c => [c.id, esc(nm(c))]), '邀请成员'); if (!k) return; ch.members.push(k); ch.msgs.push({ f: 'sys', t: 'sys', c: `“${nm(meObj())}”邀请“${nm(get(k))}”加入了群聊`, ts: +now() }); saveD(); pg.re(); },

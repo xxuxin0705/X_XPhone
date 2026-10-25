@@ -899,3 +899,10 @@
 .lk-bg img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
 .lk-bg video.live{opacity:0;transition:opacity .35s}.lk-bg video.live.on{opacity:1}
 .lw img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
+.stp-scr.locked .hb{display:none}
+.vrow>span{display:block;margin-bottom:5px}.vin{display:flex;gap:8px;align-items:center}.vin input{flex:1}
+.vlib{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.vchip{display:inline-flex;align-items:center;gap:4px;padding:4px 6px 4px 10px;border-radius:14px;background:rgba(127,127,127,.12);font-size:calc(12px*var(--fz,1));cursor:pointer;max-width:100%}
+.vchip.on{background:var(--ac);color:#fff}.vchip i{font-style:normal;padding:0 4px;opacity:.6}
+.vl{gap:10px;cursor:pointer}.vl .av{width:40px;height:40px;border-radius:10px;object-fit:cover;flex:none}.vl>span{flex:1;min-width:0}.vl>span b{display:block;font-weight:500}
+.vl>span small{display:block;margin-top:2px;color:#999;font-size:calc(12px*var(--fz,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vl>span small.ok{color:var(--ac)}.vl .chev{font-style:normal;color:#bbb;font-size:calc(20px*var(--fz,1))}

@@ -273,7 +273,7 @@ function ttsMig(a) {
     OLDV.includes(c.vm) && (c.vm = ''); OLDV.includes(c.vf) && (c.vf = '');
   }
 }
-const tav = t => S.api[t].src == 'tavern';
+const tav = t => t != 'tts' && S.api[t].src == 'tavern'; // 语音只用自选服务商
 // 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
 async function call(t, desc, rq, fn, sg, pO, raw) {
   const T = raw ?? (!pO && tav(t)), p = pO || prof(t), L = { id: uid(), t, desc, at: Date.now(), run: 1, src: T ? '酒馆' : p?.name || '未配置', model: T ? '' : p?.model || p?.voice || '', req: String(rq).slice(0, 4000), res: '' };

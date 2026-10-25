@@ -3,6 +3,7 @@ import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
+import { libList, voicePage, people } from '../chat/voice.js';
 import { STKP, webSearch, localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
@@ -79,7 +80,9 @@ function provPage(t) {
   const vbtn = k => (cat().voices.length ? `<b class="pull" data-a="qv" data-x="${k}">快选</b>` : '') + (['fish', 'eleven', 'mm', 'mmi'].includes(fp()) ? `<b class="pull" data-a="pv" data-x="${k}">拉取</b>` : '');
   const body = () => {
     const p = P(), tip = TIP[t][pv()], tts = t == 'tts';
-    let h = F.seg('src', tts ? [['tavern', '酒馆扩展'], ['custom', '自选服务商']] : [['tavern', '酒馆扩展'], ['custom', '自选服务商']]);
+    if (tts) { a.src = 'custom'; a.tab ||= 'ch'; } // 语音不再走酒馆扩展
+    let h = tts ? F.seg('tab', [['ch', '语音渠道'], ['lib', '角色库']]) : F.seg('src', [['tavern', '酒馆扩展'], ['custom', '自选服务商']]);
+    if (tts && a.tab == 'lib') return h + libList();
     if (a.src == 'tavern') return h + (tts ? '' : '<p class="tip">调用酒馆「图像生成」扩展（/sd），用酒馆里设置好的生图。</p>') + (tts ? '' : `<div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`) + btn('test', '测试连接', '', 'pri');
     if (tts) h += `<h6>每个人用哪个服务商</h6>${F.seg('mode', [['unified', '统一用一个渠道'], ['per', '每个人用自己的渠道']])}`;
     h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商' : 'TTS 服务商') : '生图供应商', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
@@ -102,6 +105,7 @@ function provPage(t) {
       pullf: async k => { try { toast('正在拉取…'); const L = await models(t == 'tts' ? tq(prof(t)) : prof(t), t); if (!L.length) return toast('没有拉到可选项'); const m = await menu(L.map(x => [x, esc(x)]), `选择 · ${L.length}个`); m && (P()[k] = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
       try: k => !P()[k] ? toast('先填音色 ID') : task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', P()[k] || '', '', sg), '✓ 已播放')),
       vclr: k => { P()[k] = ''; save(); pg.re(); },
+      vopen: id => { const c = people().find(x => x.id == id); c && voicePage(c, () => setTimeout(() => pg.re())); },
       test: () => task('测试连接中', async sg => t == 'img' ? (show(await genImg('a cute cat, pastel colors, soft light', sg)), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试。', '', '', sg), '✓ 已播放')),
     },
   });

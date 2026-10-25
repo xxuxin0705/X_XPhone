@@ -197,7 +197,7 @@ console.log('T8 settings UI: every provider form renders, switching provider swa
   for (const t of ['tts', 'img']) {
     S.api[t] = { src: 'custom', cur: '', list: [] }; set.acts.api(t); const pg = top();
     const list = t == 'tts' ? core.TTSP : core.IMGP;
-    ok(/自选服务商/.test(pg.el.innerHTML) && pg.el.innerHTML.includes('data-k="pv"'), t + ' page: 酒馆扩展 / 自选服务商 + 服务商下拉框');
+    ok((t == 'tts' ? /语音渠道[\s\S]*角色库/.test(pg.el.innerHTML) && !/酒馆扩展/.test(pg.el.innerHTML) : /自选服务商/.test(pg.el.innerHTML)) && pg.el.innerHTML.includes('data-k="pv"'), t + (t == 'tts' ? ' page: 语音渠道 / 角色库（没有酒馆扩展）+ 服务商下拉框' : ' page: 酒馆扩展 / 自选服务商 + 服务商下拉框'));
     ok(S.api[t].pv == list[0][0], `${t} defaults to ${list[0][1]}`);
     for (const [k, label] of list) { S.api[t].pv = k; core.prof(t); pg.onChange('pv'); const h = pg.el.innerHTML; ok(h.includes(`value="${k}" selected`) && h.includes(`cfg.${k}.`) && !/undefined/.test(h), `${t}/${label} fields render`); }
     if (t == 'img') { S.api.img.pv = 'sd'; const c = core.prof('img'); ok(c.size == '512x768' && c.steps == 20 && c.url == 'http://127.0.0.1:7860', 'SD has its own defaults (size/steps/url)'); }

@@ -102,5 +102,39 @@ const tq = [], prompts = []; let reply = '好的';
   ok(await E(`!!document.querySelector('[data-a=qv][data-x=voice]') && !!document.querySelector('[data-a=pv][data-x=voice]')`), '第三方选 ElevenLabs 格式：也能快选 / 拉取音色');
   await p.screenshot({ path: path.join(OUT, 'cset_c.png') });
   await p.selectOption('select[data-k=pv]', 'mm'); await W(400); await p.screenshot({ path: path.join(OUT, 'cset_d.png'), fullPage: true });
+  // 7. 语音：没有「酒馆扩展」了，上面是「语音渠道 / 角色库」
+  ok(await E(`[...document.querySelector('.pg.in:last-child .pg-b .seg').children].map(b => b.textContent).join()`) == '语音渠道,角色库', '语音页顶上：语音渠道 / 角色库（没有酒馆扩展）');
+  await E(`document.querySelector('.pg.in:last-child .seg [data-x=lib]').click()`); await W(400);
+  const lib = await E(`[...document.querySelectorAll('.vl')].map(r => r.textContent)`);
+  ok(lib.length >= 3 && /^我（/.test(lib[0]) && lib.some(x => /satoru[\s\S]*MiniMax国内 · male-qn-jingying[\s\S]*Fish Audio：fishvoice1/.test(x)), '角色库：我 + 所有联系人，显示用的渠道和音色 ' + JSON.stringify(lib).slice(0, 220));
+  await p.screenshot({ path: path.join(OUT, 'cset_lib.png') });
+  // 在角色库里改五条悟的音色 → 聊天信息里也变了
+  await E(`[...document.querySelectorAll('.vl')].find(r => /satoru/.test(r.textContent)).click()`); await W(500);
+  ok(/satoru的音色/.test(await T('.pg.in:last-child .pg-t')) && await E(`document.querySelector('.pg.in:last-child [data-k="tv.v.mm"]').value`) == 'male-qn-jingying', '点进去：就是这个人的音色设置（跟聊天信息里一样）');
+  await E(`document.querySelector('.pg.in:last-child [data-a=vsave][data-x=mm]').click()`); await W(300); await p.fill('.sheet.in [data-k=n]', '精英'); await p.press('.sheet.in [data-k=n]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(400);
+  ok(await E(`JSON.stringify(_c.tv.lib.mm)`) == '[{"id":"male-qn-jingying","n":"精英"}]' && /精英/.test(await T('.pg.in:last-child .vlib')), '保存：MiniMax 下存了「精英」');
+  await p.fill('.pg.in:last-child [data-k="tv.v.mm"]', 'male-qn-badao'); await p.press('.pg.in:last-child [data-k="tv.v.mm"]', 'Tab'); await W(400);
+  await E(`document.querySelector('.pg.in:last-child [data-a=vsave][data-x=mm]').click()`); await W(300); await p.fill('.sheet.in [data-k=n]', '霸道'); await p.press('.sheet.in [data-k=n]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(400);
+  ok(await E(`_c.tv.v.mm`) == 'male-qn-badao' && await E(`document.querySelector('.pg.in:last-child .vchip.on')?.textContent`) == '霸道×', '换了新音色、也存下来（正在用的高亮）');
+  await E(`document.querySelector('.pg.in:last-child [data-a=vuse][data-x="mm:0"]').click()`); await W(400);
+  ok(await E(`_c.tv.v.mm`) == 'male-qn-jingying', '切换：点「精英」就换回去');
+  await E(`document.querySelector('.pg.in:last-child [data-a=vdel][data-x="mm:1"]').click()`); await W(300); await E(`document.querySelector('.sheet.mnu .mi.danger')?.click()`); await W(400);
+  ok(await E(`_c.tv.lib.mm.length`) == 1, '删除：保存的「霸道」删掉了');
+  await p.screenshot({ path: path.join(OUT, 'cset_libp.png') });
+  await E(`core.home(); talk.openChat(_c.id)`); await W(500); await E(`document.querySelector('.chat [data-a=cset]').click()`); await W(500);
+  ok(await E(`document.querySelector('[data-k="tv.v.mm"]').value`) == 'male-qn-jingying' && /精英/.test(await T('[data-sec=voice] .vlib')), '聊天信息的专属音色：跟角色库里改的一样');
+  await p.fill('[data-k="tv.v.fish"]', 'fishvoice2'); await p.press('[data-k="tv.v.fish"]', 'Tab'); await W(300);
+  await E(`core.home(); core.APPS.settings.open()`); await W(400); await E(`document.querySelector('[data-a=api][data-x=tts]').click()`); await W(500);
+  ok(/Fish Audio：fishvoice2/.test(await E(`[...document.querySelectorAll('.vl')].map(r => r.textContent).join()`)), '聊天信息里改了，角色库也跟着变');
+  // 我的音色
+  await E(`document.querySelector('.vl[data-x=me]').click()`); await W(400); await p.fill('.pg.in:last-child [data-k="tv.v.mm"]', 'female-yujie'); await p.press('.pg.in:last-child [data-k="tv.v.mm"]', 'Tab'); await W(300);
+  ok(await E(`JSON.stringify(Object.values(core.S.api.tts.users)[0].tv.v)`) == '{"mm":"female-yujie"}', '我的音色：存在设置里（按当前 User）');
+  tq.length = 0; await E(`(async () => { const v = await import('/apps/chat/voice.js'); await core.tts('我发的语音', '', '', undefined, { c: v.meVoice() }); })()`); await W(300);
+  ok(tq.at(-1)?.b?.voice_setting?.voice_id == 'female-yujie', '我发的语音用我的音色');
+  // 锁屏：底下没有粉色横条；指纹模式不提备用密码
+  await E(`(async () => { const lk = await import('/lock.js'); core.S.lock.on = true; core.S.lock.pw = true; core.S.lock.type = 'fp'; core.S.lock.fpSet = true; lk.lock(); })()`); await W(600);
+  ok(await E(`getComputedStyle(document.querySelector('#stp .hb')).display`) == 'none', '锁屏底下没有横条');
+  ok(!/备用密码/.test(await T('.lock .lk-hint')), '指纹解锁：不提备用密码');
+  await E(`(async () => { const lk = await import('/lock.js'); core.S.lock.pw = false; lk.unlock(); })()`); await W(400);
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });
