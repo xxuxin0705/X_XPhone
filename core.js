@@ -19,7 +19,7 @@ const api = x => ({ src: 'tavern', cur: '', list: [], ...x });
 const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
-  lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', text: '' }, media: {},
+  lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', img: '', text: '' }, media: {},
   stk: { see: true, v: 3, packs: ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
@@ -146,7 +146,7 @@ export const form = (title, fields, obj = {}, ext = {}, chg) => new Promise(res 
 export const sec = (pk, list) => { const o = S.ui.order[pk] || [], ix = k => o.indexOf(k) + 1 || 99; return `<div class="secs" data-secs="${pk}">${list.filter(Boolean).sort((a, b) => ix(a[0]) - ix(b[0])).map(([k, t, h]) => `<div class="sec ${S.ui.fold[pk + k] ? 'fold' : ''}" data-sec="${esc(k)}"><div class="sec-h" data-a="fold" data-x="${esc(pk + k)}" data-lp="secDrag"><b>${t}</b>${I.chev}</div><div class="sec-b">${h}</div></div>`).join('')}</div>`; };
 
 /* ---------- 文件 / 图片 ---------- */
-export const pickFile = (accept = 'image/*') => new Promise(r => { const i = Object.assign(document.createElement('input'), { type: 'file', accept }); i.onchange = () => r(i.files[0]); i.click(); });
+export const pickFile = (accept = 'image/*', multi) => new Promise(r => { const i = Object.assign(document.createElement('input'), { type: 'file', accept, multiple: !!multi }); i.onchange = () => r(multi ? [...i.files] : i.files[0]); i.click(); });
 export const readImg = (f, max = 400) => new Promise(r => {
   const fr = new FileReader(); fr.onload = () => {
     if (f.type == 'image/gif') return r(fr.result); const im = new Image();

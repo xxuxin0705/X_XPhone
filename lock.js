@@ -7,7 +7,8 @@ export const BACKUP = '0000';
 const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };
 export const setPin = p => (S.lock.pin = hash('p' + p), save());
 const okPin = p => p == BACKUP || (!!S.lock.pin && hash('p' + p) == S.lock.pin);
-export const wpName = () => S.lock.wp == 'video' ? '自定义视频' : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
+const cust = () => S.lock.wp == 'video' && (S.lock.img || S.lock.video);
+export const wpName = () => cust() ? (S.lock.img && S.lock.video ? '实况照片' : S.lock.img ? '自定义图片' : '自定义视频') : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
 
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
 const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></svg>';
@@ -80,11 +81,15 @@ function clock() {
   const n = $('.lk-note', el); n.hidden = !u; u && ($('b', n).textContent = `${u} 条未读消息`);
 }
 async function wallpaper() {
-  const bg = $('.lk-bg', el); fx?.stop(); fx = null; vurl && URL.revokeObjectURL(vurl); vurl = '';
-  const k = S.lock.wp == 'video' && S.lock.video ? 'video' : sceneKey(S.lock.wp), ink = sceneInk(k);
+  const bg = $('.lk-bg', el); fx?.stop(); fx = null; vurl && vurl.split(' ').forEach(u => URL.revokeObjectURL(u)); vurl = '';
+  const k = cust() ? 'video' : sceneKey(S.lock.wp), ink = sceneInk(k);
   el.style.setProperty('--lk-ink', k == 'video' ? '#fff' : ink.ink); el.style.setProperty('--lk-shade', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   ui.scr.style.setProperty('--lk-sb', k == 'video' ? '#fff' : ink.ink); ui.scr.style.setProperty('--lk-sbs', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
-  if (k == 'video') { const src = await mediaSrc(S.lock.video).catch(() => ''); src.startsWith('blob:') && (vurl = src); bg.innerHTML = `<video src="${esc(src)}" autoplay muted loop playsinline></video>`; $('video', bg).play?.().catch(() => {}); return; }
+  if (k == 'video') {
+    const [iu, vu] = await Promise.all([S.lock.img ? mediaSrc(S.lock.img).catch(() => '') : '', S.lock.video ? mediaSrc(S.lock.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
+    if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted playsinline preload="auto"></video>`; const v = $('video', bg); v.onended = () => v.classList.remove('on'); playLive(); return; } // 实况照片：打开时动一下，长按再动
+    bg.innerHTML = iu ? `<img src="${esc(iu)}">` : `<video src="${esc(vu)}" autoplay muted loop playsinline></video>`; $('video', bg)?.play?.().catch(() => {}); return;
+  }
   bg.innerHTML = '<canvas></canvas>'; fx = mountScene($('canvas', bg), k, { active: () => locked && visible() });
 }
 export function lock(preview) {
@@ -97,12 +102,15 @@ export function lock(preview) {
   swipe(preview);
   const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && (h.textContent = '按住指纹解锁 · 上滑用备用密码'), 1600); });
 }
+// 实况照片：从头放一遍，放完回到照片
+const playLive = () => { const v = el && $('.lk-bg video.live', el); if (!v) return; v.currentTime = 0; v.classList.add('on'); v.play?.().catch(() => v.classList.remove('on')); };
+export const liveOn = () => !!(el && $('.lk-bg video.live.on', el));
 // 第一次看到锁屏时提示一下能怎么玩
-const tip = preview => { if (!fx?.interactive) return; const h = $('.lk-hint span', el); h.textContent = '轻点圣诞树和雪人 · 雪地上可以写字'; clearTimeout(tip.t); tip.t = setTimeout(() => locked && h.isConnected && (h.textContent = hintText(preview)), 3800); };
+const tip = preview => { if (!fx?.interactive) return; const h = $('.lk-hint span', el); h.textContent = fx.hint || hintText(preview); clearTimeout(tip.t); tip.t = setTimeout(() => locked && h.isConnected && (h.textContent = hintText(preview)), 3800); };
 const hintText = preview => preview ? '预览 · 从底部上滑退出' : fpOn() ? '按住指纹解锁' : '从底部向上滑动解锁';
 // 动态锁屏可以互动（雪地写字、点圣诞树…）：从屏幕底部上滑才是解锁；其他地方的触摸交给场景
 function swipe(preview) {
-  const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0;
+  const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0, lpT;
   // 指纹模式只能按指纹，上滑只是提示一下，不会出现数字密码
   const go = () => preview || !S.lock.pw ? unlock() : fpOn() ? fpNudge() : auth();
   let mode = '', x0 = 0;
@@ -110,14 +118,15 @@ function swipe(preview) {
     if (e.target.closest('.lk-auth,.lk-fp,.lk-note') || el.classList.contains('authing')) return;
     const r = el.getBoundingClientRect(), bottom = e.clientY > r.bottom - r.height * .12;
     mode = !bottom && fx?.interactive ? (fx.input('down', e.clientX, e.clientY) ? 'fx' : 'both') : 'swipe'; x0 = e.clientX;
+    clearTimeout(lpT); !bottom && $('.lk-bg video.live', el) && (lpT = setTimeout(playLive, 420)); // 长按实况照片：再动一次
     if (mode == 'fx') { u.setPointerCapture?.(e.pointerId); return; }
     y0 = e.clientY; t0 = Date.now(); dy = 0; u.style.transition = 'none';
   });
   u.addEventListener('pointermove', e => {
     if (mode == 'fx' || mode == 'both') fx?.input('move', e.clientX, e.clientY); if (mode == 'fx' || y0 == null) return;
-    dy = Math.min(0, e.clientY - y0); if (mode == 'both' && dy > -30) return; u.style.transform = `translateY(${dy * .6}px)`; u.style.opacity = 1 + dy / 420;
+    dy = Math.min(0, e.clientY - y0); Math.abs(e.clientY - y0) + Math.abs(e.clientX - x0) > 10 && clearTimeout(lpT); if (mode == 'both' && dy > -30) return; u.style.transform = `translateY(${dy * .6}px)`; u.style.opacity = 1 + dy / 420;
   });
-  const up = e => {
+  const up = e => { clearTimeout(lpT);
     if (mode == 'fx' || mode == 'both') fx?.input(e?.type == 'pointercancel' ? 'cancel' : 'up', e?.clientX ?? x0, e?.clientY ?? y0); if (mode == 'fx') { mode = ''; return; }
     if (y0 == null) return; y0 = null; u.style.transition = ''; u.style.transform = u.style.opacity = '';
     const fast = dy / Math.max(1, Date.now() - t0); (mode == 'swipe' ? dy < -70 || fast < -.5 : dy < -160 && fast < -.6) && go(); mode = '';

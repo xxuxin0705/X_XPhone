@@ -33,7 +33,7 @@ const tq = [], prompts = []; let reply = '好的';
   await E(`document.querySelector('[data-k="tv.lang"]').value = 'Japanese'; document.querySelector('[data-k="tv.lang"]').dispatchEvent(new Event('change', { bubbles: true }))`); await W(200);
   await E(`document.querySelector('[data-sec=voice] [data-a=sayadd]').click()`); await W(300);
   await p.fill('.sheet.in [data-k=w]', '悟'); await p.press('.sheet.in [data-k=w]', 'Tab'); await p.fill('.sheet.in [data-k=r]', 'さとる'); await p.press('.sheet.in [data-k=r]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(300);
-  ok(/别名[\s\S]*悟 → さとる/.test(await T('[data-sec=voice]')) && !/名字读音/.test(await T('[data-sec=voice]')), '别名：加了「悟 → さとる」');
+  ok(/适配读音[\s\S]*悟 → さとる/.test(await T('[data-sec=voice]')) && !/名字读音|别名/.test(await T('[data-sec=voice]')), '适配读音：加了「悟 → さとる」');
   tq.length = 0; await E(`core.tts('我是悟', '', '男', undefined, { c: _c })`); await W(300);
   let q = tq.at(-1); ok(q && /minimaxi/.test(q.u) && q.b.voice_setting.voice_id == 'male-qn-jingying' && q.b.language_boost == 'Japanese' && q.b.text == '我是さとる', 'MiniMax：用这个人的音色、朗读语言日语、名字换成读音 ' + JSON.stringify(q?.b).slice(0, 160));
   await p.screenshot({ path: path.join(OUT, 'cset_a.png') });

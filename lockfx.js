@@ -3,7 +3,8 @@
 //       雪地上写字（WebGL 实时算凹槽的明暗，雪印约 3 秒被新雪抹平）、点飞过镜头的大冰晶（贴在玻璃上慢慢化成水珠滑下去）、
 //       双击天空 / 摇手机（像摇雪花水晶球）、放着不动窗边会结霜（用手指擦掉）。画面固定不动，倾斜手机只改变落雪的风向。
 // 每次打开锁屏都重新初始化：写的字、擦的霜都会恢复原样。
-export const SCENES = [['snownight', '雪夜']];
+import { hanabi, loadHanabi } from './lockfx-umb.js';
+export const SCENES = [['snownight', '雪夜'], ['hanabi', '伞下烟火']];
 const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x)), lerp = (a, b, t) => a + (b - a) * t;
 const ss = (a, b, x) => { x = clamp((x - a) / (b - a)); return x * x * (3 - 2 * x); };
@@ -34,7 +35,6 @@ const META = {"W":1282,"H":1585,"sm":{"x":551.4,"y":928.3,"w":379.3,"h":371.7},"
 const IMG = {}; let imgP;
 // 插件一加载就开始下载并解码照片，打开锁屏时直接就有，不会先黑一下
 const loadImgs = () => imgP ||= Promise.all([['bg', 'snownight.webp'], ['sm', 'snowman.webp']].map(([k, f]) => new Promise(res => { const i = new Image(); i.decoding = 'async'; const done = () => { IMG[k] = i; res(); }; i.onload = () => (i.decode ? i.decode().then(done, done) : done()); i.onerror = () => res(); i.src = new URL('./assets/' + f, import.meta.url).href; })));
-typeof Image == 'function' && typeof document != 'undefined' && setTimeout(loadImgs, 0);
 // 生成一次就一直用的素材：冰晶、霜花、雪人变色贴图
 const CACHE = {};
 // 只给雪人身体里发光的部分（亮处）上色，帽子围巾不变
@@ -179,7 +179,7 @@ const FADE = age => clamp(1 - (age - 1.2) / 1.8); // 雪印的深浅：1.2 秒�
 const COLS = ['#ff4d5e', '#ffd25a', '#5fe08a', '#58b4ff', '#ff8ad8', '#ffffff'];
 const SMC = [null, '#ff6fa8', '#6fb6ff', '#7dffb0', '#c89bff']; // 雪人身体里的灯：默认暖黄 → 粉 → 蓝 → 绿 → 紫
 const snownight = {
-  ink: '#ffffff', shade: 'rgba(0,0,0,.5)', dpr: 2, fps: 60, interactive: true,
+  ink: '#ffffff', shade: 'rgba(0,0,0,.5)', dpr: 2, fps: 60, interactive: true, hint: '轻点圣诞树和雪人 · 雪地上可以写字',
   init(W, H, dpr) {
     const small = W < 200, k = dpr, s = { W, H, k, small, t: 0, idle: 0, tilt: 0, tiltT: 0, wind: 0, swirl: 0, ready: 0, fadeIn: 0 };
     // 照片铺满屏幕（cover），以树和雪人为中心；四周多留一点给倾斜视差
@@ -389,11 +389,12 @@ const snownight = {
   },
 };
 
-export const FX = { snownight };
+export const FX = { snownight, hanabi };
 export const __dev = { crystal, frostLayers };
 export const sceneInk = k => FX[k] ? { ink: FX[k].ink, shade: FX[k].shade } : { ink: '#fff', shade: 'rgba(0,0,0,.4)' };
 export const sceneKey = k => FX[k] ? k : SCENES[0][0];
-export const preloadScene = () => loadImgs();
+// 只预先下载正在用的那个场景的图（另一个不用就不占内存）
+export const preloadScene = k => sceneKey(k) == 'hanabi' ? loadHanabi() : loadImgs();
 
 // 挂载到 canvas：自动适配尺寸 / 像素比，页面隐藏时暂停；opts.fps 限帧（小预览用），opts.t 起始时间（截图用）
 // 返回的 input(type, clientX, clientY) 把手指交给场景（返回 true 表示场景用掉了这次触摸）
@@ -407,7 +408,7 @@ export function mountScene(cv, key, opts = {}) {
   cv.clientWidth && frame(0); // 挂上就先画一帧，不等下一次刷新
   raf = requestAnimationFrame(loop);
   return {
-    interactive: !!S.interactive && !opts.fps,
+    interactive: !!S.interactive && !opts.fps, hint: S.hint || '',
     input(type, cx, cy) { if (!st || !S.input) return false; const r = cv.getBoundingClientRect(); return !!S.input(st, type, (cx - r.left) * W / (r.width || 1), (cy - r.top) * H / (r.height || 1)); },
     stop() { dead = 1; cancelAnimationFrame(raf); st && S.stop?.(st); },
     advance(sec, n = 1) { for (let i = 0; i < n; i++) frame(sec / n); }, state: () => st,

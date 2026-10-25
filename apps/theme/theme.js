@@ -26,20 +26,41 @@ const AK = {
   sticker: { n: '表情包', f: [['name', '描述（AI 会按描述发送）'], ['img', '图片', 'img']] },
 };
 const rf = () => top()?.re();
-// 锁屏壁纸：动态场景「雪夜」的实时小预览 + 自定义视频（5 秒内）
+// 锁屏壁纸：动态场景（雪夜、伞下烟火）的实时小预览 + 自定义（图片 / 5 秒内的视频 / 实况照片）
 let pv = [];
-const lockSec = () => `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${S.lock.wp != 'video' ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}<div class="lw vid ${S.lock.wp == 'video' ? 'on' : ''}" data-a="lwv" data-lp="lwvm">${S.lock.video ? '<video data-v muted loop playsinline autoplay></video>' : '<i>＋</i>'}<span>${S.lock.video ? '自定义视频' : '上传视频'}</span></div></div>`
-  + btn('lprev', '预览锁屏', '', 'pri') + `<p class="tip">动态壁纸只在锁屏亮着时播放。雪夜里可以点圣诞树、点雪人、在雪地上写字，双击天空或摇一摇手机会像摇水晶球。自定义视频要在 5 秒以内，长按可以更换或删除。${S.lock.on ? '' : '<br>还没有开启锁屏：设置 → 锁屏与密码。'}</p>`;
+const custKind = () => S.lock.img && S.lock.video ? '实况照片' : S.lock.img ? '图片' : S.lock.video ? '视频' : '';
+const lockSec = () => `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${S.lock.wp == k || S.lock.wp != 'video' && !SCENES.some(x => x[0] == S.lock.wp) && k == SCENES[0][0] ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}<div class="lw vid ${S.lock.wp == 'video' && custKind() ? 'on' : ''}" data-a="lwv" data-lp="lwvm">${S.lock.img ? '<img data-i>' : S.lock.video ? '<video data-v muted loop playsinline autoplay></video>' : '<i>＋</i>'}<span>${custKind() ? '自定义 · ' + custKind() : '自定义'}</span></div></div>`
+  + btn('lprev', '预览锁屏', '', 'pri') + (S.lock.on ? '' : '<p class="tip">还没有开启锁屏：设置 → 锁屏与密码</p>');
 const mountPv = (el, pg) => {
   pv.forEach(h => h.stop()); pv = [];
   el.querySelectorAll('canvas[data-fx]').forEach(cv => pv.push(mountScene(cv, cv.dataset.fx, { fps: 24, active: () => top() == pg && ui.root.classList.contains('on') && !cv.closest('.fold') })));
   const v = $('video[data-v]', el); v && mediaSrc(S.lock.video).then(u => { v.src = u; v.play?.().catch(() => {}); });
+  const im = $('img[data-i]', el); im && mediaSrc(S.lock.img).then(u => im.src = u);
 };
 const vidDur = f => new Promise(r => { const v = document.createElement('video'); v.preload = 'metadata'; v.onloadedmetadata = () => { r(v.duration); URL.revokeObjectURL(v.src); }; v.onerror = () => r(NaN); v.src = URL.createObjectURL(f); });
+// 安卓的「动态照片」（小米 / 三星 / 谷歌 / vivo…）：JPG 后面直接接着一段 MP4，把它切出来
+export async function motionVideo(f) {
+  if (!/jpe?g/i.test(f.type || f.name || '')) return null;
+  const b = new Uint8Array(await f.arrayBuffer());
+  const al = c => c >= 48 && c <= 57 || c >= 65 && c <= 90 || c >= 97 && c <= 122 || c == 32;
+  for (let i = 64; i < b.length - 12; i++) if (b[i] == 0x66 && b[i + 1] == 0x74 && b[i + 2] == 0x79 && b[i + 3] == 0x70 && al(b[i + 4]) && al(b[i + 5]) && al(b[i + 6])) { // 'ftyp' + 品牌（isom / mp42 …）
+    const st = i - 4, sz = (b[st] << 24 | b[st + 1] << 16 | b[st + 2] << 8 | b[st + 3]) >>> 0; if (sz >= 12 && sz < 64) return new Blob([b.subarray(st)], { type: 'video/mp4' });
+  }
+  return null;
+}
+const readFull = f => new Promise((res, rej) => { const u = URL.createObjectURL(f), im = new Image(); im.onload = () => { const s = Math.min(1, 1600 / Math.max(im.width, im.height)), c = Object.assign(document.createElement('canvas'), { width: Math.round(im.width * s), height: Math.round(im.height * s) }); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL('image/webp', .9)); }; im.onerror = () => { URL.revokeObjectURL(u); rej(Error('这张图片打不开（HEIC 格式请先转成 JPG）')); }; im.src = u; });
+// 选一个：图片、视频，或者实况照片（安卓动态照片一张就行；苹果实况照片把照片和视频一起选上）
 async function upVid() {
-  const f = await pickFile('video/mp4,video/webm,video/quicktime,video/*'); if (!f) return;
-  const d = await vidDur(f); if (isFinite(d) && d > 5.4) return toast(`视频要在 5 秒以内（这段 ${d.toFixed(1)} 秒）`); if (f.size > 40e6) return toast('视频太大了（超过 40MB），换一段吧');
-  task('正在保存锁屏视频', async () => { const u = await putMedia(f, 'lock'), old = S.lock.video; Object.assign(S.lock, { video: u, wp: 'video' }); save(); drop(old); rf(); return '锁屏视频已设置'; });
+  const L = await pickFile('image/*,video/*', 1); if (!L?.length) return;
+  const img = L.find(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|heic)$/i.test(f.name)), vid = L.find(f => /^video\//.test(f.type) || /\.(mp4|mov|webm)$/i.test(f.name));
+  let v = vid;
+  if (img && !v) v = await motionVideo(img).catch(() => null);
+  if (v) { const d = await vidDur(v), lim = img ? 8.4 : 5.4; if (isFinite(d) && d > lim) return toast(img ? `实况照片的视频要在 8 秒以内（这段 ${d.toFixed(1)} 秒）` : `视频要在 5 秒以内（这段 ${d.toFixed(1)} 秒）`); if (v.size > 40e6) return toast('视频太大了（超过 40MB），换一段吧'); }
+  task(img && v ? '正在保存实况照片' : img ? '正在保存锁屏图片' : '正在保存锁屏视频', async () => {
+    const iu = img ? await putMedia(await readFull(img), 'lock') : '', vu = v ? await putMedia(v, 'lock') : '', old = [S.lock.img, S.lock.video];
+    Object.assign(S.lock, { img: iu, video: vu, wp: 'video' }); save(); drop(old); rf();
+    return img && v ? '锁屏实况照片已设置' : img ? '锁屏图片已设置' : '锁屏视频已设置';
+  });
 }
 async function edit(k, a) { const r = await form((a ? '编辑' : '新建') + AK[k].n, AK[k].f, a || {}); if (!r) return; a ? Object.assign(a, r) : S.assets[k].push({ id: uid(), ...r }); save(); rf(); }
 
@@ -57,8 +78,8 @@ reg({
     ]); },
     acts: {
       lw: k => { S.lock.wp = k; save(); rf(); }, lprev: () => lock(true),
-      lwv: async () => { if (!S.lock.video) return upVid(); S.lock.wp = 'video'; save(); rf(); },
-      lwvm: async () => { if (!S.lock.video) return upVid(); const k = await menu([['c', '更换视频'], ['d', '删除视频', 'danger']], '锁屏视频'); if (k == 'c') upVid(); if (k == 'd' && await ok('删除这段锁屏视频？文件也会一起删除')) { drop(S.lock.video); S.lock.video = ''; S.lock.wp == 'video' && (S.lock.wp = 'cathedral'); save(); rf(); } },
+      lwv: async () => { if (!custKind()) return upVid(); S.lock.wp = 'video'; save(); rf(); },
+      lwvm: async () => { if (!custKind()) return upVid(); const n = custKind(), k = await menu([['c', '更换'], ['d', '删除' + n, 'danger']], '锁屏' + n); if (k == 'c') upVid(); if (k == 'd' && await ok(`删除这个锁屏${n}？文件也会一起删除`)) { drop([S.lock.img, S.lock.video]); S.lock.img = S.lock.video = ''; S.lock.wp == 'video' && (S.lock.wp = SCENES[0][0]); save(); rf(); } },
       th: (k, t, e, pg) => { S.theme = k; save(); applyTheme(); renderDesk(); pg.re(); },
       aa: k => edit(k), ae: x => { const [k, id] = x.split(':'); edit(k, S.assets[k].find(a => a.id == id)); },
       ad: async x => {

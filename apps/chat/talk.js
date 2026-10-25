@@ -299,7 +299,7 @@ function vSec(ch, f) {
     + f.sel('tv.lang', '朗读语言<small>仅 MiniMax</small>', MML)
     + TTSP.map(([k, n]) => `<label class="col vrow"><span>${esc(n)}${k == vo.pv ? ' <em class="using">使用中</em>' : ''}</span><input data-k="tv.v.${k}" value="${esc(tv.v?.[k] || '')}" placeholder="${esc(VPH2[k] || '音色 ID')}"></label>`).join('')
     + `<div class="tts-ops"><b data-a="vtry">▶ 试听这个人的声音</b></div>`
-    + `<div class="col"><span>别名</span>${(tv.say || []).map(([w, r], i) => `<div class="row say"><span>${esc(w)} → ${esc(r)}</span><b class="lnk danger" data-a="sayx" data-x="${i}">×</b></div>`).join('')}${btn('sayadd', '＋ 添加别名')}</div>`;
+    + `<div class="col"><span>适配读音</span>${(tv.say || []).map(([w, r], i) => `<div class="row say"><span>${esc(w)} → ${esc(r)}</span><b class="lnk danger" data-a="sayx" data-x="${i}">×</b></div>`).join('')}${btn('sayadd', '＋ 添加')}</div>`;
 }
 // 聊天信息 · 翻译（私聊 / 群聊）
 function trSec(ch, f, g) {
@@ -332,7 +332,7 @@ export function cset(ch) {
     acts: {
       setfr: (x, t, e, pg) => { ch.cfg.frame = x; saveD(); pg.re(); },
       vtry: () => task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', '', ch.sex, sg, { c: ch }), '✓ 已播放')),
-      sayadd: async (x, t, e, pg) => { const r = await form('添加别名', [['w', '别名'], ['r', '适配读音']]); if (!r?.w || !r?.r) return; ((ch.tv ||= {}).say ||= []).push([r.w.trim(), r.r.trim()]); saveD(); pg.re(); },
+      sayadd: async (x, t, e, pg) => { const r = await form('适配读音', [['w', '写法'], ['r', '读音']]); if (!r?.w || !r?.r) return; ((ch.tv ||= {}).say ||= []).push([r.w.trim(), r.r.trim()]); saveD(); pg.re(); },
       sayx: (i, t, e, pg) => { ch.tv.say.splice(+i, 1); saveD(); pg.re(); },
       mfr: async (i, t, e, pg) => { const c = get(i); if (!c || !await ok(`加「${nm(c)}」为好友？加完就能私聊了`)) return; c.fr = 1; saveD(); toast('已添加到通讯录'); pg.re(); },
       mdel: (i, t, e, pg) => { ch.members = ch.members.filter(x => x != i); ch.admins = ch.admins.filter(x => x != i); saveD(); pg.re(); },
