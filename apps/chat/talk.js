@@ -107,7 +107,7 @@ export async function gen(ch) {
   finally { busy = 0; CTL = null; emit('chat'); goSync(); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
 }
 const push = (ch, m) => {
-  const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); ch.cfg.auto && later(ch); // 默认不自动回复：想发几条发几条，发完点右下角 ✦ 让对方回
+  const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); // 不自动回复：想发几条发几条，发完点右下角 ✦ 让对方回
   if (ch.cfg.trMine && myLang(ch) && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, myLang(ch)).then(t => { t != x.c && (x.orig = x.c, x.c = t); }).catch(() => { }).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
   return x;
 };
@@ -295,21 +295,19 @@ function vSec(ch, f) {
   const a = S.api.tts, vo = voiceOf(ch), cur = ttsCfg(vo.pv), tv = ch.tv || {}, per = a.mode == 'per', pk = pickVoice(ch, cur);
   const now = pk.from == 'own' ? '音色：' + esc(pk.v) : pk.from == '男' || pk.from == '女' ? `${pk.from}声默认：${esc(pk.v)}` : pk.from == 'pv' ? '默认音色：' + esc(pk.v) : '还没配音色';
   return `<div class="vbox"><b>🎙 正在使用 <em>${esc(a.src == 'tavern' ? '酒馆 TTS 扩展' : cur.name)}</em></b><small>${now}</small></div>`
-    + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])
     + (per ? f.sel('tv.pv', '语音服务商', [['', '跟随全局'], ...TTSP]) : '')
     + f.sel('tv.lang', '朗读语言<small>仅 MiniMax</small>', MML)
     + TTSP.map(([k, n]) => `<label class="col vrow"><span>${esc(n)}${k == vo.pv ? ' <em class="using">使用中</em>' : ''}</span><input data-k="tv.v.${k}" value="${esc(tv.v?.[k] || '')}" placeholder="${esc(VPH2[k] || '音色 ID')}"></label>`).join('')
     + `<div class="tts-ops"><b data-a="vtry">▶ 试听这个人的声音</b></div>`
-    + `<div class="col"><span>名字读音</span>${(tv.say || []).map(([w, r], i) => `<div class="row say"><span>${esc(w)} → ${esc(r)}</span><b class="lnk danger" data-a="sayx" data-x="${i}">×</b></div>`).join('')}${btn('sayadd', '＋ 添加读音')}</div>`;
+    + `<div class="col"><span>别名</span>${(tv.say || []).map(([w, r], i) => `<div class="row say"><span>${esc(w)} → ${esc(r)}</span><b class="lnk danger" data-a="sayx" data-x="${i}">×</b></div>`).join('')}${btn('sayadd', '＋ 添加别名')}</div>`;
 }
 // 聊天信息 · 翻译（私聊 / 群聊）
 function trSec(ch, f, g) {
   const c = ch.cfg, L1 = LANGS.slice(1), mine = f.tog('cfg.trMine', '自动翻译我发出的消息') + (c.trMine ? f.sel('cfg.trTo', '我的消息翻译为', [['', g ? '（请选择）' : '跟角色一样'], ...L1]) : '');
-  const auto = f.tog('cfg.trAuto', '自动翻译<small>新收到的角色消息自动生成译文</small>') + f.tog('cfg.trOpen', '自动展开翻译<small>关闭后点消息后面的「文」查看译文</small>');
-  if (!g) return auto + f.sel('cfg.lang', '角色消息翻译为<small>角色用这种语言说话，下面附中文译文</small>', LANGS) + mine
-    + '<p class="tip">外语和中文译文在同一次回复里一起生成，按人设语气翻，不额外调用 API；漏了译文的用酒馆自带的免费机翻补上。你的消息只用酒馆自带的谷歌 / 必应机翻，不调用聊天模型。</p>';
+  const auto = f.tog('cfg.trAuto', '自动翻译') + f.tog('cfg.trOpen', '自动展开翻译');
+  if (!g) return auto + f.sel('cfg.lang', '角色消息翻译为', LANGS) + mine;
   const ms = ch.members.map(get).filter(Boolean).map(m => `${esc(nm(m))}→${m.cfg?.lang ? lname(m.cfg.lang) : '中文'}`).join('、');
-  return f.tog('cfg.trFollow', `成员消息跟随各自私聊的翻译设置<small>${c.trFollow !== false ? '开启后，每个成员按 TA 私聊窗口里的翻译设置输出：' + (ms || '（还没有成员）') : '关闭后，所有成员统一用下面选的语言'}</small>`)
+  return f.tog('cfg.trFollow', `成员消息跟随各自私聊的翻译设置${c.trFollow !== false && ms ? `<small>${ms}</small>` : ''}`)
     + (c.trFollow === false ? f.sel('cfg.lang', '成员消息统一翻译为', LANGS) : '') + auto + mine;
 }
 export function cset(ch) {
@@ -319,22 +317,22 @@ export function cset(ch) {
     onChange: k => /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; }),
     body: () => sec('cset', [
       ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
-        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋')],
-      g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}<p class="tip">「加好友」：把群里还不认识的人加进通讯录，就能私聊了。</p>`],
+        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])],
+      g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}`],
       !g && ['voice', '专属音色', vSec(ch, f)],
       ['tr', '翻译', trSec(ch, f, g)],
-      ['reply', '回复设置', `<div class="row rng"><span>回复条数<small>每轮角色回复的消息条数（文字、图片、语音、表情各算一条）</small></span><i>最少</i><input type="number" min="1" data-k="cfg.rmin" value="${esc(ch.cfg.rmin ?? 1)}"><i>最多</i><input type="number" min="1" data-k="cfg.rmax" value="${esc(ch.cfg.rmax ?? 5)}"></div>
-<div class="row rng"><span>语音条数<small>其中语音条的条数，0 表示不发语音（语音条计入回复条数）</small></span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
-      ['rd', '互动', f.tog('cfg.auto', '发完消息自动回复') + '<p class="tip">关着时：想发几条就发几条，发完点输入框右边的 ✦ 让对方回复。打开后：停止打字 1.5 秒就自动回复。</p>' + f.tog('cfg.read', '显示已读 / 未读') + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + '<p class="tip">拍一拍：双击头像拍对方；对方也会不时拍你一下，画面会轻轻抖动。角色还可能贴表情、引用消息、撤回或“已读不回”。</p>'],
+      ['reply', '回复设置', `<div class="row rng"><span>回复条数</span><i>最少</i><input type="number" min="1" data-k="cfg.rmin" value="${esc(ch.cfg.rmin ?? 1)}"><i>最多</i><input type="number" min="1" data-k="cfg.rmax" value="${esc(ch.cfg.rmax ?? 5)}"></div>
+<div class="row rng"><span>语音条数</span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
+      ['rd', '互动', f.tog('cfg.read', '显示已读 / 未读') + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
       ['look', '美化', f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],
-      ['link', '正文联动', f.tog('cfg.inj', '整个聊天注入正文') + `<p class="tip">${S.mode == 'linked' ? '开启后角色在正文里会知道这段手机聊天；也可长按单条消息选择“注入正文”。' : '当前为线上模式：手机内容不会传回正文（可在 设置→联动模式 切换）。'}</p>`],
+      ['link', '正文联动', f.tog('cfg.inj', '整个聊天注入正文') + ``],
       ['dz', '更多', btn('clr', '清空聊天记录', '', 'danger') + btn('rm', g ? '删除并退出群聊' : '删除联系人', '', 'danger')]]),
     acts: {
       setfr: (x, t, e, pg) => { ch.cfg.frame = x; saveD(); pg.re(); },
       vtry: () => task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', '', ch.sex, sg, { c: ch }), '✓ 已播放')),
-      sayadd: async (x, t, e, pg) => { const r = await form('添加读音', [['w', '写法（比如：悟）'], ['r', '读音（比如：さとる）']]); if (!r?.w || !r?.r) return; ((ch.tv ||= {}).say ||= []).push([r.w.trim(), r.r.trim()]); saveD(); pg.re(); },
+      sayadd: async (x, t, e, pg) => { const r = await form('添加别名', [['w', '别名'], ['r', '适配读音']]); if (!r?.w || !r?.r) return; ((ch.tv ||= {}).say ||= []).push([r.w.trim(), r.r.trim()]); saveD(); pg.re(); },
       sayx: (i, t, e, pg) => { ch.tv.say.splice(+i, 1); saveD(); pg.re(); },
       mfr: async (i, t, e, pg) => { const c = get(i); if (!c || !await ok(`加「${nm(c)}」为好友？加完就能私聊了`)) return; c.fr = 1; saveD(); toast('已添加到通讯录'); pg.re(); },
       mdel: (i, t, e, pg) => { ch.members = ch.members.filter(x => x != i); ch.admins = ch.admins.filter(x => x != i); saveD(); pg.re(); },

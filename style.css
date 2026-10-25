@@ -896,4 +896,3 @@
 .row.rng{flex-wrap:nowrap;gap:6px}.row.rng>span{flex:1}.row.rng i{font-style:normal;font-size:calc(12px*var(--fz,1));color:#999;white-space:nowrap;flex:none}
 #stp .row.rng input{width:44px;max-width:44px;flex:none;text-align:center}
 .row.say{min-height:38px;padding:4px 2px}
-#stp .row input.ro{text-overflow:ellipsis}

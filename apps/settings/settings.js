@@ -70,23 +70,24 @@ const stPick = a => {
 function provPage(t) {
   const a = S.api[t]; prof(t);
   const pv = () => a.pv, K2 = k => `cfg.${pv()}.${k}`, P = () => a.cfg[pv()], F = fx(a);
-  const fld = ([k, l, ty = 'text', o]) => ty == 'official' ? `<div class="row"><span>${l}</span><input class="ro" readonly value="${esc(TURL[pv()] || '')}"></div>` : ty == 'tip' ? `<p class="tip">${l}</p>` : ty == 'sel' ? F.sel(K2(k), l, o) : ty == 'tog' ? F.tog(K2(k), l) : ty == 'area' ? F.area(K2(k), l, o)
+  const fld = ([k, l, ty = 'text', o]) => ty == 'official' ? `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] || TURL[pv()] || '')}"></div>` : ty == 'tip' ? `<p class="tip">${l}</p>` : ty == 'sel' ? F.sel(K2(k), l, o) : ty == 'tog' ? F.tog(K2(k), l) : ty == 'area' ? F.area(K2(k), l, o)
     : ty == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(o || '')}"><b class="pull" data-a="pullf" data-x="${k}">拉取</b></div>`
     : ty == 'password' ? `<div class="row"><span>${l}</span><input type="password" data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(o || '')}"><b class="pull eye" data-a="eye">显示</b></div>` : F.inp(K2(k), l, ty, o);
   const pick = (k, l, ph, acts) => `<div class="row"><span>${l}</span><input data-k="${K2(k)}" value="${esc(P()[k] ?? '')}" placeholder="${esc(ph)}">${acts}</div>`;
   const fp = () => pv() == 'third' ? P().fmt || 'openai' : pv(), cat = () => TCAT[fp()] || { models: [], voices: [] }; // 第三方按接口格式走对应的快选 / 拉取
+  const tbtn = k => (cat().voices.length ? `<b class="pull" data-a="qv" data-x="${k}">快选</b>` : '') + `<b class="pull" data-a="try" data-x="${k}">试听</b>`;
   const vbtn = k => (cat().voices.length ? `<b class="pull" data-a="qv" data-x="${k}">快选</b>` : '') + (['fish', 'eleven', 'mm', 'mmi'].includes(fp()) ? `<b class="pull" data-a="pv" data-x="${k}">拉取</b>` : '');
   const body = () => {
     const p = P(), tip = TIP[t][pv()], tts = t == 'tts';
     let h = F.seg('src', tts ? [['tavern', '酒馆扩展'], ['custom', '自选服务商']] : [['tavern', '酒馆扩展'], ['custom', '自选服务商']]);
     if (a.src == 'tavern') return h + (tts ? '' : '<p class="tip">调用酒馆「图像生成」扩展（/sd），用酒馆里设置好的生图。</p>') + (tts ? '' : `<div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`) + btn('test', '测试连接', '', 'pri');
     if (tts) h += `<h6>每个人用哪个服务商</h6>${F.seg('mode', [['unified', '统一用一个渠道'], ['per', '每个人用自己的渠道']])}`;
-    h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商（联系人没单独选时用）' : 'TTS 服务商') : '生图供应商', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
+    h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商' : 'TTS 服务商') : '生图供应商', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
     if (tts) {
       const noModel = pv() == 'volc';
       h += `<div class="card">${TF[pv()](p).map(fld).join('')}${noModel ? '' : pick('model', '语音模型', cat().models[0] || '', (cat().models.length ? '<b class="pull" data-a="qm">快选</b>' : '') + (['fish', 'eleven', 'openai', 'index'].includes(fp()) ? '<b class="pull" data-a="pullf" data-x="model">拉取</b>' : ''))}
         ${pick('voice', '音色 ID', VPH[fp()] || '', vbtn('voice'))}</div><div class="tts-ops"><b data-a="try" data-x="voice">▶ 试听当前音色</b><b class="danger" data-a="vclr" data-x="voice">清空当前音色</b></div>
-        <h6>全局默认音色</h6><div class="card">${F.tog('fb', '没配音色的联系人用全局默认音色')}${a.fb !== false ? pick('vm', '男声默认', '', vbtn('vm')) + pick('vf', '女声默认', '', vbtn('vf')) : ''}</div>`;
+        <h6>全局默认音色</h6><div class="card">${F.tog('fb', '没配音色的联系人用全局默认音色')}${a.fb !== false ? pick('vm', '男声默认', '', tbtn('vm')) + pick('vf', '女声默认', '', tbtn('vf')) : ''}</div>`;
     } else h += `<div class="card">${IF[pv()](p).map(fld).join('')}</div><div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`;
     return h + btn('test', '测试连接', '', 'pri');
   };
@@ -99,7 +100,7 @@ function provPage(t) {
       qv: async k => { const v = await menu(cat().voices.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), '选择音色'); v && (P()[k] = v, save(), pg.re()); },
       pv: async k => { try { toast('正在读取音色…'); const L = await voices(tq(prof(t))); if (!L.length) return toast('没有读到音色'); const v = await menu(L.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), `选择音色 · ${L.length}个`); v && (P()[k] = v, save(), pg.re()); } catch (e) { toast('读取失败：' + e.message); } },
       pullf: async k => { try { toast('正在拉取…'); const L = await models(t == 'tts' ? tq(prof(t)) : prof(t), t); if (!L.length) return toast('没有拉到可选项'); const m = await menu(L.map(x => [x, esc(x)]), `选择 · ${L.length}个`); m && (P()[k] = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
-      try: k => task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', P()[k] || '', '', sg), '✓ 已播放')),
+      try: k => !P()[k] ? toast('先填音色 ID') : task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', P()[k] || '', '', sg), '✓ 已播放')),
       vclr: k => { P()[k] = ''; save(); pg.re(); },
       test: () => task('测试连接中', async sg => t == 'img' ? (show(await genImg('a cute cat, pastel colors, soft light', sg)), '✓ 生图成功') : (await tts('你好呀，这是小手机的语音测试。', '', '', sg), '✓ 已播放')),
     },

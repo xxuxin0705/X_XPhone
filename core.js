@@ -220,13 +220,13 @@ export function bind(R) {
   });
   const hit = (e, a) => { const t = e.target.closest?.(`[data-${a}]`); if (!t || !R.contains(t)) return; const pg = pgOf(t), n = t.dataset[a], f = pg?.acts?.[n] || G[n]; f && (e.stopPropagation(), f(t.dataset.x, t, e, pg)); };
   R.addEventListener('click', e => Date.now() - swp < 400 ? e.stopPropagation() : lpd ? (lpd = 0) : hit(e, 'a'));
-  R.addEventListener('contextmenu', e => e.target.closest('input,textarea,.bub,pre') || e.preventDefault());
+  // 长按图片不弹浏览器自己的「保存图片 / 大图」；输入框里照常能长按复制粘贴
+  R.addEventListener('contextmenu', e => e.target.closest('input,textarea,pre') || e.target.closest('.bub') && e.target.tagName != 'IMG' || e.preventDefault());
   R.addEventListener('pointerdown', e => {
     lpd = 0; const t = e.target.closest('[data-lp]'); if (!t) return; const x = e.clientX, y = e.clientY; clearTimeout(lp);
     const end = () => { clearTimeout(lp); removeEventListener('pointermove', mv); removeEventListener('pointerup', end); removeEventListener('pointercancel', end); }, mv = ev => Math.hypot(ev.clientX - x, ev.clientY - y) > 8 && end();
     lp = setTimeout(() => { lpd = 1; navigator.vibrate?.(12); hit(e, 'lp'); }, 480); addEventListener('pointermove', mv); addEventListener('pointerup', end); addEventListener('pointercancel', end);
   });
-  R.addEventListener('contextmenu', e => e.preventDefault()); // 长按图片不要弹浏览器自己的「保存图片 / 大图」
   R.addEventListener('change', e => {
     const t = e.target, pg = pgOf(t), k = t.dataset.k, km = t.dataset.km;
     k && set(pg, k, t.type == 'checkbox' ? t.checked : t.type == 'number' || t.type == 'range' ? +t.value : t.value);
@@ -265,17 +265,12 @@ export const prof = t => {
   const P = t == 'tts' ? TTSP : IMGP; a.pv = P.some(x => x[0] == a.pv) ? a.pv : P[0][0];
   const c = a.cfg[a.pv] ||= structuredClone(PDEF[t][a.pv] || {}); c.prov = a.pv; c.name = P.find(x => x[0] == a.pv)[1]; return c;
 };
-// 语音设置升级：以前帮你预填的男 / 女兜底音色清空；官方服务商里填过的中转地址挪到「第三方」（不然换成官方地址就连不上了）
+// 语音设置升级：以前帮你预填的男 / 女兜底音色清空
 const OLDV = ['male-qn-qingse', 'female-shaonv', 'onyx', 'nova', 'JBFqnCBsd6RMkjVDRZzb', 'EXAVITQu4vr4xnSDxMaL', '苏打', '冰糖', 'zh_female_xiaohe_uranus_bigtts'];
 function ttsMig(a) {
   a.v = 2; a.fb ??= true;
   for (const [k, c] of Object.entries(a.cfg || {})) {
     OLDV.includes(c.vm) && (c.vm = ''); OLDV.includes(c.vf) && (c.vf = '');
-    const u = trim(c.url || ''), off = TURL[k] && trim(TURL[k]);
-    if (off && u && u != off && !(k == 'fish' && u == 'https://api.fish.audio/v1') && !a.cfg.third?.url) {
-      a.cfg.third = { ...c, prov: 'third', fmt: k == 'mmi' ? 'mm' : k, url: u, name: '第三方' }; a.pv == k && (a.pv = 'third');
-    }
-    off && delete c.url;
   }
 }
 const tav = t => S.api[t].src == 'tavern';
@@ -418,12 +413,12 @@ export const slash = async s => { const c = C(), r = await (c.executeSlashComman
 
 /* ---------- 语音 TTS 渠道 ---------- */
 export const TTSP = [['mm', 'MiniMax国内'], ['mmi', 'MiniMax国际'], ['openai', 'OpenAI'], ['fish', 'Fish Audio'], ['eleven', 'ElevenLabs'], ['index', 'IndexTTS本地'], ['mimo', 'MiMo-V2.5-TTS'], ['volc', '豆包 / 火山引擎'], ['third', '第三方']];
-// 官方接口地址：选了哪家就用哪家的官方地址（只有「第三方」和本地 IndexTTS 能自己填地址）
+// 官方接口地址：选了哪家，接口地址默认就是哪家的官方地址（可以改）
 export const TURL = { mm: 'https://api.minimaxi.com', mmi: 'https://api.minimax.io', openai: 'https://api.openai.com/v1', fish: 'https://api.fish.audio', eleven: 'https://api.elevenlabs.io', mimo: 'https://api.xiaomimimo.com/v1', volc: 'https://openspeech.bytedance.com' };
 // 第三方的接口格式
 export const TFMT = [['openai', 'OpenAI 格式'], ['mm', 'MiniMax 格式'], ['fish', 'Fish Audio 格式'], ['eleven', 'ElevenLabs 格式'], ['mimo', 'MiMo 格式']];
-// 真正请求用的设置：官方服务商固定官方地址；第三方按选的格式、用自己填的地址
-export const tq = p => !p ? p : p.prov == 'third' ? { ...p, prov: p.fmt || 'openai', name: p.name } : TURL[p.prov] ? { ...p, url: TURL[p.prov] } : p;
+// 真正请求用的设置：官方服务商默认官方地址（改了就用改的）；第三方按选的格式、用自己填的地址
+export const tq = p => !p ? p : p.prov == 'third' ? { ...p, prov: p.fmt || 'openai', name: p.name } : TURL[p.prov] ? { ...p, url: trim(p.url) || TURL[p.prov] } : p;
 // 各服务商的默认设置
 export const PDEF = {
   tts: {

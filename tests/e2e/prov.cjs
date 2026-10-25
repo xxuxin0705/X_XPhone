@@ -36,18 +36,19 @@ const reqs = [];
   ok(await E(`[...document.querySelectorAll('.sheet.mnu .mi')].map(b => b.textContent).join()`) == 's2.1-pro,s1,取消', 'Fish 拉取模型（/compat/v1/models）');
   await p.click('.sheet.mnu .mi >> nth=0'); await W(300);
   ok(await E(`core.S.api.tts.cfg.fish.model`) == 's2.1-pro', '选中的模型写回 Fish 设置');
-  await E(`document.querySelector('[data-a=pv][data-x=vf]').click()`); await W(500);
+  await E(`document.querySelector('[data-a=pv][data-x=voice]').click()`); await W(500);
   ok(/我的小狐狸/.test(await E(`document.querySelector('.sheet.mnu').textContent`)), 'Fish 拉取「我的音色」'); await p.click('.sheet.mnu .mi >> nth=0'); await W(300);
-  ok(await E(`core.S.api.tts.cfg.fish.vf`) == 'abc123', '女声兜底填上拉取的音色');
+  ok(await E(`core.S.api.tts.cfg.fish.voice`) == 'abc123', '音色 ID 填上拉取的音色');
+  await E(`core.S.api.tts.cfg.fish.vf = 'abc123'; core.top().re()`); await W(200);
   // 切到 ElevenLabs
   await p.selectOption('select[data-k=pv]', 'eleven'); await W(500);
   ok(await E(`!!document.querySelector('[data-k="cfg.eleven.key"]') && document.querySelector('[data-k="cfg.eleven.voice"]').value`) == 'EXAVITQu4vr4xnSDxMaL', '切到 ElevenLabs：字段换成它自己的，默认音色 Sarah');
   await p.fill('[data-k="cfg.eleven.key"]', 'elk'); await p.press('[data-k="cfg.eleven.key"]', 'Tab'); await W(200);
-  await E(`document.querySelector('[data-a=qv][data-x=vm]').click()`); await W(400);
+  await E(`document.querySelector('[data-a=qv][data-x=voice]').click()`); await W(400);
   ok(/George · 男/.test(await E(`document.querySelector('.sheet.mnu').textContent`)), 'ElevenLabs 快选音色清单'); await p.click('.sheet.mnu .mi:has-text("George")'); await W(300);
   reqs.length = 0; await E(`document.querySelector('[data-a=test]').click()`); await W(900);
   const e = reqs.find(r => /text-to-speech/.test(r.u)), eb = e && JSON.parse(e.body);
-  ok(e && /\/v1\/text-to-speech\/EXAVITQu4vr4xnSDxMaL\?output_format=mp3_44100_128$/.test(e.u) && e.h['xi-api-key'] == 'elk' && eb.model_id == 'eleven_multilingual_v2' && eb.text, 'ElevenLabs 请求：' + (e && e.u));
+  ok(e && /\/v1\/text-to-speech\/JBFqnCBsd6RMkjVDRZzb\?output_format=mp3_44100_128$/.test(e.u) && e.h['xi-api-key'] == 'elk' && eb.model_id == 'eleven_multilingual_v2' && eb.text, 'ElevenLabs 请求：' + (e && e.u));
   await E(`document.querySelector('[data-a=pullf][data-x=model]').click()`); await W(500);
   ok(await E(`[...document.querySelectorAll('.sheet.mnu .mi')].map(b => b.textContent).join()`) == 'eleven_v3,取消', 'ElevenLabs 拉取模型（只列能 TTS 的）'); await p.click('.sheet.mnu .mi.cancel'); await W(300);
   await E(`document.querySelector('[data-a=pv][data-x=voice]').click()`); await W(500);
@@ -55,7 +56,7 @@ const reqs = [];
   await p.screenshot({ path: path.join(OUT, 'prov_eleven.png') });
   // 切回 Fish：之前填的还在
   await p.selectOption('select[data-k=pv]', 'fish'); await W(400);
-  ok(await E(`document.querySelector('[data-k="cfg.fish.key"]').value`) == 'k1' && await E(`core.S.api.tts.cfg.eleven.vm`) == 'JBFqnCBsd6RMkjVDRZzb', '切回 Fish：Fish 的 Key 还在；ElevenLabs 的设置也保留');
+  ok(await E(`document.querySelector('[data-k="cfg.fish.key"]').value`) == 'k1' && await E(`core.S.api.tts.cfg.eleven.voice`) == 'JBFqnCBsd6RMkjVDRZzb', '切回 Fish：Fish 的 Key 还在；ElevenLabs 的设置也保留');
   // 联系人专属音色 / 兜底：女性联系人走 vf
   reqs.length = 0; await E(`core.tts('测试', '', '女')`); await W(300);
   ok(JSON.parse(reqs.find(r => /audio\/speech/.test(r.u)).body).voice == 'abc123', '女性联系人没绑音色 → 用女声兜底');

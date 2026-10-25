@@ -43,9 +43,10 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAKElEQVR
   ok(imgs.slice(n0).join() == '1,0' && await E(`_c.msgs.at(-1).c`) == '好的～', '模型不支持看图：自动改成只发文字，照样回复');
   await E(`_c.msgs.push({ f: 'me', t: 'sticker', c: '表情', img: 'https://img.test/w.png', ts: Date.now() }); core.emit('chat')`); const n1 = imgs.length; await p.click('.chat .go'); await p.waitForTimeout(2300);
   ok(imgs.slice(n1).join() == '0', '记住了：这个模型以后不再带图'); noVis = false;
-  // 打开「发完消息自动回复」
-  await E(`_c.cfg.auto = true`); await type('自动吗'); await p.click('.chat .go'); await p.waitForTimeout(300);
-  ok(await vis() == 'stop' && nReq == 5, '打开自动回复后：发完先等着（方块）');
-  await p.waitForTimeout(1600); ok(nReq == 6, '1.5 秒后自动回复');
+  // 自动回复功能已删：就算旧数据里开着也不会自动回
+  await E(`_c.cfg.auto = true`); await type('自动吗'); await p.click('.chat .go'); await p.waitForTimeout(2000);
+  ok(nReq == 5 && await vis() == 'reply', '没有「发完自动回复」了（旧设置开着也不自动回）');
+  await E(`core.APPS.chat && document.querySelector('.chat [data-a=cset]')?.click()`); await p.waitForTimeout(500);
+  ok(!(await E(`!!document.querySelector('[data-k="cfg.auto"]')`)), '聊天信息里没有「发完消息自动回复」开关');
   await p.waitForTimeout(2000);
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

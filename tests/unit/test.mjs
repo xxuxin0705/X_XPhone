@@ -146,13 +146,14 @@ console.log('T6 TTS providers');
   ok(core.PDEF.tts.mm.vm == null && core.PDEF.tts.eleven.vf == null, '男 / 女默认音色不再预填');
   // 官方服务商：地址固定官方（以前填的中转挪到「第三方」）
   S.api.tts = { src: 'custom', pv: 'fish', cfg: { fish: { key: 'K', url: 'https://my-relay.test', voice: 'r1', vm: 'male-qn-qingse' }, mm: { key: 'M', url: 'https://api.minimaxi.com/' } } }; core.prof('tts');
-  const T = S.api.tts; ok(T.pv == 'third' && T.cfg.third.fmt == 'fish' && T.cfg.third.url == 'https://my-relay.test' && T.cfg.third.key == 'K' && !T.cfg.fish.url && !T.cfg.mm.url && T.cfg.fish.vm == '' && T.fb === true, '升级：Fish 里填过的中转地址挪到「第三方」（Fish 格式）；预填的兜底音色清空；默认用全局默认音色');
+  const T = S.api.tts; ok(T.pv == 'fish' && T.cfg.fish.url == 'https://my-relay.test' && !T.cfg.third && T.cfg.fish.vm == '' && T.fb === true, '升级：填过的接口地址保留；预填的男 / 女默认音色清空；默认用全局默认音色');
   routes = [[/my-relay\.test\/compat\/v1\/audio\/speech/, () => au.clone()]];
-  await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://my-relay.test/compat/v1/audio/speech' && c.body.voice == 'r1', '第三方（Fish 格式）走自己填的地址');
-  T.cfg.third = { prov: 'third', fmt: 'mm', url: 'https://mm-relay.test', key: 'X', voice: 'v9' }; routes = [[/mm-relay\.test\/v1\/t2a_v2/, () => new Response(JSON.stringify({ base_resp: { status_code: 0 }, data: { audio: 'fffb9064' } }))]];
+  await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://my-relay.test/compat/v1/audio/speech' && c.body.voice == 'r1', 'Fish 改了接口地址就用改的');
+  T.pv = 'third'; T.cfg.third = { prov: 'third', fmt: 'mm', url: 'https://mm-relay.test', key: 'X', voice: 'v9' }; routes = [[/mm-relay\.test\/v1\/t2a_v2/, () => new Response(JSON.stringify({ base_resp: { status_code: 0 }, data: { audio: 'fffb9064' } }))]];
   await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://mm-relay.test/v1/t2a_v2' && c.body.voice_setting.voice_id == 'v9', '第三方（MiniMax 格式）');
-  T.pv = 'openai'; T.cfg.openai = { key: 'O', url: 'https://evil.test/v1', voice: 'nova' }; routes = [[/api\.openai\.com\/v1\/audio\/speech/, () => au.clone()]];
-  await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://api.openai.com/v1/audio/speech', '官方服务商一律用官方地址');
+  T.pv = 'openai'; T.cfg.openai = { key: 'O', voice: 'nova' }; routes = [[/(api\.openai\.com|oa\.test)\/v1\/audio\/speech/, () => au.clone()]];
+  await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://api.openai.com/v1/audio/speech', '没改接口地址：用官方地址');
+  T.cfg.openai.url = 'https://oa.test/v1'; await core.tts('嗨'); c = calls.at(-1); ok(c.url == 'https://oa.test/v1/audio/speech', '改了接口地址：用改的'); T.cfg.openai.url = '';
   // 没配音色的联系人：开了全局默认音色就用男 / 女默认，关了就不读
   T.cfg.openai.vm = 'onyx'; const man = { sex: '男', tv: {} };
   await core.tts('嗨', '', '', undefined, { c: man }); c = calls.at(-1); ok(c.body.voice == 'onyx', '全局默认音色开着：男性联系人用男声默认');
