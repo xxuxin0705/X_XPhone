@@ -32,7 +32,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   ok(!(await E(`!!document.querySelector('.mpop-m')`)), '点空白处关闭菜单');
   // 文字消息：表情回应 + 复制
   await lp('.chat .msg[data-x="0"] .bub'); ok(/^复制,转发,引用/.test(await popItems()) && await E(`document.querySelectorAll('.mpop .mp-e b').length`) == 8, '文字消息：上面一排表情回应，下面复制 / 转发 / 引用…');
-  await pk('e❤️'); ok(await E(`JSON.stringify(_g.msgs[0].re)`) == '[{"e":"❤️","by":"me"}]', '点表情回应：贴上 ❤️');
+  await pk('~❤️'); ok(await E(`JSON.stringify(_g.msgs[0].re)`) == '[{"e":"❤️","by":"me"}]', '点表情回应：贴上 ❤️');
   // 3. 多选
   await lp('.chat .msg[data-x="2"] .bub'); await pk('multi'); await W(200);
   ok(await E(`!!document.querySelector('.chat .cv.msel') && document.querySelectorAll('.chat .mck').length == 5`) && /已选择 1 条消息/.test(await E(`document.querySelector('.chat .pg-t').textContent`)), '多选：每条前面有圆圈，标题「已选择 1 条消息」');
@@ -65,5 +65,32 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   await p.screenshot({ path: path.join(OUT, 'msel_c.png') });
   await E(`document.querySelector('.chat .rec').click()`); await W(500);
   ok(await E(`document.querySelectorAll('.recpg .rec-i').length`) == 3, '点开卡片：看全部转发的消息');
+  // 8. 系统提示（拍一拍）也能长按删除 / 多选；编辑；没有朗读
+  await E(`core.back()`); await W(300);
+  await E(`(() => { _t.msgs.push({ f: _t.id, t: 'pat', c: '“盐” 拍了拍我的肩膀', ts: Date.now() }, { f: _t.id, t: 'text', c: '你好呀', tr: '', ts: Date.now() }); core.emit('chat'); })()`); await W(300);
+  const pi = await E(`_t.msgs.length - 2`);
+  await lp(`.chat .sys[data-x="${pi}"]`); ok(await popItems() == '多选,删除', '长按拍一拍提示：多选 / 删除');
+  await pk('del'); ok(!(await E(`_t.msgs.some(m => m.t == 'pat')`)), '拍一拍提示删掉了');
+  const ti = await E(`_t.msgs.length - 1`);
+  await lp(`.chat .msg[data-x="${ti}"] .bub`); const it2 = await popItems();
+  ok(/编辑/.test(it2) && !/朗读|翻译/.test(it2), '文字消息：有「编辑」，没有朗读和翻译 ' + it2); await pk('edit');
+  await p.fill('.sheet.in [data-k=c]', '你好呀～'); await E(`document.querySelector('.sheet.in [data-k=c]').dispatchEvent(new Event('change', { bubbles: true }))`); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(300);
+  ok(await E(`_t.msgs.at(-1).c`) == '你好呀～', '编辑：改了内容');
+  await E(`_t.msgs.push({ f: _t.id, t: 'pat', c: '“盐” 拍了拍我', ts: Date.now() }); core.emit('chat')`); await W(200);
+  await lp(`.chat .msg[data-x="${ti}"] .bub`); await pk('multi'); await E(`document.querySelector('.chat .sys[data-x="${ti + 1}"]').click()`); await W(150);
+  ok(/已选择 2 条/.test(await E(`document.querySelector('.chat .pg-t').textContent`)), '多选时拍一拍提示也能勾');
+  ok(await E(`getComputedStyle(document.querySelector('.chat .pg-r .txt')).color`) == await E(`getComputedStyle(document.querySelector('.chat .pg-t b:last-child')).color`), '「全选」和标题一个颜色（不再是粉色）');
+  ok(await E(`getComputedStyle(document.querySelector('.chat .msg.on .mck')).backgroundColor`) == 'rgb(7, 193, 96)', '微信风格：勾是微信绿');
+  await E(`core.S.style = 'kk'; document.querySelector('.chat').className = document.querySelector('.chat').className.replace('st-wx', 'st-kk')`); await W(100);
+  ok(await E(`getComputedStyle(document.querySelector('.chat .msg.on .mck')).backgroundColor`) == 'rgb(254, 229, 0)', 'Kakao 风格：勾变成 Kakao 黄');
+  await p.screenshot({ path: path.join(OUT, 'msel_d.png') });
+  await E(`document.querySelector('.chat [data-a=sdel]').click()`); await W(300); await pick('y'); await E(`core.S.style = 'wx'`);
+  // 9. 翻译补漏：漏了 [翻译] 补中文，写成中文的翻成韩语
+  await ctx.route(/\/api\/translate\/google/, r => { const b = JSON.parse(r.request().postData()); r.fulfill({ status: 200, body: b.lang == 'ko' ? '뭐야' : '什么呀' }); });
+  await E(`(async () => { window._k = dt.add(dt.blank('p', { real: '姜照临', fr: 1 })); _k.cfg.lang = 'ko'; core.S.api.chat = { src: 'custom', cur: 'a', list: [{ id: 'a', name: 'x', url: 'https://relay.test/v1', key: 'k', model: 'm' }] }; talk.openChat(_k.id); })()`); await W(500);
+  await ctx.route(/relay\.test/, r => r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ['姜照临: 뭐야? [翻译:什么？]', '姜照临: 뭐야', '姜照临: 别装死啊'].map(l => `data: ${JSON.stringify({ choices: [{ delta: { content: l + '\n' } }] })}\n\n`).join('') + 'data: [DONE]\n\n' }));
+  await E(`talk.gen(_k)`); await W(3500);
+  const kk = await E(`JSON.stringify(_k.msgs.map(m => [m.c, m.tr]))`);
+  ok(kk == '[["뭐야?","什么？"],["뭐야","什么呀"],["뭐야","别装死啊"]]', '每一条都有译文：漏写的补上，写成中文的翻成韩语 ' + kk);
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });
