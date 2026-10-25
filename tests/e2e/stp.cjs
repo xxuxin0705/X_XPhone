@@ -45,9 +45,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const sb = await E(`JSON.stringify([document.querySelector('.sb').offsetHeight, getComputedStyle(document.querySelector('.sb')).fontSize, getComputedStyle(document.querySelector('.pg:last-child .pg-t')).fontSize, document.querySelector('.pg:last-child .pg-h').offsetHeight])`);
   console.log('  status/title metrics', sb);
   const [h, f1, f2, ph] = JSON.parse(sb); ok(h == 28 && f1 == '13.5px' && parseFloat(f2) < 16 && ph == 42, 'mobile status bar 28px, page title smaller');
-  await E(`core.S.fz = 1; core.emit('cfg', 'fz')`); await p.waitForTimeout(200);
-  ok(await E(`getComputedStyle(document.querySelector('.pg:last-child .pg-t')).fontSize`) == '16.5px', '字体大小 setting changes text size live');
-  await E(`core.S.fz = .92; core.emit('cfg', 'fz')`);
+  await E(`core.S.fzp = 110; core.emit('cfg', 'fzp')`); await p.waitForTimeout(200);
+  ok(parseFloat(await E(`getComputedStyle(document.querySelector('.pg:last-child .pg-t')).fontSize`)) > parseFloat(f2) * 1.06, '字体大小 setting changes text size live');
+  await E(`core.S.fzp = 100; core.emit('cfg', 'fzp')`);
   // chat page screenshot like user's
   await E(`(async () => { while (core.top()) { core.back(); await new Promise(r => setTimeout(r, 50)); } const ch = await import('/apps/chat/chat.js'); const D = core.D(); D.chats.push({ id: 'g1', type: 'g', name: '一天到晚干嘛呢！', members: ['a','b','c'], msgs: [] }); core.APPS.chat.open(); ch.openChat('g1'); })()`); await p.waitForTimeout(900);
   await p.screenshot({ path: path.join(OUT, 'stp_b.png') });

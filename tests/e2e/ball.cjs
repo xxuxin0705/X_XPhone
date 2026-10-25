@@ -34,10 +34,15 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`core.S.ball`) == 'witch' && /ball\/witch\.webp/.test(await E(`document.querySelector('#stp-ball img').src`)) && await E(`document.querySelector('.bgrid .bt.on')?.dataset.x`) == 'witch', '点「魔法」：悬浮窗马上换了，选中的高亮');
   // 设置 → 显示方式
   await E(`core.home(); core.APPS.settings.open()`); await W(500);
-  ok(/悬浮窗 · 魔法/.test(await E(`document.querySelector('[data-a=disp]')?.textContent || ''`)) && /ball\/witch\.webp/.test(await E(`document.querySelector('[data-a=disp] img.rball')?.src || ''`)), '设置首页：显示方式写着「悬浮窗 · 魔法」，还显示小手机图标');
+  ok(!/悬浮窗|魔法/.test(await E(`document.querySelector('[data-a=disp]')?.textContent || ''`)) && !(await E(`!!document.querySelector('[data-a=disp] img')`)), '设置首页：显示方式那一行不写悬浮窗、不放图标');
   await p.locator('.pg.in:last-child .card:has([data-a=disp])').screenshot({ path: path.join(OUT, 'ball_set.png') });
   await E(`document.querySelector('[data-a=disp]').click()`); await W(500);
   ok(/悬浮窗图标[\s\S]*魔法/.test(await E(`document.querySelector('.bcur')?.textContent || ''`)) && /witch/.test(await E(`document.querySelector('.bcur img').src`)), '显示方式里显示当前用的图标');
+  ok(!/缩放/.test(await E(`document.querySelector('.pg.in:last-child .pg-b').textContent`)) && await E(`document.querySelector('[data-k=fzp]').value`) == '100' && await E(`document.querySelector('.fzv').textContent`) == '100%', '显示方式：没有缩放了；字体大小在中间，写着 100%');
+  await E(`(() => { const r = document.querySelector('[data-k=fzp]'); r.value = 110; r.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  ok(await E(`document.querySelector('.fzv').textContent`) == '110%', '拖的时候数字跟着变');
+  await E(`(() => { const r = document.querySelector('[data-k=fzp]'); r.value = 100; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); })()`); await W(300);
+  await p.locator('.pg.in:last-child .pg-b').screenshot({ path: path.join(OUT, 'ball_disp.png') });
   await E(`document.querySelector('.bcur').click()`); await W(500);
   ok(await E(`document.querySelectorAll('.sheet.in .bt').length`) == 12, '点它：弹出 12 个图标可以换');
   await E(`document.querySelector('.sheet.in .bt[data-x=retro]').click()`); await W(500);

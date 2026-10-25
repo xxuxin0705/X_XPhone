@@ -916,3 +916,4 @@
 .bt span{font-size:calc(11px*var(--fz,1));color:#888}.bt.on{background:color-mix(in srgb,var(--ac) 16%,transparent)}.bt.on span{color:var(--ac);font-weight:600}
 .bcur{cursor:pointer;gap:8px}.bcur img{width:32px;height:40px;object-fit:contain;margin-left:auto}.bcur small{color:#999}.bcur .chev{font-style:normal;color:#bbb}
 .row.go .rball{width:26px;height:36px;object-fit:contain;margin-left:6px;flex:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.18))}
+.fzr input{flex:1;max-width:none!important}.fzr .fzv{flex:none;width:46px;text-align:right;font-weight:500;color:var(--ac)}

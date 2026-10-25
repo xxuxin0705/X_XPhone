@@ -24,7 +24,7 @@ const pos = () => [[ui.root, 'win'], [$('#stp-ball'), 'ball']].forEach(([el, k])
 const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || relock(); $('#stp-ball').classList.remove('dot'); tick(); } else was && setTimeout(() => ui.root.classList.contains('on') || relock(true), 320); }; // 等收起动画结束再把锁屏重置好、画好
 function tick() { $('.sb-t', ui.root).textContent = hm(now()); ui.root.classList.contains('on') && !ui.desk.classList.contains('edit') && renderDesk(); }
 function show() {
-  $('#stp-ball').hidden = S.show != 'float'; applyBall(); $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', S.scale || 1); ui.root.style.setProperty('--fz', S.fz || .92);
+  $('#stp-ball').hidden = S.show != 'float'; applyBall(); $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', 1); ui.root.style.setProperty('--fz', .92 * (S.fzp ?? 100) / 100); // 字体：100% = 原来的默认大小
   if (S.show != 'wand') return;
   $('#extensionsMenu')?.insertAdjacentHTML('beforeend', '<div id="stp-wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0"><div class="fa-solid fa-mobile-screen-button extensionsMenuExtensionButton"></div><span>小手机</span></div>');
   $('#stp-wand')?.addEventListener('click', () => toggle());

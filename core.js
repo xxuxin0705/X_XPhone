@@ -21,7 +21,7 @@ const DEF = {
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
   lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', img: '', text: '' }, media: {},
   stk: { see: true, v: 3, packs: ['f-pets', 'f-face', 'f-love', 'qq', 'weibo', 'tieba', 'hoyoverse-hi3'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
-  ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, pos: {}, style: 'wx',
+  ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, fzp: 100, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
     widget: [{ id: 'w1', name: '心情便签', sz: '2x2', html: '<div style="height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px"><b style="font:700 30px Georgia,serif">{{time}}</b><small>今天也要开心 ✧</small><small style="opacity:.6">{{date}} 周{{week}}</small></div>' }],
