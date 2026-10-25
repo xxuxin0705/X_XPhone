@@ -79,7 +79,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const pick = async b64 => { const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('.lw.vid').click()`)]); await fc.setFiles({ name: 'v.mp4', mimeType: 'video/mp4', buffer: Buffer.from(b64, 'base64') }); await p.waitForTimeout(1500); };
   await pick(vlong); ok(/5 秒以内/.test(await E(`[...document.querySelectorAll('.stp-toast')].map(x => x.textContent).join()`)), '8s video rejected');
   await pick(vid); ok(await E(`(() => { const it = core.S.lock.lib.find(x => 'c:' + x.id == core.S.lock.wp); return !!it && /XPhone\\/lock_\\w+\\.mp4$/.test(it.video); })()`), 'video saved to folder: ' + await E('JSON.stringify(core.S.lock.lib)'));
-  await E(`lk.lock(true)`); await p.waitForTimeout(800); ok(await E(`!!document.querySelector('.lock video') && document.querySelector('.lock video').src.includes('XPhone')`), 'lock screen plays the video');
+  await E(`lk.lock(true)`); await p.waitForTimeout(800); ok(await E(`!!document.querySelector('.lock video') && /^blob:/.test(document.querySelector('.lock video').src)`), 'lock screen plays the video (loaded into memory first)');
   await E(`lk.unlock()`); await p.waitForTimeout(600);
 
   console.log('L6 opening a chat / swipes never trigger 剧情同步');
