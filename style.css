@@ -893,6 +893,6 @@
 .vbox{margin:10px 14px 4px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--ac) 12%,transparent)}.vbox b{display:block;font-weight:500}.vbox em{font-style:normal;font-weight:700}.vbox small{display:block;margin-top:3px;color:var(--ac)}
 .vrow{padding:6px 15px}.vrow input{max-width:none!important;width:100%;text-align:left!important}
 .using{font-style:normal;margin-left:4px;padding:1px 7px;border-radius:8px;background:var(--ac);color:#fff;font-size:calc(10.5px*var(--fz,1))}
-.row.rng{flex-wrap:nowrap}.row.rng>span{flex:1.6}.row.rng i{font-style:normal;font-size:calc(12px*var(--fz,1));color:#999;writing-mode:vertical-lr;letter-spacing:2px}
-#stp .row.rng input{width:52px;max-width:52px;text-align:center}
+.row.rng{flex-wrap:nowrap;gap:6px}.row.rng>span{flex:1}.row.rng i{font-style:normal;font-size:calc(12px*var(--fz,1));color:#999;white-space:nowrap;flex:none}
+#stp .row.rng input{width:44px;max-width:44px;flex:none;text-align:center}
 .row.say{min-height:38px;padding:4px 2px}
