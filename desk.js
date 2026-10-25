@@ -1,8 +1,10 @@
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
-import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia } from './core.js';
+import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickImg } from './core.js';
+import { ccdHtml, CCD_BODY, CCD_BG } from './apps/theme/ccd.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
-const SZ = [['2x1', '小 2×1'], ['2x2', '方 2×2'], ['4x1', '长条 4×1'], ['4x2', '大 4×2'], ['4x3', '超大 4×3']];
+// 尺寸：宽 1～4 格 × 高 1～4 格，任意组合（按宽度分组）
+const SZ = [1, 2, 3, 4].flatMap(w => [1, 2, 3, 4].map(h => [`${w}x${h}`, `${w}×${h}${w == h && w == 1 ? '（小方块）' : w == 4 && h == 1 ? '（长条）' : w == 2 && h == 2 ? '（方）' : ''}`]));
 const DAY = 864e5, dd = s => s ? Math.floor((now() - new Date(s)) / DAY) : '—';
 const bd = s => { if (!s) return '—'; const n = now(), b = new Date(s); b.setFullYear(n.getFullYear()); b < n - DAY && b.setFullYear(n.getFullYear() + 1); return Math.ceil((b - n) / DAY); };
 export const WK = {
@@ -12,6 +14,10 @@ export const WK = {
   cal: { n: '日历', w: 2, h: 2, r: () => { const d = now(), y = d.getFullYear(), m = d.getMonth(); let s = '<i></i>'.repeat(new Date(y, m, 1).getDay()); for (let i = 1; i <= new Date(y, m + 1, 0).getDate(); i++) s += `<i class="${i == d.getDate() ? 'on' : ''}">${i}</i>`; return `<div class="wcal-h">${m + 1}月 <small>${y}</small></div><div class="wcal">${[...'日一二三四五六'].map(x => `<i class="wk">${x}</i>`).join('')}${s}</div>`; } },
   days: { n: '纪念日', w: 2, h: 2, f: [['title', '标题'], ['from', '起始日', 'date'], ['bday', '生日', 'date']], r: p => `<small>${esc(p.title || '你在世界已经')}</small><b class="wd-n">${dd(p.from)}<i>天</i></b><small>生日还有 <b>${bd(p.bday)}</b> 天</small>` },
   text: { n: '文字', w: 4, h: 1, f: [['text', '内容', 'area']], r: p => `<p>${esc(p.text || 'HAPPY EVERYDAY ♡')}</p>` },
+  ccd: { n: 'CCD 相机', w: 2, h: 2, cls: 'ccd',
+    f: [['img', '照片', 'img'], ['body', '机身颜色', 'sel', CCD_BODY], ['zoom', '照片缩放 %', 'number', '100'], ['px', '左右位置 %', 'number', '50'], ['py', '上下位置 %', 'number', '50'],
+      ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
+    r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },
 };
 const def = () => ({
@@ -23,7 +29,7 @@ const def = () => ({
 let edit = 0, cur = 0, moved = 0;
 export const icon = id => S.icons[id] ? `<img src="${esc(S.icons[id])}">` : APPS[id]?.icon || '';
 const x = id => `<b class="x" data-a="del" data-x="${id}">×</b>`;
-const item = it => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h} k-${it.k}" data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}${tpl(WK[it.k]?.r(it.p || {}))}</div>`
+const item = it => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h} k-${it.k} ${WK[it.k]?.cls || ''}" data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}${tpl(WK[it.k]?.r(it.p || {}, it))}</div>`
   : `<div class="it app" data-it="${it.id}" data-a="tap" data-lp="dlp">${it.t == 'folder' ? x(it.id) : ''}<div class="ico ${it.t == 'folder' ? 'fdi' : 'a-' + it.app}">${it.t == 'folder' ? it.apps.map(a => `<i class="ico a-${a}">${icon(a)}</i>`).join('') : icon(it.app)}</div><span>${esc(it.t == 'folder' ? it.name : APPS[it.app]?.name)}</span></div>`;
 export function renderDesk() {
   const d = S.desk, el = ui.desk; if (!el) return;
@@ -78,6 +84,8 @@ function folder(it) {
     onClose: () => { it.name = $('.fd-n', s.el)?.value || it.name; clean(); },
   });
 }
+// CCD：点一下换照片
+async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == null) return; const old = it.p.img; it.p.img = v || ''; save(); old && dropMedia(old); renderDesk(); }
 async function editW(it) {
   const K = WK[it.k], r = await form(K.n, [...(K.f || []), ['sz', '尺寸', 'sel', SZ]], { ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
   const { sz, ...p } = r; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk();
@@ -86,7 +94,7 @@ Object.assign(G, {
   dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it); },
   edDone: () => { edit = 0; ui.desk.classList.remove('edit'); clean(); },
   go: i => goPage(+i),
-  tap: (_, t) => { if (Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder') return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); },
+  tap: (_, t) => { if (Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder') return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' ? openApp(it.app) : WK[it.k]?.tap?.(it); }, // 不在编辑时点组件：有自己的点击动作就执行（CCD 换照片）
   del: id => { const [l, i] = find(id), it = l[i]; dropMedia(it); it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
   wAdd: async () => {
     const k = await menu([...Object.entries(WK).filter(([k]) => k != 'custom').map(([k, v]) => [k, v.n]), ...S.assets.widget.map((a, i) => ['@' + i, '✦ ' + esc(a.name)])], '添加小组件'); if (!k) return;

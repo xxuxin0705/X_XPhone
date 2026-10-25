@@ -18,6 +18,7 @@ const ALL = {
   cset: ['e2e/cset.cjs', '聊天信息：专属音色（服务商 / 朗读语言 / 各家音色 / 名字读音）、翻译（私聊 / 群聊跟随或统一）、回复设置、拍一拍「拍了拍你」、语音渠道模式'],
   lock2: ['e2e/lock2.cjs', '锁屏：自定义锁屏图片 / 视频 / 实况（打开手机时动一下）、随机锁屏、随机壁纸'],
   ball: ['e2e/ball.cjs', '悬浮窗图标：12 个造型，主题美化里选（排在最前），设置 → 显示方式 显示当前的、可以换'],
+  ccd: ['e2e/ccd.cjs', '桌面小组件：尺寸 1～4 任意宽高；CCD 相机组件（机身颜色、照片、背景透明 / 毛玻璃 / 纯色 / 渐变 + 透明度、点一下换照片）'],
   prov: ['e2e/prov.cjs', '生图 / 语音服务商页：迁移、切换、快选拉取、Fish 网页接口、ElevenLabs'],
 };
 const pick = process.argv.slice(2).filter(k => ALL[k]), keys = pick.length ? pick : Object.keys(ALL);

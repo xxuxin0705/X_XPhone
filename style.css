@@ -49,7 +49,7 @@
 .fdi i{width:auto;height:auto;aspect-ratio:1;border-radius:4px;box-shadow:none}
 .fdi i::after{display:none}
 .wg{border-radius:24px;background:var(--gl);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid rgba(255,255,255,.45);box-shadow:0 8px 26px rgba(0,0,0,.07);color:var(--ink);overflow:hidden;padding:14px}
-.w2{grid-column:span 2}.w4{grid-column:span 4}.h1{grid-row:span 1}.h2{grid-row:span 2}.h3{grid-row:span 3}
+.w1{grid-column:span 1}.w2{grid-column:span 2}.w3{grid-column:span 3}.w4{grid-column:span 4}.h1{grid-row:span 1}.h2{grid-row:span 2}.h3{grid-row:span 3}.h4{grid-row:span 4}
 .wg small{font-size:calc(11px*var(--fz,1));opacity:.75}
 .k-pill{display:flex;align-items:center;gap:12px;padding:8px 20px 8px 8px;border-radius:44px;background:linear-gradient(180deg,#5c6560,#474f4b);color:#fff;border:0}
 .wp-a{width:64px;height:64px;border-radius:50%;object-fit:cover;flex:none;border:2px solid rgba(255,255,255,.2)}
@@ -924,3 +924,14 @@
 .lw .wth{position:absolute;inset:0;display:block}
 .lw small{display:block}
 .mchips.pchips{padding:2px 16px 10px;margin-top:0}
+
+/* CCD 相机组件：背景层（透明 / 毛玻璃 / 纯色 / 渐变）+ 相机 + 屏幕上的照片 */
+.it.wg.ccd{background:none;box-shadow:none;padding:0;overflow:visible}
+.ccd-bg{position:absolute;inset:0;border-radius:inherit;overflow:hidden}
+.it.wg.ccd{container-type:size}
+.ccd-cam{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:244/200;width:min(92cqw,calc(92cqh * 244 / 200))}
+.ccd-svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
+.ccd-scr{position:absolute;overflow:hidden;border-radius:4%;background:#2a2a30}
+.ccd-scr img{width:100%;height:100%;object-fit:cover;display:block;transform-origin:center}
+.ccd-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#8f8f99;font-style:normal;font-size:calc(22px*var(--fz,1))}
+.ccd-ph small{font-size:calc(9px*var(--fz,1))}
