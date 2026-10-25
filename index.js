@@ -52,7 +52,7 @@ function init() {
     S.inline && inlineSync(id); // 正文里带的 <手机> 块：本地解析，不调 API
     if (type && type != 'normal') return; scanTime(m.mes); S.scan && new RegExp(S.kw).test(m.mes) && syncStory(m.mes); // 旧的「额外调 API 同步」默认关闭
   });
-  S.lock.on && !(S.lock.wp == 'video' && (S.lock.img || S.lock.video)) && preloadScene(S.lock.wp); // 锁屏要用的图先下载好，打开时不会先黑一下
+  S.lock.on && !String(S.lock.wp).startsWith('c:') && preloadScene(S.lock.wp); // 锁屏要用的图先下载好，打开时不会先黑一下
   setInterval(tick, 3e4); tick(); syncInject(); relock();
   // 锁屏时钟字体（加载不到就用系统衬线体）
   document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&display=swap">');

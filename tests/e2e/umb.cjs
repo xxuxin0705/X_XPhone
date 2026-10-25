@@ -41,14 +41,17 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`[...document.querySelectorAll('.lwg .lw span')].map(e => e.textContent).join()`) == '雪夜,伞下烟火,自定义', '锁屏壁纸：雪夜、伞下烟火、自定义');
   ok(await E(`document.querySelector('.lw.on span')?.textContent`) == '伞下烟火' && await E(`document.querySelectorAll('.lw.on').length`) == 1, '只勾选正在用的那个');
   await p.locator('.thm').screenshot({ path: path.join(OUT, 'umb_theme.png') }).catch(() => {});
-  const pick = async files => { await E(`core.S.lock.img = core.S.lock.video = ''; core.top().re()`); await W(300); const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('.lw.vid').click()`)]); await fc.setFiles(files); await W(1800); };
+  // 自定义：+ → 从相册选；可以存好几张，每张一个格子
+  const cur = () => E(`(() => { const it = (core.S.lock.lib || []).find(x => 'c:' + x.id == core.S.lock.wp); return it ? { img: !!it.img, video: !!it.video, n: core.S.lock.lib.length } : null; })()`);
+  const pick = async files => { await E(`document.querySelector('.lw.vid').click()`); await W(400); const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('.sheet.mnu [data-x=f]').click()`)]); await fc.setFiles(files); await W(1800); };
   const fx = f => fs.readFileSync(path.join(here, '../fixtures', f));
   await pick([{ name: 'p.jpg', mimeType: 'image/jpeg', buffer: fx('still.jpg') }]);
-  ok(await E(`core.S.lock.wp == 'video' && !!core.S.lock.img && !core.S.lock.video`), '上传图片：锁屏用这张图');
-  ok(/自定义 · 图片/.test(await E(`document.querySelector('.lw.vid span').textContent`)), '主题页显示「自定义 · 图片」');
+  let c = await cur(); ok(c && c.img && !c.video && c.n == 1, '上传图片：锁屏用这张图 ' + JSON.stringify(c));
+  ok(await E(`document.querySelector('.lw.cu.on span')?.textContent`) == '图片' && await E(`document.querySelectorAll('.lw.on').length`) == 1, '主题页多了一个「图片」格子，并且选中');
   await E(`lk.lock(true)`); await W(700); ok(await E(`!!document.querySelector('.lock .lk-bg img') && !document.querySelector('.lock .lk-bg video')`), '锁屏显示图片'); await E(`lk.unlock()`); await W(500);
   await pick([{ name: 'MVIMG_1.jpg', mimeType: 'image/jpeg', buffer: fx('motion.jpg') }]);
-  ok(await E(`!!core.S.lock.img && !!core.S.lock.video`), '安卓动态照片（JPG 里带视频）：认成实况照片，照片和视频都存了');
+  c = await cur(); ok(c && c.img && c.video && c.n == 2, '安卓动态照片（JPG 里带视频）：认成实况照片，新加一格（不会顶掉上一张）');
+  ok(await E(`document.querySelector('.lw.cu.on .live')?.textContent`) == 'LIVE', '实况的格子上标 LIVE');
   await E(`lk.lock(true)`); await W(900);
   ok(await E(`!!document.querySelector('.lock .lk-bg img') && !!document.querySelector('.lock .lk-bg video.live')`), '锁屏：实况照片（照片 + 会动的视频）');
   await E(`document.querySelector('.lock .lk-bg video.live').classList.remove('on')`);
@@ -56,7 +59,43 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.mouse.move(...mid); await p.mouse.down(); await W(600); ok(await E(`document.querySelector('.lock .lk-bg video.live').classList.contains('on')`), '长按：实况照片再动一次'); await p.mouse.up();
   await E(`lk.unlock()`); await W(500);
   await pick([{ name: 'IMG_1.HEIC.jpg', mimeType: 'image/jpeg', buffer: fx('still.jpg') }, { name: 'IMG_1.MOV', mimeType: 'video/mp4', buffer: fs.readFileSync(path.join(here, 'v3.mp4')) }]);
-  ok(await E(`!!core.S.lock.img && !!core.S.lock.video`), '苹果实况照片：照片和视频一起选上');
+  c = await cur(); ok(c && c.img && c.video, '苹果实况照片：照片和视频一起选上');
   await pick([{ name: 'v.mp4', mimeType: 'video/mp4', buffer: fs.readFileSync(path.join(here, 'v3.mp4')) }]);
-  ok(await E(`!core.S.lock.img && !!core.S.lock.video`), '只选视频：锁屏视频');
+  c = await cur(); ok(c && !c.img && c.video && c.n == 4, '只选视频：锁屏视频');
+  // 点别的格子换锁屏；长按删除
+  await E(`document.querySelectorAll('.lw.cu')[0].click()`); await W(400); c = await cur(); ok(c && c.img && !c.video, '点第一格：换回那张图片');
+  const first = await E(`core.S.lock.lib[0].id`);
+  await E(`window.__lp = document.querySelectorAll('.lw.cu')[3]; __lp.scrollIntoView({ block: 'center' })`); await W(300); const bx = await E(`(() => { const r = __lp.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  await p.mouse.move(...bx); await p.mouse.down(); await W(650); await p.mouse.up(); await W(400);
+  ok(/保存到手机[\s\S]*删除这张视频/.test(await E(`document.querySelector('.sheet.mnu')?.textContent || ''`)), '长按：保存到手机 / 删除');
+  await E(`document.querySelector('.sheet.mnu [data-x=d]').click()`); await W(400); await E(`document.querySelector('.sheet.mnu .mi.danger')?.click()`); await W(500);
+  ok(await E(`core.S.lock.lib.length`) == 3 && await E(`core.S.lock.wp`) == 'c:' + first, '删掉一张（正在用的那张没受影响）');
+  // 旧数据：以前只有一张自定义（S.lock.img / video），自动放进列表
+  await E(`(async () => { const lk2 = await import('/lock.js'); core.S.lock.lib = []; core.S.lock.img = 'data:image/png;base64,iVBORw0KGgo='; core.S.lock.video = ''; core.S.lock.wp = 'video'; lk2.lockMig(); })()`);
+  ok(await E(`core.S.lock.lib.length == 1 && core.S.lock.wp == 'c:' + core.S.lock.lib[0].id && !core.S.lock.img`), '旧版的那一张自定义锁屏：自动放进列表、继续用');
+  // 从小红书导入：解析两种页面结构（手机页 / 电脑页）
+  const X = await import('/apps/theme/xhs.js').catch(() => null);
+  await E(`(async () => { window.X = await import('/apps/theme/xhs.js'); })()`);
+  const mob = fs.readFileSync(path.join(here, '../fixtures/xhs_mobile.html'), 'utf8'), pc = fs.readFileSync(path.join(here, '../fixtures/xhs_pc.html'), 'utf8');
+  const pm = await E(`JSON.stringify(X.parseXhs(${JSON.stringify(mob)}))`), pp = await E(`JSON.stringify(X.parseXhs(${JSON.stringify(pc)}))`);
+  ok(/"title":"35张氛围感实况"/.test(pm) && JSON.parse(pm).items.length == 3 && JSON.parse(pm).items.filter(x => x.live).length == 2 && JSON.parse(pm).items[0].img == 'https://ci.xiaohongshu.com/m1' && /sns-video/.test(JSON.parse(pm).items[0].video), '手机页：认出 3 张图，2 张实况（带视频地址）' + pm.slice(0, 160));
+  ok(JSON.parse(pp).items.length == 2 && JSON.parse(pp).items[1].live && JSON.parse(pp).items[1].video == 'https://sns-video-bd.xhscdn.com/v2.mp4' && JSON.parse(pp).items[0].img.startsWith('https://sns-webpic'), '电脑页：也能认（\\u002F、undefined、http 都处理了）');
+  ok(await E(`X.linkIn('35张氛围感实况素材 拿了留痕 https://xhslink.cn/o/8tBFM07AP4X 前往【小红书】看看')`) == 'https://xhslink.cn/o/8tBFM07AP4X', '从整段分享文字里找出链接');
+  ok(/登录/.test(await E(`(() => { try { X.parseXhs('<html>请登录</html>'); } catch (e) { return e.message; } })()`)), '要登录才能看的：提示得明白');
+  // 整个导入流程（假网络）
+  const png = fx('still.jpg').toString('base64'), mp4 = fs.readFileSync(path.join(here, 'v3.mp4')).toString('base64');
+  await E(`(() => { const b64 = (s, t) => new Blob([Uint8Array.from(atob(s), c => c.charCodeAt(0))], { type: t }); window.__net = []; X.xhsHook.get = async (u, blob) => { __net.push(u); if (!blob) return ${JSON.stringify(mob)}; return /video|mp4/.test(u) ? b64('${mp4}', 'video/mp4') : b64('${png}', 'image/jpeg'); }; })()`);
+  await E(`document.querySelector('.lw.vid').click()`); await W(400); await E(`document.querySelector('.sheet.mnu [data-x=x]').click()`); await W(400);
+  await p.fill('.sheet.in [data-k=t]', '35张氛围感实况素材 https://xhslink.cn/o/8tBFM07AP4X 前往【小红书】'); await p.press('.sheet.in [data-k=t]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(1200);
+  ok(await E(`__net[0]`) == 'https://xhslink.cn/o/8tBFM07AP4X', '打开的是你给的那条链接');
+  ok(await E(`document.querySelectorAll('.xhs-t').length`) == 3 && await E(`document.querySelectorAll('.xhs-t em').length`) == 2 && /3 张图 · 2 张实况/.test(await E(`document.querySelector('.xhs-h').textContent`)), '列出 3 张图，2 张标 LIVE');
+  ok(await E(`document.querySelectorAll('.xhs-t.on').length`) == 2, '实况的默认都选上');
+  await W(600); ok(await E(`[...document.querySelectorAll('.xhs-t img')].every(i => i.src.startsWith('blob:'))`), '缩略图都加载出来了');
+  await p.locator('.sheet.in').screenshot({ path: path.join(OUT, 'xhs_pick.png') });
+  const n0 = await E(`core.S.lock.lib.length`);
+  await E(`document.querySelector('[data-a=xgo]').click()`); await W(2500);
+  ok(await E(`core.S.lock.lib.length`) == n0 + 2 && await E(`core.S.lock.lib.slice(-2).every(x => x.img && x.video && x.from == 'xhs')`), '导入了 2 张实况（照片 + 视频都存了）');
+  c = await cur(); ok(c && c.img && c.video, '锁屏换成导入的第一张');
+  await E(`lk.lock(true)`); await W(900); ok(await E(`!!document.querySelector('.lock .lk-bg video.live')`), '锁屏上是会动的实况'); await E(`lk.unlock()`); await W(500);
+  await p.locator('[data-sec=lk]').screenshot({ path: path.join(OUT, 'xhs_lib.png') }).catch(() => {});
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

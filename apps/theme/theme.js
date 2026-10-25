@@ -2,7 +2,8 @@
 import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok } from '../../core.js';
 import { renderDesk, icon } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
-import { lock } from '../../lock.js';
+import { lock, lockMig, custKind } from '../../lock.js';
+import { importXhs } from './xhs.js';
 import { ballGrid, setBall } from '../../ball.js';
 
 const BASE = { '--pg': '#f4f5f7', '--cd': '#fff', '--pt': '#1d1d1f', '--ln': 'rgba(0,0,0,.07)', '--gl': 'rgba(255,255,255,.45)', '--tx': '#fff', '--ink': '#333' };
@@ -30,14 +31,18 @@ const AK = {
 const rf = () => { const t = top(); if (!t) return; const b = t.el?.querySelector('.pg-b'), sc = b?.scrollTop; t.re(); const b2 = t.el?.querySelector('.pg-b'); b2 && sc != null && (b2.scrollTop = sc); };
 // 锁屏壁纸：动态场景（雪夜、伞下烟火）的实时小预览 + 自定义（图片 / 5 秒内的视频 / 实况照片）
 let pv = [];
-const custKind = () => S.lock.img && S.lock.video ? '实况照片' : S.lock.img ? '图片' : S.lock.video ? '视频' : '';
-const lockSec = () => `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${S.lock.wp == k || S.lock.wp != 'video' && !SCENES.some(x => x[0] == S.lock.wp) && k == SCENES[0][0] ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}<div class="lw vid ${S.lock.wp == 'video' && custKind() ? 'on' : ''}" data-a="lwv" data-lp="lwvm">${S.lock.img ? '<img data-i>' : S.lock.video ? '<video data-v muted loop playsinline autoplay></video>' : '<i>＋</i>'}<span>${custKind() ? '自定义 · ' + custKind() : '自定义'}</span></div></div>`
-  + btn('lprev', '预览锁屏', '', 'pri') + (S.lock.on ? '' : '<p class="tip">还没有开启锁屏：设置 → 锁屏与密码</p>');
+const LIB = () => S.lock.lib ||= [];
+const tile = it => `<div class="lw cu ${S.lock.wp == 'c:' + it.id ? 'on' : ''}" data-a="lwc" data-x="${it.id}" data-lp="lwcm">${it.img ? `<img data-i="${it.id}" alt="">` : `<video data-v="${it.id}" muted loop playsinline autoplay></video>`}${it.img && it.video ? '<em class="live">LIVE</em>' : ''}<span>${custKind(it)}</span></div>`;
+const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp) ? S.lock.wp : String(S.lock.wp).startsWith('c:') ? '' : SCENES[0][0];
+  return `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${sc == k ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}${LIB().map(tile).join('')}<div class="lw vid" data-a="lwadd"><i>＋</i><span>自定义</span></div></div>`
+  + btn('lprev', '预览锁屏', '', 'pri') + (S.lock.on ? '' : '<p class="tip">还没有开启锁屏：设置 → 锁屏与密码</p>'); };
 const mountPv = (el, pg) => {
   pv.forEach(h => h.stop()); pv = [];
   el.querySelectorAll('canvas[data-fx]').forEach(cv => pv.push(mountScene(cv, cv.dataset.fx, { fps: 24, active: () => top() == pg && ui.root.classList.contains('on') && !cv.closest('.fold') })));
-  const v = $('video[data-v]', el); v && mediaSrc(S.lock.video).then(u => { v.src = u; v.play?.().catch(() => {}); });
-  const im = $('img[data-i]', el); im && mediaSrc(S.lock.img).then(u => im.src = u);
+  for (const it of LIB()) {
+    const v = el.querySelector(`video[data-v="${it.id}"]`); v && mediaSrc(it.video).then(u => { v.src = u; v.play?.().catch(() => {}); });
+    const im = el.querySelector(`img[data-i="${it.id}"]`); im && mediaSrc(it.img).then(u => im.src = u);
+  }
 };
 const vidDur = f => new Promise(r => { const v = document.createElement('video'); v.preload = 'metadata'; v.onloadedmetadata = () => { r(v.duration); URL.revokeObjectURL(v.src); }; v.onerror = () => r(NaN); v.src = URL.createObjectURL(f); });
 // 安卓的「动态照片」（小米 / 三星 / 谷歌 / vivo…）：JPG 后面直接接着一段 MP4，把它切出来
@@ -59,10 +64,16 @@ async function upVid() {
   if (img && !v) v = await motionVideo(img).catch(() => null);
   if (v) { const d = await vidDur(v), lim = img ? 8.4 : 5.4; if (isFinite(d) && d > lim) return toast(img ? `实况照片的视频要在 8 秒以内（这段 ${d.toFixed(1)} 秒）` : `视频要在 5 秒以内（这段 ${d.toFixed(1)} 秒）`); if (v.size > 40e6) return toast('视频太大了（超过 40MB），换一段吧'); }
   task(img && v ? '正在保存实况照片' : img ? '正在保存锁屏图片' : '正在保存锁屏视频', async () => {
-    const iu = img ? await putMedia(await readFull(img), 'lock') : '', vu = v ? await putMedia(v, 'lock') : '', old = [S.lock.img, S.lock.video];
-    Object.assign(S.lock, { img: iu, video: vu, wp: 'video' }); save(); drop(old); rf();
+    const iu = img ? await putMedia(await readFull(img), 'lock') : '', vu = v ? await putMedia(v, 'lock') : '', id = uid();
+    LIB().push({ id, img: iu, video: vu }); S.lock.wp = 'c:' + id; save(); rf();
     return img && v ? '锁屏实况照片已设置' : img ? '锁屏图片已设置' : '锁屏视频已设置';
   });
+}
+// 保存到手机：照片和视频各存一个文件（可以发给别人，或者以后再导入）
+async function saveOut(it) {
+  const one = async (u, n) => { if (!u) return; const src = await mediaSrc(u), b = await (await fetch(src)).blob(), ext = (b.type.split('/')[1] || 'bin').replace('jpeg', 'jpg').replace('quicktime', 'mov');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(b), download: `${n}.${ext}` }); document.body.append(a); a.click(); setTimeout(() => (URL.revokeObjectURL(a.href), a.remove()), 4000); };
+  try { await one(it.img, 'xphone_lock_' + it.id); await one(it.video, 'xphone_lock_' + it.id); toast('已保存'); } catch (e) { toast('保存失败：' + e.message); }
 }
 async function edit(k, a) { const r = await form((a ? '编辑' : '新建') + AK[k].n, AK[k].f, a || {}); if (!r) return; a ? Object.assign(a, r) : S.assets[k].push({ id: uid(), ...r }); save(); rf(); }
 
@@ -82,8 +93,11 @@ reg({
     acts: {
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
       lw: k => { S.lock.wp = k; save(); rf(); }, lprev: () => lock(true),
-      lwv: async () => { if (!custKind()) return upVid(); S.lock.wp = 'video'; save(); rf(); },
-      lwvm: async () => { if (!custKind()) return upVid(); const n = custKind(), k = await menu([['c', '更换'], ['d', '删除' + n, 'danger']], '锁屏' + n); if (k == 'c') upVid(); if (k == 'd' && await ok(`删除这个锁屏${n}？文件也会一起删除`)) { drop([S.lock.img, S.lock.video]); S.lock.img = S.lock.video = ''; S.lock.wp == 'video' && (S.lock.wp = SCENES[0][0]); save(); rf(); } },
+      lwc: id => { S.lock.wp = 'c:' + id; save(); rf(); },
+      lwadd: async () => { const k = await menu([['f', '从相册选（图片 / 视频 / 实况）'], ['x', '从小红书链接导入实况']], '添加自定义锁屏'); k == 'f' && upVid(); k == 'x' && importXhs(rf, async () => (await form('从小红书导入实况', [['t', '分享链接（整段分享文字粘贴进来也行）', 'area']]))?.t ?? null); },
+      lwcm: async id => { const it = LIB().find(x => x.id == id); if (!it) return; const n = custKind(it), k = await menu([['s', '保存到手机'], ['d', '删除这张' + n, 'danger']], '自定义 · ' + n);
+        if (k == 's') saveOut(it);
+        if (k == 'd' && await ok(`删除这张锁屏${n}？文件也会一起删除`)) { LIB().splice(LIB().indexOf(it), 1); drop([it.img, it.video]); S.lock.wp == 'c:' + id && (S.lock.wp = SCENES[0][0]); save(); rf(); } },
       th: (k, t, e, pg) => { S.theme = k; save(); applyTheme(); renderDesk(); pg.re(); },
       aa: k => edit(k), ae: x => { const [k, id] = x.split(':'); edit(k, S.assets[k].find(a => a.id == id)); },
       ad: async x => {

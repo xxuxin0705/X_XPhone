@@ -1,14 +1,17 @@
 // 小手机 · 锁屏：动态壁纸 / 时间 / 从底部上滑解锁
 // 密码二选一：4 位数字密码（备用密码 0000：不能修改、永远有效）或指纹（模拟，选了指纹就只能按指纹解锁）
-import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc } from './core.js';
+import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc, uid } from './core.js';
 import { mountScene, sceneInk, sceneKey, SCENES } from './lockfx.js';
 
 export const BACKUP = '0000';
 const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };
 export const setPin = p => (S.lock.pin = hash('p' + p), save());
 const okPin = p => p == BACKUP || (!!S.lock.pin && hash('p' + p) == S.lock.pin);
-const cust = () => S.lock.wp == 'video' && (S.lock.img || S.lock.video);
-export const wpName = () => cust() ? (S.lock.img && S.lock.video ? '实况照片' : S.lock.img ? '自定义图片' : '自定义视频') : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
+// 自定义锁屏：可以存好几张（图片 / 视频 / 实况），S.lock.lib = [{ id, img, video }]，S.lock.wp = 'c:' + id
+export const custItem = () => String(S.lock.wp || '').startsWith('c:') && (S.lock.lib || []).find(x => 'c:' + x.id == S.lock.wp) || null;
+export const custKind = it => it?.img && it?.video ? '实况' : it?.img ? '图片' : it?.video ? '视频' : '';
+const cust = custItem;
+export const wpName = () => cust() ? '自定义' + custKind(cust()) : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
 
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
 const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></svg>';
@@ -52,7 +55,9 @@ export const fpSvg = () => `<svg viewBox="0 0 48 48" fill="none" stroke-linecap=
 export const fpOn = () => !!(S.lock.pw && S.lock.type == 'fp' && S.lock.fpSet);
 // 旧版指纹是单独开关：改成三选一里的「指纹」
 // 旧版：指纹是单独开关 / 有手势密码 → 现在只有「数字密码」「指纹」二选一（手势密码录过指纹就换成指纹，否则换成数字密码）
-export const lockMig = () => { const L = S.lock; let ch = 0; if ('fp' in L) { L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; ch = 1; } if (L.type == 'gesture') { L.type = L.fpSet ? 'fp' : 'pin'; ch = 1; } if ('gest' in L) { delete L.gest; ch = 1; } ch && save(); };
+export const lockMig = () => { const L = S.lock; let ch = 0;
+  if (L.img || L.video) { const id = uid(); (L.lib ||= []).push({ id, img: L.img || '', video: L.video || '' }); L.wp == 'video' && (L.wp = 'c:' + id); L.img = L.video = ''; ch = 1; } // 旧版只有一张自定义：放进列表
+  L.wp == 'video' && (L.wp = SCENES[0][0], ch = 1); if ('fp' in L) { L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; ch = 1; } if (L.type == 'gesture') { L.type = L.fpSet ? 'fp' : 'pin'; ch = 1; } if ('gest' in L) { delete L.gest; ch = 1; } ch && save(); };
 // 按住 ms 毫秒算一次成功；提前松手算失败
 function holdSensor(btn, ms, ok, early) {
   let tm, t0;
@@ -86,7 +91,7 @@ async function wallpaper() {
   el.style.setProperty('--lk-ink', k == 'video' ? '#fff' : ink.ink); el.style.setProperty('--lk-shade', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   ui.scr.style.setProperty('--lk-sb', k == 'video' ? '#fff' : ink.ink); ui.scr.style.setProperty('--lk-sbs', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   if (k == 'video') {
-    const [iu, vu] = await Promise.all([S.lock.img ? mediaSrc(S.lock.img).catch(() => '') : '', S.lock.video ? mediaSrc(S.lock.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
+    const it = cust(), [iu, vu] = await Promise.all([it.img ? mediaSrc(it.img).catch(() => '') : '', it.video ? mediaSrc(it.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
     if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted playsinline preload="auto"></video>`; const v = $('video', bg); v.onended = () => v.classList.remove('on'); playLive(); return; } // 实况照片：打开时动一下，长按再动
     bg.innerHTML = iu ? `<img src="${esc(iu)}">` : `<video src="${esc(vu)}" autoplay muted loop playsinline></video>`; $('video', bg)?.play?.().catch(() => {}); return;
   }
