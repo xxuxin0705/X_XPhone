@@ -888,3 +888,11 @@
 .st-kk .ib .go{order:3;width:36px;height:36px;background:#f3f3f3;color:#3b2a1a}.st-kk .ib .go.has,.st-kk .ib .go.wait{background:#fee500}
 .st-kk.dark .ib{background:#1e1e1e}.st-kk.dark .ib .ip,.st-kk.dark .ib .go:not(.has):not(.wait){background:#2c2c2e!important;color:#eee}.st-kk.dark .ib [data-x=stk],.st-kk.dark .ib [data-x=more]{color:#bbb}
 .st-kk .ip::placeholder{color:#a4a4a4}
+/* 聊天信息：专属音色 / 翻译 / 回复设置 */
+.row>span small,.col>span small{display:block;margin-top:2px;font-size:calc(11.5px*var(--fz,1));color:#9a9a9f;line-height:1.45}
+.vbox{margin:10px 14px 4px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--ac) 12%,transparent)}.vbox b{display:block;font-weight:500}.vbox em{font-style:normal;font-weight:700}.vbox small{display:block;margin-top:3px;color:var(--ac)}
+.vrow{padding:6px 15px}.vrow input{max-width:none!important;width:100%;text-align:left!important}
+.using{font-style:normal;margin-left:4px;padding:1px 7px;border-radius:8px;background:var(--ac);color:#fff;font-size:calc(10.5px*var(--fz,1))}
+.row.rng{flex-wrap:nowrap}.row.rng>span{flex:1.6}.row.rng i{font-style:normal;font-size:calc(12px*var(--fz,1));color:#999;writing-mode:vertical-lr;letter-spacing:2px}
+#stp .row.rng input{width:52px;max-width:52px;text-align:center}
+.row.say{min-height:38px;padding:4px 2px}

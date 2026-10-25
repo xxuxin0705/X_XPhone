@@ -95,7 +95,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   // 10. 拍一拍格式（跟微信一样）
   await E(`(() => { [['的肩膀'], ['拍了拍你的脑袋'], ['揉了揉你的头发'], ['']].forEach(([t]) => dt.addMsg(_k, { from: '姜照临', type: 'pat', text: t })); _k.msgs.push({ f: _k.id, t: 'pat', c: '“姜照临” 的肩膀', ts: Date.now() }); core.emit('chat'); })()`); await W(300);
   const pats = await E(`[...document.querySelectorAll('.chat .sys.pat')].map(e => e.textContent).join('|')`);
-  ok(pats == '“姜照临” 拍了拍我的肩膀|“姜照临” 拍了拍我的脑袋|“姜照临” 拍了拍我|“姜照临” 拍了拍我|“姜照临” 拍了拍我的肩膀', '拍一拍：都是「“X” 拍了拍我」+ 后缀，没有乱七八糟的动作；以前存坏的「“X” 的肩膀」也补上 ' + pats);
+  ok(pats == Array(5).fill('“姜照临” 拍了拍你').join('|'), '拍一拍：没设后缀就是「“X” 拍了拍你」，模型写的「的肩膀」「揉了揉」都不用；以前存坏的「“X” 的肩膀」也改回来 ' + pats);
   // 11. Kakao：Enter a message、输入栏样式、未读 1 紧贴气泡
   await E(`core.S.style = 'kk'; talk.openChat(_k.id)`); await W(600);
   ok(await E(`document.querySelector('.chat .ip').placeholder`) == 'Enter a message', 'Kakao 风格：输入框写 Enter a message');

@@ -15,6 +15,7 @@ const ALL = {
   stk: ['e2e/stk.cjs', '表情包：面板图标栏、表情商店、表情包组详情、搜索（可爱风优先）、AI 表情配图、线路兜底；翻译按钮、Kakao 未读 1'],
   mine: ['e2e/mine.cjs', '我的表情：长按管理；导入表情包（上传图片 / 链接 / Word 文件）前挑选保留、起名字、本地读图里的字；动态页；机翻不再报错'],
   msel: ['e2e/msel.cjs', '聊天长按菜单（编辑、拍一拍提示可删）、多选（颜色跟风格）、转发（逐条 / 合并，只写网名）、长按图片不弹大图、翻译补漏、拍一拍格式、Kakao 输入栏和未读 1、点聊天收起面板'],
+  cset: ['e2e/cset.cjs', '聊天信息：专属音色（服务商 / 朗读语言 / 各家音色 / 名字读音）、翻译（私聊 / 群聊跟随或统一）、回复设置、拍一拍「拍了拍你」、语音渠道模式'],
   prov: ['e2e/prov.cjs', '生图 / 语音服务商页：迁移、切换、快选拉取、Fish 网页接口、ElevenLabs'],
 };
 const pick = process.argv.slice(2).filter(k => ALL[k]), keys = pick.length ? pick : Object.keys(ALL);

@@ -78,7 +78,8 @@ function provPage(t) {
     const p = P(), tip = TIP[t][pv()], tts = t == 'tts';
     let h = F.seg('src', tts ? [['tavern', '酒馆扩展'], ['custom', '自选服务商']] : [['tavern', '酒馆扩展'], ['custom', '自选服务商']]);
     if (a.src == 'tavern') return h + `<p class="tip">${tts ? '调用酒馆「TTS」扩展（/speak），用酒馆里设置好的语音。' : '调用酒馆「图像生成」扩展（/sd），用酒馆里设置好的生图。'}</p>` + (tts ? '' : `<div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`) + btn('test', '测试连接', '', 'pri');
-    h += `<div class="card">${F.sel('pv', tts ? 'TTS 服务商' : '生图供应商', PV[t])}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
+    if (tts) h += `<h6>每个人用哪个服务商</h6>${F.seg('mode', [['unified', '统一用一个渠道'], ['per', '每个人用自己的渠道']])}<p class="tip">${a.mode == 'per' ? '每个联系人在「聊天信息 → 专属音色」里选自己的服务商、填各自的音色；没选的用下面这个默认服务商。下面切换服务商就能分别填每家的 Key 和设置，各自保存。' : '所有人都用下面这个服务商；联系人在「聊天信息 → 专属音色」里填这个服务商的音色，没填就用兜底音色。'}</p>`;
+    h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商（联系人没单独选时用）' : 'TTS 服务商') : '生图供应商', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
     if (tts) {
       const noModel = pv() == 'volc';
       h += `<div class="card">${TF[pv()](p).map(fld).join('')}${noModel ? '' : pick('model', '语音模型', TCAT[pv()]?.models[0] || '可空', (TCAT[pv()]?.models.length ? '<b class="pull" data-a="qm">快选</b>' : '') + (['fish', 'eleven', 'openai', 'index'].includes(pv()) ? '<b class="pull" data-a="pullf" data-x="model">拉取</b>' : ''))}

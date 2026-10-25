@@ -285,7 +285,7 @@ console.log('T13 正文 <手机> 块：本地解析、不调 API、从正文去�
   let rendered = 0; ctx.updateMessageBlock = () => rendered++;
   const n = chat.inlineSync(0); await sleep(20);
   const qi = D().chats.find(c => c.real == '齐木楠雄'), g = D().chats.find(c => c.name == 'PK学园2年级');
-  ok(qi && qi.msgs.map(m => m.t + ':' + m.c).join(' / ') == 'text:明天别迟到 / transfer:咖啡果冻钱 / pat:“齐木楠雄” 拍了拍我的脑袋 / text:收到', 'private chat, transfer, pat and my own reply parsed: ' + qi?.msgs.map(m => m.t + ':' + m.c).join(' / '));
+  ok(qi && qi.msgs.map(m => m.t + ':' + m.c).join(' / ') == 'text:明天别迟到 / transfer:咖啡果冻钱 / pat:“齐木楠雄” 拍了拍你 / text:收到', 'private chat, transfer, pat and my own reply parsed: ' + qi?.msgs.map(m => m.t + ':' + m.c).join(' / '));
   ok(g && g.msgs[0].c == '大家早上好～' && D().posts[0]?.c == '今天的拉面超好吃！' && D().chats.find(c => c.real == '海藤瞬'), 'group message, 朋友圈, 加好友 parsed');
   ok(!D().chats.some(c => c.msgs?.some(m => m.c == '这条我看不到')), "messages between two other people are ignored (not on user's phone)");
   ok(ctx.chat[0].mes == '他低头看了眼手机，笑了笑。' && rendered == 1, '<手机> block removed from the story text and message re-rendered');

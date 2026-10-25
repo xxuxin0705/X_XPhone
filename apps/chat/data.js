@@ -1,7 +1,11 @@
 // 聊天 · 数据层：联系人/群/消息的增删改，以及剧情同步 delta 的应用
 import { C, S, D, saveD, uid, ui, top, now, genImg, emit, merge, byId, nm, meObj, fail, drop } from '../../core.js';
 
-export const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', lang: '', trOpen: false, trMine: false, inj: false, read: true, pat: true, auto: false };
+export const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', lang: '', trOpen: false, trMine: false, inj: false, read: true, pat: true, auto: false, trAuto: true, trTo: '', trFollow: true, rmin: 1, rmax: 5, vmin: 0, vmax: 1 };
+// 这个人在这个聊天里说什么语言：私聊看聊天设置；群聊默认跟随成员各自私聊的设置，也可以统一设成一种
+export const langFor = (ch, f) => !f || f == 'me' ? '' : ch.type == 'g' ? (ch.cfg?.trFollow !== false ? get(f)?.cfg?.lang || '' : ch.cfg?.lang || '') : ch.cfg?.lang || '';
+// 我的消息翻译成什么：没单独选就跟对方的语言一样
+export const myLang = ch => ch.cfg?.trTo || (ch.type == 'p' ? ch.cfg?.lang : '') || '';
 export const STY = [['wx', '仿微信'], ['qq', '仿QQ'], ['kk', '仿KakaoTalk'], ['line', '仿LINE']];
 export const TN = { wx: '微信', qq: '消息', kk: '聊天', line: '聊天' }, CN = { wx: '通讯录', qq: '联系人', kk: '联系人', line: '联系人' };
 export const FS = { wx: 'wx', qq: 'qq', kk: 'tw', line: 'tw' }, FN = { wx: '朋友圈', qq: 'QQ空间', kk: '动态', line: '动态' };
@@ -33,11 +37,10 @@ export const nre = r => (r || []).map(x => typeof x == 'string' ? { e: x, by: 'm
 export const shake = () => { const s = ui.scr; s.classList.remove('shk'); void s.offsetWidth; s.classList.add('shk'); };
 
 // 消息类型：text sticker img voice transfer pat sys；以及动作 react accept recall
-// 拍一拍跟微信一样：「“X” 拍了拍我」+ 我设置的拍一拍后缀；群里写了成员名字就是拍那个人（+ TA 的后缀）
-// 「的肩膀」这种后缀保留；模型写的其他动作（如「揉了揉你的头发」）不显示，微信的拍一拍没有自定义动作
+// 拍一拍跟微信一样：「“X” 拍了拍你」，后缀只用你在「我」里设置的拍一拍后缀（没设置就没有后缀）；
+// 群里写了成员名字就是拍那个人（+ TA 的后缀）。模型写的动作 / 后缀一律不用，微信的拍一拍没有自定义动作
 const patC = (ch, name, txt) => { const t = String(txt || ''), tg = ch.type == 'g' && t && ch.members.map(get).find(c => c && [c.real, c.nick, c.remark].some(n => n && t.includes(n)));
-  const sf = (t.match(/^拍了拍(?:你|我)(.*)$/) || [])[1] ?? (t.startsWith('的') ? t : ''); // 「拍了拍你的肩膀」「的肩膀」这种后缀保留
-  return tg ? `“${name}” 拍了拍 “${nm(tg)}”${tg.ps || ''}` : `“${name}” 拍了拍我${(sf || D().me.ps || '').trim()}`; };
+  return tg ? `“${name}” 拍了拍 “${nm(tg)}”${tg.ps || ''}` : `“${name}” 拍了拍你${(D().me.ps || '').trim()}`; };
 export function addMsg(ch, m) {
   const st = m.type == null || m.type == 'text' ? String(m.text ?? '').trim().match(/^[\[【](?:表情包?|贴纸)[:：]\s*([^\]】]+)[\]】]$/) : null; st && (m = { ...m, type: 'sticker', text: st[1].trim() }); // 正文同步里的 [表情:xx] 也当表情包
   const t = m.type || 'text', f = isMe(m.from) ? 'me' : ch.type == 'p' ? ch.id : member(ch, m.from), name = who(ch, f);

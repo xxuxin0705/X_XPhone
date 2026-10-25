@@ -447,7 +447,7 @@ async function audio(r) {
   return /^https?:/.test(d) ? (await xf(d)).blob() : /^[0-9a-f]{64}/i.test(d) ? hex(d, 'audio/mpeg') : b64(d.replace(/^data:[^,]+,/, ''), 'audio/mpeg');
 }
 const mm = host => async (p, t, v, sg) => {
-  const j = await (await post(`${mmHost({ ...p, prov: host.includes('minimax.io') ? 'mmi' : 'mm' })}/v1/t2a_v2${p.gid ? '?GroupId=' + encodeURIComponent(p.gid) : ''}`, { model: p.model || 'speech-2.6-hd', text: t, stream: false, output_format: 'hex', voice_setting: { voice_id: v || 'female-shaonv', speed: +p.speed || 1, vol: 1, pitch: 0 }, audio_setting: { format: 'mp3', sample_rate: 32000, bitrate: 128000, channel: 1 } }, { Authorization: B + p.key }, sg)).json();
+  const j = await (await post(`${mmHost({ ...p, prov: host.includes('minimax.io') ? 'mmi' : 'mm' })}/v1/t2a_v2${p.gid ? '?GroupId=' + encodeURIComponent(p.gid) : ''}`, { model: p.model || 'speech-2.6-hd', text: t, stream: false, output_format: 'hex', voice_setting: { voice_id: v || 'female-shaonv', speed: +p.speed || 1, vol: 1, pitch: 0 }, ...(p.lang && p.lang != 'auto' && { language_boost: p.lang }), audio_setting: { format: 'mp3', sample_rate: 32000, bitrate: 128000, channel: 1 } }, { Authorization: B + p.key }, sg)).json();
   if (j.base_resp?.status_code) throw Error(`MiniMax ${j.base_resp.status_code}：${j.base_resp.status_msg}`);
   if (!j.data?.audio) throw Error('MiniMax 没有返回音频'); return hex(j.data.audio, 'audio/mpeg');
 };
@@ -483,13 +483,29 @@ const TTS = {
   },
 };
 let AU; const play = b => { AU?.pause(); AU = new Audio(URL.createObjectURL(b)); return AU.play(); };
-// 音色优先级：联系人专属音色 → 按性别的男/女兜底音色 → 配置里的默认音色
-export const tts = (text, voice, sex, sg0) => call('tts', '语音', text, async (p, sg) => {
-  if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`);
-  const v = voice || (sex == '男' ? p.vm : sex == '女' ? p.vf : '') || p.voice || '';
-  const b = await (TTS[p.prov] || TTS.openai)(p, text, v, sg); if (!b?.size) throw Error('音频为空');
-  await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · 音色 ${v || '默认'}]`;
-}, sg0);
+// 每个服务商的设置（不切换当前服务商）
+export const ttsCfg = pv => { prof('tts'); const a = S.api.tts, c = a.cfg[pv] ||= structuredClone(PDEF.tts[pv] || {}); c.prov = pv; c.name = TTSP.find(x => x[0] == pv)?.[1] || pv; return c; };
+// 联系人的专属音色（仿正文朗读插件）：c.tv = { pv: 服务商（空＝跟随全局）, v: { 服务商: 音色ID }, lang: MiniMax 朗读语言, say: [[写法, 读音]] }
+// 「统一用一个渠道」：都用全局服务商，取这个人在这个服务商下填的音色；「每个人用自己的渠道」：按这个人选的服务商（没选就看他填了哪个）
+export const voiceOf = c => {
+  const a = S.api.tts, g = prof('tts').prov, tv = c?.tv || {}, v = tv.v || {};
+  if (c?.voice && !Object.values(v).some(Boolean)) v[g] = c.voice; // 旧版只有一个音色：算在当前服务商下
+  if (a.mode != 'per') return { pv: g, voice: v[g] || '' };
+  const pv = tv.pv || g; if (v[pv]) return { pv, voice: v[pv] };
+  const f = tv.pv ? null : Object.entries(v).find(([, x]) => x); return f ? { pv: f[0], voice: f[1] } : { pv, voice: '' };
+};
+// 名字读音：合成前把「写法」换成「读音」（比如日文名字）
+const sayAs = (t, L) => (L || []).reduce((s, [w, r]) => w && r ? s.split(w).join(r) : s, t);
+// 音色优先级：联系人专属音色 → 按性别的男/女兜底音色 → 配置里的默认音色。o：{ c: 联系人 }，按这个人的服务商、朗读语言、名字读音来读
+export const tts = (text, voice, sex, sg0, o = {}) => {
+  const vo = o.c ? voiceOf(o.c) : null, pO = vo && vo.pv != prof('tts').prov ? ttsCfg(vo.pv) : null;
+  return call('tts', '语音', text, async (p, sg) => {
+    if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`);
+    const sx = o.c?.sex || sex, v = voice || vo?.voice || (sx == '男' ? p.vm : sx == '女' ? p.vf : '') || p.voice || '', t = sayAs(text, o.c?.tv?.say);
+    const b = await (TTS[p.prov] || TTS.openai)({ ...p, ...(o.c?.tv?.lang && { lang: o.c.tv.lang }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
+    await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · ${p.name || p.prov} · 音色 ${v || '默认'}]`;
+  }, sg0, pO);
+};
 
 /* ---------- 生图渠道 ---------- */
 export const IMGP = [['nai', 'NovelAI / NAI'], ['openai', 'GPT / OpenAI兼容'], ['sd', '本地SD'], ['comfy', 'ComfyUI'], ['sf', '硅基流动']];
