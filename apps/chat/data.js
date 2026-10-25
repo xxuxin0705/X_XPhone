@@ -33,6 +33,11 @@ export const nre = r => (r || []).map(x => typeof x == 'string' ? { e: x, by: 'm
 export const shake = () => { const s = ui.scr; s.classList.remove('shk'); void s.offsetWidth; s.classList.add('shk'); };
 
 // 消息类型：text sticker img voice transfer pat sys；以及动作 react accept recall
+// 拍一拍跟微信一样：「“X” 拍了拍我」+ 我设置的拍一拍后缀；群里写了成员名字就是拍那个人（+ TA 的后缀）
+// 「的肩膀」这种后缀保留；模型写的其他动作（如「揉了揉你的头发」）不显示，微信的拍一拍没有自定义动作
+const patC = (ch, name, txt) => { const t = String(txt || ''), tg = ch.type == 'g' && t && ch.members.map(get).find(c => c && [c.real, c.nick, c.remark].some(n => n && t.includes(n)));
+  const sf = (t.match(/^拍了拍(?:你|我)(.*)$/) || [])[1] ?? (t.startsWith('的') ? t : ''); // 「拍了拍你的肩膀」「的肩膀」这种后缀保留
+  return tg ? `“${name}” 拍了拍 “${nm(tg)}”${tg.ps || ''}` : `“${name}” 拍了拍我${(sf || D().me.ps || '').trim()}`; };
 export function addMsg(ch, m) {
   const st = m.type == null || m.type == 'text' ? String(m.text ?? '').trim().match(/^[\[【](?:表情包?|贴纸)[:：]\s*([^\]】]+)[\]】]$/) : null; st && (m = { ...m, type: 'sticker', text: st[1].trim() }); // 正文同步里的 [表情:xx] 也当表情包
   const t = m.type || 'text', f = isMe(m.from) ? 'me' : ch.type == 'p' ? ch.id : member(ch, m.from), name = who(ch, f);
@@ -40,7 +45,7 @@ export function addMsg(ch, m) {
   if (t == 'react') { const x = near(m.frag) || ch.msgs.findLast(x => x.f == 'me' && !/sys|pat/.test(x.t)); x && (x.re = [...nre(x.re), { e: m.text || '❤️', by: f }]); return null; }
   if (t == 'accept') { const x = ch.msgs.findLast(x => x.t == 'transfer' && x.f == 'me' && !x.st); x && (x.st = '已收款'); return null; }
   if (t == 'recall') { const x = ch.msgs.findLast(x => x.f == f && !/sys|pat/.test(x.t)); x && Object.assign(x, { t: 'sys', c: `“${name}” 撤回了一条消息`, re: [] }); return null; }
-  const x = { f, t, c: t == 'pat' ? `“${name}” ${String(m.text || '拍了拍你').replace(/你/g, '我')}` : String(m.text ?? ''), tr: m.tr || '', amt: +m.amount || 0, ts: +now() };
+  const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : String(m.text ?? ''), tr: m.tr || '', amt: +m.amount || 0, ts: +now() };
   const q = near(m.quote); q && (x.q = { w: who(ch, q.f), c: String(q.c).slice(0, 40) });
   t == 'sticker' && (x.img = stk(x.c)); ch.msgs.push(x); t == 'pat' && shake();
   f != 'me' && !viewing(ch.id) && (ch.unread = (ch.unread || 0) + 1);

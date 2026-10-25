@@ -877,3 +877,14 @@
 /* 系统提示（拍一拍等）也能多选 */
 .cv.msel .sys{position:relative;padding-left:30px;cursor:pointer}.cv.msel .sys *{pointer-events:none}.cv.msel .sys .mck{left:0}
 .cv.msel .sys{max-width:none;margin-left:0;margin-right:0}
+/* Kakao：未读「1」和时间紧贴气泡（我发的在气泡左下、对方的在气泡右下） */
+.st-kk .mr{gap:4px}.st-kk .me .mt{align-items:flex-end}.st-kk .msg:not(.me) .mt{align-items:flex-start}
+.st-kk .mt{line-height:1.25;padding-bottom:1px}.st-kk .rd.un{color:#f5c400;font-size:calc(11.5px*var(--fz,1))}
+/* Kakao 输入栏：左边 ＋，中间圆角输入框（表情按钮在框里右边），右边圆按钮 */
+.st-kk .ib{position:relative;align-items:center;gap:8px;padding:7px 10px 20px;background:#fff}
+.st-kk .ib [data-x=more]{order:-1;width:30px;height:30px;color:#555}.st-kk .ib [data-x=more] svg{width:24px;height:24px}
+.st-kk .ib .ip{order:1;border-radius:20px!important;background:#f3f3f3!important;padding:8px 44px 8px 15px!important;color:#191919}
+.st-kk .ib [data-x=stk]{order:2;position:absolute;right:58px;bottom:23px;width:30px;height:30px;color:#555}.st-kk .ib [data-x=stk] svg{width:23px;height:23px}
+.st-kk .ib .go{order:3;width:36px;height:36px;background:#f3f3f3;color:#3b2a1a}.st-kk .ib .go.has,.st-kk .ib .go.wait{background:#fee500}
+.st-kk.dark .ib{background:#1e1e1e}.st-kk.dark .ib .ip,.st-kk.dark .ib .go:not(.has):not(.wait){background:#2c2c2e!important;color:#eee}.st-kk.dark .ib [data-x=stk],.st-kk.dark .ib [data-x=more]{color:#bbb}
+.st-kk .ip::placeholder{color:#a4a4a4}

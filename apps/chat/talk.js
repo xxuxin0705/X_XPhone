@@ -67,7 +67,7 @@ function replyP(ch, patNow) {
 [表情回应:emoji] 给${me}刚才的消息贴表情，表情要符合此刻的真实态度；也可 [表情回应:emoji|消息片段] 指定哪条
 [引用:消息片段] 正文　引用某条消息来回复
 [撤回] 撤回自己上一条（说漏嘴、发错时用）
-${ch.cfg.pat ? `[拍一拍:动作] 对${me}做个小动作，如 [拍一拍:揉了揉你的头发]，动作按人设即兴${patNow ? `\n本轮请${g ? '挑一位成员' : ''}用一次 [拍一拍:动作]。` : '，剧情合适时再用。'}` : ''}
+${ch.cfg.pat ? `[拍一拍] 拍一拍${me}（就是微信的拍一拍，只会显示「谁拍了拍谁」，不用写动作${g ? '；群里想拍别的成员就写 [拍一拍:成员名]' : ''}）${patNow ? `\n本轮请${g ? '挑一位成员' : ''}用一次 [拍一拍]。` : '，剧情合适时再用。'}` : ''}
 ${tl.length ? `【语言】${tl.join('；')}：这些人的每一条文字和语音都直接用该语言写（一条都不能写成中文），每一条的同一行末尾都附 [翻译:简体中文译文]，不能有的有有的没有。译文要沉浸式、完全贴合说话人的人设与此刻语气（傲娇就傲娇、撒娇就撒娇），口语自然，只翻原意、不加戏不漏内容；其他人照常说中文。表情包等标签不翻译。` : ''}`;
 }
 
@@ -139,7 +139,7 @@ function msgs(ch, sel) {
   let p, o = ''; const cf = ch.cfg, g = ch.type == 'g', me = meObj(), bub = S.assets.bubble.find(a => a.id == cf.bub);
   ch.msgs.forEach((m, i) => {
     const gap = !p || m.ts - p.ts > 3e5; gap && (o += `<div class="tm">${tT(m.ts)}</div>`);
-    if (m.t == 'pat' || m.t == 'sys') o += `<div class="sys ${m.t} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="slp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${esc(m.c)}${m.old != null && m.f == 'me' ? ` <b data-a="redit" data-x="${i}">重新编辑</b>` : ''}</div>`;
+    if (m.t == 'pat' || m.t == 'sys') o += `<div class="sys ${m.t} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="slp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${esc(m.t == 'pat' && !/拍了拍/.test(m.c) ? m.c.replace(/^(“[^”]*”)\s*(的\S*)?.*$/, (_, a, b) => `${a} 拍了拍我${b || ''}`) : m.c)}${m.old != null && m.f == 'me' ? ` <b data-a="redit" data-x="${i}">重新编辑</b>` : ''}</div>`;
     else {
       const mine = m.f == 'me', c = mine ? me : get(m.f) || { nick: '已删除' }, same = !gap && p?.f == m.f && !/sys|pat/.test(p.t);
       const tag = g && !mine ? (ch.owner == m.f ? '<em class="own">群主</em>' : ch.admins.includes(m.f) ? '<em class="adm">管理员</em>' : '') + (ch.titles[m.f] ? `<em>${esc(ch.titles[m.f])}</em>` : '') : '';
@@ -186,19 +186,21 @@ export function openChat(id) {
     : `<div class="pgrid tools">${[['pimg', '相册', '🖼'], ['pai', 'AI生图', '🎨'], ['ptf', '转账', '¥'], ['ppat', '拍一拍', '👋'], ['pvo', '语音', '🎙'], ['pgen', '让TA回复', '✨']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${i}</i>${l}</div>`).join('')}</div>`;
   const pan = (k, keep) => { const p = $('.pan', pg.el), on = keep || p.dataset.k != k || !p.classList.contains('on'); p.dataset.k = k; p.classList.toggle('on', on); const sc = $('.pbar', p)?.scrollLeft; p.innerHTML = panHtml(k); sc && ($('.pbar', p).scrollLeft = sc); };
   const qbar = () => { const b = $('.qbar', pg.el), m = q != null && ch.msgs[q]; b.innerHTML = m ? `<span>${esc(who(ch, m.f))}：${esc(brief(m)).slice(0, 40)}</span><b data-a="qx">×</b>` : ''; b.classList.toggle('on', !!m); };
-  const pat = t => { push(ch, { t: 'pat', c: t == 'me' ? `“我” 拍了拍自己${D().me.ps || ''}` : `“我” 拍了拍 “${nm(get(t))}”${get(t).ps || ''}` }); shake(); };
+  const pat = t => { push(ch, { t: 'pat', c: t == 'me' ? `我拍了拍自己${D().me.ps || ''}` : `我拍了拍 “${nm(get(t))}”${get(t).ps || ''}` }); shake(); };
   const tool = async f => { $('.pan', pg.el).classList.remove('on'); await f(); };
   const pg = page({
     chat: id, live: 1, model: () => ch, cls: cls(), pan: (k, keep) => pan(k, keep), pkC, onClose: () => setTimeout(() => emit('chat')),
     title: () => sel ? `<b class="txt msel-x" data-a="selx">取消</b><b>已选择 ${sel.size} 条消息</b>` : `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
     right: () => sel ? `<b class="txt" data-a="selall">${sel.size && sel.size >= selable().length ? '全不选' : '全选'}</b>` : `<b data-a="cset">${I.more}</b>`, body: () => msgs(ch, sel),
-    foot: () => sel ? `<div class="selto" data-a="selto">↑ 选择到这里</div><nav class="mbar2">${[['sfwd', '转发', MI.fwd], ['sinj', '注入正文', MI.inj], ['sdel', '删除', MI.del]].map(([a, l, ic]) => `<button data-a="${a}" class="${sel.size ? '' : 'dis'}">${ic}<span>${l}</span></button>`).join('')}</nav>` : `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="发消息…"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg><svg class="s-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5c.6 4.6 3 7 7.6 7.6-4.6.6-7 3-7.6 7.6-.6-4.6-3-7-7.6-7.6 4.6-.6 7-3 7.6-7.6Z"/><path d="M18.5 14.5c.3 2.1 1.3 3.1 3.4 3.4-2.1.3-3.1 1.3-3.4 3.4-.3-2.1-1.3-3.1-3.4-3.4 2.1-.3 3.1-1.3 3.4-3.4Z"/></svg></button></div><div class="pan"></div>`,
+    foot: () => sel ? `<div class="selto" data-a="selto">↑ 选择到这里</div><nav class="mbar2">${[['sfwd', '转发', MI.fwd], ['sinj', '注入正文', MI.inj], ['sdel', '删除', MI.del]].map(([a, l, ic]) => `<button data-a="${a}" class="${sel.size ? '' : 'dis'}">${ic}<span>${l}</span></button>`).join('')}</nav>` : `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="${{ kk: 'Enter a message', line: 'Aa' }[sty(ch)] || '发消息…'}"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg><svg class="s-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5c.6 4.6 3 7 7.6 7.6-4.6.6-7 3-7.6 7.6-.6-4.6-3-7-7.6-7.6 4.6-.6 7-3 7.6-7.6Z"/><path d="M18.5 14.5c.3 2.1 1.3 3.1 3.4 3.4-2.1.3-3.1 1.3-3.4 3.4-.3-2.1-1.3-3.1-3.4-3.4 2.1-.3 3.1-1.3 3.4-3.4Z"/></svg></button></div><div class="pan"></div>`,
     after: el => {
       const keep = el.classList.contains('in'); el.className = `pg ${cls()}${keep ? ' in' : ''}`;
       const b = $('.pg-b', el), ip = $('.ip', el), go = $('.go', el); b.style.background = cf.bg ? `url("${cf.bg}") center/cover` : '';
       // 只有来了新消息、本来就在最底下、或第一次打开时才滚到底；点翻译、表情回应这些不会跳
       const n = ch.msgs.length + (busy == id ? .5 : 0), stick = el._n == null || el._n != n || el._pg.nb || !b.scrollTop; el._n = n;
       if (stick) { b.scrollTop = b.scrollHeight; b.querySelectorAll('img').forEach(im => im.complete || im.addEventListener('load', () => b.scrollHeight - b.scrollTop - b.clientHeight < im.offsetHeight + 90 && (b.scrollTop = b.scrollHeight), { once: true })); }
+      // 点聊天内容：收起表情 / 更多面板和键盘
+      b.onpointerdown = () => { const pn = $('.pan.on', el); pn && pn.classList.remove('on'); document.activeElement == ip && ip.blur(); };
       if (!ip) return; // 多选时底下是操作栏，没有输入框
       ip.oninput = () => { go.classList.toggle('has', !!ip.value.trim()); ip.style.height = 'auto'; ip.style.height = Math.min(100, ip.scrollHeight) + 'px'; };
       ip.onkeydown = e => e.key == 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), pg.acts.send());

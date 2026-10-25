@@ -92,5 +92,23 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   await E(`talk.gen(_k)`); await W(3500);
   const kk = await E(`JSON.stringify(_k.msgs.map(m => [m.c, m.tr]))`);
   ok(kk == '[["뭐야?","什么？"],["뭐야","什么呀"],["뭐야","别装死啊"]]', '每一条都有译文：漏写的补上，写成中文的翻成韩语 ' + kk);
+  // 10. 拍一拍格式（跟微信一样）
+  await E(`(() => { [['的肩膀'], ['拍了拍你的脑袋'], ['揉了揉你的头发'], ['']].forEach(([t]) => dt.addMsg(_k, { from: '姜照临', type: 'pat', text: t })); _k.msgs.push({ f: _k.id, t: 'pat', c: '“姜照临” 的肩膀', ts: Date.now() }); core.emit('chat'); })()`); await W(300);
+  const pats = await E(`[...document.querySelectorAll('.chat .sys.pat')].map(e => e.textContent).join('|')`);
+  ok(pats == '“姜照临” 拍了拍我的肩膀|“姜照临” 拍了拍我的脑袋|“姜照临” 拍了拍我|“姜照临” 拍了拍我|“姜照临” 拍了拍我的肩膀', '拍一拍：都是「“X” 拍了拍我」+ 后缀，没有乱七八糟的动作；以前存坏的「“X” 的肩膀」也补上 ' + pats);
+  // 11. Kakao：Enter a message、输入栏样式、未读 1 紧贴气泡
+  await E(`core.S.style = 'kk'; talk.openChat(_k.id)`); await W(600);
+  ok(await E(`document.querySelector('.chat .ip').placeholder`) == 'Enter a message', 'Kakao 风格：输入框写 Enter a message');
+  const ord = await E(`[...document.querySelectorAll('.chat .ib > *')].map(e => [e.dataset.x || e.className.split(' ')[0], getComputedStyle(e).order]).sort((a, b) => a[1] - b[1]).map(x => x[0]).join()`);
+  ok(ord == 'more,ip,stk,go' && await E(`getComputedStyle(document.querySelector('.chat .ib .ip')).borderRadius`) == '20px', 'Kakao 输入栏：左边 ＋，中间圆角输入框（表情按钮在框里），右边圆按钮 ' + ord);
+  await E(`_k.msgs.push({ f: 'me', t: 'text', c: '?', ts: Date.now() }); core.emit('chat')`); await W(300);
+  const gap = await E(`(() => { const m = [...document.querySelectorAll('.chat .msg.me')].at(-1), r = m.querySelector('.rd.un').getBoundingClientRect(), b = m.querySelector('.bub').getBoundingClientRect(); return Math.round(b.left - r.right); })()`);
+  ok(gap >= 0 && gap <= 8, 'Kakao 未读「1」紧贴着气泡（间隔 ' + gap + 'px）');
+  await p.screenshot({ path: path.join(OUT, 'msel_e.png') });
+  // 12. 点聊天内容：收起表情面板
+  await E(`document.querySelector('.chat [data-a=pan][data-x=stk]').click()`); await W(300); ok(await E(`!!document.querySelector('.chat .pan.on')`), '（打开表情面板）');
+  const bb = await E(`(() => { const r = document.querySelector('.chat .pg-b').getBoundingClientRect(); return [r.left + r.width / 2, r.top + 60]; })()`); await p.mouse.click(bb[0], bb[1]); await W(250);
+  ok(!(await E(`!!document.querySelector('.chat .pan.on')`)), '点一下聊天内容：表情面板收起来');
+  await E(`core.S.style = 'wx'`);
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });
