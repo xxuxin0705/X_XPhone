@@ -8,7 +8,7 @@ export const ballUrl = (k = ballKey()) => new URL(`./assets/ball/${k}.webp`, imp
 // 换悬浮窗上的图
 export function applyBall() {
   const b = document.getElementById('stp-ball'); if (!b) return;
-  b.classList.add('ico'); let i = b.querySelector('img'); i || (i = Object.assign(document.createElement('img'), { alt: '', draggable: false }), b.prepend(i));
+  b.classList.add('bimg'); let i = b.querySelector('img'); i || (i = Object.assign(document.createElement('img'), { alt: '', draggable: false }), b.prepend(i));
   const u = ballUrl(); i.src != u && (i.src = u);
 }
 export const ballGrid = () => `<div class="bgrid">${BALLS.map(([k, n]) => `<div class="bt ${ballKey() == k ? 'on' : ''}" data-a="ball" data-x="${k}"><img src="${esc(ballUrl(k))}" alt=""><span>${esc(n)}</span></div>`).join('')}</div>`;

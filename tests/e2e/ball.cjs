@@ -10,7 +10,13 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms);
   ok(await E(`(() => { const i = document.querySelector('#stp-ball img'); return !!i && /ball\\/sprout\\.webp/.test(i.src); })()`), '悬浮窗默认是「森林小芽」造型');
   await W(500); ok(await E(`document.querySelector('#stp-ball img').naturalWidth`) > 100, '图片加载出来了');
-  await p.locator('#stp-ball').screenshot({ path: path.join(OUT, 'ball_float.png') });
+  // 放在跟酒馆一样的深色背景上：透明、不大
+  await E(`document.body.style.background = '#1e1e1e'`); await W(200);
+  const bs = await E(`(() => { const b = document.querySelector('#stp-ball'), cs = getComputedStyle(b), ca = getComputedStyle(b, '::after'), r = b.getBoundingClientRect(); return { bg: cs.backgroundColor, img: cs.backgroundImage + '|' + (ca.content == 'none' || ca.display == 'none' ? 'none' : ca.backgroundImage), sh: cs.boxShadow, w: r.width, h: r.height }; })()`);
+  ok(bs.bg == 'rgba(0, 0, 0, 0)' && bs.img == 'none|none' && bs.sh == 'none', '悬浮窗没有底色、没有方框 ' + JSON.stringify(bs));
+  ok(bs.w <= 48 && bs.h <= 66, '悬浮窗大小跟别的插件的悬浮图标差不多 ' + bs.w + '×' + bs.h);
+  ok(await E(`(() => { const i = document.querySelector('#stp-ball img'), c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight; const x = c.getContext('2d'); x.drawImage(i, 0, 0); const px = (a, b) => x.getImageData(a, b, 1, 1).data[3]; return [px(1, 1), px(c.width - 2, 1), px(1, c.height - 2), px(c.width - 2, c.height - 2)].every(v => v == 0); })()`), '图片四个角是透明的（抠干净了）');
+  await p.screenshot({ path: path.join(OUT, 'ball_float.png'), clip: await E(`(() => { const r = document.querySelector('#stp-ball').getBoundingClientRect(); return { x: r.left - 30, y: r.top - 30, width: r.width + 60, height: r.height + 60 }; })()`) });
   await p.click('#stp-ball'); await W(400);
   await E(`(async () => { window.core = await import('/core.js'); core.home(); core.APPS.theme.open(); })()`); await W(700);
   const secs = await E(`[...document.querySelectorAll('.pg.in:last-child .sec > h5, .pg.in:last-child [data-sec] > *:first-child')].map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)`);
