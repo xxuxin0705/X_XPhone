@@ -1,16 +1,16 @@
 // 小手机 · 设置：API（聊天 / 生图渠道 / 语音渠道）/ 联动与时间 / 上下文与世界书 / 显示 / 日志 / 数据
-import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, voices, TCAT, PDEF, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, TURL, TFMT, tq, IMGP, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
+import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec, menu, form, ok, toast, sheet, llm, genImg, tts, models, voices, TCAT, PDEF, prof, stProfiles, stProf, stCurName, LOG, saveLog, stopCall, TTSP, TURL, TFMT, tq, IMGP, ISITE, iq, APPS_IMG, APPS_TTS, recent, now, scanTime, wiBooks, allBooks, loadBook, entState, pickFile, emit, task } from '../../core.js';
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
 import { libList, voicePage, people } from '../chat/voice.js';
 import { ballPicker, ballUrl, ballName } from '../../ball.js';
-import { STKP, webSearch, localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
+import { localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
-const sub = (a, x) => a == 'api' ? (S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? '' : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
+const sub = (a, x) => a == 'api' ? (x == 'chat' && S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? '' : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
@@ -43,9 +43,12 @@ const TF = { // 语音：模型、音色另外画（带快速选择 / 拉取 / �
 const VPH = { mm: 'female-shaonv（系统音色或复刻音色ID）', mmi: 'female-shaonv', openai: 'alloy / nova / onyx…', fish: '音色模型ID（reference_id）', index: '参考音色 / 角色名', mimo: 'mimo_default / 冰糖 / 茉莉 / 苏打 / 白桦 / Mia / Chloe / Milo / Dean', volc: 'zh_female_xiaohe_uranus_bigtts' };
 const NAIM = [['nai-diffusion-4-5-full', 'V4.5 Full'], ['nai-diffusion-4-5-curated', 'V4.5 Curated'], ['nai-diffusion-4-full', 'V4 Full'], ['nai-diffusion-4-curated-preview', 'V4 Curated'], ['nai-diffusion-3', 'V3 Anime']];
 const SZ = ['size', '尺寸（宽x高）'], ST = N('steps', '步数'), CF = N('scale', 'CFG'), SP = ['sampler', '采样器'], PRE = ['pre', '画风 / 质量前缀', 'area', '自动加在每次提示词前面'], NG = ['neg', '负面提示词', 'area', '留空用内置'], TG = ['tag', '中文描述先转成英文标签（多调一次聊天模型）', 'tog'];
+// NAI / GPT 的接口站点：官方站点 / 公益站点 / 自定义地址，各存一份地址和 Key
+const SITE = (m, ph) => { const st = m.site || 'official'; return [['site', '接口站点', 'sel', ISITE],
+  ...(st == 'public' ? [['purl', '公益站地址', 'text', ph], ['pkey', '公益站 Key', 'password']] : st == 'custom' ? [['curl', '自定义地址', 'text', ph], ['ckey', '自定义站 Key', 'password']] : [['key', '官方站 Key', 'password']])]; };
 const IF = {
-  nai: () => [K('官方站 Key'), ['url', '排队服务地址（可选）', 'text', '多人共用一个 NAI Key 时填；留空直连 NAI'], ['model', '模型', 'sel', NAIM], SZ, ST, CF, SP, PRE, NG, TG],
-  openai: () => [U('https://api.openai.com/v1'), K(), ['model', '模型', 'pull', 'gpt-image-1'], SZ],
+  nai: m => [...SITE(m, 'https://你的公益站地址'), ['queue', '排队服务地址（可选）', 'text', '多人共用一个 NAI Key 时填；留空直连'], ['model', '模型', 'sel', NAIM], SZ, ST, CF, SP, PRE, NG, TG],
+  openai: m => [...SITE(m, 'https://你的公益站地址/v1'), ['omode', '请求方式', 'sel', [['img', '生图接口（images/generations）'], ['chat', '聊天接口（chat/completions）']]], ['model', '模型', 'pull', 'gpt-image-1'], SZ],
   sd: () => [U('http://127.0.0.1:7860'), ['model', '底模（空=当前）', 'pull'], SZ, ST, CF, SP, PRE, NG, TG],
   comfy: () => [U('http://127.0.0.1:8188'), ['ckpt', '底模文件名', 'pull'], SZ, ST, CF, SP, PRE, NG, ['wf', '自定义工作流（可空）', 'area', 'ComfyUI「导出(API)」的 JSON。占位符：%prompt% %negative_prompt% %seed% %width% %height% %steps% %scale% %sampler% %model%'], TG],
   sf: () => [K(), M('Kwai-Kolors/Kolors'), SZ, ST, CF, NG, U('留空用官方 api.siliconflow.cn/v1')],
@@ -81,10 +84,10 @@ function provPage(t) {
   const vbtn = k => (cat().voices.length ? `<b class="pull" data-a="qv" data-x="${k}">快选</b>` : '') + (['fish', 'eleven', 'mm', 'mmi'].includes(fp()) ? `<b class="pull" data-a="pv" data-x="${k}">拉取</b>` : '');
   const body = () => {
     const p = P(), tip = TIP[t][pv()], tts = t == 'tts';
-    if (tts) { a.src = 'custom'; a.tab ||= 'ch'; } // 语音不再走酒馆扩展
-    let h = tts ? F.seg('tab', [['ch', '语音渠道'], ['lib', '角色库']]) : F.seg('src', [['tavern', '酒馆扩展'], ['custom', '自选服务商']]);
+    if (tts) a.tab ||= 'ch';
+    a.src = 'custom'; // 语音、生图都不再走酒馆扩展
+    let h = tts ? F.seg('tab', [['ch', '语音渠道'], ['lib', '角色库']]) : '';
     if (tts && a.tab == 'lib') return h + libList();
-    if (a.src == 'tavern') return h + (tts ? '' : '<p class="tip">调用酒馆「图像生成」扩展（/sd），用酒馆里设置好的生图。</p>') + (tts ? '' : `<div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`) + btn('test', '测试连接', '', 'pri');
     if (tts) h += `<h6>每个人用哪个服务商</h6>${F.seg('mode', [['unified', '统一用一个渠道'], ['per', '每个人用自己的渠道']])}`;
     h += `<div class="card">${F.sel('pv', tts ? (a.mode == 'per' ? '默认服务商' : 'TTS 服务商') : '生图供应商', PV[t].map(([k, n]) => [k, n + (tts && k != pv() && a.cfg?.[k]?.key ? ' ✓' : '')]))}</div>` + (tip ? `<p class="tip">${tip}</p>` : '');
     if (tts) {
@@ -93,17 +96,19 @@ function provPage(t) {
         ${pick('voice', '音色 ID', VPH[fp()] || '', vbtn('voice'))}</div><div class="tts-ops"><b data-a="try" data-x="voice">▶ 试听当前音色</b><b class="danger" data-a="vclr" data-x="voice">清空当前音色</b></div>
         <h6>全局默认音色</h6><div class="card">${F.tog('fb', '没配音色的联系人用全局默认音色')}${a.fb !== false ? pick('vm', '男声默认', '', tbtn('vm')) + pick('vf', '女声默认', '', tbtn('vf')) : ''}</div>`;
     } else h += `<div class="card">${IF[pv()](p).map(fld).join('')}</div><div class="card">${F.tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>`;
+    const AP = tts ? APPS_TTS : APPS_IMG, B = a.bind ||= {};
+    h += `<h6>按应用选渠道</h6><div class="card">${AP.map(([k, n]) => F.sel('bind.' + k, n, [['', '跟随默认（' + (PV[t].find(x => x[0] == pv())?.[1] || '') + '）'], ...PV[t]])).join('')}</div>`;
     return h + btn('test', '测试连接', '', 'pri');
   };
   const pg = page({
     title: T[t], model: () => a, save, onClose: rf, body,
-    onChange: k => { k == 'pv' ? (prof(t), save(), pg.re()) : (/\.(ver|prov|fmt)$/.test(k) || k == 'fb') && pg.re(); },
+    onChange: k => { k == 'pv' ? (prof(t), save(), pg.re()) : (/\.(ver|prov|fmt|site|omode)$/.test(k) || k == 'fb') && pg.re(); },
     acts: {
       eye: (x, el) => { const i = el.previousElementSibling; i.type = i.type == 'password' ? 'text' : 'password'; el.textContent = i.type == 'password' ? '显示' : '隐藏'; },
       qm: async () => { const m = await menu(cat().models.map(x => [x, esc(x)]), '选择模型'); m && (P().model = m, save(), pg.re()); },
       qv: async k => { const v = await menu(cat().voices.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), '选择音色'); v && (P()[k] = v, save(), pg.re()); },
       pv: async k => { try { toast('正在读取音色…'); const L = await voices(tq(prof(t))); if (!L.length) return toast('没有读到音色'); const v = await menu(L.map(([id, n]) => [id, esc(n) + `<small>${esc(id)}</small>`]), `选择音色 · ${L.length}个`); v && (P()[k] = v, save(), pg.re()); } catch (e) { toast('读取失败：' + e.message); } },
-      pullf: async k => { try { toast('正在拉取…'); const L = await models(t == 'tts' ? tq(prof(t)) : prof(t), t); if (!L.length) return toast('没有拉到可选项'); const m = await menu(L.map(x => [x, esc(x)]), `选择 · ${L.length}个`); m && (P()[k] = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
+      pullf: async k => { try { toast('正在拉取…'); const L = await models(t == 'tts' ? tq(prof(t)) : t == 'img' ? iq(prof(t)) : prof(t), t); if (!L.length) return toast('没有拉到可选项'); const m = await menu(L.map(x => [x, esc(x)]), `选择 · ${L.length}个`); m && (P()[k] = m, save(), pg.re()); } catch (e) { toast('拉取失败：' + e.message); } },
       try: k => !P()[k] ? toast('先填音色 ID') : task('试听中', async sg => (await tts('你好呀，这是我现在的声音。', P()[k] || '', '', sg), '✓ 已播放')),
       vclr: k => { P()[k] = ''; save(); pg.re(); },
       vopen: id => { const c = people().find(x => x.id == id); c && voicePage(c, () => setTimeout(() => pg.re())); },
@@ -210,25 +215,19 @@ G.openLogs = () => top()?.isLog || logs();
 on('log', () => { const t = top(); t?.isLog && t.reb(); });
 
 /* ---------- 锁屏与密码 ---------- */
-// 表情包：免费表情库（表情商店、已添加的表情包组）、网络表情补充来源、AI 发表情自动配图。都不会用到你自己的 API
+// 表情包：免费表情库（表情商店、已添加的表情包组）、AI 发表情自动配图。都不会用到你自己的 API
 function stkp() {
   const pg = page({
     title: '表情包', onClose: rf, onChange: () => pg.re(),
     body: () => { const f = fx(S), c = S.stk; return sec('stk', [
       ['m', '我的表情包组', `<div class="card">${c.packs.map((id, i) => `<div class="row"><span>${esc(packMeta(id)?.name || id)}</span><small><b class="lnk" data-a="pup" data-x="${i}">${i ? '上移' : ''}</b> <b class="lnk danger" data-a="prm" data-x="${id}">移除</b></small></div>`).join('') || '<div class="row"><small>还没有添加表情包组</small></div>'}</div>`
         + btn('pstore', '打开表情商店') + '<p class="tip">表情来自开源免费的 ChineseBQB 和 Waline 表情库，图片走公共 CDN；排在前面的组，AI 发表情时优先从里面挑。</p>'],
-      ['s', '网络表情（库里不够时补充）', f.tog('stk.cute', '偏可爱风（搜索时自动加「可爱」）') + f.seg('stk.src', STKP) + (c.src == 'giphy' ? f.inp('stk.gk', 'GIPHY Key', 'password', 'developers.giphy.com 免费申请')
-        + '<p class="tip">GIPHY 是国外的动图库，英文关键词搜得最好。Key 在 developers.giphy.com → Create an API Key（选 API）。没填 Key 时自动改用搜狗表情。</p>'
-        : f.inp('stk.id', '用户 ID', 'text', '留空用公共测试号') + f.inp('stk.key', '通讯秘钥', 'password', '留空用公共测试号')
-        + '<p class="tip">搜狗 / 百度表情来自「接口盒子」apihz.cn 的免费接口，不填就用它公开的测试号（大家共用、每分钟有次数限制）；搜不出来时可以去 apihz.cn 免费注册，把自己的 ID 和秘钥填上。</p>')
-        + btn('stkt', '测试搜索「开心」')],
       ['v', '对方看懂我的表情', f.tog('stk.see', '把我发的表情图给对方看（识图）') + '<p class="tip">你发表情包后，图片会跟这次回复请求一起发给聊天模型，对方看图就知道你想表达什么，没起名字的表情也能看懂。不会额外调用 API，只是这次请求多一点点 token（每张图缩小到 320px）。模型不支持看图时自动改成只发文字。</p>'],
-      ['a', 'AI 发表情包', f.tog('stk.auto', '自动配图') + '<p class="tip">AI 回复里的 [表情包:关键词]：先在表情库里挑一张（你添加的组优先、可爱风优先），没有合适的再上网搜。关掉的话只显示颜文字占位。</p>'],
+      ['a', 'AI 发表情包', f.tog('stk.auto', '自动配图') + '<p class="tip">AI 回复里的 [表情包:关键词]：在表情库里挑一张（你添加的组优先、可爱风优先）。关掉的话只显示颜文字占位。</p>'],
     ]); },
     acts: {
       pstore: () => storePage(), prm: id => { rmPack(id); pg.re(); },
       pup: i => { i = +i; const a = S.stk.packs; [a[i - 1], a[i]] = [a[i], a[i - 1]]; save(); emit('stk'); pg.re(); },
-      stkt: async () => { toast('搜索中…'); try { const L = await localSearch('开心'); let w = ''; try { w = ` · 网络表情 ${(await webSearch('开心')).length} 张`; } catch (e) { w = ' · 网络表情没连上：' + e.message; } toast(`表情库 ${L.length} 张${w}`); } catch (e) { toast('搜索失败：' + e.message); } },
     },
   });
 }

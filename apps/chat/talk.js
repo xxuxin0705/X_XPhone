@@ -236,7 +236,7 @@ export function openChat(id) {
       sk: i => { const s = S.assets.sticker[i]; push(ch, { t: 'sticker', c: s.name, img: s.img }); },
       skadd: async () => { const r = await form('添加表情包', [['name', '描述（AI 按描述发送）'], ['img', '图片', 'img']]); if (!r?.img) return; S.assets.sticker.push({ id: uid(), name: r.name || '表情', img: r.img }); C().saveSettingsDebounced(); pan('stk', 1); },
       pimg: () => tool(async () => { const u = await pickImg(800); u && push(ch, { t: 'img', c: '图片', url: u }); }),
-      pai: () => tool(async () => { const r = await form('AI生图并发送', [['d', '画面描述', 'area']]); if (!r?.d) return; const x = push(ch, { t: 'img', c: r.d }); try { x.url = await genImg(r.d); saveD(); emit('chat'); } catch (e) { fail('生图失败：' + e.message); } }),
+      pai: () => tool(async () => { const r = await form('AI生图并发送', [['d', '画面描述', 'area']]); if (!r?.d) return; const x = push(ch, { t: 'img', c: r.d }); try { x.url = await genImg(r.d, undefined, 'chat'); saveD(); emit('chat'); } catch (e) { fail('生图失败：' + e.message); } }),
       ptf: () => tool(async () => { const r = await form('转账', [['amt', '金额', 'number'], ['c', '备注']]); if (!(+r?.amt > 0)) return; D().me.wallet -= +r.amt; push(ch, { t: 'transfer', amt: +r.amt, c: r.c }); }),
       ppat: () => tool(async () => { if (ch.type == 'p') return pat(ch.id); const k = await menu(ch.members.map(i => [i, esc(nm(get(i)))]), '拍一拍谁'); k && pat(k); }),
       pvo: () => tool(async () => { const r = await form('发送语音', [['c', '要说的话', 'area']]); r?.c && push(ch, { t: 'voice', c: r.c }); }),
@@ -246,7 +246,7 @@ export function openChat(id) {
       rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; saveD(); emit('chat'); },
       redit: i => { const m = ch.msgs[i], ip = $('.ip', pg.el); ip.value = m.old; ip.oninput(); ip.focus(); },
       tf: async i => { const m = ch.msgs[i]; if (m.f == 'me' || m.st || !await ok(`收下 ¥${m.amt}？`)) return; m.st = '已收款'; D().me.wallet = +D().me.wallet + m.amt; saveD(); emit('chat'); },
-      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? meVoice() : get(m.f); m.open = 1; saveD(); emit('chat'); tts(m.c, '', c?.sex, undefined, { c }).catch(e => fail('语音失败：' + e.message)); },
+      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? meVoice() : get(m.f); m.open = 1; saveD(); emit('chat'); tts(m.c, '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p' }).catch(e => fail('语音失败：' + e.message)); },
       mlp: async (i, t) => {
         const m = ch.msgs[i]; if (!m || /sys|pat/.test(m.t)) return; const mine = m.f == 'me', stk = m.t == 'sticker', text = /text|voice/.test(m.t);
         const has = stk && S.assets.sticker.some(x => x.img == m.img);

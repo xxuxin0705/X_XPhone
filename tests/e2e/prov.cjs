@@ -72,5 +72,17 @@ const reqs = [];
   await p.screenshot({ path: path.join(OUT, 'prov_img.png') });
   await p.selectOption('select[data-k=pv]', 'sf'); await W(400);
   ok(await E(`document.querySelector('[data-k="cfg.sf.model"]').value`) == 'Kwai-Kolors/Kolors', '切到硅基流动：默认模型 Kolors');
+  // 生图：没有酒馆扩展；NAI / GPT 可以选官方 / 公益站 / 自定义；按应用选渠道
+  await E(`core.home(); core.APPS.settings.open()`); await W(400); await E(`document.querySelector('[data-a=api][data-x=img]').click()`); await W(500);
+  const ib = () => E(`document.querySelector('.pg.in:last-child .pg-b').textContent`);
+  await p.selectOption('select[data-k=pv]', 'nai'); await W(400);
+  ok(!/酒馆扩展/.test(await ib()) && /接口站点[\s\S]*官方站 Key/.test(await ib()), '生图：没有酒馆扩展；接口站点 + 官方站 Key');
+  await p.selectOption('select[data-k="cfg.nai.site"]', 'public'); await W(400);
+  ok(await E(`!!document.querySelector('[data-k="cfg.nai.purl"]') && !!document.querySelector('[data-k="cfg.nai.pkey"]') && !document.querySelector('[data-k="cfg.nai.key"]')`), '选公益站点：出现公益站地址和公益站 Key');
+  ok(/按应用选渠道[\s\S]*聊天发图[\s\S]*朋友圈配图/.test(await ib()), '按应用选渠道：聊天发图 / 朋友圈配图');
+  await p.selectOption('select[data-k="bind.moments"]', 'openai'); await W(200); ok(await E(`core.S.api.img.bind.moments`) == 'openai', '朋友圈配图选 GPT：存下来了');
+  await p.screenshot({ path: path.join(OUT, 'prov_img.png'), fullPage: true });
+  await p.selectOption('select[data-k=pv]', 'openai'); await W(400);
+  ok(await E(`!!document.querySelector('[data-k="cfg.openai.omode"]')`), 'GPT：可以选生图接口 / 聊天接口');
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })();

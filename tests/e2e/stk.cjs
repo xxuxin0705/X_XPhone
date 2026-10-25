@@ -91,8 +91,7 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   ok(!reqs.some(u => /apihz/.test(u)), '库里够多（' + res.length + ' 个）时不去搜网络表情');
   await W(300); await p.screenshot({ path: path.join(OUT, 'stk_d.png') });
   await p.fill('.skspg .sks-ip', '考试'); await W(1500);
-  const wq = reqs.find(u => /apihz/.test(u)); ok(wq && new URL(wq).searchParams.get('words') == '考试可爱', '库里没有的词才补网络表情，关键词自动加「可爱」：' + (wq && new URL(wq).searchParams.get('words')));
-  ok(/网络表情/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)) && await E(`document.querySelectorAll('.skspg .sks-i').length`) == 12, '网络表情单独一栏');
+  ok(!reqs.some(u => /apihz|giphy/.test(u)) && !/网络表情/.test(await E(`document.querySelector('.skspg .sks-out').textContent`)), '库里没有的词：不上网搜（网络表情已去掉）');
   await p.fill('.skspg .sks-ip', '开心'); await W(1200);
   await E(`document.querySelector('.skspg [data-a=sktab][data-x=pk]').click()`); await W(300);
   const pk = await E(`[...document.querySelectorAll('.skspg .sp-row')].map(r => r.dataset.x)`);
@@ -113,9 +112,10 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   mirrorDown = true; await E(`dt.addMsg(_c, { from: 'me', type: 'sticker', text: 'x' }); Object.assign(_c.msgs.at(-1), sk.msgOf({ l: '哭', img: 'https://registry.npmmirror.com/@waline/emojis/1.4.0/files/tieba/tieba_cry.png?down', alt: ['https://unpkg.com/@waline/emojis@1.4.0/tieba/tieba_cry.png'] })); core.emit('chat')`); await W(800);
   ok(await E(`/unpkg\\.com/.test([...document.querySelectorAll('.chat img.stk')].at(-1).src)`), '国内镜像打不开时自动换 unpkg 线路'); mirrorDown = false;
   await p.screenshot({ path: path.join(OUT, 'stk_e.png') });
-  // 7. 搜狗出错 → 换百度
-  sogouDown = true; reqs.length = 0; const r1 = await E(`sk.webSearch('摸摸头').then(L => L.length)`);
-  ok(r1 == 12 && reqs.some(u => /apihzbqbbaidu\.php/.test(u)), '网络表情：搜狗出错自动换百度'); sogouDown = false;
+  // 7. 设置里没有「网络表情」了
+  await E(`(async () => { core.home(); core.APPS.settings.open(); await new Promise(r => setTimeout(r, 300)); document.querySelector('[data-a=stkp]').click(); })()`); await W(500);
+  ok(!/网络表情|搜狗|百度表情|GIPHY|apihz/.test(await E(`document.querySelector('.pg.in:last-child .pg-b').textContent`)), '表情包设置：网络表情那一整块去掉了');
+  await E(`core.home(); talk.openChat(_c.id)`); await W(500);
   // 8. 翻译：点「文」不跳到底；两边一样
   await E(`(() => { for (let i = 0; i < 14; i++) _c.msgs.push({ f: _c.id, t: 'text', c: '안녕 ' + i, tr: '你好 ' + i, ts: Date.now() }); _c.msgs.push({ f: 'me', t: 'text', c: '하하하', orig: '哈哈哈', ts: Date.now() }); core.emit('chat'); })()`); await W(500);
   ok(await E(`!!document.querySelector('.chat .msg:not(.me) .tzb') && !!document.querySelector('.chat .msg.me .tzb')`), '对方和我的消息都是同一个「文」小按钮');
@@ -138,7 +138,7 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   await E(`core.home(); core.APPS.settings.open()`); await W(500);
   ok(/9 组/.test(await E(`document.querySelector('[data-a=stkp]').textContent`)), '设置首页「表情包」显示已添加组数');
   await E(`document.querySelector('[data-a=stkp]').click()`); await W(500);
-  ok(/熊猫头/.test(await E(`document.querySelector('.pg.in:last-child').textContent`)) && await E(`!!document.querySelector('[data-k="stk.cute"]:checked')`), '设置页：我的表情包组列表、「偏可爱风」默认打开');
+  ok(/熊猫头/.test(await E(`document.querySelector('.pg.in:last-child').textContent`)), '设置页：我的表情包组列表');
   await p.screenshot({ path: path.join(OUT, 'stk_h.png') });
   await E(`document.querySelector('[data-a=prm][data-x=b015]').click()`); await W(300); ok(await E(`!core.S.stk.packs.includes('b015')`), '可以移除表情包组');
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();

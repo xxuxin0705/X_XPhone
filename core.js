@@ -262,6 +262,7 @@ export const prof = t => {
     a.pv ||= cur ? cur.prov || 'openai' : t == 'tts' ? 'mm' : 'nai';
   }
   if (t == 'tts' && !(a.v >= 2)) ttsMig(a);
+  if (t == 'img' && !(a.v >= 2)) imgMig(a);
   const P = t == 'tts' ? TTSP : IMGP; a.pv = P.some(x => x[0] == a.pv) ? a.pv : P[0][0];
   const c = a.cfg[a.pv] ||= structuredClone(PDEF[t][a.pv] || {}); c.prov = a.pv; c.name = P.find(x => x[0] == a.pv)[1]; return c;
 };
@@ -273,7 +274,13 @@ function ttsMig(a) {
     OLDV.includes(c.vm) && (c.vm = ''); OLDV.includes(c.vf) && (c.vf = '');
   }
 }
-const tav = t => t != 'tts' && S.api[t].src == 'tavern'; // 语音只用自选服务商
+// 生图设置升级：NAI 以前的「排队服务地址」放进 queue；OpenAI 以前填的地址算「自定义地址」
+function imgMig(a) {
+  a.v = 2; a.src = 'custom'; const n = a.cfg?.nai, o = a.cfg?.openai;
+  if (n) { n.url && !n.queue && (n.queue = n.url); delete n.url; n.site ||= 'official'; }
+  if (o) { const u = trim(o.url || ''); if (u && u != trim(IURL.openai)) Object.assign(o, { site: 'custom', curl: u, ckey: o.key || '' }); o.site ||= 'official'; delete o.url; }
+}
+const tav = t => t == 'chat' && S.api[t].src == 'tavern'; // 语音、生图只用自选服务商
 // 超时 = 连续 N 秒没收到任何数据（流式输出每收到一段就重新计时），可在设置改；任务条 / 日志里都能随时取消
 async function call(t, desc, rq, fn, sg, pO, raw) {
   const T = raw ?? (!pO && tav(t)), p = pO || prof(t), L = { id: uid(), t, desc, at: Date.now(), run: 1, src: T ? '酒馆' : p?.name || '未配置', model: T ? '' : p?.model || p?.voice || '', req: String(rq).slice(0, 4000), res: '' };
@@ -429,8 +436,8 @@ export const PDEF = {
     volc: { ver: 'v3', res: 'seed-tts-2.0', voice: 'zh_female_xiaohe_uranus_bigtts' }, third: { fmt: 'openai', url: '' },
   },
   img: {
-    nai: { model: 'nai-diffusion-4-5-full', size: '832x1216', steps: 28, scale: 5, sampler: 'k_euler_ancestral', pre: 'masterpiece, best quality, very aesthetic', tag: true },
-    openai: { url: 'https://api.openai.com/v1', model: 'gpt-image-1', size: '1024x1024' },
+    nai: { site: 'official', model: 'nai-diffusion-4-5-full', size: '832x1216', steps: 28, scale: 5, sampler: 'k_euler_ancestral', pre: 'masterpiece, best quality, very aesthetic', tag: true },
+    openai: { site: 'official', model: 'gpt-image-1', size: '1024x1024' },
     sd: { url: 'http://127.0.0.1:7860', size: '512x768', steps: 20, scale: 7, sampler: 'Euler a', tag: true },
     comfy: { url: 'http://127.0.0.1:8188', size: '512x768', steps: 20, scale: 7, sampler: 'euler_ancestral', tag: true },
     sf: { model: 'Kwai-Kolors/Kolors', size: '1024x1024', steps: 20, scale: 7.5 },
@@ -502,8 +509,8 @@ let AU; const play = b => { AU?.pause(); AU = new Audio(URL.createObjectURL(b));
 export const ttsCfg = pv => { prof('tts'); const a = S.api.tts, c = a.cfg[pv] ||= structuredClone(PDEF.tts[pv] || {}); c.prov = pv; c.name = TTSP.find(x => x[0] == pv)?.[1] || pv; return c; };
 // 联系人的专属音色（仿正文朗读插件）：c.tv = { pv: 服务商（空＝跟随全局）, v: { 服务商: 音色ID }, lang: MiniMax 朗读语言, say: [[写法, 读音]] }
 // 「统一用一个渠道」：都用全局服务商，取这个人在这个服务商下填的音色；「每个人用自己的渠道」：按这个人选的服务商（没选就看他填了哪个）
-export const voiceOf = c => {
-  const a = S.api.tts, g = prof('tts').prov, tv = c?.tv || {}, v = tv.v || {};
+export const voiceOf = (c, app) => {
+  const a = S.api.tts, g = bindOf('tts', app) || prof('tts').prov, tv = c?.tv || {}, v = tv.v || {};
   if (c?.voice && !Object.values(v).some(Boolean)) v[g] = c.voice; // 旧版只有一个音色：算在当前服务商下
   if (a.mode != 'per') return { pv: g, voice: v[g] || '' };
   const pv = tv.pv || g; if (v[pv]) return { pv, voice: v[pv] };
@@ -512,16 +519,16 @@ export const voiceOf = c => {
 // 名字读音：合成前把「写法」换成「读音」（比如日文名字）
 const sayAs = (t, L) => (L || []).reduce((s, [w, r]) => w && r ? s.split(w).join(r) : s, t);
 // 这个人实际用哪个音色：专属音色 → （开了「用全局默认音色」才往下）按性别的男 / 女默认音色 → 服务商的音色 ID
-export const pickVoice = (c, p, sex) => { const vo = c ? voiceOf(c) : null, sx = c?.sex || sex;
+export const pickVoice = (c, p, sex, app) => { const vo = c ? voiceOf(c, app) : null, sx = c?.sex || sex;
   if (vo?.voice) return { v: vo.voice, from: 'own' };
   if (c && S.api.tts.fb === false) return { v: '', from: 'none' };
   const g = sx == '男' ? p.vm : sx == '女' ? p.vf : ''; return g ? { v: g, from: sx } : { v: p.voice || '', from: p.voice ? 'pv' : 'none' }; };
 // o：{ c: 联系人 }，按这个人的服务商、朗读语言、名字读音来读
 export const tts = (text, voice, sex, sg0, o = {}) => {
-  const vo = o.c ? voiceOf(o.c) : null, pO = vo && vo.pv != prof('tts').prov ? ttsCfg(vo.pv) : null;
+  const vo = o.c ? voiceOf(o.c, o.app) : null, pv = vo?.pv || bindOf('tts', o.app), pO = pv && pv != prof('tts').prov ? ttsCfg(pv) : null;
   return call('tts', '语音', text, async (p, sg) => {
     if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`);
-    const pk = voice ? { v: voice } : pickVoice(o.c, p, sex), v = pk.v, t = sayAs(text, o.c?.tv?.say), q = tq(p);
+    const pk = voice ? { v: voice } : pickVoice(o.c, p, sex, o.app), v = pk.v, t = sayAs(text, o.c?.tv?.say), q = tq(p);
     if (o.c && pk.from == 'none') throw Error('还没给 TA 配音色');
     const b = await (TTS[q.prov] || TTS.openai)({ ...q, ...(o.c?.tv?.lang && { lang: o.c.tv.lang }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
     await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · ${p.name || p.prov} · 音色 ${v || '默认'}]`;
@@ -530,6 +537,17 @@ export const tts = (text, voice, sex, sg0, o = {}) => {
 
 /* ---------- 生图渠道 ---------- */
 export const IMGP = [['nai', 'NovelAI / NAI'], ['openai', 'GPT / OpenAI兼容'], ['sd', '本地SD'], ['comfy', 'ComfyUI'], ['sf', '硅基流动']];
+// NAI / GPT：官方站点 / 公益站点 / 自定义地址，三个各存一份地址和 Key
+export const IURL = { nai: 'https://image.novelai.net', openai: 'https://api.openai.com/v1' };
+export const ISITE = [['official', '官方站点'], ['public', '公益站点'], ['custom', '自定义地址']];
+export const iq = p => { if (!p || !IURL[p.prov]) return p; const st = p.site || 'official';
+  const url = st == 'public' ? p.purl : st == 'custom' ? p.curl : IURL[p.prov], key = st == 'public' ? p.pkey : st == 'custom' ? p.ckey : p.key;
+  if (st != 'official' && !trim(url || '')) throw Error(st == 'public' ? '请先填写公益站地址' : '请先填写自定义地址');
+  return { ...p, url: trim(url), key: key || '' }; };
+// 按应用选渠道：S.api.img.bind = { chat: 'nai', moments: 'openai' }；空＝跟随默认
+export const APPS_IMG = [['chat', '聊天发图'], ['moments', '朋友圈配图']], APPS_TTS = [['p', '私聊语音'], ['g', '群聊语音']];
+const bindOf = (t, app) => { const a = S.api[t], k = app && a.bind?.[app], P = t == 'tts' ? TTSP : IMGP; return k && P.some(x => x[0] == k) ? k : ''; };
+export const imgCfg = pv => { prof('img'); const a = S.api.img, c = a.cfg[pv] ||= structuredClone(PDEF.img[pv] || {}); c.prov = pv; c.name = IMGP.find(x => x[0] == pv)?.[1] || pv; return c; };
 const wh = (s, w, h) => { const m = String(s || '').match(/(\d+)\s*[x×*]\s*(\d+)/); return m ? [+m[1], +m[2]] : [w, h]; };
 const seed = () => Math.floor(Math.random() * 4294967295);
 // NAI 返回 zip：按中央目录取第一个文件（不压缩 / deflate 都支持）
@@ -556,14 +574,21 @@ export const COMFY = JSON.stringify({
 export const fillWf = (wf, o) => wf.replace(/"%(\w+)%"/g, (m, k) => k in o ? JSON.stringify(o[k]) : m).replace(/%(\w+)%/g, (m, k) => k in o ? JSON.stringify(String(o[k])).slice(1, -1) : m);
 const NEG = 'lowres, bad anatomy, bad hands, missing fingers, text, error, watermark, worst quality, low quality, blurry';
 const IMG = {
-  openai: async (p, pr, sg) => { const d = (await (await req(p, '/images/generations', { model: p.model, prompt: pr, n: 1, size: p.size || '1024x1024' }, sg)).json()).data?.[0]; return d?.url || d?.b64_json && 'data:image/png;base64,' + d.b64_json; },
+  openai: async (p, pr, sg) => {
+    if (p.omode == 'chat') { // 有的公益站只开了聊天接口：让模型直接回一张图
+      const j = await (await req(p, '/chat/completions', { model: p.model || 'gpt-image-1', stream: false, messages: [{ role: 'user', content: `请根据下面的提示词生成一张图片，只返回图片。\n尺寸：${p.size || '1024x1024'}\n\n${pr}` }] }, sg)).json(), m = j.choices?.[0]?.message || {};
+      const im = m.images?.[0]?.image_url?.url || (Array.isArray(m.content) ? m.content.find(x => x.type == 'image_url')?.image_url?.url : ''), tx = typeof m.content == 'string' ? m.content : '';
+      const u = im || (tx.match(/data:image\/[\w+]+;base64,[A-Za-z0-9+/=]+/) || tx.match(/!\[[^\]]*\]\((\S+?)\)/) || tx.match(/https?:\/\/\S+?\.(?:png|jpe?g|webp|gif)(?:\?\S*)?/i) || [])[1] || (tx.match(/data:image\/[\w+]+;base64,[A-Za-z0-9+/=]+|https?:\/\/\S+?\.(?:png|jpe?g|webp|gif)(?:\?\S*)?/i) || [])[0];
+      if (!u) throw Error('聊天接口没有返回图片：' + (tx || JSON.stringify(j)).slice(0, 120)); return u;
+    }
+    const d = (await (await req(p, '/images/generations', { model: p.model, prompt: pr, n: 1, size: p.size || '1024x1024' }, sg)).json()).data?.[0]; return d?.url || d?.b64_json && 'data:image/png;base64,' + d.b64_json; },
   sf: async (p, pr, sg) => { const j = await (await post(base(p.url || 'https://api.siliconflow.cn/v1') + '/images/generations', { model: p.model || 'Kwai-Kolors/Kolors', prompt: pr, image_size: p.size || '1024x1024', batch_size: 1, num_inference_steps: +p.steps || 20, guidance_scale: +p.scale || 7.5, ...(p.neg && { negative_prompt: p.neg }) }, { Authorization: B + p.key }, sg)).json(); return j.images?.[0]?.url || j.data?.[0]?.url; },
   sd: async (p, pr, sg) => { const [w, h] = wh(p.size, 512, 768), j = await (await post(trim(p.url || 'http://127.0.0.1:7860') + '/sdapi/v1/txt2img', { prompt: pr, negative_prompt: p.neg || NEG, width: w, height: h, steps: +p.steps || 20, cfg_scale: +p.scale || 7, sampler_name: p.sampler || 'Euler a', seed: -1, ...(p.model && { override_settings: { sd_model_checkpoint: p.model } }) }, {}, sg)).json(); return j.images?.[0] && 'data:image/png;base64,' + j.images[0]; },
   nai: async (p, pr, sg) => {
     const [w, h] = wh(p.size, 832, 1216), m = p.model || 'nai-diffusion-4-5-full', neg = p.neg || NEG, v4 = /diffusion-4/.test(m);
     const prm = { params_version: 3, width: w, height: h, scale: +p.scale || 5, sampler: p.sampler || 'k_euler_ancestral', steps: +p.steps || 28, n_samples: 1, seed: seed(), ucPreset: 0, qualityToggle: true, noise_schedule: 'karras', cfg_rescale: 0, sm: false, sm_dyn: false, dynamic_thresholding: false, legacy: false, add_original_image: true, negative_prompt: neg,
       ...(v4 && { v4_prompt: { caption: { base_caption: pr, char_captions: [] }, use_coords: false, use_order: true }, v4_negative_prompt: { caption: { base_caption: neg, char_captions: [] }, legacy_uc: false } }) };
-    const r = await post(trim(p.url || 'https://image.novelai.net') + '/ai/generate-image', { input: pr, model: m, action: 'generate', parameters: prm }, { Authorization: B + p.key }, sg);
+    const r = await post(trim(p.queue || p.url || IURL.nai) + '/ai/generate-image', { input: pr, model: m, action: 'generate', parameters: prm }, { Authorization: B + p.key }, sg);
     return unzip1(new Uint8Array(await r.arrayBuffer()));
   },
   comfy: async (p, pr, sg) => {
@@ -584,16 +609,15 @@ const IMG = {
 // 结果统一压成 webp 存进聊天数据（链接会过期的渠道也能留住图）；拿不到就保留原链接
 const shrink = async s => { try { return await readImg(s instanceof Blob ? s : await (await fetch(s)).blob(), 1280); } catch { return s instanceof Blob ? URL.createObjectURL(s) : s; } };
 const TAGP = 'Convert the image description into concise comma-separated English Danbooru-style tags (subject, appearance, clothing, expression, pose, scene, lighting). Output tags only.';
-export async function genImg(prompt, sg) {
-  const p = prof('img'), own = !tav('img') && p;
+export async function genImg(prompt, sg, app) {
+  const b = bindOf('img', app), pO = b && b != prof('img').prov ? imgCfg(b) : null, p = pO || prof('img'), own = p;
   if (own && p.tag && ['nai', 'sd', 'comfy'].includes(p.prov) && /[一-龥]/.test(prompt)) {
     try { prompt = String(await llm(TAGP, prompt, '生图提示词', sg, { fast: 1, aux: 1 })).replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/\s*[,，]?\s*\n+\s*/g, ', ').replace(/^[\s,]+|[\s,]+$/g, '') || prompt; } catch (e) { if (sg?.aborted) throw e; }
   }
   own && p.pre?.trim() && (prompt = p.pre.trim().replace(/,\s*$/, '') + ', ' + prompt);
   return call('img', '生图', prompt, async (p, sig) => {
-    if (tav('img')) return slash('/sd quiet=true ' + prompt);
-    const r = await (IMG[p.prov] || IMG.openai)(p, prompt, sig); if (!r) throw Error('没有返回图片'); return putMedia(await shrink(r), 'ai');
-  }, sg);
+    const r = await (IMG[p.prov] || IMG.openai)(iq(p), prompt, sig); if (!r) throw Error('没有返回图片'); return putMedia(await shrink(r), 'ai');
+  }, sg, pO);
 }
 // 拉取音色：Fish（我的音色，没有就列热门）/ ElevenLabs / MiniMax；其他服务商用快速选择清单
 export async function voices(p) {

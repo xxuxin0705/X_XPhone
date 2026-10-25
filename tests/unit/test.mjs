@@ -189,6 +189,31 @@ console.log('T7 image providers');
   await core.genImg('cat'); const wf = calls.find(c => /8188\/prompt/.test(c.url)).body.prompt;
   ok(wf[4].inputs.ckpt_name == 'sd15.safetensors' && wf[5].inputs.width === 512 && typeof wf[3].inputs.seed == 'number' && wf[7].inputs.text == 'bad "quote"' && polls == 2, 'ComfyUI workflow filled, polled, fetched');
   P({ prov: 'comfy', url: 'http://127.0.0.1:8188' }); let e; try { await core.genImg('cat'); } catch (x) { e = x; } ok(/模型文件名/.test(e?.message), 'ComfyUI without ckpt → clear error');
+  // 接口站点：官方 / 公益站 / 自定义，各用各的地址和 Key
+  const I = o => (S.api.img = { src: 'custom', v: 2, pv: o.prov, cfg: { [o.prov]: o } });
+  I({ prov: 'nai', site: 'public', purl: 'https://nai-pub.test/', pkey: 'PK', key: 'OFF', tag: false }); routes = [[/nai-pub\.test\/ai\/generate-image/, () => new Response(zipD)]];
+  await core.genImg('cat'); c = calls.at(-1); ok(c.url == 'https://nai-pub.test/ai/generate-image' && c.o.headers.Authorization == 'Bearer PK', 'NAI 公益站：用公益站地址和公益站 Key');
+  I({ prov: 'nai', site: 'custom', curl: 'https://nai-my.test', ckey: 'CK', queue: 'https://q.test', tag: false }); routes = [[/q\.test\/ai\/generate-image/, () => new Response(zipD)]];
+  await core.genImg('cat'); c = calls.at(-1); ok(c.url == 'https://q.test/ai/generate-image' && c.o.headers.Authorization == 'Bearer CK', 'NAI 填了排队服务：走排队服务');
+  I({ prov: 'nai', site: 'public', purl: '', tag: false }); e = null; try { await core.genImg('cat'); } catch (x) { e = x; } ok(/公益站地址/.test(e?.message), '公益站没填地址：提示清楚');
+  I({ prov: 'openai', site: 'official', key: 'OK1', model: 'gpt-image-1' }); routes = [[/api\.openai\.com\/v1\/images\/generations/, () => new Response(JSON.stringify({ data: [{ b64_json: Buffer.from(png).toString('base64') }] }))]];
+  await core.genImg('cat'); c = calls.at(-1); ok(c.url == 'https://api.openai.com/v1/images/generations' && c.o.headers.Authorization == 'Bearer OK1', 'GPT 官方站点');
+  I({ prov: 'openai', site: 'public', purl: 'https://gpt-pub.test', pkey: 'GP', omode: 'chat', model: 'gpt-image-2' }); routes = [[/gpt-pub\.test\/v1\/chat\/completions/, () => new Response(JSON.stringify({ choices: [{ message: { content: '好的 ![img](https://gpt-pub.test/out.png)' } }] }))], [/out\.png/, () => new Response(png, { headers: { 'content-type': 'image/png' } })]];
+  calls.length = 0; await core.genImg('cat'); c = calls.find(x => /chat\/completions/.test(x.url)); ok(c && c.o.headers.Authorization == 'Bearer GP' && c.body.model == 'gpt-image-2' && /cat/.test(c.body.messages[0].content) && calls.some(x => /out\.png/.test(x.url)), 'GPT 公益站 + 聊天接口：从回复里取出图片');
+  // 旧设置升级：NAI 的排队地址、OpenAI 自己填的地址
+  S.api.img = { src: 'tavern', pv: 'openai', cfg: { nai: { key: 'A', url: 'https://old-queue.test' }, openai: { key: 'B', url: 'https://relay.my/v1' } } }; core.prof('img');
+  const G = S.api.img; ok(G.src == 'custom' && G.cfg.nai.queue == 'https://old-queue.test' && !G.cfg.nai.url && G.cfg.openai.site == 'custom' && G.cfg.openai.curl == 'https://relay.my/v1' && G.cfg.openai.ckey == 'B', '旧设置升级：不再用酒馆扩展；排队地址、自填地址都保留');
+  // 按应用选渠道：聊天用 NAI、朋友圈用 GPT
+  S.api.img = { src: 'custom', v: 2, pv: 'nai', bind: { moments: 'openai' }, cfg: { nai: { prov: 'nai', site: 'official', key: 'NK', tag: false }, openai: { prov: 'openai', site: 'official', key: 'OK2' } } };
+  routes = [[/novelai/, () => new Response(zipD)], [/api\.openai\.com/, () => new Response(JSON.stringify({ data: [{ b64_json: Buffer.from(png).toString('base64') }] }))]];
+  await core.genImg('cat', undefined, 'chat'); ok(/novelai/.test(calls.at(-1).url), '聊天发图：跟随默认（NAI）');
+  await core.genImg('cat', undefined, 'moments'); ok(/api\.openai\.com/.test(calls.at(-1).url) && calls.at(-1).o.headers.Authorization == 'Bearer OK2', '朋友圈配图：用绑定的 GPT');
+  // 语音也能按应用选：群聊用 Fish、私聊跟随默认 MiniMax
+  S.api.tts = { src: 'custom', v: 2, pv: 'mm', mode: 'unified', bind: { g: 'fish' }, cfg: { mm: { prov: 'mm', key: 'MK', model: 'speech-2.6-hd' }, fish: { prov: 'fish', key: 'FK', model: 's1' } } };
+  const man = { sex: '男', tv: { v: { mm: 'male-qn-jingying', fish: 'fishv' } } };
+  routes = [[/minimaxi\.com/, () => new Response(JSON.stringify({ base_resp: { status_code: 0 }, data: { audio: 'fffb9064' } }))], [/fish\.audio/, () => new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'audio/mpeg' } })]];
+  await core.tts('嗨', '', '', undefined, { c: man, app: 'p' }); ok(/minimaxi/.test(calls.at(-1).url) && calls.at(-1).body.voice_setting.voice_id == 'male-qn-jingying', '私聊语音：跟随默认（MiniMax），用这个人在 MiniMax 的音色');
+  await core.tts('嗨', '', '', undefined, { c: man, app: 'g' }); ok(/fish\.audio/.test(calls.at(-1).url) && calls.at(-1).body.voice == 'fishv', '群聊语音：用绑定的 Fish，用这个人在 Fish 的音色');
 }
 
 console.log('T8 settings UI: every provider form renders, switching provider swaps defaults');
@@ -197,7 +222,7 @@ console.log('T8 settings UI: every provider form renders, switching provider swa
   for (const t of ['tts', 'img']) {
     S.api[t] = { src: 'custom', cur: '', list: [] }; set.acts.api(t); const pg = top();
     const list = t == 'tts' ? core.TTSP : core.IMGP;
-    ok((t == 'tts' ? /语音渠道[\s\S]*角色库/.test(pg.el.innerHTML) && !/酒馆扩展/.test(pg.el.innerHTML) : /自选服务商/.test(pg.el.innerHTML)) && pg.el.innerHTML.includes('data-k="pv"'), t + (t == 'tts' ? ' page: 语音渠道 / 角色库（没有酒馆扩展）+ 服务商下拉框' : ' page: 酒馆扩展 / 自选服务商 + 服务商下拉框'));
+    ok((t == 'tts' ? /语音渠道[\s\S]*角色库/.test(pg.el.innerHTML) && !/酒馆扩展/.test(pg.el.innerHTML) : !/酒馆扩展/.test(pg.el.innerHTML) && /按应用选渠道[\s\S]*聊天发图[\s\S]*朋友圈配图/.test(pg.el.innerHTML)) && pg.el.innerHTML.includes('data-k="pv"'), t + (t == 'tts' ? ' page: 语音渠道 / 角色库（没有酒馆扩展）+ 服务商下拉框' : ' page: 没有酒馆扩展，按应用选渠道 + 服务商下拉框'));
     ok(S.api[t].pv == list[0][0], `${t} defaults to ${list[0][1]}`);
     for (const [k, label] of list) { S.api[t].pv = k; core.prof(t); pg.onChange('pv'); const h = pg.el.innerHTML; ok(h.includes(`value="${k}" selected`) && h.includes(`cfg.${k}.`) && !/undefined/.test(h), `${t}/${label} fields render`); }
     if (t == 'img') { S.api.img.pv = 'sd'; const c = core.prof('img'); ok(c.size == '512x768' && c.steps == 20 && c.url == 'http://127.0.0.1:7860', 'SD has its own defaults (size/steps/url)'); }

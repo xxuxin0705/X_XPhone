@@ -4,7 +4,6 @@
 //   · 你自己导入的表情包组（相册里的图 / 图片链接）：图片存在酒馆里
 //   · ChineseBQB（github.com/zhaoolee/ChineseBQB）：作者开放的表情包数据源，图片在 zhaoolee.com，备用线路 jsDelivr
 //   · Waline 表情预设（github.com/walinejs/emojis）：图片走 npm 镜像 CDN（国内 npmmirror，备用 unpkg / jsDelivr）
-//   · 网络表情（搜狗 / 百度表情，apihz.cn 免费接口；GIPHY 要自己的免费 Key）：只在库里不够时补充
 import { S, save, esc, $, page, back, toast, ok, uid, getJ, emit, menu, form, pickFile, readImg, putMedia, drop } from '../../core.js';
 import { WL, FL } from './sticker-data.js';
 import { readText } from './ocr.js';
@@ -130,38 +129,12 @@ export async function packSearch(q) {
   return [...hit.entries()].filter(e => packMeta(e[0])).sort((a, b) => b[1] - a[1] || bonus(b[0]) - bonus(a[0])).map(e => e[0]);
 }
 
-/* ---------- 网络表情（补充）：搜狗 / 百度（apihz.cn 免费接口）、GIPHY（要 Key） ---------- */
-export const STKP = [['sogou', '搜狗表情'], ['baidu', '百度表情'], ['giphy', 'GIPHY']];
-const STK_PUB = '88888888', webC = new Map();
-const webUrl = (src, q, pg) => {
-  const c = S.stk, w = encodeURIComponent(q.slice(0, 10));
-  if (src == 'giphy') return `https://api.giphy.com/v1/stickers/search?api_key=${encodeURIComponent(c.gk)}&q=${encodeURIComponent(q)}&limit=24&offset=${(pg - 1) * 24}&lang=zh-CN&rating=pg-13`;
-  return `https://cn.apihz.cn/api/img/apihzbqb${src == 'baidu' ? 'baidu' : 'sougou'}.php?id=${encodeURIComponent(c.id || STK_PUB)}&key=${encodeURIComponent(c.key || STK_PUB)}&words=${w}&page=${pg}${src == 'baidu' ? '&limit=24' : ''}`;
-};
-const webParse = (src, j) => {
-  if (src == 'giphy') { if (j.meta?.status && j.meta.status != 200) throw Error(j.meta.msg || 'GIPHY 出错'); return (j.data || []).map(d => ({ img: d.images?.fixed_width?.url || d.images?.original?.url, th: d.images?.fixed_width_small?.url || d.images?.fixed_width?.url })).filter(x => x.img); }
-  if (j.code != 200 && !Array.isArray(j.res)) throw Error(j.msg || '表情接口出错');
-  return (j.res || []).map(x => typeof x == 'string' ? x : x?.url || x?.img || x?.src || x?.thumb).filter(u => /^https?:/.test(u || '')).map(u => ({ img: u.replace(/^http:/, 'https:') }));
-};
-// 偏可爱风：关键词后面加「可爱」再搜（关掉就原样搜）
-export const webQ = q => S.stk.cute && !/可爱|萌/.test(q) && q.length <= 7 ? q + '可爱' : q;
-export async function webSearch(q, pg = 1, signal) {
-  q = String(q || '').trim(); if (!q) return [];
-  const src = S.stk.src == 'giphy' && !S.stk.gk ? 'sogou' : S.stk.src, qq = src == 'giphy' ? q : webQ(q), k = [src, qq, pg].join('|');
-  if (webC.has(k)) return webC.get(k);
-  const order = src == 'giphy' ? ['giphy'] : [src, src == 'sogou' ? 'baidu' : 'sogou']; let err;
-  for (const s of order) {
-    try { const L = webParse(s, await getJ(webUrl(s, qq, pg), signal)).map(x => ({ ...x, l: q, k: 'web' })); if (L.length || s == order.at(-1)) { webC.set(k, L); return L; } }
-    catch (e) { if (signal?.aborted) throw e; err = e; }
-  }
-  throw err || Error('没搜到');
-}
-// AI 发的 [表情包:关键词]：先在表情库里找（你添加的组 > 可爱精选 > 其他），找不到再上网搜；结果存进消息，之后不会变
+// AI 发的 [表情包:关键词]：在表情库里找（你添加的组 > 可爱精选 > 其他）；结果存进消息，之后不会变
 export async function stkFind(q) {
   q = String(q || '').replace(/[（()）【】\[\]「」"“”]/g, '').trim(); if (!q) return '';
   const L = (await localSearch(q, 6)).filter(x => x.sc >= 75);
   if (L.length) return msgOf(L[Math.random() * Math.min(3, L.length) | 0], q);
-  try { const W = await webSearch(q); return W.length ? msgOf(W[Math.random() * Math.min(4, W.length) | 0], q) : ''; } catch { return null; } // null＝网络出错，下次还会再试
+  return '';
 }
 // 表情 → 消息字段
 export const msgOf = (x, q) => { const pk = x.k && x.k != 'web' && x.k != 'fav' ? packMeta(x.k)?.name : ''; return { t: 'sticker', c: x.l || q || '表情', img: x.img, ...(x.d && { d: x.d }), ...(pk && { pk }), ...(x.alt?.length && { alt: x.alt.join('|') }), ...(x.sm && { sz: 's' }) }; };
@@ -234,29 +207,27 @@ export function storePage(send) {
 }
 
 const HOT = ['摸摸头', '开心', '无语', '哭哭', '晚安', '爱你', '生气', '加油', '震惊', '委屈', '贴贴', '傲娇'];
-// 搜索表情（仿微信）：输入关键词 → 「全部表情」一排图（库里的可爱风优先，不够再补网络表情）/「表情包」可以直接添加整组
+// 搜索表情（仿微信）：输入关键词 → 「全部表情」一排图（库里的可爱风优先）/「表情包」可以直接添加整组
 export function stkPage(send) {
-  let q = '', L = [], W = [], packs = [], tab = 'all', stt = '', werr = '', wpg = 1, wmore = true, ac = null, tm = 0;
+  let q = '', L = [], packs = [], tab = 'all', stt = '', ac = null, tm = 0;
   const grid = A => `<div class="sks-g">${A.map(x => `<div class="sks-i ${x.sm ? 'sm' : ''}" data-a="skp" data-x="${x._i}">${imgH(x)}</div>`).join('')}</div>`;
   const out = () => {
     if (!q) return `${S.stk.recent.length ? `<div class="sks-h"><span>最近在搜</span><b data-a="skclr">清空</b></div><div class="sks-ch">${S.stk.recent.map(x => `<b data-a="skq" data-x="${esc(x)}">${esc(x)}</b>`).join('')}</div>` : ''}<div class="sks-h"><span>大家都在搜</span></div><div class="sks-ch">${HOT.map(x => `<b data-a="skq" data-x="${x}">${x}</b>`).join('')}</div><div class="sks-go" data-a="skstore">精选表情 ›</div>`;
     const tabs = `<div class="sks-tab">${[['all', '全部表情'], ['pk', '表情包']].map(([k, l]) => `<b data-a="sktab" data-x="${k}" class="${tab == k ? 'on' : ''}">${l}</b>`).join('')}</div>`;
-    if (stt == 'ld' && !L.length && !W.length) return tabs + `<div class="sks-st"><i class="spin"></i>正在搜索</div>`;
+    if (stt == 'ld' && !L.length) return tabs + `<div class="sks-st"><i class="spin"></i>正在搜索</div>`;
     if (tab == 'pk') return tabs + (packs.length ? `<div class="sp-list">${packs.map(id => { const m = packMeta(id); return `<div class="sp-row" data-a="spo" data-x="${id}">${coverH(id, 'sp-ic')}<div><b>${esc(m.name)}</b><small>${esc(m.desc)}</small></div>${addBtn(id)}</div>`; }).join('')}</div>` : `<div class="sks-st">没有找到「${esc(q)}」相关的表情包</div>`);
-    const all = [...L, ...W]; all.forEach((x, i) => x._i = i);
-    if (!all.length) return tabs + (werr ? `<div class="sks-st">${esc(werr)}<small>表情库里没有，网络表情也没连上</small><b data-a="skre">重试</b></div>` : `<div class="sks-st">没有找到「${esc(q)}」相关的表情</div>`);
-    return tabs + (L.length ? grid(L) : '') + (W.length ? `<div class="sks-sub">网络表情</div>${grid(W)}` : '') + (stt == 'ld' ? '<div class="sks-st sm"><i class="spin"></i></div>' : W.length && wmore ? '<div class="sks-more" data-a="skmore">加载更多</div>' : !W.length && L.length ? '<div class="sks-more" data-a="skmore">搜索更多网络表情</div>' : '');
+    const all = L; all.forEach((x, i) => x._i = i);
+    if (!all.length) return tabs + (`<div class="sks-st">没有找到「${esc(q)}」相关的表情</div>`);
+    return tabs + grid(L) + (stt == 'ld' ? '<div class="sks-st sm"><i class="spin"></i></div>' : '');
   };
   const draw = () => { const o = $('.sks-out', P.el); o && (o.innerHTML = out()); };
-  const web = async a => { try { const r = await webSearch(q, wpg, a.signal); if (a != ac) return; W = [...W, ...r]; wmore = r.length >= 8; } catch (e) { if (a == ac && !a.signal.aborted) werr = '网络表情没搜到：' + e.message; } };
   const go = async k => {
-    k = String(k ?? q).trim(); clearTimeout(tm); ac?.abort(); q = k; L = []; W = []; packs = []; wpg = 1; wmore = true; werr = '';
+    k = String(k ?? q).trim(); clearTimeout(tm); ac?.abort(); q = k; L = []; packs = [];
     const ip = $('.sks-ip', P.el); ip && ip.value != q && (ip.value = q); $('.sks-bar', P.el)?.classList.toggle('has', !!q);
     if (!q) { stt = ''; return draw(); }
     stt = 'ld'; draw(); const a = ac = new AbortController();
     L = await localSearch(q); if (a != ac) return; packs = await packSearch(q); if (a != ac) return;
     stkRecent(q); draw();
-    if (L.length < 16) await web(a); if (a != ac) return;
     stt = ''; draw();
   };
   const P = open({
@@ -270,11 +241,10 @@ export function stkPage(send) {
     },
     acts: {
       skq: x => go(x), skre: () => go(), sktab: k => { tab = k; draw(); },
-      skmore: async () => { if (stt == 'ld') return; W.length && wpg++; stt = 'ld'; draw(); await web(ac); stt = ''; draw(); },
       skx: () => { go(''); $('.sks-ip', P.el).focus(); },
       skclr: () => { S.stk.recent = []; save(); draw(); },
       skstore: () => storePage(send), spo: id => packPage(id, send), spadd: id => tog(id, P),
-      skp: i => preview(P, [...L, ...W][i], send),
+      skp: i => preview(P, L[i], send),
       ...pvActs(() => P, send, () => q),
     },
   });
