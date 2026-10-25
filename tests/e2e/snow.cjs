@@ -24,7 +24,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await tap(await at(`[s.sm.cx, s.sm.y + s.sm.h * .6]`)); s = await st(); ok(s.wob > 0, '点雪人：晃一晃、亮一下');
   const [hx, hy] = await at(`[s.sm.cx, s.sm.y + s.sm.h * .6]`); await p.mouse.move(hx, hy); await p.mouse.down(); await W(800); await p.mouse.up(); s = await st(); ok(s.col == 1, '长按雪人：身体里的灯换颜色');
   const [tx, ty] = await at(`[s.tree.x, s.tree.by - s.tree.h * .3]`); await p.mouse.move(tx, ty); await p.mouse.down(); await W(800); await p.mouse.up(); s = await st(); ok(s.chunks > 10 && s.mode == 1, '长按圣诞树：积雪抖落下来（灯不会被关掉）');
-  const sky = await at(`[s.W * .8, s.H * .12]`); await tap(sky); await tap(sky); s = await st(); ok(s.swirl > .5, '双击天空：雪花像水晶球一样卷起来');
+  const sky = await at(`[s.W * .8, s.H * .12]`); await p.mouse.move(...sky); await p.mouse.down(); await p.mouse.up(); await p.mouse.down(); await p.mouse.up(); await W(150); s = await st(); ok(s.swirl > .5, '双击天空：雪花像水晶球一样卷起来');
   // 天空中间慢慢往上拖不解锁；从底部上滑才解锁
   await p.mouse.move(sky[0], sky[1] + 200); await p.mouse.down(); for (let i = 1; i <= 6; i++) { await p.mouse.move(sky[0], sky[1] + 200 - i * 15); await W(40); } await p.mouse.up(); await W(300);
   ok(await E('lk.isLocked()'), '在画面中间慢慢上滑不会误解锁');
