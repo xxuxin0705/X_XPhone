@@ -3,8 +3,7 @@
 //       雪地上写字（WebGL 实时算凹槽的明暗，雪印约 3 秒被新雪抹平）、点飞过镜头的大冰晶（贴在玻璃上慢慢化成水珠滑下去）、
 //       双击天空 / 摇手机（像摇雪花水晶球）、放着不动窗边会结霜（用手指擦掉）。画面固定不动，倾斜手机只改变落雪的风向。
 // 每次打开锁屏都重新初始化：写的字、擦的霜都会恢复原样。
-import { hanabi, loadHanabi } from './lockfx-umb.js';
-export const SCENES = [['snownight', '雪夜'], ['hanabi', '伞下烟火']];
+export const SCENES = [['snownight', '雪夜']];
 const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x)), lerp = (a, b, t) => a + (b - a) * t;
 const ss = (a, b, x) => { x = clamp((x - a) / (b - a)); return x * x * (3 - 2 * x); };
@@ -389,12 +388,12 @@ const snownight = {
   },
 };
 
-export const FX = { snownight, hanabi };
+export const FX = { snownight };
 export const __dev = { crystal, frostLayers };
 export const sceneInk = k => FX[k] ? { ink: FX[k].ink, shade: FX[k].shade } : { ink: '#fff', shade: 'rgba(0,0,0,.4)' };
 export const sceneKey = k => FX[k] ? k : SCENES[0][0];
 // 只预先下载正在用的那个场景的图（另一个不用就不占内存）
-export const preloadScene = k => sceneKey(k) == 'hanabi' ? loadHanabi() : loadImgs();
+export const preloadScene = () => loadImgs();
 
 // 挂载到 canvas：自动适配尺寸 / 像素比，页面隐藏时暂停；opts.fps 限帧（小预览用），opts.t 起始时间（截图用）
 // 返回的 input(type, clientX, clientY) 把手指交给场景（返回 true 表示场景用掉了这次触摸）

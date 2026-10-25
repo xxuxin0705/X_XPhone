@@ -2,8 +2,7 @@
 import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok } from '../../core.js';
 import { renderDesk, icon } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
-import { lock, lockMig, custKind } from '../../lock.js';
-import { importXhs } from './xhs.js';
+import { lock, lockMig, custKind, LIVES } from '../../lock.js';
 import { ballGrid, setBall } from '../../ball.js';
 
 const BASE = { '--pg': '#f4f5f7', '--cd': '#fff', '--pt': '#1d1d1f', '--ln': 'rgba(0,0,0,.07)', '--gl': 'rgba(255,255,255,.45)', '--tx': '#fff', '--ink': '#333' };
@@ -33,8 +32,9 @@ const rf = () => { const t = top(); if (!t) return; const b = t.el?.querySelecto
 let pv = [];
 const LIB = () => S.lock.lib ||= [];
 const tile = it => `<div class="lw cu ${S.lock.wp == 'c:' + it.id ? 'on' : ''}" data-a="lwc" data-x="${it.id}" data-lp="lwcm">${it.img ? `<img data-i="${it.id}" alt="">` : `<video data-v="${it.id}" muted loop playsinline autoplay></video>`}${it.img && it.video ? '<em class="live">LIVE</em>' : ''}<span>${custKind(it)}</span></div>`;
-const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp) ? S.lock.wp : String(S.lock.wp).startsWith('c:') ? '' : SCENES[0][0];
-  return `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${sc == k ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}${LIB().map(tile).join('')}<div class="lw vid" data-a="lwadd"><i>＋</i><span>自定义</span></div></div>`
+const btile = it => `<div class="lw bi ${S.lock.wp == 'b:' + it.id ? 'on' : ''}" data-a="lwb" data-x="${it.id}"><img src="${esc(it.img)}" alt=""><em class="live">LIVE</em><span>${esc(it.n)}</span></div>`;
+const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp) ? S.lock.wp : /^[cb]:/.test(String(S.lock.wp)) ? '' : SCENES[0][0];
+  return `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${sc == k ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}${LIVES.map(btile).join('')}${LIB().map(tile).join('')}<div class="lw vid" data-a="lwadd"><i>＋</i><span>自定义</span></div></div>`
   + btn('lprev', '预览锁屏', '', 'pri') + (S.lock.on ? '' : '<p class="tip">还没有开启锁屏：设置 → 锁屏与密码</p>'); };
 const mountPv = (el, pg) => {
   pv.forEach(h => h.stop()); pv = [];
@@ -94,7 +94,8 @@ reg({
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
       lw: k => { S.lock.wp = k; save(); rf(); }, lprev: () => lock(true),
       lwc: id => { S.lock.wp = 'c:' + id; save(); rf(); },
-      lwadd: async () => { const k = await menu([['f', '从相册选（图片 / 视频 / 实况）'], ['x', '从小红书链接导入实况']], '添加自定义锁屏'); k == 'f' && upVid(); k == 'x' && importXhs(rf, async () => (await form('从小红书导入实况', [['t', '分享链接（整段分享文字粘贴进来也行）', 'area']]))?.t ?? null); },
+      lwb: id => { S.lock.wp = 'b:' + id; save(); rf(); },
+      lwadd: () => upVid(),
       lwcm: async id => { const it = LIB().find(x => x.id == id); if (!it) return; const n = custKind(it), k = await menu([['s', '保存到手机'], ['d', '删除这张' + n, 'danger']], '自定义 · ' + n);
         if (k == 's') saveOut(it);
         if (k == 'd' && await ok(`删除这张锁屏${n}？文件也会一起删除`)) { LIB().splice(LIB().indexOf(it), 1); drop([it.img, it.video]); S.lock.wp == 'c:' + id && (S.lock.wp = SCENES[0][0]); save(); rf(); } },

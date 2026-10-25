@@ -75,8 +75,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   console.log('L5 video lock wallpaper (≤5s) + theme picker');
   const vid = fs.readFileSync(path.join(here, 'v3.mp4')).toString('base64'), vlong = fs.readFileSync(path.join(here, 'v8.mp4')).toString('base64');
   await E(`core.home(); core.APPS.theme.open()`); await p.waitForTimeout(1500); await shot('theme_lock');
-  ok(await E(`document.querySelectorAll('.lwg canvas[data-fx]').length == 2`), 'live 雪夜 / 伞下烟火 previews in theme');
-  const pick = async b64 => { await E(`document.querySelector('.lw.vid').click()`); await p.waitForTimeout(400); const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('.sheet.mnu [data-x=f]').click()`)]); await fc.setFiles({ name: 'v.mp4', mimeType: 'video/mp4', buffer: Buffer.from(b64, 'base64') }); await p.waitForTimeout(1500); };
+  ok(await E(`document.querySelectorAll('.lwg canvas[data-fx]').length == 1`), 'live 雪夜 preview in theme');
+  const pick = async b64 => { const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('.lw.vid').click()`)]); await fc.setFiles({ name: 'v.mp4', mimeType: 'video/mp4', buffer: Buffer.from(b64, 'base64') }); await p.waitForTimeout(1500); };
   await pick(vlong); ok(/5 秒以内/.test(await E(`[...document.querySelectorAll('.stp-toast')].map(x => x.textContent).join()`)), '8s video rejected');
   await pick(vid); ok(await E(`(() => { const it = core.S.lock.lib.find(x => 'c:' + x.id == core.S.lock.wp); return !!it && /XPhone\\/lock_\\w+\\.mp4$/.test(it.video); })()`), 'video saved to folder: ' + await E('JSON.stringify(core.S.lock.lib)'));
   await E(`lk.lock(true)`); await p.waitForTimeout(800); ok(await E(`!!document.querySelector('.lock video') && document.querySelector('.lock video').src.includes('XPhone')`), 'lock screen plays the video');

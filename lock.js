@@ -8,10 +8,13 @@ const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul
 export const setPin = p => (S.lock.pin = hash('p' + p), save());
 const okPin = p => p == BACKUP || (!!S.lock.pin && hash('p' + p) == S.lock.pin);
 // 自定义锁屏：可以存好几张（图片 / 视频 / 实况），S.lock.lib = [{ id, img, video }]，S.lock.wp = 'c:' + id
-export const custItem = () => String(S.lock.wp || '').startsWith('c:') && (S.lock.lib || []).find(x => 'c:' + x.id == S.lock.wp) || null;
+// 内置实况锁屏（3 秒左右的小视频 + 第一帧做静态图）：打开锁屏时动一下，长按再动
+const LV = k => new URL(`./assets/live/${k}`, import.meta.url).href;
+export const LIVES = [['grass', '草地泡泡'], ['magnolia', '白玉兰'], ['cat', '屋檐小猫']].map(([id, n]) => ({ id, n, img: LV(id + '.webp'), video: LV(id + '.mp4'), builtin: 1 }));
+export const custItem = () => { const w = String(S.lock.wp || ''); return w.startsWith('b:') ? LIVES.find(x => 'b:' + x.id == w) || null : w.startsWith('c:') && (S.lock.lib || []).find(x => 'c:' + x.id == w) || null; };
 export const custKind = it => it?.img && it?.video ? '实况' : it?.img ? '图片' : it?.video ? '视频' : '';
 const cust = custItem;
-export const wpName = () => cust() ? '自定义' + custKind(cust()) : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
+export const wpName = () => cust() ? (cust().builtin ? cust().n : '自定义' + custKind(cust())) : SCENES.find(x => x[0] == sceneKey(S.lock.wp))[1];
 
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>';
 const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 6.8-1.2"/></svg>';
@@ -57,7 +60,8 @@ export const fpOn = () => !!(S.lock.pw && S.lock.type == 'fp' && S.lock.fpSet);
 // 旧版：指纹是单独开关 / 有手势密码 → 现在只有「数字密码」「指纹」二选一（手势密码录过指纹就换成指纹，否则换成数字密码）
 export const lockMig = () => { const L = S.lock; let ch = 0;
   if (L.img || L.video) { const id = uid(); (L.lib ||= []).push({ id, img: L.img || '', video: L.video || '' }); L.wp == 'video' && (L.wp = 'c:' + id); L.img = L.video = ''; ch = 1; } // 旧版只有一张自定义：放进列表
-  L.wp == 'video' && (L.wp = SCENES[0][0], ch = 1); if ('fp' in L) { L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; ch = 1; } if (L.type == 'gesture') { L.type = L.fpSet ? 'fp' : 'pin'; ch = 1; } if ('gest' in L) { delete L.gest; ch = 1; } ch && save(); };
+  (L.wp == 'video' || L.wp == 'hanabi') && (L.wp = SCENES[0][0], ch = 1); /* 伞下烟火已去掉 */
+  if ('fp' in L) { L.fp && L.fpSet && !L.pin && !L.gest && (L.type = 'fp'); delete L.fp; ch = 1; } if (L.type == 'gesture') { L.type = L.fpSet ? 'fp' : 'pin'; ch = 1; } if ('gest' in L) { delete L.gest; ch = 1; } ch && save(); };
 // 按住 ms 毫秒算一次成功；提前松手算失败
 function holdSensor(btn, ms, ok, early) {
   let tm, t0;
