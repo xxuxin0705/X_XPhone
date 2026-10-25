@@ -26,7 +26,8 @@ const AK = {
   frame: { n: '头像框', f: [['name', '名称'], ['img', '图片（透明PNG）', 'img']] },
   sticker: { n: '表情包', f: [['name', '描述（AI 会按描述发送）'], ['img', '图片', 'img']] },
 };
-const rf = () => top()?.re();
+// 重画时保持滚动位置（不要跳回最上面）
+const rf = () => { const t = top(); if (!t) return; const b = t.el?.querySelector('.pg-b'), sc = b?.scrollTop; t.re(); const b2 = t.el?.querySelector('.pg-b'); b2 && sc != null && (b2.scrollTop = sc); };
 // 锁屏壁纸：动态场景（雪夜、伞下烟火）的实时小预览 + 自定义（图片 / 5 秒内的视频 / 实况照片）
 let pv = [];
 const custKind = () => S.lock.img && S.lock.video ? '实况照片' : S.lock.img ? '图片' : S.lock.video ? '视频' : '';
@@ -79,7 +80,7 @@ reg({
       ['css', '自定义 CSS', f.area('css', '全局 CSS，作用于整个小手机（字体、颜色…）', '#stp{font-family:"LXGW WenKai"}')],
     ]); },
     acts: {
-      ball: k => { setBall(k); rf(); },
+      ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
       lw: k => { S.lock.wp = k; save(); rf(); }, lprev: () => lock(true),
       lwv: async () => { if (!custKind()) return upVid(); S.lock.wp = 'video'; save(); rf(); },
       lwvm: async () => { if (!custKind()) return upVid(); const n = custKind(), k = await menu([['c', '更换'], ['d', '删除' + n, 'danger']], '锁屏' + n); if (k == 'c') upVid(); if (k == 'd' && await ok(`删除这个锁屏${n}？文件也会一起删除`)) { drop([S.lock.img, S.lock.video]); S.lock.img = S.lock.video = ''; S.lock.wp == 'video' && (S.lock.wp = SCENES[0][0]); save(); rf(); } },

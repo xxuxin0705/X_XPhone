@@ -906,7 +906,7 @@
 .vchip.on{background:var(--ac);color:#fff}.vchip i{font-style:normal;padding:0 4px;opacity:.6}
 .vl{gap:10px;cursor:pointer}.vl .av{width:40px;height:40px;border-radius:10px;object-fit:cover;flex:none}.vl>span{flex:1;min-width:0}.vl>span b{display:block;font-weight:500}
 .vl>span small{display:block;margin-top:2px;color:#999;font-size:calc(12px*var(--fz,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vl>span small.ok{color:var(--ac)}.vl .chev{font-style:normal;color:#bbb;font-size:calc(20px*var(--fz,1))}
-#stp-ball.bimg{width:44px;height:63px;border-radius:0!important;background:transparent!important;box-shadow:none!important;border:0!important;outline:0!important;padding:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#stp-ball.bimg{width:33px;height:47px;border-radius:0!important;background:transparent!important;box-shadow:none!important;border:0!important;outline:0!important;padding:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 #stp-ball.bimg::before{display:none}
 #stp-ball.bimg img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none;user-select:none;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:0!important;max-width:none!important;filter:drop-shadow(0 3px 5px rgba(0,0,0,.3))}
 #stp-ball.bimg.dot::after{top:2px;right:0}
@@ -915,3 +915,4 @@
 .bt:active{transform:scale(.94)}.bt img{width:100%;height:76px;object-fit:contain;filter:drop-shadow(0 3px 5px rgba(0,0,0,.18))}
 .bt span{font-size:calc(11px*var(--fz,1));color:#888}.bt.on{background:color-mix(in srgb,var(--ac) 16%,transparent)}.bt.on span{color:var(--ac);font-weight:600}
 .bcur{cursor:pointer;gap:8px}.bcur img{width:32px;height:40px;object-fit:contain;margin-left:auto}.bcur small{color:#999}.bcur .chev{font-style:normal;color:#bbb}
+.row.go .rball{width:26px;height:36px;object-fit:contain;margin-left:6px;flex:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.18))}

@@ -14,7 +14,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.body.style.background = '#1e1e1e'`); await W(200);
   const bs = await E(`(() => { const b = document.querySelector('#stp-ball'), cs = getComputedStyle(b), ca = getComputedStyle(b, '::after'), r = b.getBoundingClientRect(); return { bg: cs.backgroundColor, img: cs.backgroundImage + '|' + (ca.content == 'none' || ca.display == 'none' ? 'none' : ca.backgroundImage), sh: cs.boxShadow, w: r.width, h: r.height }; })()`);
   ok(bs.bg == 'rgba(0, 0, 0, 0)' && bs.img == 'none|none' && bs.sh == 'none', '悬浮窗没有底色、没有方框 ' + JSON.stringify(bs));
-  ok(bs.w <= 48 && bs.h <= 66, '悬浮窗大小跟别的插件的悬浮图标差不多 ' + bs.w + '×' + bs.h);
+  ok(bs.w <= 36 && bs.h <= 50, '悬浮窗缩小到跟别的插件的悬浮图标差不多 ' + bs.w + '×' + bs.h);
   ok(await E(`(() => { const i = document.querySelector('#stp-ball img'), c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight; const x = c.getContext('2d'); x.drawImage(i, 0, 0); const px = (a, b) => x.getImageData(a, b, 1, 1).data[3]; return [px(1, 1), px(c.width - 2, 1), px(1, c.height - 2), px(c.width - 2, c.height - 2)].every(v => v == 0); })()`), '图片四个角是透明的（抠干净了）');
   await p.screenshot({ path: path.join(OUT, 'ball_float.png'), clip: await E(`(() => { const r = document.querySelector('#stp-ball').getBoundingClientRect(); return { x: r.left - 30, y: r.top - 30, width: r.width + 60, height: r.height + 60 }; })()`) });
   await p.click('#stp-ball'); await W(400);
@@ -26,11 +26,16 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.waitForFunction(`[...document.querySelectorAll('.bgrid img')].every(i => i.complete && i.naturalWidth > 0)`, null, { timeout: 8000 }).catch(() => {});
   ok(await E(`[...document.querySelectorAll('.bgrid img')].every(i => i.naturalWidth > 0)`), '12 张图都在');
   await p.locator('[data-sec=ball]').screenshot({ path: path.join(OUT, 'ball_theme.png') });
+  await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop = 260`); await W(200); const sc0 = await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop`);
   await E(`document.querySelector('.bgrid .bt[data-x=witch]').click()`); await W(400);
+  ok(sc0 > 100 && await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop`) == sc0, '选图标：页面不跳，位置不变 ' + sc0);
+  await E(`document.querySelector('.lw[data-x=snownight]').click()`); await W(500);
+  ok(Math.abs(await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop`) - sc0) < 2, '选锁屏壁纸：页面也不跳');
   ok(await E(`core.S.ball`) == 'witch' && /ball\/witch\.webp/.test(await E(`document.querySelector('#stp-ball img').src`)) && await E(`document.querySelector('.bgrid .bt.on')?.dataset.x`) == 'witch', '点「魔法」：悬浮窗马上换了，选中的高亮');
   // 设置 → 显示方式
   await E(`core.home(); core.APPS.settings.open()`); await W(500);
-  ok(/悬浮窗 · 魔法/.test(await E(`document.querySelector('[data-a=disp]')?.textContent || ''`)), '设置首页：显示方式写着「悬浮窗 · 魔法」');
+  ok(/悬浮窗 · 魔法/.test(await E(`document.querySelector('[data-a=disp]')?.textContent || ''`)) && /ball\/witch\.webp/.test(await E(`document.querySelector('[data-a=disp] img.rball')?.src || ''`)), '设置首页：显示方式写着「悬浮窗 · 魔法」，还显示小手机图标');
+  await p.locator('.pg.in:last-child .card:has([data-a=disp])').screenshot({ path: path.join(OUT, 'ball_set.png') });
   await E(`document.querySelector('[data-a=disp]').click()`); await W(500);
   ok(/悬浮窗图标[\s\S]*魔法/.test(await E(`document.querySelector('.bcur')?.textContent || ''`)) && /witch/.test(await E(`document.querySelector('.bcur img').src`)), '显示方式里显示当前用的图标');
   await E(`document.querySelector('.bcur').click()`); await W(500);
