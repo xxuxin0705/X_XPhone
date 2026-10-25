@@ -92,13 +92,14 @@ async function wallpaper() {
   el.style.setProperty('--lk-ink', k == 'video' ? '#fff' : ink.ink); el.style.setProperty('--lk-shade', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   ui.scr.style.setProperty('--lk-sb', k == 'video' ? '#fff' : ink.ink); ui.scr.style.setProperty('--lk-sbs', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   if (k == 'video') {
-    const it = cust(), [iu, vu] = await Promise.all([it.img ? mediaSrc(it.img).catch(() => '') : '', it.video ? mediaSrc(it.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
-    if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted playsinline preload="auto"></video>`; const v = $('video', bg); v.onended = () => v.classList.remove('on'); visible() && playLive(); return; } // 实况照片：打开时动一下，长按再动
-    bg.innerHTML = iu ? `<img src="${esc(iu)}">` : `<video src="${esc(vu)}" autoplay muted loop playsinline></video>`; $('video', bg)?.play?.().catch(() => {}); return;
+    const it = cust(), [iu, vu] = await Promise.all([it.img ? mediaSrc(it.img).catch(() => '') : '', it.video ? vidSrc(it.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
+    if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted playsinline preload="auto"></video>`; const v = $('video', bg); v.onended = () => v.classList.remove('on'); v.onerror = () => vidErr(v); visible() && playLive(); return; } // 实况照片：打开时动一下，长按再动
+    bg.innerHTML = iu ? `<img src="${esc(iu)}">` : `<video src="${esc(vu)}" autoplay muted loop playsinline></video>`; const v2 = $('video', bg); v2 && (v2.onerror = () => vidErr(v2), v2.play?.().catch(() => {})); return;
   }
   bg.innerHTML = '<canvas></canvas>'; fx = mountScene($('canvas', bg), k, { active: () => locked && visible() });
 }
 export function lock(preview) {
+  preview && S.lock.rand && randLock(); // 随机锁屏开着时预览：每次从勾选的里面随机一张
   el ||= ui.lock; if (!el) return; lockMig();
   locked = true; el.hidden = false; el.className = 'lock' + (preview ? ' pv' : '') + (fpOn() ? ' fp' : ''); ui.scr.classList.add('locked');
   el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock"><small class="lk-date"></small><b class="lk-time"></b>${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
@@ -109,7 +110,12 @@ export function lock(preview) {
   const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && h.isConnected && (h.textContent = hintText()), 1600); });
 }
 // 实况照片：从头放一遍，放完回到照片
-const playLive = () => { const v = el && $('.lk-bg video.live', el); if (!v) return; v.currentTime = 0; v.classList.add('on'); v.play?.().catch(() => v.classList.remove('on')); };
+// 实况照片：从头放一遍，放完回到照片（视频还没加载好就等加载好再放）
+const playLive = () => { const v = el && $('.lk-bg video.live', el); if (!v) return; const go = () => { try { v.currentTime = 0; } catch { } v.classList.add('on'); v.play?.().catch(e => { v.classList.remove('on'); e?.name == 'NotSupportedError' && vidErr(v); }); };
+  v.readyState >= 2 ? go() : (v.addEventListener('canplay', go, { once: true }), v.load?.()); };
+// 视频先整个读进内存再播（TauriTavern 直接用文件地址放视频经常放不出来）
+const vidSrc = async u => { const s = await mediaSrc(u); if (/^(blob|data):/.test(s)) return s; const b = await (await fetch(s)).blob(); return URL.createObjectURL(/^video\//.test(b.type) ? b : new Blob([b], { type: 'video/mp4' })); };
+const vidErr = v => { if (v._err) return; v._err = 1; const c = v.error?.code; toast(c == 4 ? '这段实况视频手机解码不了（可能是 HEVC / H.265 编码），只能显示照片' : '实况视频加载失败' + (c ? '（错误 ' + c + '）' : '')); };
 export const liveOn = () => !!(el && $('.lk-bg video.live.on', el));
 // 第一次看到锁屏时提示一下能怎么玩
 const tip = preview => { if (!fx?.interactive) return; const h = $('.lk-hint span', el); h.textContent = fx.hint || hintText(preview); clearTimeout(tip.t); tip.t = setTimeout(() => locked && h.isConnected && (h.textContent = hintText(preview)), 3800); };

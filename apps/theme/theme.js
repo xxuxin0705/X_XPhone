@@ -79,7 +79,7 @@ async function saveOut(it) {
 // 选锁屏：随机关着＝换成这张；开着＝加入 / 去掉随机
 function pickLock(k) {
   if (!S.lock.rand) { S.lock.wp = k; save(); return rf(); }
-  const P = S.lock.pool ||= []; P.includes(k) ? P.length > 1 ? P.splice(P.indexOf(k), 1) : toast('至少留一张') : P.push(k); save(); rf();
+  const P = S.lock.pool ||= []; P.includes(k) ? P.length > 1 ? P.splice(P.indexOf(k), 1) : toast('至少留一张') : P.push(k); P.includes(S.lock.wp) || (S.lock.wp = P[0]); save(); rf(); // 现在用的那张被去掉了：换成勾选里的
 }
 // 桌面壁纸：可以存好几张，随机壁纸开着时每次回到桌面 / 打开手机随机换一张勾选的（「主题」＝主题自带的壁纸）
 const WALLS = () => S.walls ||= [];
@@ -89,7 +89,7 @@ const won = id => S.wrand ? (S.wpool || []).includes(id) : curWall() == id;
 const wallSec = () => { wallMig(); const t = THEMES[S.theme] || THEMES.matcha;
   return fx(S).tog('wrand', '随机壁纸<small>每次回到桌面、打开手机随机换一张勾选的壁纸</small>') + `<div class="lwg wpg"><div class="lw ${won('theme') ? 'on' : ''}" data-a="wsel" data-x="theme"><i class="wth" style="background:${t.v['--wp']}"></i><span>主题壁纸</span></div>${WALLS().map(w => `<div class="lw cu ${won(w.id) ? 'on' : ''}" data-a="wsel" data-x="${w.id}" data-lp="wdel"><img src="${esc(w.img)}" alt=""><span>壁纸</span></div>`).join('')}<div class="lw vid" data-a="wadd"><i>＋</i><span>上传</span></div></div>`; };
 function pickWall(id) {
-  if (S.wrand) { const P = S.wpool ||= []; P.includes(id) ? P.length > 1 ? P.splice(P.indexOf(id), 1) : toast('至少留一张') : P.push(id); save(); return rf(); }
+  if (S.wrand) { const P = S.wpool ||= []; P.includes(id) ? P.length > 1 ? P.splice(P.indexOf(id), 1) : toast('至少留一张') : P.push(id); P.includes(curWall()) || (S.wall = P[0] == 'theme' ? '' : WALLS().find(w => w.id == P[0])?.img || ''); save(); applyTheme(); return rf(); }
   S.wall = id == 'theme' ? '' : WALLS().find(w => w.id == id)?.img || ''; save(); applyTheme(); rf();
 }
 async function addWall() { const f = await pickFile(); if (!f) return; task('正在保存壁纸', async () => { const u = await putMedia(await readFull(f), 'wall'), id = uid(); WALLS().push({ id, img: u }); S.wrand ? (S.wpool ||= []).push(id) : (S.wall = u); save(); applyTheme(); rf(); return '壁纸已添加'; }); }

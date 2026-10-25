@@ -60,6 +60,18 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`core.S.lock.pool.length == 3 && core.S.lock.pool.includes('snownight')`), '点格子：加入随机 ' + await E(`JSON.stringify(core.S.lock.pool)`));
   const seen = new Set(); for (let i = 0; i < 12; i++) { await E(`lk.relock(true)`); seen.add(await E(`core.S.lock.wp`)); } await E(`lk.unlock()`); await W(400);
   ok(seen.size >= 2 && [...seen].every(k => k == 'snownight' || k.startsWith('c:')), '每次重新锁屏：从勾选的里面随机换 ' + [...seen].join());
+  // 只勾第二张：预览一定是第二张（以前总是显示最后点的那张）
+  const k2 = await E(`'c:' + core.S.lock.lib[1].id`);
+  await E(`core.S.lock.pool = ['${k2}']; core.S.lock.wp = 'c:' + core.S.lock.lib.at(-1).id; core.save()`);
+  for (let i = 0; i < 3; i++) { await E(`document.querySelector('[data-a=lprev]').click()`); await W(600); ok(await E(`core.S.lock.wp`) == k2, '随机锁屏只勾了第二张：预览显示的就是第二张'); await E(`lk.unlock()`); await W(400); }
+  await E(`core.S.lock.pool = ['snownight', '${k2}']; core.save(); core.top().re()`); await W(300);
+  await E(`document.querySelector('[data-sec=lk] .lw.cu[data-x="${k2.slice(2)}"]').click()`); await W(300);
+  ok(await E(`core.S.lock.wp`) == 'snownight', '把正在用的那张去掉勾：自动换成还勾着的');
+  // 实况视频先读进内存再放（blob 地址）
+  await E(`core.S.lock.rand = false; core.S.lock.wp = '${k2}'; core.save(); lk.lock(true)`); await W(1200);
+  ok(/^blob:/.test(await E(`document.querySelector('.lock .lk-bg video.live')?.src || ''`)), '实况视频用内存里的地址播放');
+  ok(await E(`document.querySelector('.lock .lk-bg video.live').classList.contains('on')`) && await E(`document.querySelector('.lock .lk-bg video.live').readyState`) >= 2, '预览时动起来了');
+  await E(`lk.unlock()`); await W(400); await E(`core.S.lock.rand = true; core.save()`);
   await E(`document.querySelector('[data-k="lock.rand"]').click()`); await W(400);
   // 随机壁纸：上传两张，勾上，回到桌面就换
   const addW = async f => { const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('[data-sec=wp] .lw.vid').click()`)]); await fc.setFiles([{ name: 'w.jpg', mimeType: 'image/jpeg', buffer: fx(f) }]); await W(1500); };
