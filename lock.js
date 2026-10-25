@@ -93,7 +93,7 @@ async function wallpaper() {
   ui.scr.style.setProperty('--lk-sb', k == 'video' ? '#fff' : ink.ink); ui.scr.style.setProperty('--lk-sbs', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   if (k == 'video') {
     const it = cust(), [iu, vu] = await Promise.all([it.img ? mediaSrc(it.img).catch(() => '') : '', it.video ? vidSrc(it.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
-    if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted playsinline preload="auto"></video>`; const v = $('video', bg); v.onended = () => v.classList.remove('on'); v.onerror = () => vidErr(v); visible() && playLive(); return; } // 实况照片：打开时动一下，长按再动
+    if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted loop playsinline preload="auto"></video>`; const v = $('video', bg); v.onerror = () => vidErr(v); visible() && playLive(); return; } // 实况照片：一直循环播放
     bg.innerHTML = iu ? `<img src="${esc(iu)}">` : `<video src="${esc(vu)}" autoplay muted loop playsinline></video>`; const v2 = $('video', bg); v2 && (v2.onerror = () => vidErr(v2), v2.play?.().catch(() => {})); return;
   }
   bg.innerHTML = '<canvas></canvas>'; fx = mountScene($('canvas', bg), k, { active: () => locked && visible() });
@@ -110,7 +110,7 @@ export function lock(preview) {
   const fpb = $('.lk-fp', el); fpb && holdSensor(fpb, 600, () => { fpb.classList.add('ok'); setTimeout(unlock, 260); }, () => { const h = $('.lk-hint span', el); h.textContent = '请按住指纹感应区'; setTimeout(() => locked && h.isConnected && (h.textContent = hintText()), 1600); });
 }
 // 实况照片：从头放一遍，放完回到照片
-// 实况照片：从头放一遍，放完回到照片（视频还没加载好就等加载好再放）
+// 实况照片：一直循环播放（视频还没加载好就等加载好再放；放不了就停在照片）
 const playLive = () => { const v = el && $('.lk-bg video.live', el); if (!v) return; const go = () => { try { v.currentTime = 0; } catch { } v.classList.add('on'); v.play?.().catch(e => { v.classList.remove('on'); e?.name == 'NotSupportedError' && vidErr(v); }); };
   v.readyState >= 2 ? go() : (v.addEventListener('canplay', go, { once: true }), v.load?.()); };
 // 视频先整个读进内存再播（TauriTavern 直接用文件地址放视频经常放不出来）

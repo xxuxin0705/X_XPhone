@@ -67,7 +67,7 @@ async function upVid() {
   task(img && v ? '正在保存实况照片' : img ? '正在保存锁屏图片' : '正在保存锁屏视频', async () => {
     const iu = img ? await putMedia(await readFull(img), 'lock') : '', vu = v ? await putMedia(v, 'lock') : '', id = uid();
     LIB().push({ id, img: iu, video: vu }); S.lock.wp = 'c:' + id; save(); rf();
-    return img && v ? '锁屏实况照片已设置（打开手机时会动一下，长按再动）' : img ? (/jpe?g/i.test(img.type || img.name) ? '这张照片里没找到实况视频，存成了普通图片（实况照片要选原图；苹果实况要把照片和视频一起选上）' : '锁屏图片已设置') : '锁屏视频已设置';
+    return img && v ? '锁屏实况照片已设置（会一直循环播放）' : img ? (/jpe?g/i.test(img.type || img.name) ? '这张照片里没找到实况视频，存成了普通图片（实况照片要选原图；苹果实况要把照片和视频一起选上）' : '锁屏图片已设置') : '锁屏视频已设置';
   });
 }
 // 保存到手机：照片和视频各存一个文件（可以发给别人，或者以后再导入）

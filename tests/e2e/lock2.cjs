@@ -71,6 +71,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`core.S.lock.rand = false; core.S.lock.wp = '${k2}'; core.save(); lk.lock(true)`); await W(1200);
   ok(/^blob:/.test(await E(`document.querySelector('.lock .lk-bg video.live')?.src || ''`)), '实况视频用内存里的地址播放');
   ok(await E(`document.querySelector('.lock .lk-bg video.live').classList.contains('on')`) && await E(`document.querySelector('.lock .lk-bg video.live').readyState`) >= 2, '预览时动起来了');
+  ok(await E(`document.querySelector('.lock .lk-bg video.live').loop`), '实况一直循环播放，不会放完就停');
   await E(`lk.unlock()`); await W(400); await E(`core.S.lock.rand = true; core.save()`);
   await E(`document.querySelector('[data-k="lock.rand"]').click()`); await W(400);
   // 随机壁纸：上传两张，勾上，回到桌面就换
