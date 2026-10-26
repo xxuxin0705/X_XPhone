@@ -16,6 +16,17 @@ export const userFonts = () => S.fonts ||= [];
 const loaded = new Map();
 export const loadFont = id => { if (loaded.has(id)) return loaded.get(id); const f = userFonts().find(x => x.id == id); if (!f || typeof FontFace == 'undefined') return Promise.resolve();
   const p = mediaSrc(f.src).then(u => new FontFace('xp-u-' + id, `url(${u})`, { weight: '100 900' }).load()).then(ff => { document.fonts.add(ff); }).catch(() => loaded.delete(id)); loaded.set(id, p); return p; };
+// 从字体文件里读出它自己的名字（name 表，4 = 完整名称；woff 压缩过的读不了就用文件名）
+export async function fontName(file) {
+  try { const v = new DataView(await file.slice(0, Math.min(file.size, 4 << 20)).arrayBuffer()), n = v.getUint16(4);
+    for (let i = 0; i < n; i++) { const r = 12 + i * 16; if (String.fromCharCode(...[0, 1, 2, 3].map(j => v.getUint8(r + j))) != 'name') continue;
+      const o = v.getUint32(r + 8), cnt = v.getUint16(o + 2), so = o + v.getUint16(o + 4); let best = '';
+      for (let k = 0; k < cnt; k++) { const q = o + 6 + k * 12, pid = v.getUint16(q), id = v.getUint16(q + 6), len = v.getUint16(q + 8), off = so + v.getUint16(q + 10);
+        if (pid != 3 || id != 4 && id != 1) continue; let t = ''; for (let c = 0; c < len; c += 2) t += String.fromCharCode(v.getUint16(off + c));
+        if (id == 4) return t.trim(); best ||= t.trim(); }
+      return best; } } catch { }
+  return '';
+}
 export const clkFonts = () => [...userFonts().map(f => ['u:' + f.id, f.n, 0]), ...CLK_FONTS];
 export const clkFam = k => { k = mig(k); if (k.startsWith('u:')) { loadFont(k.slice(2)); return `'xp-u-${k.slice(2)}',${FB}`; } return k == 'sys' || !CLK_FONTS.some(f => f[0] == k) ? FB : `'xp-${k}',${FB}`; };
 const fam = clkFam;
