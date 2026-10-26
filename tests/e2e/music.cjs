@@ -53,7 +53,7 @@ const songs = n => Array.from({ length: n }, (_, i) => ({ id: String(1000 + i), 
   // 心动页（播放页）
   await E(`document.querySelector('.mu-mini').click()`); await W(600);
   ok(await E(`!!document.querySelector('.mu-home-heart .mu-vinyl.on .mu-cvd') && document.querySelector('.mu-meta').textContent.includes('晴天')`), '点迷你条回到心动页：黑胶在转、歌名歌手');
-  ok(await E(`getComputedStyle(document.querySelector('.mu-home-heart .pg-b')).backgroundColor`) == 'rgb(253, 227, 234)', '心动页是粉色的');
+  ok(await E(`getComputedStyle(document.querySelector('.mu-home-heart .pg-b')).backgroundColor`) == 'rgb(28, 28, 34)' && await E(`!!document.querySelector('.mu-heart .mu-bg')`), '黑胶播放页：深色 + 封面模糊铺底');
   await shot('music_heart.png');
   await E(`document.querySelector('.mu-vinyl').click()`); await W(2600);
   ok(await E(`document.querySelectorAll('.mu-lrc p').length == 3 && !!document.querySelector('.mu-lrc p.on') && document.querySelector('.mu-lrc p small').textContent == 'first line'`), '点黑胶切到歌词，当前句高亮，有翻译');
@@ -87,7 +87,7 @@ const songs = n => Array.from({ length: n }, (_, i) => ({ id: String(1000 + i), 
   // 我的
   await E(`document.querySelector('[data-a=mtab][data-x=mine]').click()`); await W(300);
   ok(await E(`!!document.querySelector('.mu-prof .mu-av') && /最近[\\s\\S]*歌词[\\s\\S]*我喜欢的音乐[\\s\\S]*1 首/.test(document.querySelector('.musicapp').textContent)`), '我的：头像、最近 / 歌词按钮、我喜欢 1 首');
-  ok(await E(`getComputedStyle(document.querySelector('.mu-mine .pg-h')).backgroundColor`) == 'rgb(29, 29, 32)', '我的页顶部是深色');
+  ok(await E(`getComputedStyle(document.querySelector('.mu-mine .pg-h')).backgroundColor`) == 'rgb(246, 246, 248)' && await E(`document.querySelectorAll('.mu-pb b').length == 4`), '我的页：浅色卡片 + 四个入口');
   await shot('music_mine.png');
   await E(`document.querySelector('.mu-pb [data-a=mnotes]').click()`); await W(400);
   ok(await E(`document.querySelector('.mu-notes .pg-t').textContent`) == '歌词本' && await E(`document.querySelectorAll('.mu-note').length`) == 1, '点「歌词」：打开歌词本，里面是摘录');

@@ -2,7 +2,7 @@
 // 每种皮肤只负责画「唱片 / 歌词」那一块和配色，歌名、进度条、按钮由 music.js 统一画
 import { esc } from '../../core.js';
 
-export const SKINS = [['ncm', '粉色黑胶'], ['glow', '星环唱片'], ['ecg', '心电唱片'], ['star', '星空歌词']];
+export const SKINS = [['ncm', '黑胶唱片'], ['glow', '星环唱片'], ['ecg', '心电唱片'], ['star', '星空歌词']];
 
 // 封面主色：先试着从图片里取，取不到（跨域）就按歌名散列挑一个
 const cache = new Map();

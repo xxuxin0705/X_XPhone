@@ -25,22 +25,23 @@ const MI = {
   clock: sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'), lyr: sv('<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
   home: sv('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'), pen: sv('<path d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0 0-2.1l-1.9-1.9a1.5 1.5 0 0 0-2.1 0L4 16z"/>'),
   user: sv('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.4-6.5 8-6.5s7 2 8 6.5"/>'), gear: sv('<circle cx="12" cy="12" r="3"/><path d="M4.9 12a7 7 0 0 1 .1-1.2L3 9.3l2-3.4 2.2.7a7 7 0 0 1 2-1.2L9.8 3h4.4l.6 2.4a7 7 0 0 1 2 1.2l2.2-.7 2 3.4-2 1.5a7 7 0 0 1 0 2.4l2 1.5-2 3.4-2.2-.7a7 7 0 0 1-2 1.2l-.6 2.4H9.8l-.6-2.4a7 7 0 0 1-2-1.2L5 18.3l-2-3.4 2-1.5A7 7 0 0 1 4.9 12z"/>'),
-  plus: sv('<path d="M12 5v14M5 12h14"/>'), disc: sv('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>'), spark: sv('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'), play2: sv('<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/>'),
+  plus: sv('<path d="M12 5v14M5 12h14"/>'), cal: sv('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'), rank: sv('<path d="M4 20h16M7 20v-7h3v7M10.5 20V5h3v15M14 20v-10h3v10"/>'), fm: sv('<circle cx="12" cy="12" r="8.5"/><path d="M12 8.5a3.5 3.5 0 1 0 3.5 3.5"/><circle cx="12" cy="12" r="1"/>'), dl: sv('<path d="M12 4v11M7 10l5 5 5-5M4 20h16"/>'), tri: fill('<path d="M9.5 7.5v9l7.5-4.5z"/>'), disc: sv('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>'), spark: sv('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'), play2: sv('<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/>'),
 };
 export const ICON = `<svg viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="9" opacity=".25"/><path d="M10 16.5V8l6-1.5V15"/><circle cx="8.3" cy="16.6" r="1.9"/><circle cx="14.3" cy="15.1" r="1.9"/></svg>`;
 const mt = s => { s = Math.max(0, s | 0); return `${String(s / 60 | 0).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
-const cv = (s, cls = 'mu-cv') => s?.pic ? `<img class="${cls}" src="${esc(s.pic)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<i class="${cls} mu-ph">${MI.note}</i>`;
+const hue = s => [...String(s || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+const cv = (s, cls = 'mu-cv') => s?.pic ? `<img class="${cls}" src="${esc(s.pic)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<i class="${cls} mu-ph" style="--h:${hue(s?.name)}">${MI.note}</i>`;
 const MD = () => (D().mus ||= { recs: [] });
 const recs = () => MD().recs;
 const notes = () => M().notes ||= [];
 const CTX = {}; const reglist = (id, list) => (CTX[id] = list, id);
-const row = (ctx, s, i, rank) => `<div class="mu-r ${same(s, cur()) ? 'now' : ''}" data-a="mplay" data-x="${ctx}:${i}" data-lp="mmore">${rank ? `<b class="mu-rk">${i + 1}</b>` : ''}<div class="mu-t"><b>${esc(s.name)}</b><small>${esc(s.artist)}${s.by ? `<em>${esc(s.by)} 点的</em>` : ''}</small></div><i class="mu-mo" data-a="mmore" data-x="${ctx}:${i}">${MI.more}</i></div>`;
+const row = (ctx, s, i, rank) => `<div class="mu-r ${same(s, cur()) ? 'now' : ''}" data-a="mplay" data-x="${ctx}:${i}" data-lp="mmore">${rank ? `<b class="mu-rk">${i + 1}</b>` : cv(s)}<div class="mu-t"><b>${esc(s.name)}</b><small>${s.by ? `<em>${esc(s.by)} 点的</em>` : ''}${esc(s.artist)}</small></div><i class="mu-pl2">${same(s, cur()) && st.playing ? `<b class="mu-eq"><i></i><i></i><i></i></b>` : MI.play2}</i><i class="mu-mo" data-a="mmore" data-x="${ctx}:${i}">${MI.more}</i></div>`;
 const rows = (ctx, list, rank) => list.length ? list.map((s, i) => row(ctx, s, i, rank)).join('') : `<p class="mu-none">这里还没有歌</p>`;
 
 /* ---------- 迷你播放条 / 底部页签 ---------- */
 let tab = 'home', home = 'heart';
-const mini = () => { const s = cur(); return s ? `<div class="mu-mini" data-a="mgo"><i class="mu-disc-s ${st.playing ? 'spin' : ''}">${cv(s, 'mu-cvr')}</i><div class="mu-t"><b>${esc(s.name)}<span> - ${esc(s.artist)}</span></b></div><i class="mu-ib ${st.loading ? 'ld' : ''}" data-a="mtog">${st.playing ? MI.pause : MI.play}</i><i class="mu-ib" data-a="mq">${MI.list}</i></div>` : ''; };
-const nav = () => `<nav class="mu-nav">${[['home', '首页'], ['srch', '搜索'], ['notes', '笔记'], ['mine', '我的']].map(([k, l]) => `<button data-a="mtab" data-x="${k}" class="${tab == k ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
+const mini = () => { const s = cur(); return s ? `<div class="mu-mini" data-a="mgo"><i class="mu-disc-s ${st.playing ? 'spin' : ''}">${cv(s, 'mu-cvr')}</i><div class="mu-t"><b>${esc(s.name)}<span> - ${esc(s.artist)}</span></b></div><i class="mu-ib ring ${st.loading ? 'ld' : ''}" data-a="mtog" style="--p:${st.d ? st.t / st.d : 0}">${st.playing ? MI.pause : MI.play}</i><i class="mu-ib" data-a="mq">${MI.list}</i></div>` : ''; };
+const nav = () => `<nav class="mu-nav">${[['home', '首页', MI.home], ['srch', '搜索', MI.srch], ['notes', '笔记', MI.pen], ['mine', '我的', MI.user]].map(([k, l, i]) => `<button data-a="mtab" data-x="${k}" class="${tab == k ? 'on' : ''}">${i}${l}</button>`).join('')}</nav>`;
 const foot = () => (tab == 'home' && home == 'heart' ? '' : mini()) + nav();
 
 /* ---------- 首页：心动（黑胶）/ 推荐 ---------- */
@@ -48,6 +49,7 @@ const seg = () => `<div class="mu-seg">${[['heart', '心动'], ['rec', '推荐']
 let lyrOn = false, pick = null; // pick：歌词摘录模式里选中的行
 const lyrHtml = () => st.lrc.length ? st.lrc.map((l, i) => `<p data-i="${i}" data-t="${l.t}" data-a="${pick ? 'mpk' : 'mseekl'}" data-lp="mpkon" class="${pick?.has(i) ? 'pk' : ''}">${esc(l.x)}${l.tr ? `<small>${esc(l.tr)}</small>` : ''}</p>`).join('') : `<p class="mu-nolrc">${st.loading ? '' : '暂无歌词'}</p>`;
 const vinyl = s => `<div class="mu-vinyl ${st.playing ? 'on' : ''}" data-a="mlyr"><div class="mu-arm"></div><div class="mu-disc">${cv(s, 'mu-cvd')}</div></div>`;
+const bgOf = s => s?.pic ? `<div class="mu-bg"><img src="${esc(s.pic)}" alt="" referrerpolicy="no-referrer"></div>` : `<div class="mu-bg" style="--h:${hue(s?.name)}"></div>`;
 const skin = () => SKINS.some(x => x[0] == M().skin) ? M().skin : 'ncm';
 const skinVars = s => { const t = tintOf(s, rer); return `--t:${rgb(t)};--t2:${rgb(mix(t, 255, .82))};--t3:${rgb(mix(t, 255, .94))};--td:${rgb(mix(t, 0, .45))}`; };
 const lyr2 = () => { let i = -1; for (let k = 0; k < st.lrc.length; k++) { if (st.lrc[k].t <= st.t + .25) i = k; else break; } return `<div class="mu-l2"><b>${esc(st.lrc[i]?.x || (st.loading ? '' : st.lrc.length ? '' : '暂无歌词'))}</b><small>${esc(st.lrc[i + 1]?.x || '')}</small></div>`; };
@@ -62,23 +64,31 @@ const stage = (s, k) => {
 };
 const heartPage = () => { const s = cur(), m = M(), k = skin();
   const nc = s ? notes().filter(n => same(n.song, s)).length : 0;
-  if (!s) return `<div class="mu-heart sk-${k}" style="${skinVars(null)}"><div class="mu-vinyl idle" data-a="mheartgo"><div class="mu-arm"></div><div class="mu-disc"><i class="mu-cvd mu-ph">${MI.heartOn}</i></div></div><p class="mu-tip2">${MI.heartOn} 开启心动模式</p></div>`;
-  return `<div class="mu-heart sk-${k} ${lyrOn ? 'lyr' : ''}" style="${skinVars(s)}">${stage(s, k)}
+  if (!s) return `<div class="mu-heart sk-${k} idle" style="${skinVars(null)}">${k == 'ncm' ? bgOf(null) : ''}<div class="mu-vinyl idle" data-a="mheartgo"><div class="mu-arm"></div><div class="mu-disc"><i class="mu-cvd mu-ph">${MI.heartOn}</i></div></div><p class="mu-tip2">${MI.heartOn} 开启心动模式</p></div>`;
+  return `<div class="mu-heart sk-${k} ${lyrOn ? 'lyr' : ''}" style="${skinVars(s)}">${k == 'ncm' ? bgOf(s) : ''}${stage(s, k)}
   <div class="mu-meta"><div><b>${esc(s.name)}</b><small>${esc(s.artist)}</small></div><i data-a="mlike" class="${liked(s) ? 'on' : ''}">${liked(s) ? MI.heartOn : MI.heart}</i><i data-a="mnotes" data-x="cur">${MI.cmt}${nc ? `<em>${nc}</em>` : ''}</i><i data-a="mmore" data-x="now:0">${MI.more}</i></div>
   <div class="mu-prog"><input type="range" class="mu-seek" min="0" max="${Math.max(1, st.d | 0)}" step="1" value="${st.t | 0}"><div><span class="mu-ct">${mt(st.t)}</span><span class="mu-q">${st.err ? esc(st.err) : '极高音质'}</span><span class="mu-dt">${mt(st.d)}</span></div></div>
   <div class="mu-ctl"><i data-a="mmode">${MI[m.mode]}</i><i data-a="mprev">${MI.prev}</i><i data-a="mtog" class="big ${st.loading ? 'ld' : ''}">${st.playing ? MI.pause : MI.play}</i><i data-a="mnext">${MI.next}</i><i data-a="mq">${MI.list}</i></div></div>`; };
-const recPage = () => { const r = recs(), a = MD().ai;
-  return `<div class="mu-recp"><div class="mu-today"><div><b>今日为你推荐</b><p>${a ? esc(a.blurb) : '让 TA 根据现在的剧情，给你挑几首此刻想听的歌'}</p></div><i data-a="mai" class="${a ? '' : 'pri'}">${MI.spark}</i></div>
+const card = (a, x, cover, name, sub = '') => `<div class="mu-card" data-a="${a}" data-x="${esc(x)}">${cover}<b>${esc(name)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+const tile = (cls, inner, style = '') => `<i class="mu-cc ${cls}" style="${style}">${inner}</i>`;
+const recPage = () => { const r = recs(), a = MD().ai, m = M(), d = new Date();
+  const lists = [card('mopen', 'liked', tile('like', MI.heartOn), '我喜欢的音乐', `${m.liked.length} 首`), card('mheartgo', '', tile('fm', MI.fm), '心动模式', '随你的口味'),
+    ...TOPS.map(([id, n, c]) => card('mopen', 'top:' + id, tile('top', MI.rank, `--c:${c}`), n, '网易云')), ...m.lists.map(l => card('mopen', 'pl:' + l.id, l.cover ? `<img class="mu-cc" src="${esc(l.cover)}" alt="">` : l.songs[0]?.pic ? `<img class="mu-cc" src="${esc(l.songs[0].pic)}" referrerpolicy="no-referrer" alt="">` : tile('ph', MI.note, `--h:${hue(l.n)}`), l.n, `${l.songs.length} 首`))];
+  return `<div class="mu-recp"><div class="mu-sb go" data-a="mtab" data-x="srch">${MI.srch}<span>搜索歌曲、歌手</span></div>
+  <div class="mu-icons"><b data-a="mai"><i>${MI.cal}<em>${d.getDate()}</em></i>每日推荐</b><b data-a="mheartgo"><i>${MI.fm}</i>心动模式</b><b data-a="mopen" data-x="top:${TOPS[2][0]}"><i>${MI.rank}</i>排行榜</b><b data-a="mtab" data-x="mine"><i>${MI.list}</i>歌单</b><b data-a="mtab" data-x="notes"><i>${MI.pen}</i>笔记</b></div>
+  <div class="mu-h"><b>推荐歌单</b></div><div class="mu-cards">${lists.join('')}</div>
+  <div class="mu-today"><div><b>今日为你推荐</b><p>${a ? esc(a.blurb) : '让 TA 根据现在的剧情，给你挑几首此刻想听的歌'}</p></div><i data-a="mai" class="${a ? '' : 'pri'}">${MI.spark}</i></div>
   ${a?.songs?.length ? `<div class="mu-sec">${rows(reglist('ai', a.songs), a.songs)}</div>` : ''}
-  <div class="mu-sec"><div class="mu-h"><b>TA 点的歌</b>${r.length ? `<span data-a="mlclr" data-x="rec">清空</span>` : ''}</div>${r.length ? rows(reglist('rec', r), r) : `<p class="mu-none">${M().ask ? '角色还没有给你点过歌' : '去「我的」右上角打开「角色给你点歌」'}</p>`}</div></div>`; };
+  <div class="mu-sec"><div class="mu-h"><b>TA 点的歌</b>${r.length ? `<span data-a="mlclr" data-x="rec">清空</span>` : ''}</div>${r.length ? rows(reglist('rec', r), r) : `<p class="mu-none">${M().ask ? '角色还没有给你点过歌' : '去「我的」右上角打开「角色给你点歌」'}</p>`}</div>
+  ${m.hist.length ? `<div class="mu-sec"><div class="mu-h"><b>最近播放</b><span data-a="mopen" data-x="hist">更多</span></div>${rows(reglist('hist', m.hist.slice(0, 5)), m.hist.slice(0, 5))}</div>` : ''}</div>`; };
 
 /* ---------- 搜索 ---------- */
 let sq = '', sres = null, spage = 1, smore = false, sbusy = false;
 const srchPage = () => { const m = M(), bar = `<form class="mu-sb" data-ms>${MI.srch}<input name="q" value="${esc(sq)}" placeholder="搜索歌曲、歌手" enterkeyhint="search">${sq ? `<i data-a="mclr">${MI.x}</i>` : ''}</form>`;
   if (sres) return bar + `<div class="mu-sec">${sbusy && !sres.length ? '<p class="mu-none">搜索中…</p>' : rows(reglist('s', sres), sres)}${smore ? `<button class="mu-more" data-a="mmoreres">${sbusy ? '加载中…' : '加载更多'}</button>` : ''}</div>`;
-  return bar + `<div class="mu-tops">${TOPS.map(([id, n, c]) => `<div class="mu-top" style="--c:${c}" data-a="mopen" data-x="top:${id}"><b>${n}</b>${MI.note}</div>`).join('')}</div>`
-    + (m.sh.length ? `<div class="mu-sec"><div class="mu-h"><b>搜索历史</b><span data-a="mshc">清空</span></div><div class="chips">${m.sh.map(w => `<b class="chip" data-a="mkw" data-x="${esc(w)}">${esc(w)}</b>`).join('')}</div></div>` : '')
-    + `<div class="mu-sec"><div class="mu-h"><b>快速发现</b></div><div class="chips">${HOT.map(w => `<b class="chip" data-a="mkw" data-x="${esc(w)}">${esc(w)}</b>`).join('')}</div></div>`; };
+  return bar + (m.sh.length ? `<div class="mu-sec"><div class="mu-h"><b>搜索历史</b><span data-a="mshc">${MI.x}</span></div><div class="chips">${m.sh.map(w => `<b class="chip" data-a="mkw" data-x="${esc(w)}">${esc(w)}</b>`).join('')}</div></div>` : '')
+    + `<div class="mu-sec"><div class="mu-h"><b>排行榜</b></div><div class="mu-tops">${TOPS.map(([id, n, c]) => `<div class="mu-top" style="--c:${c}" data-a="mopen" data-x="top:${id}"><b>${n}</b>${MI.rank}</div>`).join('')}</div></div>`
+    + `<div class="mu-sec"><div class="mu-hot"><div class="mu-h"><b>热搜榜</b></div><div class="mu-hotg">${HOT.map((w, i) => `<b data-a="mkw" data-x="${esc(w)}"><i>${i + 1}</i>${esc(w)}</b>`).join('')}</div></div></div>`; };
 async function doSearch(w, more) {
   w = String(w || '').trim(); if (!w) return;
   if (!more) { sq = w; sres = []; spage = 1; const m = M(); m.sh = [w, ...m.sh.filter(x => x != w)].slice(0, 12); save(); } else spage++;
@@ -93,12 +103,12 @@ const notesPage = (only) => { const L = only ? notes().filter(n => same(n.song, 
   return L.length ? L.map(noteCard).join('') : `<div class="mu-empty">${MI.pen}<p>还没有摘录的歌词</p><small>播放页点封面看歌词，长按一句开始摘录</small></div>`; };
 /* ---------- 我的 ---------- */
 const hours = () => ((M().sec || 0) / 3600).toFixed(1);
-const minePage = () => { const m = M(), me = meObj(); const grid = l => { const ps = l.filter(s => s.pic).slice(0, 1); return ps.length ? `<img class="mu-cv" src="${esc(ps[0].pic)}" referrerpolicy="no-referrer" alt="">` : `<i class="mu-cv mu-ph">${MI.note}</i>`; };
-  return `<div class="mu-prof"><img class="mu-av" src="${esc(me.av || defAv(me.nick))}" alt=""><b>${esc(me.nick)}</b><small>${m.liked.length} 首喜欢 · 听歌 ${hours()} 小时</small>
-  <div class="mu-pb"><b data-a="mopen" data-x="hist">${MI.clock}最近</b><b data-a="mnotes" data-x="all">${MI.lyr}歌词</b><b data-a="mq">${MI.list}播放列表</b></div></div>
-  <div class="mu-body"><div class="mu-h2"><b>音乐</b><span data-a="mnew">${MI.plus}</span></div>
-  <div class="mu-r pl" data-a="mopen" data-x="liked">${grid(m.liked)}<div class="mu-t"><b>我喜欢的音乐</b><small>${m.liked.length} 首</small></div><em class="mu-hm" data-a="mheartgo">${MI.heartOn}心动模式</em></div>
-  ${m.lists.map(l => `<div class="mu-r pl" data-a="mopen" data-x="pl:${l.id}" data-lp="mplm">${l.cover ? `<img class="mu-cv" src="${esc(l.cover)}" alt="">` : grid(l.songs)}<div class="mu-t"><b>${esc(l.n)}</b><small>歌单 · ${l.songs.length} 首${l.from ? ' · 导入' : ''}</small></div><i class="mu-mo" data-a="mplm" data-x="${l.id}">${MI.more}</i></div>`).join('')}</div>`; };
+const minePage = () => { const m = M(), me = meObj(); const grid = l => { const ps = l.filter(s => s.pic).slice(0, 1); return ps.length ? `<img class="mu-cv" src="${esc(ps[0].pic)}" referrerpolicy="no-referrer" alt="">` : `<i class="mu-cv mu-ph" style="--h:${hue(l.length)}">${MI.note}</i>`; };
+  return `<div class="mu-prof"><img class="mu-av" src="${esc(me.av || defAv(me.nick))}" alt=""><div><b>${esc(me.nick)}</b><small>${m.liked.length} 首喜欢 · 听歌 ${hours()} 小时</small></div></div>
+  <div class="mu-pb"><b data-a="mopen" data-x="hist"><i>${MI.clock}</i>最近播放</b><b data-a="mnotes" data-x="all"><i>${MI.lyr}</i>歌词本</b><b data-a="mq"><i>${MI.list}</i>播放列表</b><b data-a="mskin"><i>${MI.disc}</i>播放器</b></div>
+  <div class="mu-body"><div class="mu-r pl big" data-a="mopen" data-x="liked"><i class="mu-cv like">${MI.heartOn}</i><div class="mu-t"><b>我喜欢的音乐</b><small>${m.liked.length} 首</small></div><em class="mu-hm" data-a="mheartgo">${MI.heartOn}心动模式</em></div>
+  <div class="mu-h2"><b>创建的歌单 <small>${m.lists.length}</small></b><span data-a="mnew">${MI.plus}</span></div>
+  ${m.lists.length ? m.lists.map(l => `<div class="mu-r pl" data-a="mopen" data-x="pl:${l.id}" data-lp="mplm">${l.cover ? `<img class="mu-cv" src="${esc(l.cover)}" alt="">` : grid(l.songs)}<div class="mu-t"><b>${esc(l.n)}</b><small>${l.songs.length} 首${l.from ? ' · 导入' : ''}</small></div><i class="mu-mo" data-a="mplm" data-x="${l.id}">${MI.more}</i></div>`).join('') : `<p class="mu-none">还没有歌单</p>`}</div>`; };
 
 /* ---------- 页面壳 ---------- */
 const rer = () => { const t = top(); if (!t?.el?.classList.contains('musicapp')) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); b && ($('.pg-b', t.el).scrollTop = sc); tickP(); };
@@ -129,7 +139,7 @@ function openList(id) {
   const pg = page({ title: data.n, cls: 'musicapp mu-lpg', live: 1,
     right: () => own ? `<b data-a="mplm" data-x="${id.slice(3)}">${MI.more}</b>` : id == 'hist' ? `<b class="txt" data-a="mlclr" data-x="hist">清空</b>` : '',
     body: () => `<div class="mu-hero" style="${data.tint ? `--c:${data.tint}` : ''}">${data.cover ? `<img class="mu-big" src="${esc(data.cover)}" alt="">` : tp ? `<i class="mu-big mu-tint">${MI.note}</i>` : list()[0]?.pic ? `<img class="mu-big" src="${esc(list()[0].pic)}" referrerpolicy="no-referrer" alt="">` : `<i class="mu-big mu-ph">${MI.note}</i>`}<div><b>${esc(data.n)}</b><small>${data.loading ? '加载中…' : data.err ? esc(data.err) : list().length + ' 首'}</small></div></div>
-      ${list().length ? `<div class="mu-all"><b data-a="mall" data-x="${id}">${MI.play2}播放全部 <small>(${list().length})</small></b><i data-a="mall" data-x="${id}" data-s="1">${MI.shuf}</i></div>` : ''}<div class="mu-sec">${data.loading ? '' : rows(reglist('L', list()), list(), !!tp)}</div>`,
+      ${list().length ? `<div class="mu-all"><b data-a="mall" data-x="${id}">${MI.tri}播放全部 <small>(${list().length})</small></b><i data-a="mall" data-x="${id}" data-s="1">${MI.shuf}</i></div>` : ''}<div class="mu-sec">${data.loading ? '' : rows(reglist('L', list()), list(), !!tp)}</div>`,
     foot: () => mini(), acts: { ...A, mall: (x, t) => { if (!list().length) return; playList(list(), 0, !!t.dataset.s); M().qn = data.n; save(); } }, onClose: () => setTimeout(rer) });
   pg._list = list; pg._lid = id;
 }
@@ -207,7 +217,7 @@ const A = {
   mpkon: (x, t) => { pick = new Set([+t.dataset.i]); rer(); }, mpk: (x, t) => { const i = +t.dataset.i; pick.has(i) ? pick.delete(i) : pick.add(i); pick.size || (pick = null); rer(); }, mpkx: () => { pick = null; rer(); }, mpkok: pickDone,
   mheartgo: () => heartMode(),
   mkw: w => doSearch(w), mclr: () => { sq = ''; sres = null; rer(); }, mmoreres: () => !sbusy && doSearch(sq, true), mshc: () => { M().sh = []; save(); rer(); },
-  mopen: x => openList(x), mnew: async () => { const l = await newList(); l && openList('pl:' + l.id); }, mplm: x => listMenu(x), mmenu: mineMenu, mai: aiRec,
+  mskin: pickSkin, mopen: x => openList(x), mnew: async () => { const l = await newList(); l && openList('pl:' + l.id); }, mplm: x => listMenu(x), mmenu: mineMenu, mai: aiRec,
   mnotes: x => { const s = x == 'cur' ? cur() : null; if (x == 'cur' && !s) return; page({ title: s ? `《${esc(s.name)}》的笔记` : '歌词本', cls: 'musicapp mu-notes', live: 1, body: () => notesPage(s), foot: () => mini(), acts: A }); },
   mnplay: id => { const n = notes().find(x => x.id == id); n && (same(n.song, cur()) ? (st.playing || toggle()) : playAt(addQ(n.song))); },
   mndel: async id => { const n = notes().find(x => x.id == id); if (!n) return; const k = await menu([['p', '播放这首歌'], ['d', '删除这条笔记', 'danger']]); if (k == 'p') A.mnplay(id); if (k == 'd') { M().notes = notes().filter(x => x != n); save(); top()?.reb(); rer(); } },
