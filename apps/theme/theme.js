@@ -122,8 +122,14 @@ reg({
     acts: {
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
       lw: k => pickLock(k), lprev: () => lock(true),
-      clkup: async () => { const fl = await pickFile('.ttf,.otf,.woff,.woff2,font/*'); if (!fl) return; if (fl.size > 30e6) return toast('字体文件太大了');
-        const id = uid(), src = await putMedia(fl, 'font'); userFonts().push({ id, n: ((await fontName(fl)) || fl.name.replace(/\.\w+$/, '')).slice(0, 24), src }); lockClk().font = 'u:' + id; S.lock.clk.wt = ''; save(); reClk(); toast('已添加字体'); },
+      // 安卓的文件选择器认不出 .otf / .ttf 的类型，会把字体变成灰的选不了，所以不限类型，选完再看文件头是不是字体
+      clkup: async () => { const fl = await pickFile('*/*'); if (!fl) return; if (fl.size > 30e6) return toast('字体文件太大了');
+        const h = new Uint8Array(await fl.slice(0, 4).arrayBuffer()), sig = String.fromCharCode(...h);
+        if (!['OTTO', 'true', 'wOFF', 'wOF2', 'ttcf'].includes(sig) && !(h[0] == 0 && h[1] == 1 && h[2] == 0 && h[3] == 0)) return toast('这不是字体文件（要 .ttf / .otf / .woff）');
+        const id = uid(); let src;
+        try { src = await putMedia(fl, 'font'); } catch { src = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(fl); }); } // 本地数据库用不了就存进设置
+        try { await new FontFace('xp-chk', await fl.arrayBuffer()).load(); } catch { return toast('这个字体文件读不出来'); }
+        userFonts().push({ id, n: ((await fontName(fl)) || fl.name.replace(/\.\w+$/, '')).slice(0, 24), src }); lockClk().font = 'u:' + id; S.lock.clk.wt = ''; save(); reClk(); toast('已添加字体'); },
       clkfd: async k => { const id = k.slice(2), f = userFonts().find(x => x.id == id); if (!f || !await ok(`删除字体「${f.n}」？`)) return; userFonts().splice(userFonts().indexOf(f), 1); drop(f.src); lockClk().font == k && (S.lock.clk.font = 'nunito'); save(); reClk(); },
       clkf: k => { lockClk().font = k; S.lock.clk.wt = ''; save(); reClk(); }, clkp: k => { lockClk().pos = k; save(); reClk(); },
       lwc: id => pickLock('c:' + id),
