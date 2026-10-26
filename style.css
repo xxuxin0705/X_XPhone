@@ -1219,3 +1219,12 @@ i.ld{animation:mspulse 1s ease-in-out infinite alternate}@keyframes mspulse{to{o
 .sc-sun{background:linear-gradient(145deg,#a6d7d2,#f7e5a9)}.sc-sunset{background:linear-gradient(145deg,#f1c7a2,#be8c80)}.sc-rain{background:linear-gradient(145deg,#bbcbd1,#6d8b95)}.sc-storm{background:linear-gradient(145deg,#8b98a6,#354c5a)}.sc-aurora{background:linear-gradient(145deg,#436a78,#a1d4ba)}.sc-night{background:linear-gradient(145deg,#a5accb,#425372)}.sc-fog{background:linear-gradient(145deg,#e1e5dc,#b1c0b6)}.sc-fireworks{background:linear-gradient(145deg,#7c7a9f,#e3b2a3)}
 @media(max-width:350px){.isle .pg-b{padding-left:14px;padding-right:14px}.is-btns{gap:8px}.is-btns .btn{font-size:calc(11px*var(--fz,1));gap:4px}}
 @media(prefers-reduced-motion:reduce){.is-who b{transition:none}}
+
+/* 心屿：本地互动气泡与景观选择 */
+.is-bubble{position:absolute;z-index:2;top:58px;left:50%;width:max-content;max-width:78%;box-sizing:border-box;transform:translate(-50%,4px);opacity:0;pointer-events:none;padding:11px 16px;border-radius:16px;background:var(--cd,#fffaf0);color:var(--pt,#456b5e);font-size:calc(12px*var(--fz,1));line-height:1.6;box-shadow:0 8px 24px -12px #34463b66;transition:opacity 180ms,transform 180ms}
+.is-bubble.on{opacity:1;transform:translate(-50%,0)}
+.is-playbar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 12px 18px}
+.is-playbar button{border:1px solid var(--is-line,#cdd5c5);background:transparent;color:var(--is-ink,#456b5e);border-radius:14px;padding:9px 13px;min-height:44px;font:inherit;font-size:calc(12px*var(--fz,1));cursor:pointer}
+.is-playbar button:active{transform:scale(.97)}
+.is-playbar button:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.is-bubble{transition:opacity 180ms;transform:translateX(-50%)}.is-bubble.on{transform:translateX(-50%)}.is-playbar button:active{transform:none}}

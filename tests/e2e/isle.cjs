@@ -32,6 +32,17 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const r = await p.locator('.isle canvas').boundingBox();
   await p.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await p.mouse.down(); await p.mouse.move(r.x + r.width / 2 + 60, r.y + r.height / 2, { steps: 5 }); await W(100); await shot('isle_squish.png'); await p.mouse.up(); await W(500);
   ok(errs.length == 0, '按住果冻拖一拖没有报错');
+  // 本地互动不产生模型请求，摇晃气泡有冷却，景观持久保存。
+  await E(`window.localCalls = 0; SillyTavern.getContext().generateRaw = async () => { localCalls++; throw Error('互动不应调用模型'); }`);
+  await p.click('[data-is-shake]'); await W(100);
+  ok(await E(`document.querySelector('.is-bubble').dataset.kind === 'shake' && document.querySelector('.is-bubble').classList.contains('on')`), '摇一摇出现本地头晕气泡');
+  const line = await p.locator('.is-bubble').textContent();
+  await p.click('[data-is-shake]');
+  ok(await p.locator('.is-bubble').textContent() === line, '连续摇晃不会刷屏');
+  await p.click('[data-a=islandscape]'); await W(150); await p.click('.sheet.mnu [data-x=bamboo]'); await W(300);
+  ok(await E(`core.S.isle.landscape === 'bamboo'`) && await p.locator('[data-a=islandscape]').textContent() === '听风竹林', '景观切换为竹林并保存');
+  await p.click('[data-is-shake]'); await W(100); await shot('isle_bamboo_play.png');
+  ok(await E(`localCalls === 0`), '互动和景观切换均不调用模型');
   // 跟着剧情变：开关 → 提示词
   ok(!(await E(`ep.at(-1) || ''`)).includes('心情|'), '默认提示词里没有心情格式');
   await E(`document.querySelector('.isle [data-a=isset]').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=auto]').click()`); await W(400);

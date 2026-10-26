@@ -1,3 +1,4 @@
+import { LANDSCAPES, islandPlay } from './play.js';
 // 小手机 · 心屿：每个角色一座装在果冻球里的小岛，岛上的天气就是 TA 此刻的心情
 // 晴天 = 开心，细雨 = 难过，风暴 = 生气，极光 = 想念 / 温柔，星夜 = 疲惫，雾 = 迷茫，烟花 = 兴奋，落日 = 平静
 // 心情来源：① 点「看看 TA 现在」调一次 API 读最近剧情；② 开了「跟着剧情变」后，AI 在 <手机> 块里写「心情|谁|心情|一句话」
@@ -21,6 +22,7 @@ const SEA = { sun: ['#2fa7c9', '#6fd3e6'], sunset: ['#d46a7b', '#f3b48f'], rain:
 const DARK = s => ['storm', 'aurora', 'night', 'fireworks'].includes(s);
 function painter(cv, getState) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const play = islandPlay(cv, reduced);
   const x = cv.getContext('2d'); let W, H, R, t0 = performance.now(), raf, sq = { x: 1, y: 1, vx: 0, vy: 0 }, rot = 0, vrot = 0, drops = [], sparks = [], bolt = 0, whale = 0;
   const size = () => { const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); cv.width = r.width * d; cv.height = r.height * d; x.setTransform(d, 0, 0, d, 0, 0); W = r.width; H = r.height; R = Math.min(W, H) * .42; };
   size(); const ro = typeof ResizeObserver == 'function' ? new ResizeObserver(size) : null; ro?.observe(cv);
@@ -41,7 +43,7 @@ function painter(cv, getState) {
   const draw = () => {
     const st = getState(), s = st.scene || 'sunset', t = reduced ? 0 : (performance.now() - t0) / 1000, dark = DARK(s), stormy = s == 'storm', k = 1 + st.sea * .8;
     // 果冻的弹性：两个方向各自一根弹簧
-    for (const d of ['x', 'y']) { const v = 'v' + d; sq[v] += (1 - sq[d]) * .09; sq[v] *= .86; sq[d] += sq[v]; }
+    for (const d of ['x', 'y']) { const v = 'v' + d; sq[v] += ((pd?.inside ? pd[d === 'x' ? 'tx' : 'ty'] : 1) - sq[d]) * .09; sq[v] *= .86; sq[d] += sq[v]; }
     vrot *= .95; rot += vrot + (reduced ? 0 : stormy ? .004 : .0015);
     const cx = W / 2, cy = H / 2 + R * .06, rx = R * sq.x, ry = R * sq.y, jc = st.jelly;
     x.clearRect(0, 0, W, H);
@@ -59,6 +61,7 @@ function painter(cv, getState) {
     if (s == 'night') { x.fillStyle = '#fff6cf'; x.beginPath(); x.arc(cx - rx * .4, cy - ry * .5, R * .09, 0, TAU); x.fill(); x.fillStyle = SKY.night[0]; x.beginPath(); x.arc(cx - rx * .34, cy - ry * .54, R * .08, 0, TAU); x.fill(); }
     if (s == 'aurora') { for (let b = 0; b < 3; b++) { x.beginPath(); for (let i = 0; i <= 30; i++) { const u = i / 30, xx = cx - rx + u * rx * 2, yy = cy - ry * .55 + Math.sin(u * 5 + t * .8 + b) * ry * .07 + b * ry * .07; i ? x.lineTo(xx, yy) : x.moveTo(xx, yy); } const veil = x.createLinearGradient(cx - rx, 0, cx + rx, 0); veil.addColorStop(0, 'rgba(130,216,188,0)'); veil.addColorStop(.45, ['rgba(120,235,190,.32)', 'rgba(160,200,235,.25)', 'rgba(200,170,225,.22)'][b]); veil.addColorStop(1, 'rgba(130,216,188,0)'); x.strokeStyle = veil; x.lineWidth = R * .14; x.stroke(); } }
     if (s == 'fog') { x.fillStyle = 'rgba(235,240,243,.55)'; x.fillRect(cx - rx, cy - ry * .3 + Math.sin(t) * 4, rx * 2, ry * .5); }
+    play.draw(x, cx, cy, rx, ry, t, st.landscape, dark);
     // 海：几层波浪
     for (let L = 0; L < 3; L++) { x.beginPath(); x.moveTo(cx - rx, cy + ry); for (let i = 0; i <= 40; i++) { const u = i / 40, xx = cx - rx + u * rx * 2, yy = cy + ry * .12 + L * ry * .08 + Math.sin(u * 9 + t * (1.4 + L * .3) * k + L) * ry * .035 * k; x.lineTo(xx, yy); } x.lineTo(cx + rx, cy + ry); x.closePath(); x.fillStyle = L ? SEA[s][L % 2] : SEA[s][0]; x.globalAlpha = L ? .55 : 1; x.fill(); x.globalAlpha = 1; }
     // 海面的细小光路，随天气调整色温
@@ -87,9 +90,10 @@ function painter(cv, getState) {
     x.fillStyle = '#716b56'; x.fillRect(-1, -1, 5, 25); x.fillRect(13, -1, 3, 25);
     for (let i = 0; i < 7; i++) { x.fillStyle = i % 2 ? '#c7b18a' : '#dbc59c'; x.fillRect(-4, i * 3, 23, 2.2); } x.restore();
     // 岛上的东西按前后画
-    const lean = stormy ? Math.sin(t * 9) * .15 - .35 : Math.sin(t * 1.2) * .04, ps = R / 150;
+    const lean = stormy ? Math.sin(t * 9) * .15 - .35 : Math.sin(t * 1.2) * .04 + play.wind * .22, ps = R / 150;
     const props = [{ a: 0, d: () => light(cx + px(0, irx * .3), iy - 4 + pz(0) * iry * .6, ps * .9, dark || s == 'rain' || s == 'fog', t * 1.2) }, { a: 2.2, d: () => house(cx + px(2.2, irx * .5), iy + 2 + pz(2.2) * iry * .6, ps, dark) }, { a: 1.1, d: () => tree(cx + px(1.1, irx * .7), iy + pz(1.1) * iry * .6, ps * .8, lean) }, { a: 3.6, d: () => tree(cx + px(3.6, irx * .6), iy + pz(3.6) * iry * .6, ps * .7, lean * 1.2) }, { a: 4.9, d: () => tree(cx + px(4.9, irx * .75), iy + pz(4.9) * iry * .6, ps * .9, lean) }];
     props.sort((p, q) => pz(p.a) - pz(q.a)).forEach(p => p.d());
+    play.foreground(x, cx, cy, rx, ry, t, st.landscape, dark);
     // 天气粒子
     if (s == 'rain' || stormy) { drops.length < (stormy ? 90 : 50) && drops.push({ x: Math.random(), y: -.1, v: .02 + Math.random() * .02 }); x.strokeStyle = 'rgba(220,235,255,.6)'; x.lineWidth = 1; drops.forEach(d => { d.y += d.v * k; d.x += stormy ? .006 : 0; x.beginPath(); x.moveTo(cx - rx + d.x * rx * 2, cy - ry + d.y * ry * 2); x.lineTo(cx - rx + d.x * rx * 2 - (stormy ? 5 : 1), cy - ry + d.y * ry * 2 + 9); x.stroke(); }); drops = drops.filter(d => d.y < 1.1); } else drops.length = 0;
     if (stormy) { if (bolt <= 0 && Math.random() < .012) bolt = 10; if (bolt > 0) { bolt--; x.fillStyle = `rgba(255,255,255,${bolt / 30})`; x.fillRect(cx - rx, cy - ry, rx * 2, ry * 2); x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); let bx = cx + rx * .3, by = cy - ry; x.moveTo(bx, by); for (let i = 0; i < 5; i++) { bx += (Math.random() - .5) * 30; by += ry * .18; x.lineTo(bx, by); } x.stroke(); } }
@@ -109,13 +113,58 @@ function painter(cv, getState) {
     raf = requestAnimationFrame(draw);
   };
   // 按住球：捏扁；松手弹回；在外面划：转岛
-  let pd = null;
-  cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(), dx = e.clientX - r.left - W / 2, dy = e.clientY - r.top - H / 2; pd = { x: e.clientX, y: e.clientY, inside: Math.hypot(dx, dy) < R, lx: e.clientX }; cv.setPointerCapture?.(e.pointerId); if (pd.inside) { sq.x = 1.08; sq.y = .9; } });
-  cv.addEventListener('pointermove', e => { if (!pd) return; if (pd.inside) { const dx = (e.clientX - pd.x) / R, dy = (e.clientY - pd.y) / R; sq.x = Math.max(.75, Math.min(1.3, 1 + dx * .4)); sq.y = Math.max(.75, Math.min(1.3, 1 - dy * .4)); } else vrot = (e.clientX - pd.lx) * .004; pd.lx = e.clientX; });
-  const up = () => { if (pd?.inside) { sq.vx = (1 - sq.x) * .3; sq.vy = (1 - sq.y) * .3; } pd = null; };
-  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  let pd = null, lastShake = -Infinity, motionPrev = null, motionHits = 0, motionAt = 0;
+  const shake = () => { if (performance.now() - lastShake < 6000) return; lastShake = performance.now(); if (!reduced) { sq.vx = .12; sq.vy = -.1; vrot = .05; } play.gust(.9); play.say('shake', true); };
+  play.listen(cv, 'pointerdown', e => {
+    if (pd || e.isPrimary === false) return;
+    const r = cv.getBoundingClientRect(), dx = e.clientX - r.left - W / 2, dy = e.clientY - r.top - H / 2;
+    pd = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, at: performance.now(), turnAt: performance.now(), dir: 0, turns: 0, moved: 0, tx: 1.08, ty: .9, inside: Math.hypot(dx, dy) < R };
+    cv.setPointerCapture?.(e.pointerId); play.splash(dx / R, dy / R);
+  });
+  play.listen(cv, 'pointermove', e => {
+    if (!pd || pd.id !== e.pointerId) return;
+    const time = performance.now(), delta = e.clientX - pd.lx, dt = Math.max(8, time - pd.at);
+    const dx = (e.clientX - pd.x) / R, dy = (e.clientY - pd.y) / R;
+    pd.moved = Math.max(pd.moved, Math.hypot(dx, dy));
+    if (pd.inside) { pd.tx = Math.max(.78, Math.min(1.25, 1.08 + dx * .4)); pd.ty = Math.max(.78, Math.min(1.25, .9 - dy * .4)); }
+    else if (!reduced) vrot = Math.max(-.12, Math.min(.12, delta * .004));
+    play.gust(delta / dt * .65);
+    if (Math.abs(delta) > 5 && Math.abs(delta / dt) > .35) {
+      const dir = Math.sign(delta); if (time - pd.turnAt > 700) pd.turns = 0;
+      if (pd.dir && dir !== pd.dir) { pd.turns++; pd.turnAt = time; } pd.dir = dir;
+      if (pd.turns >= 3) { shake(); pd.turns = 0; }
+    }
+    pd.lx = e.clientX; pd.at = time;
+  });
+  const up = e => { if (!pd || (e?.pointerId != null && e.pointerId !== pd.id)) return;
+    if (e?.type === 'pointerup') play.say(pd.moved > .2 ? 'stretch' : (pd.y - cv.getBoundingClientRect().top > H * .6 ? 'water' : 'touch'));
+    pd = null;
+  };
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) play.listen(cv, ev, up);
+  play.listen(window, 'blur', () => { pd = null; });
+  const motion = e => {
+    if (!cv.isConnected || document.hidden) return;
+    const a = e.accelerationIncludingGravity; if (!a || ![a.x, a.y, a.z].every(Number.isFinite)) return;
+    const time = performance.now();
+    if (motionPrev && Math.hypot(a.x - motionPrev.x, a.y - motionPrev.y, a.z - motionPrev.z) > 19) {
+      motionHits = time - motionAt < 800 ? motionHits + 1 : 1; motionAt = time;
+      if (motionHits >= 3) { shake(); motionHits = 0; }
+    } motionPrev = { x: a.x, y: a.y, z: a.z };
+  };
+  let motionOn = false, stopped = false;
+  const enableMotion = async () => {
+    if (motionOn) return true;
+    try { if (!window.DeviceMotionEvent) return false;
+      if (typeof DeviceMotionEvent.requestPermission === 'function' && await DeviceMotionEvent.requestPermission() !== 'granted') return false;
+      if (stopped) return false;
+      motionOn = true; play.listen(window, 'devicemotion', motion); return true;
+    } catch { return false; }
+  };
+  const shakeButton = cv.parentElement.querySelector('[data-is-shake]');
+  play.listen(shakeButton, 'click', shake);
+
   draw();
-  return { stop: () => { cancelAnimationFrame(raf); ro?.disconnect(); }, size, shake: () => { sq.vx = .25; sq.vy = -.22; } };
+  return { stop: () => { stopped = true; cancelAnimationFrame(raf); ro?.disconnect(); play.stop(); }, size, enableMotion, shake };
 }
 
 /* ---------- 页面 ---------- */
@@ -127,13 +176,13 @@ const body = () => { const id = curId(), c = byId(id), r = id ? rec(id) : null, 
   const scene = r?.scene || 'sunset';
   const wave = `<svg viewBox="0 0 160 26" fill="none" aria-hidden="true"><path d="M0 13 Q10 2 20 13 T40 13 T60 13 T80 13 T100 13 T120 13 T140 13 T160 13" stroke="currentColor" stroke-width="1"/><path d="M0 20 Q10 9 20 20 T40 20 T60 20 T80 20 T100 20 T120 20 T140 20 T160 20" stroke="currentColor" stroke-width=".6" opacity=".4"/></svg>`;
   return `<div class="is-who" aria-label="选择角色">${ps.map(p => `<b class="${p.id == id ? 'on' : ''}" data-a="iswho" data-x="${esc(p.id)}" role="button" tabindex="0" aria-label="${esc(nm(p))}" aria-pressed="${p.id == id}"><img src="${esc(avOf(p))}" alt=""><span>${esc(nm(p))}</span></b>`).join('')}</div>
-  <div class="is-stage" data-scene="${scene}"><div class="is-caption"><span>${esc(nm(c))}的岛</span><span>${r?.scene ? SCENES[scene] : '待观测'}</span></div><canvas class="is-cv" aria-label="${esc(nm(c))}的心情小岛"></canvas><div class="is-sealine">${wave}<span>一 岛 一 心 事</span>${wave}</div></div>
+  <div class="is-stage" data-scene="${scene}"><div class="is-caption"><span>${esc(nm(c))}的岛</span><span>${r?.scene ? SCENES[scene] : '待观测'}</span></div><div class="is-bubble" role="status" aria-live="polite"></div><canvas class="is-cv" aria-label="${esc(nm(c))}的心情小岛"></canvas><div class="is-playbar"><button type="button" data-a="islandscape">${LANDSCAPES.find(l => l[0] === S.isle?.landscape)?.[1] || LANDSCAPES[0][1]}</button><button type="button" data-is-shake>摇一摇</button><button type="button" data-a="ismotion">体感</button></div><div class="is-sealine">${wave}<span>一 岛 一 心 事</span>${wave}</div></div>
   <div class="is-card"><div class="is-mood"><div><b>${esc(r?.mood || '还不知道')}</b><small>${r?.scene ? SCENES[scene] + ' · ' : ''}${esc(nm(c))}的岛${r?.ts ? ' · ' + ago(r.ts) : ''}</small></div><i class="is-weather sc-${scene}" aria-hidden="true"></i></div>
   ${r?.say ? `<p class="is-say">${esc(r.say)}</p>` : ''}
   ${r?.ts ? `<div class="is-tide"><span>情绪潮位</span><div class="is-tide-track" role="meter" aria-label="情绪潮位" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(r.sea * 100)}"><i style="width:${Math.round(r.sea * 100)}%"></i></div><span>${r.sea < .35 ? '微澜' : r.sea < .7 ? '起伏' : '汹涌'}</span></div>` : ''}
   <div class="is-btns"><button class="btn pri" data-a="islook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 3v5m0 8v5M3 12h5m8 0h5M6 6l3 3m6 6 3 3M6 18l3-3m6-6 3-3"/><circle cx="12" cy="12" r="3"/></svg>看看 TA 现在</button><button class="btn" data-a="ishist">潮汐记录<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"/></svg></button></div></div>`; };
 
-const mount = el => { pt?.stop(); el.querySelectorAll('.is-who [role=button]').forEach(b => b.addEventListener('keydown', e => { if (e.key == 'Enter' || e.key == ' ') { e.preventDefault(); b.click(); } })); const cv = $('.is-cv', el); if (!cv) return; const id = curId(); pt = painter(cv, () => { const r = id ? rec(id) : { scene: 'sunset', sea: .4 }; return { scene: r.scene || 'sunset', sea: r.sea ?? .4, jelly: jelly() }; }); };
+const mount = el => { pt?.stop(); el.querySelectorAll('.is-who [role=button]').forEach(b => b.addEventListener('keydown', e => { if (e.key == 'Enter' || e.key == ' ') { e.preventDefault(); b.click(); } })); const cv = $('.is-cv', el); if (!cv) return; const id = curId(); pt = painter(cv, () => { const r = id ? rec(id) : { scene: 'sunset', sea: .4 }; return { scene: r.scene || 'sunset', sea: r.sea ?? .4, jelly: jelly(), landscape: S.isle?.landscape || 'garden' }; }); };
 const look = () => { const id = curId(), c = byId(id); if (!c) return; return task(`读 ${nm(c)} 的心情`, async sg => {
   const r = json(await llm(await sysCtx({ n: 10, rc: 3500, wi: 0, desc: 1000 }), `根据最近的剧情，判断${rn(c)}此刻的心情。只输出 JSON：{"mood":"两到四个字的心情词","scene":"sun|sunset|rain|storm|aurora|night|fog|fireworks 里选一个最贴切的","say":"${rn(c)}此刻没说出口的一句话，30字以内，第一人称","sea":0到1的数字表示情绪起伏大小}`, '读心情', sg, { aux: 1 }));
   if (!r?.mood) throw Error('没读出来，再试一次'); setMood(id, r); pt?.shake(); return `${nm(c)}：${r.mood}`; }); };
@@ -143,6 +192,8 @@ reg({
     acts: {
       iswho: (x, t, e, pg) => { ISL().cur = x; saveD(); pg.re(); },
       islook: look,
+      islandscape: async (x, t, e, pg) => { const k = await menu(LANDSCAPES, '岛上风景'); if (!k) return; S.isle ||= {}; S.isle.landscape = k; save(); pg.re(); },
+      ismotion: async () => { toast(await pt?.enableMotion() ? '体感已开启' : '此设备暂不支持体感，可以拖动或摇一摇'); },
       ishist: () => { const id = curId(), c = byId(id), r = rec(id); page({ title: `${nm(c)}的潮汐记录`, cls: 'isle isle-history', body: () => r.hist.length ? `<div class="is-hist">${r.hist.map(h => `<div class="is-h"><i class="sc-${h.scene}"></i><div><b>${esc(h.mood)}</b><small>${SCENES[h.scene] || ''} · ${new Date(h.ts).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>${h.say ? `<p>「${esc(h.say)}」</p>` : ''}</div></div>`).join('')}</div>` : '<div class="is-empty"><p>还没有记录</p></div>' }); },
       isset: async (x, t, e, pg) => { const k = await menu([...JELLY.map(([k, n]) => [k, `${(S.isle?.jelly || 'mint') == k ? '✓ ' : ''}果冻 · ${n}`]), ['auto', `${S.isle?.auto ? '✓ ' : ''}跟着剧情变`]], '心屿'); if (!k) return; S.isle ||= {}; if (k == 'auto') { S.isle.auto = !S.isle.auto; syncInject(); } else S.isle.jelly = k; save(); pg.re(); },
     } }),
