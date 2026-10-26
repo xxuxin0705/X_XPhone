@@ -4,7 +4,7 @@ import { S, save, emit, toast, syncInject } from '../../core.js';
 import { urls, lyrics } from './api.js';
 
 export const MODES = [['loop', '列表循环'], ['one', '单曲循环'], ['shuf', '随机播放'], ['order', '顺序播放']];
-export const M = () => { const m = S.music ||= {}; m.q ||= []; m.liked ||= []; m.lists ||= []; m.hist ||= []; m.sh ||= []; m.src ||= {}; m.mode ||= 'loop'; m.qi |= 0; return m; };
+export const M = () => { const m = S.music ||= {}; m.q ||= []; m.liked ||= []; m.lists ||= []; m.hist ||= []; m.sh ||= []; m.src ||= {}; m.notes ||= []; m.mode ||= 'loop'; m.qi |= 0; return m; };
 export const key = s => s?.id ? 'i' + s.id : `n${s?.name}|${s?.artist}`;
 export const same = (a, b) => !!a && !!b && key(a) == key(b);
 const lite = s => ({ id: s.id || '', name: s.name, artist: s.artist, pic: s.pic || '', dur: s.dur || 0 }); // 只存这几项

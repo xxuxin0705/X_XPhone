@@ -1041,71 +1041,92 @@
 @media (prefers-reduced-motion:reduce){#stp *,#stp *::before,#stp *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}
   #stp .pg,#stp .sheet{transition:opacity .2s ease!important}}
 
-/* ===== 音乐 App ===== */
-.a-music{background:linear-gradient(150deg,#ffb3c7,#ff5f7e)}
-.musicapp .pg-b{padding:4px 14px 18px}
-.ms-sb{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;margin:2px 0 14px;border-radius:12px;background:rgba(127,127,127,.12);color:#8e8e93}
-.ms-sb svg{width:18px;height:18px;flex:none}.ms-sb input{all:unset;flex:1;min-width:0;color:var(--pt);font-size:calc(15px*var(--fz,1))}.ms-sb i{display:grid;width:20px;height:20px;cursor:pointer}.ms-sb i svg{width:16px;height:16px}
-.ms-sec{margin-bottom:18px}
-.ms-h{display:flex;align-items:baseline;justify-content:space-between;margin:0 2px 8px}.ms-h b{font-size:calc(17px*var(--fz,1));font-weight:700}.ms-h span{display:flex;color:var(--ac);font-size:calc(13px*var(--fz,1));cursor:pointer}.ms-h span svg{width:20px;height:20px}
-.ms-none{color:#9a9a9f;text-align:center;padding:26px 0;font-size:calc(13px*var(--fz,1))}
-.ms-r{display:flex;align-items:center;gap:11px;padding:7px 2px;border-radius:10px;cursor:pointer}
-.ms-r.now .ms-t b{color:var(--ac)}
-.ms-cv{width:44px;height:44px;flex:none;border-radius:8px;object-fit:cover;background:rgba(127,127,127,.12)}
-.ms-ph{display:grid;place-items:center;color:#b0b0b6}.ms-ph svg{width:46%;height:46%}
-.ms-rk{width:26px;flex:none;text-align:center;font-weight:700;font-variant-numeric:tabular-nums;color:#9a9a9f}.ms-r:nth-child(-n+3) .ms-rk{color:var(--ac)}
-.ms-t{flex:1;min-width:0}.ms-t b,.ms-t small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ms-t b{font-weight:500;font-size:calc(15px*var(--fz,1))}.ms-t small{margin-top:2px;color:#8e8e93;font-size:calc(12px*var(--fz,1))}
-.ms-mo{display:grid;place-items:center;width:32px;height:32px;flex:none;color:#a0a0a6}.ms-mo svg{width:20px;height:20px}
-.ms-more{all:unset;display:block;margin:8px auto 0;padding:8px 18px;border-radius:16px;background:rgba(127,127,127,.12);font-size:calc(13px*var(--fz,1));cursor:pointer}
-.ms-tops{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ms-top{position:relative;height:74px;padding:12px 14px;border-radius:14px;color:#fff;background:linear-gradient(140deg,color-mix(in srgb,var(--c) 70%,#fff),var(--c));cursor:pointer;overflow:hidden;box-shadow:0 8px 18px -12px var(--c)}
-.ms-top b{font-size:calc(16px*var(--fz,1));font-weight:700}.ms-top svg{position:absolute;right:12px;bottom:12px;width:22px;height:22px;opacity:.85}
-.ms-quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 20px}
-.ms-q{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:16px;background:var(--cd);cursor:pointer}.ms-q svg{width:24px;height:24px;margin-bottom:8px;color:var(--ac)}.ms-q.lk svg{color:#ff5f7e}
-.ms-q b{font-size:calc(15px*var(--fz,1))}.ms-q small{color:#8e8e93;font-size:calc(12px*var(--fz,1))}
-.ms-pl{display:flex;align-items:center;gap:12px;padding:7px 2px;cursor:pointer}
-.ms-grid{width:54px;height:54px;flex:none;border-radius:10px;overflow:hidden;display:grid;background:rgba(127,127,127,.12);object-fit:cover}
-.ms-grid.n2,.ms-grid.n3,.ms-grid.n4{grid-template-columns:1fr 1fr}.ms-grid.n3 img:first-child{grid-row:span 2}.ms-grid img{width:100%;height:100%;object-fit:cover;display:block}
-.ms-grid.big{width:118px;height:118px;border-radius:16px;box-shadow:0 14px 28px -16px rgba(0,0,0,.45)}
-.ms-tint{display:grid;place-items:center;color:#fff;background:linear-gradient(140deg,color-mix(in srgb,var(--c) 70%,#fff),var(--c))}.ms-tint svg{width:44%;height:44%}
-.ms-hero{display:flex;align-items:flex-end;gap:16px;margin:4px 2px 16px}.ms-hero b{display:block;font-size:calc(21px*var(--fz,1));font-weight:700;line-height:1.25}.ms-hero small{color:#8e8e93}
-.ms-act{display:flex;gap:10px;margin-bottom:12px}.ms-act .btn{flex:1;margin:0;display:flex;align-items:center;justify-content:center;gap:6px}.ms-act svg{width:17px;height:17px}
-.ms-mini{position:relative;display:flex;align-items:center;gap:10px;margin:0 10px 8px;padding:7px 8px 7px 7px;border-radius:16px;background:var(--cd);box-shadow:0 8px 22px -12px rgba(0,0,0,.3);cursor:pointer;overflow:hidden}
-.ms-mini .ms-cv{width:40px;height:40px}.ms-mini>i{display:grid;place-items:center;width:34px;height:34px;flex:none;color:var(--pt)}.ms-mini>i svg{width:22px;height:22px}
-.ms-mini .ms-bar{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--ac);transform-origin:left;transform:scaleX(var(--p,0));transition:transform .25s linear}
+/* ===== 音乐 App（照网易云手机端的样子：红色点缀、粉色黑胶、深色「我的」头部） ===== */
+.a-music{background:linear-gradient(150deg,#ff8a8a,#e8262b)}
+.musicapp{--mr:#e8262b;--mpk:#fde3ea}
+.musicapp .pg-h{height:44px}.musicapp .pg-t small{font-size:calc(12px*var(--fz,1));color:#9a9a9f;font-weight:400;margin-left:2px}
+.musicapp .pg-b{padding:0 0 10px}
+.mu-seg{display:flex;gap:22px;justify-content:center}.mu-seg b{position:relative;font-weight:500;color:#8e8e93;padding:4px 0;cursor:pointer}.mu-seg b.on{color:var(--pt);font-weight:700}.mu-seg b.on::after{content:'';position:absolute;left:50%;bottom:-2px;width:16px;height:3px;margin-left:-8px;border-radius:2px;background:var(--mr)}
+/* 底部页签：四个字 */
+.mu-nav{display:flex;padding:9px 0 18px;background:var(--cd);border-top:.5px solid var(--ln)}.mu-nav button{all:unset;flex:1;text-align:center;font-size:calc(14px*var(--fz,1));color:#8e8e93;cursor:pointer}.mu-nav button.on{color:var(--pt);font-weight:700}
+/* 迷你播放条：圆唱片 + 歌名 */
+.mu-mini{display:flex;align-items:center;gap:10px;margin:0 12px 8px;padding:6px 10px 6px 6px;border-radius:30px;background:var(--cd);box-shadow:0 6px 20px -10px rgba(0,0,0,.3);cursor:pointer}
+.mu-disc-s{width:38px;height:38px;flex:none;border-radius:50%;background:#1a1a1c;display:grid;place-items:center;box-shadow:inset 0 0 0 3px #2b2b2e}.mu-disc-s.spin{animation:muspin 9s linear infinite}
+.mu-cvr{width:26px;height:26px;border-radius:50%;object-fit:cover}.mu-disc-s .mu-ph{width:26px;height:26px;border-radius:50%;background:#3a3a3e;color:#999}
+@keyframes muspin{to{transform:rotate(360deg)}}
+.mu-mini .mu-t b span{font-weight:400;color:#8e8e93}
+.mu-ib{display:grid;place-items:center;width:32px;height:32px;flex:none;color:var(--pt)}.mu-ib svg{width:21px;height:21px}
 i.ld{animation:mspulse 1s ease-in-out infinite alternate}@keyframes mspulse{to{opacity:.35}}
-.ms-lpg .pg-f,.musicapp .pg-f{background:var(--pg)}
-/* 播放页：模糊的封面当背景 */
-.ms-player{color:#fff;background:#1d1d22}.ms-player .pg-h{position:relative;z-index:2;background:none}.ms-player .pg-back,.ms-player .pg-r>b{color:#fff}
-.ms-player .pg-b{padding:0;overflow:hidden;display:flex;flex-direction:column}
-.ms-bg{position:absolute;inset:-40px;background:#333 center/cover;filter:blur(40px) saturate(1.4) brightness(.62);transform:scale(1.15)}
-.ms-pp{position:relative;flex:1;display:flex;flex-direction:column;padding:6px 26px 30px;min-height:0}
-.ms-stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
-.ms-art{width:min(78%,300px);aspect-ratio:1;transition:transform .45s var(--ease-out,ease-out);transform:scale(.88)}.ms-art.on{transform:none}
-.ms-big{width:100%;height:100%;border-radius:18px;object-fit:cover;box-shadow:0 24px 48px -20px rgba(0,0,0,.6);background:rgba(255,255,255,.12)}
-.ms-line{min-height:1.4em;margin-top:22px;text-align:center;font-size:calc(15px*var(--fz,1));opacity:.85;transition:opacity .2s}
-.ms-lrc{width:100%;height:100%;overflow-y:auto;mask:linear-gradient(transparent,#000 18%,#000 82%,transparent);padding:45% 0}
-.ms-lrc p{margin:0;padding:9px 4px;font-size:calc(17px*var(--fz,1));font-weight:600;line-height:1.35;opacity:.38;transition:opacity .25s,transform .25s var(--ease-out,ease-out);transform-origin:left;transform:scale(.96)}
-.ms-lrc p small{display:block;margin-top:3px;font-size:.78em;font-weight:400}.ms-lrc p.on{opacity:1;transform:none}.ms-nolrc{text-align:center;opacity:.6!important}
-.ms-info{display:flex;align-items:center;gap:12px;margin:18px 0 12px}.ms-info>div{flex:1;min-width:0}.ms-info b,.ms-info small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ms-info b{font-size:calc(21px*var(--fz,1));font-weight:700}.ms-info small{margin-top:3px;opacity:.7;font-size:calc(15px*var(--fz,1))}
-.ms-info i{display:grid;place-items:center;width:38px;height:38px;cursor:pointer}.ms-info i svg{width:26px;height:26px}.ms-info i.on{color:#ff6d8a}
-.ms-prog input{width:100%;margin:0;height:4px;appearance:none;-webkit-appearance:none;border-radius:2px;background:linear-gradient(90deg,#fff calc(var(--p,0)*100%),rgba(255,255,255,.25) 0)}
-.ms-prog input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff}
-.ms-prog div{display:flex;justify-content:space-between;margin-top:7px;font-size:calc(11.5px*var(--fz,1));opacity:.65;font-variant-numeric:tabular-nums}
-.ms-ctl{display:flex;align-items:center;justify-content:space-between;margin-top:14px}.ms-ctl i{display:grid;place-items:center;width:44px;height:44px;cursor:pointer;transition:transform 120ms var(--ease-out,ease-out)}.ms-ctl i:active{transform:scale(.9)}
-.ms-ctl i svg{width:24px;height:24px}.ms-ctl i:nth-child(2) svg,.ms-ctl i:nth-child(4) svg{width:30px;height:30px}.ms-ctl i.big{width:66px;height:66px}.ms-ctl i.big svg{width:44px;height:44px}
-.ms-qs .ms-r{padding:9px 4px}.ms-qs .pg-t small{color:#8e8e93;font-weight:400;margin-left:4px}
+/* 歌曲行 */
+.mu-sec{padding:0 14px 16px}.mu-h{display:flex;align-items:baseline;justify-content:space-between;margin:12px 2px 8px}.mu-h b{font-size:calc(16px*var(--fz,1));font-weight:700}.mu-h span{color:#8e8e93;font-size:calc(12.5px*var(--fz,1));cursor:pointer}
+.mu-none{color:#9a9a9f;text-align:center;padding:26px 0;font-size:calc(13px*var(--fz,1))}
+.mu-r{display:flex;align-items:center;gap:10px;padding:9px 2px;cursor:pointer}.mu-r.now .mu-t b{color:var(--mr)}
+.mu-rk{width:30px;flex:none;text-align:center;font-weight:600;color:#9a9a9f;font-variant-numeric:tabular-nums}.mu-r:nth-child(-n+3) .mu-rk{color:var(--mr)}
+.mu-t{flex:1;min-width:0}.mu-t b,.mu-t small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mu-t b{font-weight:500;font-size:calc(15px*var(--fz,1))}.mu-t small{margin-top:2px;color:#8e8e93;font-size:calc(12px*var(--fz,1))}.mu-t small em{font-style:normal;margin-left:6px;padding:0 5px;border-radius:4px;background:color-mix(in srgb,var(--mr) 12%,transparent);color:var(--mr);font-size:.9em}
+.mu-mo{display:grid;place-items:center;width:30px;height:30px;flex:none;color:#a0a0a6}.mu-mo svg{width:18px;height:18px}
+.mu-cv{width:48px;height:48px;flex:none;border-radius:8px;object-fit:cover;background:rgba(127,127,127,.12)}.mu-ph{display:grid;place-items:center;color:#b0b0b6}.mu-ph svg{width:46%;height:46%}
+.mu-more{all:unset;display:block;margin:8px auto 0;padding:8px 18px;border-radius:16px;background:rgba(127,127,127,.12);font-size:calc(13px*var(--fz,1));cursor:pointer}
+/* 心动：粉色底 + 黑胶 */
+.mu-home-heart .pg-h,.mu-home-heart .pg-b,.mu-home-heart .pg-f .mu-nav{background:var(--mpk)}.mu-home-heart .pg-f .mu-nav{border-top-color:rgba(0,0,0,.05)}
+.mu-heart{display:flex;flex-direction:column;height:100%;padding:0 24px 12px}
+.mu-vinyl{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mu-disc{position:relative;width:min(80%,290px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;
+  background:repeating-radial-gradient(circle,#f7a6bc 0 1.5px,#fbb9cb 1.5px 4px);box-shadow:inset 0 0 0 6px #f9c3d2,0 18px 40px -18px rgba(220,80,120,.55)}
+.mu-disc::after{content:'';position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 20deg,rgba(255,255,255,.35),transparent 20%,transparent 50%,rgba(255,255,255,.3) 62%,transparent 75%);pointer-events:none}
+.mu-vinyl.on .mu-disc{animation:muspin 18s linear infinite}
+.mu-cvd{width:44%;height:44%;border-radius:50%;object-fit:cover;box-shadow:0 0 0 4px #fff,0 0 0 5px rgba(0,0,0,.06)}.mu-disc .mu-ph{background:#fff;color:#f2a1b9}
+.mu-arm{position:absolute;right:calc(50% - min(40%,145px) - 6px);top:calc(50% - min(40%,145px) - 18px);width:8px;height:38%;border-radius:4px;background:linear-gradient(#fff,#e6e6e6);box-shadow:0 2px 6px rgba(0,0,0,.15);transform-origin:50% 8px;transform:rotate(-26deg);transition:transform .5s var(--ease-out,ease-out);z-index:2}
+.mu-arm::before{content:'';position:absolute;top:-10px;left:-8px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.mu-arm::after{content:'';position:absolute;bottom:-4px;left:-5px;width:18px;height:22px;border-radius:5px;background:#f4f4f4;box-shadow:0 2px 5px rgba(0,0,0,.15)}
+.mu-vinyl.on .mu-arm{transform:rotate(-4deg)}
+.mu-tip2{display:flex;align-items:center;justify-content:center;gap:6px;margin:0 0 18px;color:#b06a84;font-size:calc(13px*var(--fz,1))}.mu-tip2 svg{width:16px;height:16px;color:var(--mr)}
+.mu-meta{display:flex;align-items:center;gap:4px;margin-top:10px}.mu-meta>div{flex:1;min-width:0}.mu-meta b,.mu-meta small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mu-meta b{font-size:calc(19px*var(--fz,1));font-weight:700}.mu-meta small{color:#8e8e93;margin-top:2px}
+.mu-meta i{position:relative;display:grid;place-items:center;width:38px;height:38px;cursor:pointer;color:var(--pt)}.mu-meta i svg{width:23px;height:23px}.mu-meta i.on{color:var(--mr)}.mu-meta i em{position:absolute;top:4px;right:1px;font:600 9px/1 sans-serif;font-style:normal;padding:1px 3px;border-radius:5px;background:var(--mr);color:#fff}
+.mu-prog{margin-top:8px}#stp .mu-prog input[type=range]{display:block;width:100%;max-width:none;height:3px;margin:0;padding:0;border:0;-webkit-appearance:none;appearance:none;border-radius:2px;background:linear-gradient(90deg,var(--pt) calc(var(--p,0)*100%),rgba(0,0,0,.14) 0);accent-color:var(--pt)}
+#stp .mu-prog input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border:0;border-radius:50%;background:var(--pt)}#stp .mu-prog input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radius:50%;background:var(--pt)}
+.mu-prog div{display:flex;justify-content:space-between;margin-top:6px;font-size:calc(10.5px*var(--fz,1));color:#8e8e93;font-variant-numeric:tabular-nums}
+.mu-ctl{display:flex;align-items:center;justify-content:space-between;margin:10px 4px 0}.mu-ctl i{display:grid;place-items:center;width:44px;height:44px;cursor:pointer;color:var(--pt);transition:transform 120ms var(--ease-out,ease-out)}.mu-ctl i:active{transform:scale(.9)}
+.mu-ctl i svg{width:22px;height:22px}.mu-ctl i:nth-child(2) svg,.mu-ctl i:nth-child(4) svg{width:28px;height:28px}.mu-ctl i.big{width:60px;height:60px}.mu-ctl i.big svg{width:40px;height:40px}
+/* 歌词 */
+.mu-lrc{flex:1;min-height:0;overflow-y:auto;text-align:center;mask:linear-gradient(transparent,#000 14%,#000 86%,transparent);padding:40% 6px}
+.mu-lrc p{margin:0;padding:8px 0;font-size:calc(15px*var(--fz,1));line-height:1.4;color:#9a8a90;transition:color .25s,transform .25s var(--ease-out,ease-out);transform:scale(.96);cursor:pointer}
+.mu-lrc p small{display:block;font-size:.85em;margin-top:2px}.mu-lrc p.on{color:var(--pt);font-weight:700;transform:none}.mu-lrc p.pk{background:rgba(232,38,43,.12);border-radius:8px;color:var(--mr)}
+.mu-nolrc{color:#b09aa3!important}
+.mu-pkbar{display:flex;align-items:center;gap:10px;padding:8px 2px 2px;font-size:calc(13px*var(--fz,1));color:#8e8e93}.mu-pkbar span{flex:1}.mu-pkbar b{padding:6px 14px;border-radius:16px;background:rgba(0,0,0,.06);cursor:pointer}.mu-pkbar b.pri{background:var(--mr);color:#fff}
+/* 推荐 */
+.mu-recp{padding-top:6px}
+.mu-today{display:flex;align-items:center;gap:12px;margin:8px 14px 6px;padding:14px 16px;border-radius:14px;background:#2b2b30;color:#fff}.mu-today b{display:block;font-size:calc(15px*var(--fz,1))}.mu-today p{margin:5px 0 0;font-size:calc(12.5px*var(--fz,1));opacity:.75;line-height:1.45}.mu-today>div{flex:1;min-width:0}
+.mu-today i{display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:50%;background:rgba(255,255,255,.12);cursor:pointer}.mu-today i.pri{background:var(--mr)}.mu-today i svg{width:20px;height:20px}
+/* 搜索 */
+.mu-sb{display:flex;align-items:center;gap:8px;height:36px;margin:4px 14px 12px;padding:0 12px;border-radius:18px;background:rgba(127,127,127,.12);color:#8e8e93}.mu-sb svg{width:17px;height:17px;flex:none}
+#stp .mu-sb input{all:unset;flex:1;min-width:0;color:var(--pt);font-size:calc(14px*var(--fz,1));background:none;border:0;padding:0;height:auto;box-shadow:none;width:auto;text-align:left}.mu-sb i{display:grid;width:20px;height:20px;cursor:pointer}.mu-sb i svg{width:15px;height:15px}
+.mu-tops{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px}
+.mu-top{position:relative;height:60px;padding:0 14px;display:flex;align-items:center;border-radius:12px;color:#fff;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 75%,#fff),var(--c));cursor:pointer;overflow:hidden}
+.mu-top b{font-size:calc(15px*var(--fz,1));font-weight:700}.mu-top svg{position:absolute;right:-4px;bottom:-8px;width:48px;height:48px;opacity:.25}
+/* 笔记 */
+.mu-note{margin:10px 14px 0;padding:12px;border-radius:14px;background:var(--cd);cursor:pointer}.mu-nh{display:flex;align-items:center;gap:10px}.mu-nh .mu-cv{width:40px;height:40px}
+.mu-note blockquote{margin:10px 0 0;padding:8px 12px;border-left:3px solid var(--mr);background:color-mix(in srgb,var(--mr) 6%,transparent);border-radius:0 8px 8px 0;font-size:calc(14px*var(--fz,1));line-height:1.6}
+.mu-note p{margin:8px 2px 0;font-size:calc(13.5px*var(--fz,1));line-height:1.5}
+.mu-empty{text-align:center;color:#9a9a9f;padding:80px 30px}.mu-empty svg{width:40px;height:40px;opacity:.5}.mu-empty p{margin:10px 0 4px;font-size:calc(15px*var(--fz,1))}.mu-empty small{font-size:calc(12.5px*var(--fz,1))}
+/* 我的：深色头部 */
+.mu-mine .pg-h{background:#1d1d20;color:#fff}.mu-mine .pg-r>b{color:#fff}.mu-mine .pg-b{background:#1d1d20}
+.mu-prof{display:flex;flex-direction:column;align-items:center;padding:6px 16px 16px;color:#fff;background:#1d1d20}
+.mu-av{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.25)}.mu-prof>b{margin-top:8px;font-size:calc(17px*var(--fz,1))}.mu-prof>small{margin-top:4px;opacity:.6;font-size:calc(12px*var(--fz,1))}
+.mu-pb{display:flex;gap:8px;margin-top:14px;width:100%}.mu-pb b{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;height:34px;border-radius:17px;background:rgba(255,255,255,.12);font-weight:500;font-size:calc(13px*var(--fz,1));cursor:pointer}.mu-pb svg{width:16px;height:16px}
+.mu-body{min-height:100%;padding:12px 14px 20px;border-radius:18px 18px 0 0;background:var(--pg);color:var(--pt)}
+.mu-h2{display:flex;align-items:center;justify-content:space-between;margin:0 2px 6px}.mu-h2 b{font-size:calc(16px*var(--fz,1));font-weight:700}.mu-h2 span{display:grid;width:28px;height:28px;place-items:center;color:#8e8e93;cursor:pointer}.mu-h2 svg{width:20px;height:20px}
+.mu-r.pl{padding:8px 2px}.mu-hm{display:flex;align-items:center;gap:3px;padding:4px 9px;border-radius:12px;background:rgba(127,127,127,.12);font-style:normal;font-size:calc(11.5px*var(--fz,1));cursor:pointer}.mu-hm svg{width:13px;height:13px;color:var(--mr)}
+/* 歌单页 */
+.mu-hero{display:flex;align-items:center;gap:14px;padding:6px 16px 14px}.mu-hero b{display:block;font-size:calc(19px*var(--fz,1));font-weight:700;line-height:1.3}.mu-hero small{color:#8e8e93}
+.mu-big{width:100px;height:100px;flex:none;border-radius:12px;object-fit:cover;box-shadow:0 12px 24px -14px rgba(0,0,0,.4)}.mu-tint{display:grid;place-items:center;color:#fff;background:linear-gradient(140deg,color-mix(in srgb,var(--c) 70%,#fff),var(--c))}.mu-tint svg{width:44%;height:44%}
+.mu-all{display:flex;align-items:center;padding:4px 14px 2px}.mu-all b{flex:1;display:flex;align-items:center;gap:6px;font-size:calc(15px*var(--fz,1));cursor:pointer}.mu-all b svg{width:24px;height:24px;color:var(--mr)}.mu-all b small{font-weight:400;color:#8e8e93}.mu-all i{display:grid;place-items:center;width:32px;height:32px;color:#8e8e93;cursor:pointer}.mu-all i svg{width:19px;height:19px}
+.mu-lpg .pg-f,.musicapp .pg-f{background:var(--pg)}.mu-notes .pg-b{padding-top:2px}
+.mu-qs .mu-r{padding:10px 4px}.mu-qs .mu-t b span{font-weight:400;color:#8e8e93}
 /* 灵动岛：正在放歌时显示封面 + 跳动的音柱 */
 .isl.mu{display:flex;align-items:center;justify-content:space-between;padding:0 7px 0 4px;width:118px;margin-left:-59px;cursor:pointer;transition:width .35s var(--ease-drawer,ease),margin .35s var(--ease-drawer,ease)}
 .isl.mu img{width:18px;height:18px;border-radius:5px;object-fit:cover}
-.isl .eq{display:flex;align-items:flex-end;gap:2px;height:12px;margin-left:auto}.isl .eq b{width:2.5px;height:4px;border-radius:2px;background:#ff8aa5}
+.isl .eq{display:flex;align-items:flex-end;gap:2px;height:12px;margin-left:auto}.isl .eq b{width:2.5px;height:4px;border-radius:2px;background:#ff5f6d}
 .isl .eq.on b{animation:mseq .9s ease-in-out infinite alternate}.isl .eq.on b:nth-child(2){animation-delay:-.3s}.isl .eq.on b:nth-child(3){animation-delay:-.6s}
 @keyframes mseq{0%{height:3px}100%{height:12px}}
-/* 手机全屏时没有灵动岛：正在放歌就在时间旁边显示一个小胶囊 */
 @media (max-width:520px){.isl.mu{display:flex;position:static;order:0;margin:0 auto 0 8px;width:auto;height:20px;gap:6px;padding:0 7px 0 3px;background:rgba(0,0,0,.55)}.isl.mu img{width:15px;height:15px;border-radius:4px}.sb{justify-content:flex-start}.sb .sb-r{margin-left:auto}}
-#stp .ms-sb input{background:none;border:0;padding:0;height:auto;box-shadow:none;width:auto;text-align:left}
-#stp .ms-prog input[type=range]{display:block;width:100%;max-width:none;height:4px;margin:0;padding:0;border:0;-webkit-appearance:none;appearance:none;border-radius:2px;background:linear-gradient(90deg,#fff calc(var(--p,0)*100%),rgba(255,255,255,.25) 0);accent-color:#fff}
-#stp .ms-prog input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
-#stp .ms-prog input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radius:50%;background:#fff}
-.musicapp .tabs .on{color:var(--ac)}.musicapp .tabs .on svg{fill:none}.musicapp .tabs .on:last-child svg{fill:color-mix(in srgb,var(--ac) 25%,transparent)}
+.musicapp .pg-back,.musicapp .pg-r>b{color:var(--pt)}.musicapp .pg-r>b.txt{color:#8e8e93;font-weight:400}.mu-mine .pg-back,.mu-mine .pg-r>b{color:#fff}
