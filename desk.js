@@ -87,8 +87,13 @@ function folder(it) {
 }
 // CCD：点一下换照片
 async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == null) return; const old = it.p.img; it.p.img = v || ''; save(); old && dropMedia(old); renderDesk(); }
+// 和桌面共用渲染器，保留选定的宽高比例；预览没有桌面编辑按钮或点击动作。
+const widgetPreview = (it, m) => {
+  const K = WK[it.k], { sz, ...p } = m, [w, h] = sz.split('x').map(Number);
+  return `<div class="wedit-preview"><div class="wedit-pv-head"><span>样式预览</span><small>${w}×${h}</small></div><div class="wedit-stage"><div class="wprev" style="width:min(100%,${Math.min(w * 72, 210 * w / h)}px);aspect-ratio:${w}/${h}"><div class="it wg w${w} h${h} k-${it.k} ${K.cls || ''}">${tpl(K.r(p, { ...it, w, h }))}</div></div></div></div>`;
+};
 async function editW(it) {
-  const K = WK[it.k], r = await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, {}, (k, v, m, s) => ['bg', 'auto'].includes(k) && s.reb()); if (!r) return; // 改了背景 / 配色方式：要填的项跟着变
+  const K = WK[it.k], r = await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, {}, (k, v, m, s) => ['bg', 'auto'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m) }); if (!r) return;
   const { sz, ...p } = r; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk();
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
@@ -116,3 +121,4 @@ export function initDesk() {
   S.desk ||= def(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认挪到下面 renderDesk(); // 去掉已经不存在的组件
   ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
 }
+

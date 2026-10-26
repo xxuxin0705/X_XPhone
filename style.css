@@ -950,3 +950,13 @@
 
 /* 表单里的滑块 */
 .row.rg input[type=range]{flex:1;min-width:0;margin:0 10px;accent-color:var(--ac)}.row.rg em{font-style:normal;min-width:44px;text-align:right;color:#8e8e93;font-size:calc(14px*var(--fz,1))}
+
+
+/* 所有小组件的设置预览：复用桌面样式，滑块拖动时只刷新预览。 */
+.has-preview .form-preview{position:sticky;top:0;z-index:2;padding:0 14px 10px;background:var(--pg)}
+.wedit-preview{border-radius:18px;overflow:hidden;border:1px solid rgba(127,127,127,.15)}
+.wedit-pv-head{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--cd);font-size:calc(12px*var(--fz,1))}
+.wedit-pv-head small{opacity:.6;font-size:inherit}
+.wedit-stage{display:flex;align-items:center;justify-content:center;padding:14px;min-height:120px;background:var(--wpi);isolation:isolate}
+.wedit-stage .wprev{flex:none;max-width:100%;pointer-events:none;user-select:none}
+.wedit-stage .it{width:100%;height:100%;animation:none!important;transition:none;container-type:size}

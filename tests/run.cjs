@@ -2,6 +2,7 @@
 // 浏览器测试需要 Playwright（Chromium）。截图在 tests/out/ 里（不进仓库）。
 const { spawnSync } = require('child_process'), path = require('path');
 const ALL = {
+  wpreview: ['unit/widget-preview.mjs', '小组件设置：实时样式预览、尺寸、保存与取消'],
   unit: ['unit/test.mjs', '逻辑测试：数据、解析、API 调用、内联同步（不开浏览器）'],
   e2e: ['e2e/e2e.cjs', '基本流程：开手机、聊天、生成、同步开关'],
   ms: ['e2e/ms.cjs', '消息列表长按多选、批量删除'],
@@ -33,3 +34,4 @@ for (const k of keys) {
   sum.push(`${okk ? '✓' : '✗'} ${k.padEnd(5)} ${m ? m[1] + ' 通过 / ' + m[2] + ' 失败' : '没跑完（看上面的报错）'}`);
 }
 console.log('\n' + sum.join('\n')); process.exit(bad ? 1 : 0);
+

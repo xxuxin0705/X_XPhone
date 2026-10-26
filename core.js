@@ -140,9 +140,13 @@ export const fx = m => {
   };
 };
 // fields 可以是数组，也可以是 m => 数组（字段随填写内容变化，如切换渠道）；chg(k, v, m, s) 在任意字段改动后调用
-export const form = (title, fields, obj = {}, ext = {}, chg) => new Promise(res => {
+export const form = (title, fields, obj = {}, ext = {}, chg, opt = {}) => new Promise(res => {
   const m = structuredClone(obj), f = fx(m); let done;
-  const s = sheet({ title, noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => chg?.(k, v, m, s), body: () => (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'range' ? `<label class="row rg"><span>${l}</span><input type="range" data-k="${k}" min="${o[0]}" max="${o[1]}" value="${esc(m[k] ?? o[0])}" data-u="${o[2] || ''}"><em>${esc(m[k] ?? o[0])}${o[2] || ''}</em></label>` : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); drop(obj); } }, onClose: () => done || (drop(m), res(null)) });
+  const preview = v => opt.preview ? `<div class="form-preview">${opt.preview(v)}</div>` : '';
+  const refreshPreview = v => { const el = $('.form-preview', s.el); if (el) el.innerHTML = opt.preview(v); };
+  const s = sheet({ title, cls: opt.preview ? 'has-preview' : '', noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => { chg?.(k, v, m, s); opt.preview && refreshPreview(m); },
+    after: el => { if (opt.preview) el.oninput = e => { const t = e.target, k = t.dataset.k; if (!k || t.closest('.form-preview')) return; const draft = structuredClone(m); setP(draft, k, t.type == 'checkbox' ? t.checked : ['number', 'range'].includes(t.type) ? +t.value : t.value); refreshPreview(draft); }; },
+    body: () => preview(m) + (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'range' ? `<label class="row rg"><span>${l}</span><input type="range" data-k="${k}" min="${o[0]}" max="${o[1]}" value="${esc(m[k] ?? o[0])}" data-u="${o[2] || ''}"><em>${esc(m[k] ?? o[0])}${o[2] || ''}</em></label>` : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); drop(obj); } }, onClose: () => done || (drop(m), res(null)) });
 });
 // 可折叠、长按拖拽排序的分组
 export const sec = (pk, list) => { const o = S.ui.order[pk] || [], ix = k => o.indexOf(k) + 1 || 99; return `<div class="secs" data-secs="${pk}">${list.filter(Boolean).sort((a, b) => ix(a[0]) - ix(b[0])).map(([k, t, h]) => `<div class="sec ${S.ui.fold[pk + k] ? 'fold' : ''}" data-sec="${esc(k)}"><div class="sec-h" data-a="fold" data-x="${esc(pk + k)}" data-lp="secDrag"><b>${t}</b>${I.chev}</div><div class="sec-b">${h}</div></div>`).join('')}</div>`; };
@@ -704,3 +708,4 @@ export async function getJ(url, signal) {
   }
   await chk(r); return r.json();
 }
+
