@@ -2,6 +2,7 @@
 // 浏览器测试需要 Playwright（Chromium）。截图在 tests/out/ 里（不进仓库）。
 const { spawnSync } = require('child_process'), path = require('path');
 const ALL = {
+  layout: ['unit/desk-layout.mjs', '桌面固定 4×6：容量、形状、改尺寸、换页和旧内容迁移'],
   wide: ['unit/ccd-wide.mjs', '横版 CCD：默认银色、自定义颜色、共用背景、照片视频、视频资源释放'],
   tint: ['unit/ccd-tint.mjs', 'CCD 浅色机壳：选色还原、高光阴影、暗框与透明度'],
   color: ['unit/color-drag.mjs', '取色圆圈：初始化、拖动、灰度、页面重画与取消'],

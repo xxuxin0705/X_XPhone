@@ -24,7 +24,7 @@ const DEF = {
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, fzp: 100, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,
   assets: {
-    widget: [{ id: 'w1', name: '心情便签', sz: '2x2', html: '<div style="height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px"><b style="font:700 30px Georgia,serif">{{time}}</b><small>今天也要开心 ✧</small><small style="opacity:.6">{{date}} 周{{week}}</small></div>' }],
+    widget: [],
     bubble: [
       { id: 'b1', name: '果冻糖', css: '.bub{border-radius:20px!important;box-shadow:inset 0 -3px 0 rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.06)!important}.me .bub{background:linear-gradient(135deg,#ffd6e6,#ffb3cf)!important;color:#5a2a3c!important}' },
       { id: 'b2', name: '手账描边', css: '.bub{background:#fffdf6!important;color:#4a3f35!important;border:1.5px dashed #c9b79c;border-radius:14px!important;box-shadow:none!important}.me .bub{background:#eaf6e3!important;border-color:#9cc48a}.bub::before{display:none!important}' }],

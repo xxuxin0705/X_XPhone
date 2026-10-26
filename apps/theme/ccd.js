@@ -13,7 +13,7 @@ export function ccdBg(p) {
   const a = Math.max(0, Math.min(1, (p.bgA ?? 60) / 100)), c = p.bgC || '#ffffff', c2 = p.bgC2 || '#ffd6e7';
   if (p.bg == 'solid') return `background:${hexa(c, a)}`;
   if (p.bg == 'grad') return `background:linear-gradient(${+p.bgDeg || 135}deg,${hexa(c, a)},${hexa(c2, a)})`;
-  if (p.bg == 'glass') return `background:${hexa(c, a * .45)};backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3)`;
+  if (p.bg == 'glass') return `background:${hexa(c, a * .5)};backdrop-filter:blur(18px) saturate(1.05);-webkit-backdrop-filter:blur(18px) saturate(1.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 4px 14px rgba(0,0,0,.04)`;
   return '';
 }
 const hex = h => { const n = parseInt(String(h).replace('#', '').padEnd(6, '0').slice(0, 6), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };

@@ -48,7 +48,10 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/^none\|rgba\(0, 0, 0, 0\)\|none$/.test(await setBg('none', 60)), '背景默认透明');
   ok(/rgba\(51, 102, 255, 0\.6\)/.test(await setBg('solid', 60)), '纯色 + 60% 透明度');
   ok(/linear-gradient[\s\S]*rgba\(51, 102, 255, 0\.3\)[\s\S]*rgba\(255, 0, 0, 0\.3\)/.test(await setBg('grad', 30)), '渐变（两个颜色）+ 30% 透明度');
-  ok(/blur\(14px\)/.test(await setBg('glass', 60)), '毛玻璃');
+  ok(/blur\(18px\)/.test(await setBg('glass', 60)), '毛玻璃');
+  const glassPad = await E(`(() => { const el = document.querySelector('.desk .it.ccd'), bg=el.querySelector('.ccd-bg').getBoundingClientRect(), cam=el.querySelector('.ccd-cam').getBoundingClientRect(); return [cam.left-bg.left,bg.right-cam.right,cam.top-bg.top,bg.bottom-cam.bottom]; })()`);
+  ok(glassPad.every(x=>x>5) && Math.max(...glassPad)-Math.min(...glassPad)<1, '相机背景四周留白一致，不再只包住上下');
+  ok(await E(`(() => { const page=document.querySelector('.desk .page');return getComputedStyle(page).gridTemplateRows.split(' ').length===6 && page.scrollHeight<=page.clientHeight+1 && getComputedStyle(page).overflowY==='hidden'; })()`), '桌面固定六行，没有纵向滚动');
   // 点一下换照片
   const [fc] = await Promise.all([p.waitForEvent('filechooser'), (async () => { await E(`document.querySelector('[data-a=edDone]').click()`); await W(300); await E(`document.querySelector('.desk .it.ccd').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=f]').click()`); })()]);
   await fc.setFiles([{ name: 'p.jpg', mimeType: 'image/jpeg', buffer: fs.readFileSync(path.join(here, '../fixtures/still.jpg')) }]); await W(1500);

@@ -1,6 +1,6 @@
 // 小手机 · 主题：桌面主题 / 壁纸 / 小组件 / 气泡样式 / 头像框 / 表情包 / 图标 / 自定义CSS
 import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok } from '../../core.js';
-import { renderDesk, icon } from '../../desk.js';
+import { renderDesk, icon, addDeskWidget } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
 import { lock, lockMig, custKind, lockClk } from '../../lock.js';
 import { clkHtml, clkFam, clkFonts, clkWt, userFonts, fontName } from './clock.js';
@@ -147,7 +147,7 @@ reg({
       ad: async x => {
         const [k, id] = x.split(':'), l = S.assets[k], a = l.find(a => a.id == id), c = await menu([...(k == 'widget' ? [['d', '添加到桌面']] : []), ['x', '删除', 'danger']], esc(a.name));
         c == 'x' && drop(l.splice(l.indexOf(a), 1));
-        if (c == 'd') { const [w, h] = (a.sz || '2x2').split('x').map(Number); S.desk.pages[0].push({ id: uid(), t: 'w', k: 'custom', w, h, p: { html: a.html } }); renderDesk(); toast('已添加到桌面第一页'); }
+        if (c == 'd') { const [w, h] = (a.sz || '2x2').split('x').map(Number); const page = addDeskWidget({ id: uid(), t: 'w', k: 'custom', w, h, p: { html: a.html } },0); toast(`已添加到桌面第 ${page+1} 页`); }
         save(); rf();
       },
       af: async k => { const fl = await pickFile(AK[k].file); if (!fl) return; const t = await fl.text(); S.assets[k].push({ id: uid(), name: fl.name.replace(/\.\w+$/, ''), ...(k == 'widget' ? { html: t, sz: '2x2' } : { css: t }) }); save(); rf(); },
@@ -157,3 +157,4 @@ reg({
     onChange: k => { /wall|css/.test(k) && applyTheme(); k.startsWith('lock.clk') && reClk(); k == 'wrand' && (S.wrand && !S.wpool?.length && (S.wpool = [curWall()]), save(), rf()); k == 'lock.rand' && (S.lock.rand && !S.lock.pool?.length && (S.lock.pool = [S.lock.wp]), save(), rf()); },
   }),
 });
+

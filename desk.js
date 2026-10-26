@@ -2,6 +2,7 @@
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickImg, pickFile, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
+import { pageLayout, placeItem, fitPages, removeMoodNote } from './desk-layout.js';
 import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
@@ -33,11 +34,12 @@ const def = () => ({ pages: [[W('clock', 4, 2, { ...WK.clock.d }), W('ccd', 2, 2
 let edit = 0, cur = 0, moved = 0;
 export const icon = id => S.icons[id] ? `<img src="${esc(S.icons[id])}">` : APPS[id]?.icon || '';
 const x = id => `<b class="x" data-a="del" data-x="${id}">×</b>`;
-const item = it => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h} k-${it.k} ${WK[it.k]?.cls || ''}" data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}${tpl(WK[it.k]?.r(it.p || {}, it))}</div>`
-  : `<div class="it app" data-it="${it.id}" data-a="tap" data-lp="dlp">${it.t == 'folder' ? x(it.id) : ''}<div class="ico ${it.t == 'folder' ? 'fdi' : 'a-' + it.app}">${it.t == 'folder' ? it.apps.map(a => `<i class="ico a-${a}">${icon(a)}</i>`).join('') : icon(it.app)}</div><span>${esc(it.t == 'folder' ? it.name : APPS[it.app]?.name)}</span></div>`;
+const item = (it, pos = '') => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h} k-${it.k} ${WK[it.k]?.cls || ''}"${pos} data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}${tpl(WK[it.k]?.r(it.p || {}, it))}</div>`
+  : `<div class="it app"${pos} data-it="${it.id}" data-a="tap" data-lp="dlp">${it.t == 'folder' ? x(it.id) : ''}<div class="ico ${it.t == 'folder' ? 'fdi' : 'a-' + it.app}">${it.t == 'folder' ? it.apps.map(a => `<i class="ico a-${a}">${icon(a)}</i>`).join('') : icon(it.app)}</div><span>${esc(it.t == 'folder' ? it.name : APPS[it.app]?.name)}</span></div>`;
 export function renderDesk() {
   const d = S.desk, el = ui.desk; if (!el) return;
-  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${p.map(item).join('')}</div>`).join('')}</div><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div><div class="dock" data-box="dock">${d.dock.map(item).join('')}</div>`;
+  d.pages = fitPages(d.pages); cur = Math.min(cur,d.pages.length-1);
+  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div><div class="dock" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
   mountWideVideos(el);
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
@@ -45,13 +47,16 @@ export function renderDesk() {
 const find = id => { for (const l of [...S.desk.pages, S.desk.dock]) { const i = l.findIndex(x => x.id == id); if (i > -1) return [l, i]; } return [[], -1]; };
 function clean() {
   const d = S.desk; [...d.pages, d.dock].forEach(l => l.forEach((it, i) => it.t == 'folder' && it.apps.length < 2 && l.splice(i, 1, ...it.apps.map(A))));
-  d.pages = d.pages.filter(p => p.length || edit); d.pages.length || d.pages.push([]); cur = Math.min(cur, d.pages.length - 1); save(); renderDesk();
+  d.pages = fitPages(d.pages);
+  const active = d.pages[cur]; d.pages = d.pages.filter(p => p.length || edit); d.pages.length || d.pages.push([]); cur = active && d.pages.includes(active) ? d.pages.indexOf(active) : Math.min(cur, d.pages.length - 1); save(); renderDesk();
 }
+export function addDeskWidget(it, index = cur) { cur = placeItem(S.desk.pages,it,index); save(); renderDesk(); return cur; }
 const goPage = i => { cur = Math.max(0, Math.min(i, S.desk.pages.length - 1)); const p = $('.pages', ui.desk); p.scrollTo({ left: cur * p.clientWidth, behavior: 'smooth' }); };
 
 // 拖动：拿起来的是一个浮在最上层的「影子」，原位置留个半透明占位；拖到左右边缘停一下就翻页（平滑滑过去，手不用松）
 function drag(e, id) {
-  let el = $(`[data-it="${id}"]`, ui.desk), last = e, et, dist = 0, lock = 0; // lock：刚翻过页，手离开边缘才能再翻 if (!el) return;
+  let el = $(`[data-it="${id}"]`, ui.desk), last = e, et, dist = 0, lock = 0; // lock：刚翻过页，手离开边缘才能再翻
+  if (!el) return;
   const R = ui.root, rr = () => R.getBoundingClientRect(), sc = rr().width / R.offsetWidth || 1, pd = ev => ev.preventDefault();
   const r0 = el.getBoundingClientRect(), gh = el.cloneNode(true), ox = (e.clientX - r0.left) / sc, oy = (e.clientY - r0.top) / sc;
   Object.assign(gh.style, { position: 'absolute', left: 0, top: 0, width: r0.width / sc + 'px', height: r0.height / sc + 'px', margin: 0 }); gh.classList.add('ghost'); gh.removeAttribute('data-it'); R.append(gh);
@@ -59,8 +64,8 @@ function drag(e, id) {
   const hold = () => { el = $(`[data-it="${id}"]`, ui.desk); el?.classList.add('ph'); };
   place(e); hold();
   const flip = edge => { et = 0; const n = cur + edge; if (n < 0) return; n >= S.desk.pages.length && S.desk.pages.push([]);
-    const [l, i] = find(id); S.desk.pages[n].push(...l.splice(i, 1)); const from = cur; cur = n; renderDesk(); hold();
-    const p = $('.pages', ui.desk); p.scrollLeft = from * p.clientWidth; requestAnimationFrame(() => p.scrollTo({ left: n * p.clientWidth, behavior: 'smooth' }));
+    const [l, i] = find(id), it = l[i], from = cur; cur = placeItem(S.desk.pages,it,n); renderDesk(); hold();
+    const p = $('.pages', ui.desk), targetPage = cur; p.scrollLeft = from * p.clientWidth; requestAnimationFrame(() => p.scrollTo({ left: targetPage * p.clientWidth, behavior: 'smooth' }));
     navigator.vibrate?.(8); lock = 1; };
   const arm = () => { const r = ui.desk.getBoundingClientRect(), x = last.clientX, edge = x < r.left + 36 * sc ? -1 : x > r.right - 36 * sc ? 1 : 0;
     if (!edge || edge < 0 && !cur) { clearTimeout(et); et = 0; lock = 0; return; } if (lock) return; et ||= setTimeout(() => flip(edge), 420); };
@@ -75,7 +80,7 @@ function drop(id, ev, el) {
   const p = document.elementFromPoint(ev.clientX, ev.clientY);
   el?.classList.remove('ph'); $$('.hov', ui.desk).forEach(x => x.classList.remove('hov'));
   const te = p?.closest('[data-it]'), box = p?.closest('[data-box]'), [sl, si] = find(id), it = sl[si];
-  if (!box || te == el) return;
+  if (!box || te == el) return clean();
   const tl = box.dataset.box == 'dock' ? S.desk.dock : S.desk.pages[box.dataset.box];
   if (tl == S.desk.dock && (it.t == 'w' || (sl != tl && tl.length >= 4))) return renderDesk();
   if (te) {
@@ -84,13 +89,14 @@ function drop(id, ev, el) {
     if (it.t == 'app' && tg.t != 'w' && mid) tg.t == 'folder' ? tg.apps.push(it.app) : tl.splice(tl.indexOf(tg), 1, { id: uid(), t: 'folder', name: '文件夹', apps: [tg.app, it.app] });
     else tl.splice(tl.indexOf(tg), 0, it);
   } else sl.splice(si, 1), tl.push(it);
+  if(tl != S.desk.dock && tl.includes(it)) cur = placeItem(S.desk.pages,it,S.desk.pages.indexOf(tl));
   clean();
 }
 function folder(it) {
   const s = sheet({
     cls: 'fold', noBack: 1, title: `<input class="fd-n" value="${esc(it.name)}">`,
     body: () => `<div class="fd-g">${it.apps.map((a, i) => `<div class="it app" data-a="fo" data-x="${a}" data-lp="fout" data-i="${i}"><div class="ico a-${a}">${icon(a)}</div><span>${esc(APPS[a]?.name)}</span></div>`).join('')}</div><p class="tip">长按图标可移出文件夹</p>`,
-    acts: { fo: a => { s.close(); openApp(a); }, fout: (a, t) => { it.apps.splice(t.dataset.i, 1); S.desk.pages[cur].push(A(a)); s.close(); } },
+    acts: { fo: a => { s.close(); openApp(a); }, fout: (a, t) => { it.apps.splice(t.dataset.i, 1); cur = placeItem(S.desk.pages,A(a),cur); s.close(); } },
     onClose: () => { it.name = $('.fd-n', s.el)?.value || it.name; clean(); },
   });
 }
@@ -102,7 +108,7 @@ const widgetPreview = (it, m) => {
   return `<div class="wedit-preview"><div class="wedit-pv-head"><span>样式预览</span><small>${w}×${h}</small></div><div class="wedit-stage"><div class="wprev" style="width:min(100%,${Math.min(w * 72, 210 * w / h)}px);aspect-ratio:${w}/${h}"><div class="it wg w${w} h${h} k-${it.k} ${K.cls || ''}">${tpl(K.r(p, { ...it, w, h }))}</div></div></div></div>`;
 };
 async function editW(it) {
-  const K = WK[it.k], apply = m => { const { sz, ...p } = m; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk(); };
+  const K = WK[it.k], apply = m => { const { sz, ...p } = m; [it.w, it.h] = sz.split('x').map(Number); it.p = p; const page = S.desk.pages.findIndex(list=>list.includes(it)); if(page>=0)cur = placeItem(S.desk.pages,it,page); save(); renderDesk(); };
   const videoActs = {
     wideVideo: async (_, t, e, pg) => { const file = await pickFile('video/*'); if(!file) return; if(file.size > 40e6) return toast('视频超过 40MB，请选择小一点的视频'); try { const value = await putMedia(file,'widget'); if(!pg.el.isConnected) { dropMedia(value); return; } const m = pg.model(), old = m.video; m.video = value; apply(m); pg.reb(); old && dropMedia(old); } catch { toast('视频上传失败，请重试'); } },
     wideVideoClear: (_, t, e, pg) => { const m=pg.model(), old=m.video; m.video='';apply(m);pg.reb();old && dropMedia(old); },
@@ -119,7 +125,7 @@ function wAddSheet() {
   const card = (e, i) => `<div class="wcard" data-a="pick" data-x="${i}" data-k="${e.k}" data-sz="${e.w}x${e.h}"><div class="wprev" style="width:${e.w * CELL}px;height:${e.h * CELL}px"><div class="it wg w${e.w} h${e.h} k-${e.k} ${e.cls}">${tpl(WK[e.k].r(e.p, { w: e.w, h: e.h }))}</div></div><span class="wc-n">${esc(e.n)}</span><span class="wc-s">${e.w}×${e.h}</span></div>`;
   const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件',
     body: () => `<div class="szf">${[['', '全部尺寸'], ...szs.map(z => [z, z.replace('x', '×')])].map(([v, l]) => `<b class="${fz == v ? 'on' : ''}" data-a="szf" data-x="${v}">${l}</b>`).join('')}</div><div class="wgrid">${all.map((e, i) => !fz || `${e.w}x${e.h}` == fz ? card(e, i) : '').join('')}</div>`,
-    acts: { szf: v => { fz = v; s.reb(); }, pick: i => { S.desk.pages[cur].push(all[+i].mk()); s.close(); clean(); } } });
+    acts: { szf: v => { fz = v; s.reb(); }, pick: i => { cur = placeItem(S.desk.pages,all[+i].mk(),cur); s.close(); clean(); } } });
 }
 Object.assign(G, {
   dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it); },
@@ -132,11 +138,12 @@ Object.assign(G, {
 });
 export function initDesk() {
   S.desk ||= def();
-  let migrated = false;
+  let migrated = removeMoodNote(S);
   for (const it of [...S.desk.pages.flat(), ...S.desk.dock]) if (it.k == 'ccdWide' && it.p && ['style','sticker','sx','sy','ss'].some(k => k in it.p)) {
     const sticker = it.p.sticker; it.p = wideSettings(it.p); sticker && dropMedia(sticker); migrated = true;
   }
-  migrated && save(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认挪到下面 renderDesk(); // 去掉已经不存在的组件
+  migrated && save(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认在下面
+  S.desk.pages = fitPages(S.desk.pages); save(); renderDesk();
   ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
 }
 

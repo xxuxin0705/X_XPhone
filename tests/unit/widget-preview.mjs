@@ -38,10 +38,11 @@ page.close(); const liveValue = await liveResult; assert.equal(liveValue.zoom, 1
 const ck = await import(new URL('apps/theme/clock.js', root));
 const ccd = await import(new URL('apps/theme/ccd.js', root));
 const wide = await import(new URL('apps/theme/ccd-wide.js', root));
+const layout = await import(new URL('desk-layout.js', root));
 const coreStub = { S: {assets:{widget:[]}}, save(){}, esc, uid:()=> 'id', $:()=>null, $$:()=>[], ui:{}, G:{}, APPS:{}, now:()=>new Date(2026,9,26,10,32), tpl:s=>s.replaceAll('{{user}}','测试用户'), form, menu(){}, sheet, defAv(){}, btn(){}, openApp(){}, dropMedia(){}, pickImg(){} };
-globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide};
+globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide,...layout};
 let desk = read('desk.js').replace(/^import .*?;$/gm, '');
-desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
+desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','pageLayout','placeItem','fitPages','removeMoodNote','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
 const dk = await import('data:text/javascript;base64,'+Buffer.from(desk).toString('base64'));
 for (const [k,K] of Object.entries(dk.WK)) {
  const it = { k, w:K.w,h:K.h };
@@ -75,5 +76,23 @@ for (const zoom of [50,100,196,300]) {
 }
 const clock=dk.widgetPreview({k:'clock'},{...dk.WK.clock.d,font:'ios',auto:false,c:'#ff0000',sz:'4x2'});
 assert.match(clock,/SF Pro Display/);assert.match(clock,/rgba\(255,0,0,1\)/);
+// 通过实际桌面入口验证添加和实时放大都会分页，而非仅测试布局辅助函数。
+const pagesEl={clientWidth:360,scrollLeft:0};
+coreStub.ui.desk={innerHTML:'',querySelectorAll:()=>[],classList:{add(){},remove(){}}};
+// 重新导入以绑定可渲染的 DOM 替身。
+globalThis.widgetTest.$=()=>pagesEl;
+const liveDesk=await import('data:text/javascript;base64,'+Buffer.from(desk+'\n// integration').toString('base64'));
+const full=Array.from({length:24},(_,i)=>({id:'fill'+i,t:'w',k:'custom',w:1,h:1,p:{html:''}}));
+coreStub.S.desk={pages:[full],dock:[]};
+const extra={id:'new-camera',t:'w',k:'ccdWide',w:4,h:2,p:{...liveDesk.WK.ccdWide.d}};
+assert.equal(liveDesk.addDeskWidget(extra,0),1);assert.equal(coreStub.S.desk.pages[0].length,24);assert.equal(pagesEl.scrollLeft,360);
+const make=id=>({id,t:'w',k:'ccd',w:4,h:2,p:{...liveDesk.WK.ccd.d}});
+const first=make('resize-first'),second=make('resize-second'),third=make('resize-third');
+coreStub.S.desk={pages:[[first,second,third]],dock:[]};
+liveDesk.renderDesk();coreStub.G.dlp('',{dataset:{}},{});
+const editing=coreStub.G.tap('',{dataset:{it:first.id}});
+page.model().sz='4x4';page.onChange('sz','4x4');
+assert.deepEqual(coreStub.S.desk.pages[0],[second,third]);assert.deepEqual(coreStub.S.desk.pages[1],[first]);
+page.close();await editing;
 console.log('Widget preview: all types, live inputs, size, styles, save/cancel and plain forms checked.');
 console.log('1 passed, 0 failed');
