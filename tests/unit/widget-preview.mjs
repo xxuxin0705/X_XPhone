@@ -24,6 +24,16 @@ model.zoom = 175; page.onChange('zoom', 175); assert.match(host.innerHTML, /175/
 page.acts.ok(); assert.equal((await result).zoom, 175); assert.equal(original.zoom, 100);
 const cancel = form('取消', [], original, {}, null, { preview }); page.close(); assert.equal(await cancel, null);
 const plain = form('普通表单', [], {}); assert.doesNotMatch(page.body(), /form-preview/);page.close();await plain;
+// 实时设置不显示保存；输入时更新模型，关闭不回滚，包含新照片和尺寸。
+let applied;
+const liveResult = form('实时组件', [['zoom','缩放','range',[50,300,'%']]], original, {}, null, { preview, live: m => { applied = structuredClone(m); } });
+assert.doesNotMatch(page.body(), /<button>/);
+page.after(page.el);
+input('zoom', '190'); assert.equal(applied.zoom, 190); assert.equal(page.model().zoom, 190);
+input('html', '实时文字', 'textarea'); assert.equal(applied.html, '实时文字');
+page.model().img = 'new-photo.webp'; page.onChange('img', 'new-photo.webp'); assert.equal(applied.img, 'new-photo.webp');
+page.model().sz = '4x4'; page.onChange('sz', '4x4'); assert.equal(applied.sz, '4x4');
+page.close(); const liveValue = await liveResult; assert.equal(liveValue.zoom, 190); assert.equal(liveValue.html, '实时文字'); assert.equal(liveValue.img, 'new-photo.webp');
 // 通过真实组件渲染器生成设置预览，检查每种类型、尺寸、样式和模板变量。
 const ck = await import(new URL('apps/theme/clock.js', root));
 const ccd = await import(new URL('apps/theme/ccd.js', root));

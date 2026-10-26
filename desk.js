@@ -93,8 +93,8 @@ const widgetPreview = (it, m) => {
   return `<div class="wedit-preview"><div class="wedit-pv-head"><span>样式预览</span><small>${w}×${h}</small></div><div class="wedit-stage"><div class="wprev" style="width:min(100%,${Math.min(w * 72, 210 * w / h)}px);aspect-ratio:${w}/${h}"><div class="it wg w${w} h${h} k-${it.k} ${K.cls || ''}">${tpl(K.r(p, { ...it, w, h }))}</div></div></div></div>`;
 };
 async function editW(it) {
-  const K = WK[it.k], r = await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, {}, (k, v, m, s) => ['bg', 'auto'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m) }); if (!r) return;
-  const { sz, ...p } = r; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk();
+  const K = WK[it.k], apply = m => { const { sz, ...p } = m; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk(); };
+  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, {}, (k, v, m, s) => ['bg', 'auto'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply });
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
 const CELL = 64; // 预览里一格的边长

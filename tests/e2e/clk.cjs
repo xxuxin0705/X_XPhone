@@ -73,6 +73,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/xp-nunito/.test(await E(`getComputedStyle(document.querySelector('.desk .it.clkw .clk-t')).fontFamily`)), '小组件默认「圆体」');
   await E(`document.querySelector('.desk .it.clkw').click()`); await W(400);
   const tx = await E(`document.querySelector('.sheet.in').textContent`);
+  ok(await E(`!document.querySelector('.sheet.in [data-a=ok]')`), '时间组件实时应用，不需要保存');
   ok(/SF Pro Rounded/.test(await E(`[...document.querySelectorAll('.sheet.in select[data-k=font] option')].map(o => o.textContent).join()`)), '小组件的字体里也有上传的字体');
   ok(/字体[\s\S]*日期位置[\s\S]*12 小时制[\s\S]*语言[\s\S]*跟随主题配色[\s\S]*背景/.test(tx) && !/粗细/.test(tx), '小组件设置：字体、日期位置、12 小时制、语言、配色、背景（没有粗细）');
   ok(!/背景颜色|渐变第二色|背景不透明度|不透明度/.test(tx) && !(await E(`!!document.querySelector('.sheet.in [data-k=c]')`)), '背景透明、跟随主题配色时：不显示颜色、渐变、不透明度');
@@ -88,8 +89,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`document.querySelector('.sheet.in [data-k=a]').nextElementSibling.textContent`) == '40%', '拖滑块：数值跟着显示');
   await setSel('bg', 'none'); await setSel('auto', true); await W(200);
   ok(await E(`[...document.querySelectorAll('.sheet.in select[data-k=sz] option')].map(o => o.value).join(',')`) == '2x1,4x2', '调整大小只有 2×1 / 4×2');
-  await E(`(() => { const s = document.querySelector('.sheet.in select[data-k=pos]'); s.value = 'bot'; s.dispatchEvent(new Event('change', { bubbles: true })); const f = document.querySelector('.sheet.in select[data-k=font]'); f.value = 'fredoka'; f.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('.sheet.in [data-a=ok]').click(); })()`); await W(500);
+  await E(`(() => { const s = document.querySelector('.sheet.in select[data-k=pos]'); s.value = 'bot'; s.dispatchEvent(new Event('change', { bubbles: true })); const f = document.querySelector('.sheet.in select[data-k=font]'); f.value = 'fredoka'; f.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('.sheet.in')._pg.close(); })()`); await W(500);
   ok(await E(`(() => { const c = document.querySelector('.desk .it.clkw .clk'); return c.lastElementChild.classList.contains('clk-d') && /xp-fredoka/.test(getComputedStyle(c.querySelector('.clk-t')).fontFamily); })()`), '小组件改成日期在下、软糖字体');
   await E(`document.querySelector('[data-a=edDone]').click()`); await W(300);
   await p.locator('#stp .desk').screenshot({ path: path.join(OUT, 'clk_desk.png') });
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();
+

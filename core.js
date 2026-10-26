@@ -126,11 +126,20 @@ export const ok = async q => (await menu([['y', q, 'danger']])) == 'y';
 /* ---------- 表单字段（data-k 自动双向绑定到 page.model() 或 S；$开头的键总是写入 S） ---------- */
 export const btn = (a, l, x = '', c = '') => `<button class="btn ${c}" data-a="${a}" data-x="${esc(x)}">${l}</button>`;
 let cpOpen = ''; // 展开着的色板（页面重画后保持展开）
+// 色板和下方灰度条都显示当前选色；重开或重画面板时从颜色恢复位置。
+const cpPoint = value => {
+  const c = /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#ffffff', n = parseInt(c.slice(1), 16);
+  const [r, g, b] = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => v / 255), hi = Math.max(r, g, b), lo = Math.min(r, g, b), d = hi - lo;
+  const h = !d ? 0 : ((hi == r ? (g - b) / d : hi == g ? (b - r) / d + 2 : (r - g) / d + 4) / 6 + 1) % 1, l = (hi + lo) / 2;
+  return { x: h * 100, y: (1 - l) * 100, gray: (1 - l) * 100, mode: d < .001 ? 'g' : 'sq', c };
+};
+const cpStyle = v => { const p = cpPoint(v); return `--cp-x:${p.x}%;--cp-y:${p.y}%;--cp-g:${p.gray}%;--cp-color:${p.c}`; };
+
 export const fx = m => {
   const v = k => k[0] == '$' ? getP(S, k.slice(1)) : getP(m, k), row = (l, h) => `<label class="row"><span>${l}</span>${h}</label>`;
   return {
     tog: (k, l) => row(l, `<input type="checkbox" class="sw" data-k="${k}" ${v(k) ? 'checked' : ''}>`),
-    inp: (k, l, t = 'text', ph = '') => t == 'color' ? `<div class="row cpr"><span>${l}</span><b class="cpw" data-a="cpk" style="background:${esc(v(k) || '#ffffff')}"></b><input type="hidden" data-k="${k}" value="${esc(v(k) || '#ffffff')}"></div><div class="cpk" ${cpOpen == k ? '' : 'hidden'}><div class="cpk-sq" data-a="cpsq"></div><div class="cpk-g" data-a="cpsq" data-x="g"></div></div>`
+    inp: (k, l, t = 'text', ph = '') => t == 'color' ? `<div class="row cpr"><span>${l}</span><b class="cpw" data-a="cpk" style="background:${esc(v(k) || '#ffffff')}"></b><input type="hidden" data-k="${k}" value="${esc(v(k) || '#ffffff')}"></div><div class="cpk" data-color-key="${esc(k)}" data-mode="${cpPoint(v(k)).mode}" style="${cpStyle(v(k))}" ${cpOpen == k ? '' : 'hidden'}><div class="cpk-sq" data-a="cpsq"><i class="cp-cursor" aria-hidden="true"></i></div><div class="cpk-g" data-a="cpsq" data-x="g"><i class="cp-cursor" aria-hidden="true"></i></div></div>`
       : row(l, `<input type="${t}" data-k="${k}" value="${esc(v(k))}" placeholder="${esc(ph)}">`),
     sel: (k, l, o) => row(l, `<select data-k="${k}">${o.map(([a, b]) => `<option value="${esc(a)}" ${a == (v(k) ?? '') ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`),
     seg: (k, o) => `<div class="seg">${o.map(([a, b]) => `<button data-a="seg" data-k2="${k}" data-x="${esc(a)}" class="${a == (v(k) ?? '') ? 'on' : ''}">${b}</button>`).join('')}</div>`,
@@ -144,9 +153,9 @@ export const form = (title, fields, obj = {}, ext = {}, chg, opt = {}) => new Pr
   const m = structuredClone(obj), f = fx(m); let done;
   const preview = v => opt.preview ? `<div class="form-preview">${opt.preview(v)}</div>` : '';
   const refreshPreview = v => { const el = $('.form-preview', s.el); if (el) el.innerHTML = opt.preview(v); };
-  const s = sheet({ title, cls: opt.preview ? 'has-preview' : '', noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => { chg?.(k, v, m, s); opt.preview && refreshPreview(m); },
-    after: el => { if (opt.preview) el.oninput = e => { const t = e.target, k = t.dataset.k; if (!k || t.closest('.form-preview')) return; const draft = structuredClone(m); setP(draft, k, t.type == 'checkbox' ? t.checked : ['number', 'range'].includes(t.type) ? +t.value : t.value); refreshPreview(draft); }; },
-    body: () => preview(m) + (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'range' ? `<label class="row rg"><span>${l}</span><input type="range" data-k="${k}" min="${o[0]}" max="${o[1]}" value="${esc(m[k] ?? o[0])}" data-u="${o[2] || ''}"><em>${esc(m[k] ?? o[0])}${o[2] || ''}</em></label>` : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + btn('ok', '保存', '', 'pri'), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); drop(obj); } }, onClose: () => done || (drop(m), res(null)) });
+  const s = sheet({ title, cls: opt.preview ? 'has-preview' : '', noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => { opt.live?.(m); chg?.(k, v, m, s); opt.preview && refreshPreview(m); },
+    after: el => { if (opt.preview) el.oninput = e => { const t = e.target, k = t.dataset.k; if (!k || t.closest('.form-preview')) return; const draft = opt.live ? m : structuredClone(m); setP(draft, k, t.type == 'checkbox' ? t.checked : ['number', 'range'].includes(t.type) ? +t.value : t.value); opt.live?.(m); refreshPreview(draft); }; },
+    body: () => preview(m) + (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'range' ? `<label class="row rg"><span>${l}</span><input type="range" data-k="${k}" min="${o[0]}" max="${o[1]}" value="${esc(m[k] ?? o[0])}" data-u="${o[2] || ''}"><em>${esc(m[k] ?? o[0])}${o[2] || ''}</em></label>` : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + (opt.live ? '' : btn('ok', '保存', '', 'pri')), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); drop(obj); } }, onClose: () => { if (done) return; if (opt.live) { opt.live(m); drop(obj); res(m); } else { drop(m); res(null); } } });
 });
 // 可折叠、长按拖拽排序的分组
 export const sec = (pk, list) => { const o = S.ui.order[pk] || [], ix = k => o.indexOf(k) + 1 || 99; return `<div class="secs" data-secs="${pk}">${list.filter(Boolean).sort((a, b) => ix(a[0]) - ix(b[0])).map(([k, t, h]) => `<div class="sec ${S.ui.fold[pk + k] ? 'fold' : ''}" data-sec="${esc(k)}"><div class="sec-h" data-a="fold" data-x="${esc(pk + k)}" data-lp="secDrag"><b>${t}</b>${I.chev}</div><div class="sec-b">${h}</div></div>`).join('')}</div>`; };
@@ -214,7 +223,7 @@ export function bind(R) {
   let lp, lpd, swp = 0;
   // 右滑返回：任意页面横向右滑，跟手移动，松手超过30%宽度或快速滑动即返回上一级
   R.addEventListener('pointerdown', e => {
-    const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('input,textarea,select')) return;
+    const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('input,textarea,select,.cpk,.cpr')) return;
     const x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), w = pg.el.offsetWidth, sc = pg.el.getBoundingClientRect().width / w || 1; let on = 0, dx = 0;
     const end = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
     const mv = ev => {
@@ -227,6 +236,17 @@ export function bind(R) {
   });
   const hit = (e, a) => { const t = e.target.closest?.(`[data-${a}]`); if (!t || !R.contains(t)) return; const pg = pgOf(t), n = t.dataset[a], f = pg?.acts?.[n] || G[n]; f && (e.stopPropagation(), f(t.dataset.x, t, e, pg)); };
   R.addEventListener('click', e => Date.now() - swp < 400 ? e.stopPropagation() : lpd ? (lpd = 0) : hit(e, 'a'));
+  // 鼠标和触屏都能拖色板；捕获在根节点上，设置页重画后继续定位同一个颜色字段。
+  R.addEventListener('pointerdown', e => {
+    const t = e.target.closest('[data-a="cpsq"]'); if (!t || e.button > 0 || e.isPrimary === false) return;
+    const pg = pgOf(t), box = t.closest('.cpk'), key = box.dataset.colorKey, mode = t.dataset.x || '', id = e.pointerId;
+    e.preventDefault(); e.stopPropagation(); R.setPointerCapture?.(id);
+    let frame = 0, last = e;
+    const paint = () => { frame = 0; const panel = [...(pg?.el || R).querySelectorAll('.cpk')].find(p => p.dataset.colorKey == key && !p.hidden); const target = panel?.querySelector(mode == 'g' ? '.cpk-g' : '.cpk-sq'); if (target) G.cpsq(mode, target, last); };
+    const mv = ev => { if (ev.pointerId != id) return; ev.preventDefault(); last = ev; frame ||= requestAnimationFrame(paint); };
+    const end = ev => { if (ev.pointerId != id) return; if (frame) cancelAnimationFrame(frame); if (ev.type == 'pointerup') last = ev; paint(); swp = Date.now(); R.removeEventListener('pointermove', mv); R.removeEventListener('pointerup', end); R.removeEventListener('pointercancel', end); R.removeEventListener('lostpointercapture', end); R.hasPointerCapture?.(id) && R.releasePointerCapture(id); };
+    R.addEventListener('pointermove', mv); R.addEventListener('pointerup', end); R.addEventListener('pointercancel', end); R.addEventListener('lostpointercapture', end); paint();
+  });
   // 长按图片不弹浏览器自己的「保存图片 / 大图」；输入框里照常能长按复制粘贴
   R.addEventListener('contextmenu', e => e.target.closest('input,textarea,pre') || e.target.closest('.bub') && e.target.tagName != 'IMG' || e.preventDefault());
   R.addEventListener('pointerdown', e => {
@@ -250,7 +270,7 @@ Object.assign(G, {
     const hex = a => '#' + a.map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
     let c; if (x == 'g') c = hex([1 - fx, 1 - fx, 1 - fx]);
     else { const l = 1 - fy, A = Math.min(l, 1 - l), f = n => { const q = (n + fx * 12) % 12; return l - A * Math.max(-1, Math.min(q - 3, 9 - q, 1)); }; c = hex([f(0), f(8), f(4)]); }
-    const row = t.closest('.cpk').previousElementSibling, inp = row.querySelector('input'); inp.value = c; row.querySelector('.cpw').style.background = c; inp.dispatchEvent(new Event('change', { bubbles: true })); },
+    const row = t.closest('.cpk').previousElementSibling, inp = row.querySelector('input'); inp.value = c; row.querySelector('.cpw').style.background = c; const panel = t.closest('.cpk'); panel.dataset.mode = x == 'g' ? 'g' : 'sq'; panel.style.setProperty('--cp-color', c); panel.style.setProperty('--cp-x', fx * 100 + '%'); panel.style.setProperty('--cp-y', fy * 100 + '%'); panel.style.setProperty('--cp-g', fx * 100 + '%'); inp.dispatchEvent(new Event('change', { bubbles: true })); },
   img: async (k, t, e, pg) => { const v = await pickImg(k.includes('bg') || k.includes('wall') || k.includes('cover') ? 1080 : 400); if (v != null) { set(pg, k, v); pg.re(); } },
   fold: (k, t) => { t.closest('.sec').classList.toggle('fold'); S.ui.fold[k] = !S.ui.fold[k]; save(); },
   secDrag: (x, t) => {

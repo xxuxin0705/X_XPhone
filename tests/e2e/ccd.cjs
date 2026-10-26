@@ -26,13 +26,15 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.sheet.wadd .wcard[data-k=ccd][data-sz="2x2"]').click()`); await W(800);
   ok(await E(`!!document.querySelector('.desk .it.ccd.w2.h2')`), '加了一个 2×2 的 CCD');
   await E(`document.querySelector('.desk .it.ccd').click()`); await W(500);
+  ok(await E(`!document.querySelector('.sheet.in [data-a=ok]')`), '组件设置没有保存按钮，关闭即保留');
   const szs = await E(`[...document.querySelectorAll('.sheet.in select[data-k=sz] option')].map(o => o.value)`);
   ok(szs.join(',') == '1x1,2x2,3x3,4x4', '调整大小只能选同比例：' + szs.join(','));
   ok(/机身颜色[\s\S]*照片缩放[\s\S]*背景/.test(await E(`document.querySelector('.sheet.in').textContent`)) && !/背景颜色/.test(await E(`document.querySelector('.sheet.in').textContent`)) && await E(`document.querySelector('.sheet.in [data-k=zoom]').type == 'range'`), '设置里有机身颜色、滑块调照片、背景（透明时没有背景颜色）');
   await E(`document.querySelector('.sheet.in select[data-k=sz]').value = '1x1'; document.querySelector('.sheet.in select[data-k=sz]').dispatchEvent(new Event('change', { bubbles: true }))`);
   ok(await E(`!document.querySelector('.sheet.in input[type=color]') && document.querySelector('.sheet.in input[data-k=body]').value == '#f2a7c4'`), '机身颜色用方形色板（不弹系统取色器），默认原图的粉');
   await E(`document.querySelector('.sheet.in input[data-k=body]').value = '#3366cc'; document.querySelector('.sheet.in input[data-k=body]').dispatchEvent(new Event('change', { bubbles: true }))`);
-  await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(500);
+  ok(await E(`core.S.desk.pages[0][0].w == 1 && core.S.desk.pages[0][0].p.body == '#3366cc'`), '尺寸和机身颜色未关闭面板就已应用');
+  await E(`document.querySelector('.sheet.in')._pg.close()`); await W(500);
   ok(await E(`!!document.querySelector('.desk .it.ccd.w1.h1')`), '改成 1×1：真的变成一格');
   const r1 = await E(`(() => { const r = document.querySelector('.desk .it.ccd .ccd-cam').getBoundingClientRect(), b = document.querySelector('.desk .it.ccd').getBoundingClientRect(); return [r.width / b.width, r.height / b.height, r.width / r.height]; })()`);
   ok(r1[0] <= 1 && r1[1] <= 1 && Math.abs(r1[2] - 900 / 777) < .05, '相机在格子里不超出、比例不变 ' + r1.map(x => x.toFixed(2)));
@@ -68,3 +70,4 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`!document.querySelector('.it.ghost') && !document.querySelector('.desk .it.ph') && core.S.desk.pages[1].some(x => x.k == 'ccd') && Math.round(document.querySelector('.desk .pages').scrollLeft / document.querySelector('.desk .pages').clientWidth) == 1`), '松手：放在第二页，影子消失，停在第二页');
   ok(await E(`(() => { const b = document.querySelector('.desk .ed-bar').getBoundingClientRect(), d = document.querySelector('.desk .dock').getBoundingClientRect(); return b.bottom <= d.top + 1 && b.top > 500; })()`), '＋小组件 / ＋页面 / 完成 放到下面（在 Dock 上方）');
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();
+

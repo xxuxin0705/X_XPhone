@@ -2,6 +2,7 @@
 // 浏览器测试需要 Playwright（Chromium）。截图在 tests/out/ 里（不进仓库）。
 const { spawnSync } = require('child_process'), path = require('path');
 const ALL = {
+  color: ['unit/color-drag.mjs', '取色圆圈：初始化、拖动、灰度、页面重画与取消'],
   wpreview: ['unit/widget-preview.mjs', '小组件设置：实时样式预览、尺寸、保存与取消'],
   unit: ['unit/test.mjs', '逻辑测试：数据、解析、API 调用、内联同步（不开浏览器）'],
   e2e: ['e2e/e2e.cjs', '基本流程：开手机、聊天、生成、同步开关'],
