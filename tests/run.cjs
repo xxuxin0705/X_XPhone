@@ -2,6 +2,7 @@
 // 浏览器测试需要 Playwright（Chromium）。截图在 tests/out/ 里（不进仓库）。
 const { spawnSync } = require('child_process'), path = require('path');
 const ALL = {
+  gesture: ['unit/desk-gesture.mjs', '编辑模式：轻扫翻页、按住拖动、点按、取消和底栏手势'],
   paint: ['unit/paint-frame.mjs', 'Windows 画图相框：固定配色、照片位置和装饰工具'],
   layout: ['unit/desk-layout.mjs', '桌面固定 4×6：容量、形状、改尺寸、换页和旧内容迁移'],
   wide: ['unit/ccd-wide.mjs', '横版 CCD：默认银色、自定义颜色、共用背景、照片视频、视频资源释放'],
@@ -39,4 +40,5 @@ for (const k of keys) {
   sum.push(`${okk ? '✓' : '✗'} ${k.padEnd(5)} ${m ? m[1] + ' 通过 / ' + m[2] + ' 失败' : '没跑完（看上面的报错）'}`);
 }
 console.log('\n' + sum.join('\n')); process.exit(bad ? 1 : 0);
+
 

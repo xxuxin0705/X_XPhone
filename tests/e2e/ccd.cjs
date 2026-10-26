@@ -74,7 +74,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 拖到右边缘翻页：拿起来的是浮在上层的影子，停一下就滑到下一页，手不用松
   await E(`(() => { core.S.desk.pages = [[core.S.desk.pages[0][0]]]; core.S.desk.pages[0][0].w = 2; core.S.desk.pages[0][0].h = 2; core.save(); dk.renderDesk(); core.G.dlp('', document.querySelector('.desk .page'), new PointerEvent('pointerdown')); })()`); await W(300);
   const bb = await p.locator('.desk .it.ccd').boundingBox(), dr = await p.locator('#stp .desk').boundingBox();
-  await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await p.mouse.down(); await W(50);
+  await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await p.mouse.down(); await W(280);
   for (let i = 1; i <= 10; i++) { await p.mouse.move(bb.x + bb.width / 2 + (dr.x + dr.width - 6 - bb.x - bb.width / 2) * i / 10, bb.y + bb.height / 2); await W(16); }
   ok(await E(`!!document.querySelector('.it.ghost') && document.querySelector('.desk .it.ccd').classList.contains('desk-placeholder')`), '拖起来：浮着一个影子，原位置半透明占位');
   await W(1100);

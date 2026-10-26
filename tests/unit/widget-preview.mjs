@@ -40,10 +40,10 @@ const ccd = await import(new URL('apps/theme/ccd.js', root));
 const wide = await import(new URL('apps/theme/ccd-wide.js', root));
 const layout = await import(new URL('desk-layout.js', root));
 const paint = await import(new URL('apps/theme/paint-frame.js', root));
-const coreStub = { S: {assets:{widget:[]}}, save(){}, esc, uid:()=> 'id', $:()=>null, $$:()=>[], ui:{}, G:{}, APPS:{}, now:()=>new Date(2026,9,26,10,32), tpl:s=>s.replaceAll('{{user}}','测试用户'), form, menu(){}, sheet, defAv(){}, btn(){}, openApp(){}, dropMedia(){}, pickImg(){} };
+const coreStub = { S: {assets:{widget:[]},icons:{}}, save(){}, esc, uid:()=> 'id', $:()=>null, $$:()=>[], ui:{}, G:{}, APPS:{}, now:()=>new Date(2026,9,26,10,32), tpl:s=>s.replaceAll('{{user}}','测试用户'), form, menu(){}, sheet, defAv(){}, btn(){}, openApp(){}, dropMedia(){}, pickImg(){} };
 globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide,...layout,...paint};
 let desk = read('desk.js').replace(/^import .*?;$/gm, '');
-desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','paintFrameHtml','pageLayout','placeItem','fitPages','removeMoodNote','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
+desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','paintFrameHtml','mountPaintPhotos','fitPaintZoom','pageLayout','placeItem','fitPages','removeMoodNote','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
 const dk = await import('data:text/javascript;base64,'+Buffer.from(desk).toString('base64'));
 for (const [k,K] of Object.entries(dk.WK)) {
  const it = { k, w:K.w,h:K.h };
@@ -102,3 +102,12 @@ assert.deepEqual(coreStub.S.desk.pages[0],[second,third]);assert.deepEqual(coreS
 page.close();await editing;
 console.log('Widget preview: all types, live inputs, size, styles, save/cancel and plain forms checked.');
 console.log('1 passed, 0 failed');
+
+
+// 空底栏平时隐藏，编辑模式通过 CSS 作为可投放区域展示。
+coreStub.S.desk={pages:[[]],dock:[]};liveDesk.renderDesk();
+assert.match(coreStub.ui.desk.innerHTML,/class="dock empty"/);
+coreStub.S.desk.dock=[{id:'dock-app',t:'app',app:'chat'}];liveDesk.renderDesk();
+assert.match(coreStub.ui.desk.innerHTML,/class="dock"/);assert.doesNotMatch(coreStub.ui.desk.innerHTML,/class="dock empty"/);
+assert.match(read('style.css'),/\.dock\.empty\{display:none\}/);
+assert.match(read('style.css'),/\.desk\.edit \.dock\.empty\{display:flex/);

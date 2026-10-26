@@ -1,9 +1,9 @@
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
-import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickFile, putMedia, toast } from './core.js';
+import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickFile, pickImg, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
 import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS, DESK_ROWS } from './desk-layout.js';
-import { paintFrameHtml } from './apps/theme/paint-frame.js';
+import { paintFrameHtml, mountPaintPhotos, fitPaintZoom } from './apps/theme/paint-frame.js';
 import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
@@ -24,8 +24,8 @@ export const WK = {
     d: { body:WIDE_SILVER, type:'photo', video:'', zoom:100, px:50, py:50, bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60 },
     r: wideHtml, after: mountWideVideos },
   paint: { n:'Windows 画图相框',w:3,h:3,cls:'paint-frame',
-    f:m=>[['img','照片','img'],['zoom','照片缩放','range',[50,300,'%']],['px','左右位置','range',[0,100,'%']],['py','上下位置','range',[0,100,'%']],...bgF(m)],
-    d:{zoom:100,px:50,py:50,bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60},r:paintFrameHtml },
+    f:m=>[['img','照片','img'],['zoom','照片缩放','range',[1,300,'%']],['photoFit','<button class="btn" data-a="paintFit">显示完整图片</button><button class="btn" data-a="paintCover">填满相框</button>','tip'],['px','左右位置','range',[0,100,'%']],['py','上下位置','range',[0,100,'%']],...bgF(m)],
+    d:{zoom:100,px:50,py:50,bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60},r:paintFrameHtml,after:mountPaintPhotos },
   clock: { n: '时间', w: 2, h: 1, cls: 'clkw',
     f: m => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['h12', '12 小时制', 'tog'], ['lang', '语言', 'sel', [['zh', '中文'], ['en', 'English']]], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
       ['auto', '跟随主题配色', 'tog'], ...(m.auto === false ? [['c', '颜色', 'color'], ['a', '不透明度', 'range', [0, 100, '%']]] : []), ...bgF(m)],
@@ -42,8 +42,8 @@ const item = (it, pos = '') => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h
 export function renderDesk() {
   const d = S.desk, el = ui.desk; if (!el) return;
   d.pages = fitPages(d.pages); cur = Math.min(cur,d.pages.length-1);
-  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div><div class="dock" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
-  mountWideVideos(el);
+  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
+  mountWideVideos(el); mountPaintPhotos(el);
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
 }
@@ -127,6 +127,43 @@ function drag(e, id, longPress = false) {
   place(e);hold();R.setPointerCapture?.(pointer);
   R.addEventListener('pointermove',mv);R.addEventListener('pointerup',finish);R.addEventListener('pointercancel',finish);R.addEventListener('lostpointercapture',finish);
 }
+// 编辑时：轻扫翻页，按住 240ms 拖动；空白处也能翻页。指针一直捕获在稳定根节点。
+function editGesture(e) {
+  if(!edit || dragging || e.button>0 || e.isPrimary===false || e.target.closest('.x,.ed-bar,.dots'))return;
+  const pg=e.target.closest('.pages'), itemEl=e.target.closest('[data-it]');
+  if(!pg && !itemEl)return;
+  e.preventDefault();e.stopPropagation();
+  const R=ui.root, pointer=e.pointerId, start=cur, at=Date.now(), width=pg?.clientWidth||0;
+  const scale=pg ? pg.getBoundingClientRect().width/width||1 : 1;
+  let mode='', dx=0, timer;
+  const off = release => {
+    clearTimeout(timer);R.removeEventListener('pointermove',move);R.removeEventListener('pointerup',end);R.removeEventListener('pointercancel',end);R.removeEventListener('lostpointercapture',end);
+    if(release && R.hasPointerCapture?.(pointer))R.releasePointerCapture(pointer);
+  };
+  const lift = () => { off(false);drag(e,itemEl.dataset.it); };
+  const move = ev => {
+    if(ev.pointerId!==pointer)return;ev.preventDefault();
+    dx=(ev.clientX-e.clientX)/scale;const dy=(ev.clientY-e.clientY)/scale;
+    if(!mode && Math.hypot(dx,dy)>8){
+      clearTimeout(timer);
+      if(pg && Math.abs(dx)>Math.abs(dy)*1.2){mode='swipe';pg.style.scrollSnapType='none';}
+      else if(itemEl){lift();return;}
+    }
+    if(mode==='swipe')pg.scrollLeft=start*width-dx;
+  };
+  const end = ev => {
+    if(ev.pointerId!==pointer)return;
+    off(true);
+    if(mode==='swipe') {
+      pg.style.scrollSnapType='';moved=Date.now();
+      const turn=ev.type==='pointerup' && (Math.abs(dx)>width*.18 || Math.abs(dx)>24 && Math.abs(dx)/(Date.now()-at)>.35);
+      goPage(start+(turn ? (dx<0?1:-1) : 0));
+    } else if(ev.type==='pointerup' && itemEl) { G.tap('',itemEl);moved=Date.now(); }
+  };
+  R.setPointerCapture?.(pointer);
+  R.addEventListener('pointermove',move);R.addEventListener('pointerup',end);R.addEventListener('pointercancel',end);R.addEventListener('lostpointercapture',end);
+  if(itemEl)timer=setTimeout(lift,240);
+}
 function folder(it) {
   const s = sheet({
     cls: 'fold', noBack: 1, title: `<input class="fd-n" value="${esc(it.name)}">`,
@@ -146,7 +183,16 @@ async function editW(it) {
     wideVideo: async (_, t, e, pg) => { const file = await pickFile('video/*'); if(!file) return; if(file.size > 40e6) return toast('视频超过 40MB，请选择小一点的视频'); try { const value = await putMedia(file,'widget'); if(!pg.el.isConnected) { dropMedia(value); return; } const m = pg.model(), old = m.video; m.video = value; apply(m); pg.reb(); old && dropMedia(old); } catch { toast('视频上传失败，请重试'); } },
     wideVideoClear: (_, t, e, pg) => { const m=pg.model(), old=m.video; m.video='';apply(m);pg.reb();old && dropMedia(old); },
   };
-  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : {}, (k, v, m, s) => ['bg', 'auto', 'type'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply, after: K.after });
+  const paintActs = {
+    img: async (key, t, e, pg) => {
+      const value = await pickImg(0, 'widget', true); if(value == null)return;
+      if(!pg.el.isConnected){dropMedia(value);return;}
+      const m=pg.model(),old=m[key];m[key]=value;apply(m);pg.reb();old && dropMedia(old);
+    },
+    paintFit: (_, t, e, pg) => { const m=pg.model(),img=$('.form-preview .paint-photo>img',pg.el);if(!img?.naturalWidth)return;Object.assign(m,{zoom:fitPaintZoom(img),px:50,py:50});apply(m);pg.reb(); },
+    paintCover: (_, t, e, pg) => { const m=pg.model();Object.assign(m,{zoom:100,px:50,py:50});apply(m);pg.reb(); },
+  };
+  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : it.k == 'paint' ? paintActs : {}, (k, v, m, s) => ['bg', 'auto', 'type'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply, after: K.after });
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
 const CELL = 64; // 预览里一格的边长
@@ -156,7 +202,7 @@ function wAddSheet() {
   const szs = [...new Set(all.map(e => `${e.w}x${e.h}`))].sort((a, b) => a.split('x').reduce((x, y) => x * y) - b.split('x').reduce((x, y) => x * y) || a.localeCompare(b));
   let fz = '';
   const card = (e, i) => `<div class="wcard" data-a="pick" data-x="${i}" data-k="${e.k}" data-sz="${e.w}x${e.h}"><div class="wprev" style="width:${e.w * CELL}px;height:${e.h * CELL}px"><div class="it wg w${e.w} h${e.h} k-${e.k} ${e.cls}">${tpl(WK[e.k].r(e.p, { w: e.w, h: e.h }))}</div></div><span class="wc-n">${esc(e.n)}</span><span class="wc-s">${e.w}×${e.h}</span></div>`;
-  const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件',
+  const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件', after: mountPaintPhotos,
     body: () => `<div class="szf">${[['', '全部尺寸'], ...szs.map(z => [z, z.replace('x', '×')])].map(([v, l]) => `<b class="${fz == v ? 'on' : ''}" data-a="szf" data-x="${v}">${l}</b>`).join('')}</div><div class="wgrid">${all.map((e, i) => !fz || `${e.w}x${e.h}` == fz ? card(e, i) : '').join('')}</div>`,
     acts: { szf: v => { fz = v; s.reb(); }, pick: i => { cur = placeItem(S.desk.pages,all[+i].mk(),cur); s.close(); clean(); } } });
 }
@@ -177,7 +223,7 @@ export function initDesk() {
   }
   migrated && save(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认在下面
   S.desk.pages = fitPages(S.desk.pages); save(); renderDesk();
-  ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
+  ui.desk.addEventListener('pointerdown', editGesture);
 }
 
 

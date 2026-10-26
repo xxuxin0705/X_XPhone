@@ -10,10 +10,23 @@ export function paintFrameSvg(id = 'paint-frame-cutout') {
     <image href="${esc(PAINT_FRAME_URL)}" x="-62" y="-82" width="1229" height="1280" clip-path="url(#${id})"/>
   </svg>`;
 }
+// 用完整原图的比例计算填满尺寸；不先把图片裁成相框比例。
+export function mountPaintPhotos(root) {
+  for(const img of root.querySelectorAll('.paint-photo>img')) {
+    const loaded=()=>{ if(img.naturalWidth && img.naturalHeight)img.style.setProperty('--photo-ratio',img.naturalWidth/img.naturalHeight); };
+    img.onload=loaded;loaded();
+  }
+}
+export function fitPaintZoom(img) {
+  const w=img.parentElement.clientWidth,h=img.parentElement.clientHeight;
+  if(!w || !h || !img.naturalWidth || !img.naturalHeight)return 100;
+  const x=w/img.naturalWidth,y=h/img.naturalHeight;
+  return Math.max(1,Math.floor(100*Math.min(x,y)/Math.max(x,y)));
+}
 let clipId = 0;
 export function paintFrameHtml(p) {
-  const z=Math.max(50,Math.min(300,+p.zoom||100))/100,x=Math.max(0,Math.min(100,+(p.px??50)))-50,y=Math.max(0,Math.min(100,+(p.py??50)))-50;
-  const photo=p.img?`<img src="${esc(p.img)}" alt="" style="transform:translate(${x}%,${y}%) scale(${z})">`:'<span class="paint-empty">添加照片</span>';
+  const z=Math.max(1,Math.min(300,+p.zoom||100))/100,x=Math.max(0,Math.min(100,+(p.px??50))),y=Math.max(0,Math.min(100,+(p.py??50)));
+  const photo=p.img?`<img src="${esc(p.img)}" alt="" style="--photo-zoom:${z};left:${x}%;top:${y}%;transform:translate(${-x}%,${-y}%)">`:'<span class="paint-empty">添加照片</span>';
   return `<div class="ccd-bg" style="${ccdBg(p)}"></div><div class="paint-window"><div class="paint-photo">${photo}</div>${paintFrameSvg('paint-cutout-' + ++clipId)}</div>`;
 }
 

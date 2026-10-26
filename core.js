@@ -168,7 +168,7 @@ export const readImg = (f, max = 400) => new Promise(r => {
     im.onload = () => { const s = Math.min(1, max / Math.max(im.width, im.height)), c = Object.assign(document.createElement('canvas'), { width: im.width * s, height: im.height * s }); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); r(c.toDataURL('image/webp', .86)); }; im.onerror = () => r(fr.result); im.src = fr.result;
   }; fr.readAsDataURL(f);
 });
-export async function pickImg(max, kind = 'img') { const k = await menu([['f', '从相册上传'], ['u', '输入图片链接'], ['c', '清除', 'danger']]); if (k == 'f') { const f = await pickFile(); return f ? putMedia(await readImg(f, max), kind) : null; } if (k == 'u') return (await form('图片链接', [['u', 'URL']]))?.u ?? null; return k == 'c' ? '' : null; }
+export async function pickImg(max, kind = 'img', original = false) { const k = await menu([['f', '从相册上传'], ['u', '输入图片链接'], ['c', '清除', 'danger']]); if (k == 'f') { const f = await pickFile(); return f ? putMedia(original ? f : await readImg(f, max), kind) : null; } if (k == 'u') return (await form('图片链接', [['u', 'URL']]))?.u ?? null; return k == 'c' ? '' : null; }
 
 /* ---------- 媒体文件：上传的图片 / 视频统一存进酒馆 data/<用户>/user/images/XPhone/ 文件夹，不再塞进聊天数据 ----------
    删除跟随：S.media 记着「哪个文件被哪些聊天用到」（酒馆建分支会复制手机数据，所以不能只看当前聊天），
@@ -728,4 +728,5 @@ export async function getJ(url, signal) {
   }
   await chk(r); return r.json();
 }
+
 
