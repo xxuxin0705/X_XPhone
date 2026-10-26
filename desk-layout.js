@@ -1,5 +1,5 @@
-// 桌面固定 4 列 × 6 行；布局与容量检查共用同一套逐格排布，避免面积够但形状放不下。
-export const DESK_COLS = 4, DESK_ROWS = 6;
+// 桌面固定 4 列 × 7 行（格子是正方形，按宽度定大小；常见手机 19.5:9 的屏幕 7 行刚好放满，不会底下空一大块）；布局与容量检查共用同一套逐格排布，避免面积够但形状放不下。
+export const DESK_COLS = 4, DESK_ROWS = 7;
 const dim = (n, max) => Math.max(1, Math.min(max, Math.floor(+n) || 1));
 export const itemSize = it => it.t == 'w' ? { w: dim(it.w,DESK_COLS), h: dim(it.h,DESK_ROWS) } : { w:1,h:1 };
 export function pageLayout(items) {

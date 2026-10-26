@@ -34,10 +34,10 @@
 .deco .desk::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='390' height='740'%3E%3Cdefs%3E%3Cfilter id='g'%3E%3CfeGaussianBlur stdDeviation='2.2'/%3E%3C/filter%3E%3Cpath id='s' d='M0-12 3.5-4 12-3.7 5.4 1.8 7.6 10 0 5.4-7.6 10-5.4 1.8-12-3.7-3.5-4z' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cg id='t'%3E%3Cuse href='%23s' filter='url(%23g)'/%3E%3Cuse href='%23s'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23t' transform='translate(50 610) scale(2.4) rotate(-12)'/%3E%3Cuse href='%23t' transform='translate(330 300) scale(1.2) rotate(14)'/%3E%3Cuse href='%23t' transform='translate(210 470) scale(2.1) rotate(8)'/%3E%3Cuse href='%23t' transform='translate(80 280) scale(1) rotate(-20)'/%3E%3Cuse href='%23t' transform='translate(160 700) scale(1.5)'/%3E%3Cuse href='%23t' transform='translate(355 655) scale(1.1) rotate(30)'/%3E%3C/svg%3E") center top/100% auto no-repeat}
 .pages{position:relative;z-index:1;flex:1;min-height:0;min-width:0;overscroll-behavior:contain;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;container-type:size}
 .pages::-webkit-scrollbar{display:none}
-/* 4列×6行使用同一格边长：总宽扣掉左右36px和3条间距，总高扣掉上下22px和5条间距。 */
-.page{--desk-cell:max(0px,min(calc((100cqw - 72px)/4),calc((100cqh - 82px)/6)));flex:0 0 100%;height:100%;min-height:0;min-width:0;scroll-snap-align:start;display:grid;grid-template-columns:repeat(4,minmax(0,var(--desk-cell)));grid-template-rows:repeat(6,minmax(0,var(--desk-cell)));justify-content:center;align-content:start;grid-auto-flow:row dense;gap:12px;padding:12px 18px 10px;overflow:hidden}
+/* 4列×7行使用同一格边长：总宽扣掉左右36px和3条间距，总高扣掉上下22px和6条间距。 */
+.page{--desk-cell:max(0px,min(calc((100cqw - 72px)/4),calc((100cqh - 94px)/7)));flex:0 0 100%;height:100%;min-height:0;min-width:0;scroll-snap-align:start;display:grid;grid-template-columns:repeat(4,minmax(0,var(--desk-cell)));grid-template-rows:repeat(7,minmax(0,var(--desk-cell)));justify-content:center;align-content:start;grid-auto-flow:row dense;gap:12px;padding:12px 18px 10px;overflow:hidden}
 .it{position:relative;min-width:0;cursor:pointer;transition:transform .2s}
-.desk .it{touch-action:none;-webkit-touch-callout:none}
+.desk .it{touch-action:pan-x;-webkit-touch-callout:none}.desk.edit .it{touch-action:none} /* 平时在组件上也能左右滑动翻页 */
 .desk .it img{-webkit-user-drag:none;user-select:none}
 .desk.edit{touch-action:none}
 .it.app{display:flex;flex-direction:column;align-items:center;gap:5px}
@@ -65,11 +65,11 @@
 .dock.empty::before{content:"拖动应用到这里";opacity:.45;font-size:12px;pointer-events:none}
 .it .x,.ed-bar{display:none}
 .desk.edit .it .x{display:grid;place-items:center;position:absolute;top:-7px;left:-7px;z-index:3;width:22px;height:22px;border-radius:50%;background:rgba(90,90,90,.75);backdrop-filter:blur(6px);color:#fff;font-size:calc(15px*var(--fz,1));line-height:1}
-.desk.edit .ed-bar{display:flex;gap:8px;justify-content:center;padding:0 12px 10px;position:relative;z-index:2}
+.dbar{flex:none;position:relative;display:flex;justify-content:center}
+.desk.edit .dots{visibility:hidden}
+.desk.edit .ed-bar{display:flex;gap:8px;justify-content:center;align-items:center;position:absolute;inset:0;z-index:2} /* 编辑按钮叠在页码点的位置，不挤占桌面高度 */
 .ed-bar .btn{width:auto;margin:0;padding:7px 14px;font-size:calc(13px*var(--fz,1));border-radius:16px;background:rgba(255,255,255,.7);backdrop-filter:blur(10px)}
 .ed-bar .btn.pri{background:var(--ac)}
-.desk.edit .it:not(.desk-placeholder){animation:jig .26s ease-in-out infinite alternate}
-.desk.edit .it:nth-child(2n){animation-delay:-.13s}
 .desk.edit .pages{overflow:hidden;touch-action:none}
 @keyframes jig{from{transform:rotate(-1.2deg)}to{transform:rotate(1.2deg)}}
 .it.ghost{z-index:95;pointer-events:none;opacity:.95;transition:none;animation:none!important;filter:drop-shadow(0 12px 20px rgba(0,0,0,.25))}.it.ghost .x{display:none!important}

@@ -52,7 +52,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/blur\(18px\)/.test(await setBg('glass', 60)), '毛玻璃');
   const glassPad = await E(`(() => { const el = document.querySelector('.desk .it.ccd'), bg=el.querySelector('.ccd-bg').getBoundingClientRect(), cam=el.querySelector('.ccd-cam').getBoundingClientRect(); return [cam.left-bg.left,bg.right-cam.right,cam.top-bg.top,bg.bottom-cam.bottom]; })()`);
   ok(glassPad.every(x=>x>5) && Math.max(...glassPad)-Math.min(...glassPad)<1, '相机背景四周留白一致，不再只包住上下');
-  ok(await E(`(() => { const page=document.querySelector('.desk .page');return getComputedStyle(page).gridTemplateRows.split(' ').length===6 && page.scrollHeight<=page.clientHeight+1 && getComputedStyle(page).overflowY==='hidden'; })()`), '桌面固定六行，没有纵向滚动');
+  ok(await E(`(() => { const page=document.querySelector('.desk .page');return getComputedStyle(page).gridTemplateRows.split(' ').length===7 && page.scrollHeight<=page.clientHeight+1 && getComputedStyle(page).overflowY==='hidden'; })()`), '桌面固定七行，没有纵向滚动');
   // 普通点击没有上传动作；长按进入编辑后，在设置里更换照片。
   await E(`document.querySelector('[data-a=edDone]').click()`);await W(300);
   await E(`document.querySelector('.desk .it.ccd').click()`);await W(300);

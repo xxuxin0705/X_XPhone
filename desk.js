@@ -45,7 +45,7 @@ const item = (it, pos = '') => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h
 export function renderDesk() {
   const d = S.desk, el = ui.desk; if (!el) return;
   d.pages = fitPages(d.pages); cur = Math.min(cur,d.pages.length-1);
-  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
+  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dbar"><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div></div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
   mountWideVideos(el); mountPaintPhotos(el);
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
