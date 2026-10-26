@@ -4,7 +4,7 @@ import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc, uid } from './
 import { mountScene, sceneInk, sceneKey, SCENES } from './lockfx.js';
 import { clkHtml, dateText, timeHtml, CLK_DEF } from './apps/theme/clock.js';
 // 锁屏时间的样式（字体 / 日期在上还是下 / 12・24 小时 / 中英文 / 颜色）
-export const lockClk = () => { const c = S.lock.clk ||= {}; c.font ??= 'ios'; for (const k in CLK_DEF) c[k] ??= CLK_DEF[k]; return c; };
+export const lockClk = () => { const c = S.lock.clk ||= {}; c.font ??= 'ios'; c.v2 || (c.pos = 'bot', c.v2 = 1); for (const k in CLK_DEF) c[k] ??= CLK_DEF[k]; return c; };
 
 export const BACKUP = '0000';
 const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };

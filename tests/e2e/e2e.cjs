@@ -27,7 +27,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`core.S.lock.on = true; core.S.lock.wp = 'cathedral' /* 旧主题名：应自动换成雪夜 */; core.S.lock.text = 'since 2026.02.21 · still counting'`);
   await open(); await p.waitForTimeout(400);
   ok(await isOn() && await E(`!document.querySelector('#stp .lock').hidden && lk.isLocked()`), 'lock screen showing on first open');
-  ok(/\d\d:\d\d/.test(await E(`document.querySelector('.lk-time').textContent`)) && /周/.test(await E(`document.querySelector('.lk-date').textContent`)), 'clock + date rendered: ' + await E(`document.querySelector('.lk-date').textContent + ' ' + document.querySelector('.lk-time').textContent`));
+  ok(/\d\d:\d\d/.test(await E(`document.querySelector('.lk-time').textContent`)) && /月.*日/.test(await E(`document.querySelector('.lk-date').textContent`)), 'clock + date rendered: ' + await E(`document.querySelector('.lk-date').textContent + ' ' + document.querySelector('.lk-time').textContent`));
   await p.waitForTimeout(1500); await shot('lock_snownight'); ok(await E(`!!document.querySelector('.lk-bg canvas')`), 'old scene name falls back to 雪夜');
   await swipeUp(); await p.waitForTimeout(600);
   ok(!(await E(`lk.isLocked()`)) && await E(`document.querySelector('#stp .lock').hidden`), 'swipe up unlocked (no password)');

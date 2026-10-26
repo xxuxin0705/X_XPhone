@@ -41,7 +41,7 @@ const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp
 // 锁屏时间：预览 + 字体（每个格子用那个字体写出时间）+ 日期在上 / 下 + 农历 + 粗细 + 颜色
 const clkSec = () => { const c = lockClk(), f = fx(S);
   return `<div class="clk-set"><div class="clk-pv">${clkHtml(c, new Date())}</div><div class="clk-fs">${clkFonts().map(([k, n]) => `<div class="clk-f ${c.font == k ? 'on' : ''}" data-a="clkf" data-x="${esc(k)}"${k.startsWith('u:') ? ` data-lp="clkfd"` : ''}><b style="font-family:${clkFam(k)};font-weight:${clkWt(k)}">06:39</b><span>${esc(n)}</span></div>`).join('')}<div class="clk-f add" data-a="clkup"><b>＋</b><span>上传字体</span></div></div>`
-    + `<div class="seg">${[['top', '日期在上'], ['bot', '日期在下']].map(([k, n]) => `<button data-a="clkp" data-x="${k}" class="${(c.pos || 'top') == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
+    + `<div class="seg">${[['top', '日期在上'], ['bot', '日期在下']].map(([k, n]) => `<button data-a="clkp" data-x="${k}" class="${(c.pos == 'top' ? 'top' : 'bot') == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
     + `<div class="seg">${[[false, '24 小时'], [true, '12 小时']].map(([k, n]) => `<button data-a="clkset" data-k2="h12" data-x="${k ? 1 : ''}" class="${!!c.h12 == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
     + `<div class="seg">${[['zh', '中文'], ['en', 'English']].map(([k, n]) => `<button data-a="clkset" data-k2="lang" data-x="${k}" class="${(c.lang || 'zh') == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
     + f.inp('lock.clk.wt', '粗细（100～900）', 'number', String(clkWt(c.font))) + f.tog('lock.clk.auto', '跟随壁纸配色')

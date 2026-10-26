@@ -107,6 +107,6 @@ Object.assign(G, {
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
 });
 export function initDesk() {
-  S.desk ||= def(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); }); renderDesk(); // 去掉已经不存在的组件
+  S.desk ||= def(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); } }); // 时间小组件：日期默认挪到下面 renderDesk(); // 去掉已经不存在的组件
   ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
 }
