@@ -52,7 +52,15 @@ for (const [k,K] of Object.entries(dk.WK)) {
  const large = dk.widgetPreview(it,{...props,sz:'4x4'});assert.match(large,/aspect-ratio:4\/4/);
 }
 const camera=dk.widgetPreview({k:'ccd'},{...dk.WK.ccd.d,img:'photo.webp',zoom:180,px:20,py:70,sz:'2x2'});
-assert.match(camera,/object-position:20% 70%;transform:scale\(1.8\)/);
+assert.match(camera,/object-position:center;transform:translate\(-30%,20%\) scale\(1.8\)/);
+// 不论照片原始比例或缩放多少，横向和纵向都直接平移，中心点保持不偏移。
+for (const zoom of [50,100,196,300]) {
+  const left = dk.WK.ccd.r({img:'portrait.webp',px:0,py:50,zoom});
+  const center = dk.WK.ccd.r({img:'portrait.webp',px:50,py:50,zoom});
+  const right = dk.WK.ccd.r({img:'portrait.webp',px:100,py:50,zoom});
+  assert.match(left,/translate\(-50%,0%\)/);assert.match(center,/translate\(0%,0%\)/);assert.match(right,/translate\(50%,0%\)/);
+  const down = dk.WK.ccd.r({img:'landscape.webp',px:50,py:100,zoom});assert.match(down,/translate\(0%,50%\)/);
+}
 const clock=dk.widgetPreview({k:'clock'},{...dk.WK.clock.d,font:'ios',auto:false,c:'#ff0000',sz:'4x2'});
 assert.match(clock,/SF Pro Display/);assert.match(clock,/rgba\(255,0,0,1\)/);
 console.log('Widget preview: all types, live inputs, size, styles, save/cancel and plain forms checked.');

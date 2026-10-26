@@ -63,8 +63,10 @@ export function ccdSrc(c, onReady) {
 }
 // 整个组件：背景层 + 机身 + 照片（照片在屏幕的位置，机身盖在上面）
 export function ccdHtml(p, W = 2, H = 2) {
-  const z = Math.max(50, +p.zoom || 100) / 100, px = p.px ?? 50, py = p.py ?? 50, c = norm(p.body);
-  const img = p.img ? `<img src="${esc(p.img)}" style="object-position:${px}% ${py}%;transform:scale(${z})" alt="">` : `<i class="ccd-ph">＋</i>`;
+  const z = Math.max(50, +p.zoom || 100) / 100, px = Math.max(0, Math.min(100, +(p.px ?? 50))), py = Math.max(0, Math.min(100, +(p.py ?? 50))), c = norm(p.body);
+  // 实际平移照片盒子；object-position 只移动 object-fit 的裁切余量，宽度刚好填满时左右移动会失效。
+  // translate 放在 scale 前面，移动距离以屏幕为基准，不随缩放放大。
+  const img = p.img ? `<img src="${esc(p.img)}" style="object-position:center;transform:translate(${px - 50}%,${py - 50}%) scale(${z})" alt="">` : `<i class="ccd-ph">＋</i>`;
   const sty = `left:${CCD_SCR.x}%;top:${CCD_SCR.y}%;width:${CCD_SCR.w}%;height:${CCD_SCR.h}%`;
   return `<div class="ccd-bg" style="${ccdBg(p)}"></div><div class="ccd-cam"><div class="ccd-scr" style="${sty}">${img}</div><img class="ccd-body" data-c="${c}" src="${esc(ccdSrc(c))}" alt="" draggable="false"></div>`;
 }

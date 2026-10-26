@@ -52,6 +52,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const [fc] = await Promise.all([p.waitForEvent('filechooser'), (async () => { await E(`document.querySelector('[data-a=edDone]').click()`); await W(300); await E(`document.querySelector('.desk .it.ccd').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=f]').click()`); })()]);
   await fc.setFiles([{ name: 'p.jpg', mimeType: 'image/jpeg', buffer: fs.readFileSync(path.join(here, '../fixtures/still.jpg')) }]); await W(1500);
   ok(await E(`!!core.S.desk.pages[0][0].p.img && !!document.querySelector('.desk .it.ccd .ccd-scr img')`), '点一下 CCD：换照片，照片显示在屏幕上');
+  // 宽度填满屏幕的照片，放大后也应实际左右平移，而非仅修改无效的 object-position。
+  const pan = await E(`(() => { const it = core.S.desk.pages[0][0]; const samples = [0,50,100].map(px => { Object.assign(it.p,{zoom:196,px,py:50}); dk.renderDesk(); const el = document.querySelector('.desk .ccd-scr img'), m = new DOMMatrix(getComputedStyle(el).transform); return m.m41; }); Object.assign(it.p,{zoom:100,px:50,py:50});dk.renderDesk();return samples; })()`);
+  ok(pan[0] < 0 && Math.abs(pan[1]) < 1 && pan[2] > 0, '放大照片后，左右滑块确实平移图片');
   await p.locator('#stp .desk').screenshot({ path: path.join(OUT, 'ccd.png') });
   // 4×4 也放得下
   await E(`(() => { const it = core.S.desk.pages[0][0]; it.w = 4; it.h = 4; core.save(); dk.renderDesk(); })()`); await W(300);
