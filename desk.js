@@ -2,7 +2,7 @@
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickFile, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
-import { pageLayout, placeItem, fitPages, removeMoodNote } from './desk-layout.js';
+import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS, DESK_ROWS } from './desk-layout.js';
 import { paintFrameHtml } from './apps/theme/paint-frame.js';
 import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
 
@@ -56,44 +56,76 @@ function clean() {
 export function addDeskWidget(it, index = cur) { cur = placeItem(S.desk.pages,it,index); save(); renderDesk(); return cur; }
 const goPage = i => { cur = Math.max(0, Math.min(i, S.desk.pages.length - 1)); const p = $('.pages', ui.desk); p.scrollTo({ left: cur * p.clientWidth, behavior: 'smooth' }); };
 
-// 拖动：拿起来的是一个浮在最上层的「影子」，原位置留个半透明占位；拖到左右边缘停一下就翻页（平滑滑过去，手不用松）
-function drag(e, id) {
-  let el = $(`[data-it="${id}"]`, ui.desk), last = e, et, dist = 0, lock = 0; // lock：刚翻过页，手离开边缘才能再翻
-  if (!el) return;
-  const R = ui.root, rr = () => R.getBoundingClientRect(), sc = rr().width / R.offsetWidth || 1, pd = ev => ev.preventDefault();
-  const r0 = el.getBoundingClientRect(), gh = el.cloneNode(true), ox = (e.clientX - r0.left) / sc, oy = (e.clientY - r0.top) / sc;
-  Object.assign(gh.style, { position: 'absolute', left: 0, top: 0, width: r0.width / sc + 'px', height: r0.height / sc + 'px', margin: 0 }); gh.classList.add('ghost'); gh.removeAttribute('data-it'); R.append(gh);
-  const place = ev => { const b = rr(); gh.style.transform = `translate(${(ev.clientX - b.left) / sc - ox}px,${(ev.clientY - b.top) / sc - oy}px) scale(1.06)`; };
-  const hold = () => { el = $(`[data-it="${id}"]`, ui.desk); el?.classList.add('ph'); };
-  place(e); hold();
-  const flip = edge => { et = 0; const n = cur + edge; if (n < 0) return; n >= S.desk.pages.length && S.desk.pages.push([]);
-    const [l, i] = find(id), it = l[i], from = cur; cur = placeItem(S.desk.pages,it,n); renderDesk(); hold();
-    const p = $('.pages', ui.desk), targetPage = cur; p.scrollLeft = from * p.clientWidth; requestAnimationFrame(() => p.scrollTo({ left: targetPage * p.clientWidth, behavior: 'smooth' }));
-    navigator.vibrate?.(8); lock = 1; };
-  const arm = () => { const r = ui.desk.getBoundingClientRect(), x = last.clientX, edge = x < r.left + 36 * sc ? -1 : x > r.right - 36 * sc ? 1 : 0;
-    if (!edge || edge < 0 && !cur) { clearTimeout(et); et = 0; lock = 0; return; } if (lock) return; et ||= setTimeout(() => flip(edge), 420); };
-  const mv = ev => {
-    last = ev; dist = Math.max(dist, Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY)); place(ev); arm();
-    $$('.hov', ui.desk).forEach(x => x.classList.remove('hov')); document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-it]')?.classList.add('hov');
+// 根节点捕获指针，重画桌面和跨页时仍能继续拖；取消手势恢复原布局。
+let dragging = false;
+function drag(e, id, longPress = false) {
+  const el = $(`[data-it="${id}"]`, ui.desk), [source, at] = find(id), it = source[at];
+  if (!el || !it || dragging || e.button > 0 || e.isPrimary === false) return;
+  dragging = true;
+  const snapshot = structuredClone(S.desk), startPage = cur, R = ui.root, pointer = e.pointerId;
+  const sc = R.getBoundingClientRect().width / R.offsetWidth || 1, r0 = el.getBoundingClientRect();
+  const ox = e.clientX-r0.left, oy = e.clientY-r0.top, gh = el.cloneNode(true);
+  let last=e, et=0, lock=0, dist=0, lastCell='', folderTarget=null;
+  Object.assign(gh.style,{position:'absolute',left:0,top:0,width:r0.width/sc+'px',height:r0.height/sc+'px',margin:0});
+  gh.classList.add('ghost');gh.removeAttribute('data-it');gh.removeAttribute('data-a');gh.removeAttribute('data-lp');R.append(gh);
+  const hold = () => $(`[data-it="${id}"]`,ui.desk)?.classList.add('desk-placeholder');
+  const place = ev => { const b=R.getBoundingClientRect();gh.style.transform=`translate(${(ev.clientX-b.left-ox)/sc}px,${(ev.clientY-b.top-oy)/sc}px) scale(1.06)`; };
+  const hit = ev => document.elementFromPoint(ev.clientX,ev.clientY);
+  const preview = ev => {
+    const target=hit(ev), box=target?.closest('[data-box]');folderTarget=null;
+    $$('.hov',ui.desk).forEach(x=>x.classList.remove('hov'));
+    if(!box || box.dataset.box==='dock')return;
+    const targetEl=target.closest('[data-it]'), tg=targetEl && find(targetEl.dataset.it)[0].find(x=>x.id===targetEl.dataset.it);
+    if(it.t==='app' && tg && tg!==it && tg.t!=='w') {
+      const r=targetEl.getBoundingClientRect();
+      if(Math.abs(ev.clientX-r.left-r.width/2)<r.width*.25 && Math.abs(ev.clientY-r.top-r.height/2)<r.height*.25) {
+        folderTarget=tg.id;targetEl.classList.add('hov');return;
+      }
+    }
+    const r=box.getBoundingClientRect(), css=getComputedStyle(box), sx=r.width/box.offsetWidth, sy=r.height/box.offsetHeight;
+    const left=parseFloat(css.paddingLeft), top=parseFloat(css.paddingTop), gapX=parseFloat(css.columnGap)||0, gapY=parseFloat(css.rowGap)||0;
+    const cw=(box.clientWidth-left-parseFloat(css.paddingRight)-(DESK_COLS-1)*gapX)/DESK_COLS;
+    const ch=(box.clientHeight-top-parseFloat(css.paddingBottom)-(DESK_ROWS-1)*gapY)/DESK_ROWS;
+    const col=Math.round(((ev.clientX-r.left-ox)/sx-left)/(cw+gapX)), row=Math.round(((ev.clientY-r.top-oy)/sy-top)/(ch+gapY));
+    const key=box.dataset.box+':'+row+':'+col;if(key===lastCell)return;
+    if(moveItem(S.desk.pages,it,+box.dataset.box,row,col,S.desk.dock)) { lastCell=key;renderDesk();hold(); }
   };
-  const up = ev => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); removeEventListener('touchmove', pd); clearTimeout(et); dist > 6 && (moved = Date.now()); gh.remove(); drop(id, ev, $(`[data-it="${id}"]`, ui.desk)); };
-  addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('touchmove', pd, { passive: false });
-}
-function drop(id, ev, el) {
-  const p = document.elementFromPoint(ev.clientX, ev.clientY);
-  el?.classList.remove('ph'); $$('.hov', ui.desk).forEach(x => x.classList.remove('hov'));
-  const te = p?.closest('[data-it]'), box = p?.closest('[data-box]'), [sl, si] = find(id), it = sl[si];
-  if (!box || te == el) return clean();
-  const tl = box.dataset.box == 'dock' ? S.desk.dock : S.desk.pages[box.dataset.box];
-  if (tl == S.desk.dock && (it.t == 'w' || (sl != tl && tl.length >= 4))) return renderDesk();
-  if (te) {
-    const tg = tl.find(x => x.id == te.dataset.it), r = te.getBoundingClientRect(), mid = Math.abs(ev.clientX - r.left - r.width / 2) < r.width * .3 && Math.abs(ev.clientY - r.top - r.height / 2) < r.height * .3;
-    sl.splice(si, 1);
-    if (it.t == 'app' && tg.t != 'w' && mid) tg.t == 'folder' ? tg.apps.push(it.app) : tl.splice(tl.indexOf(tg), 1, { id: uid(), t: 'folder', name: '文件夹', apps: [tg.app, it.app] });
-    else tl.splice(tl.indexOf(tg), 0, it);
-  } else sl.splice(si, 1), tl.push(it);
-  if(tl != S.desk.dock && tl.includes(it)) cur = placeItem(S.desk.pages,it,S.desk.pages.indexOf(tl));
-  clean();
+  const flip = edge => {
+    et=0;const n=cur+edge;if(n<0)return;
+    if(n>=S.desk.pages.length)S.desk.pages.push([]);
+    // 翻页只切换视野；项目随手指落到新页的格子，满页不会凭空跳去第三页。
+    cur=n;renderDesk();hold();lock=1;lastCell='';folderTarget=null;navigator.vibrate?.(8);
+  };
+  const arm = () => {
+    const r=ui.desk.getBoundingClientRect(),edge=last.clientX<r.left+36*sc?-1:last.clientX>r.right-36*sc?1:0;
+    if(!edge || edge<0 && !cur){clearTimeout(et);et=0;lock=0;return;}
+    if(!lock && !et)et=setTimeout(()=>flip(edge),420);
+  };
+  const mv = ev => {
+    if(ev.pointerId!==pointer)return;ev.preventDefault();last=ev;
+    dist=Math.max(dist,Math.hypot(ev.clientX-e.clientX,ev.clientY-e.clientY));place(ev);
+    if(dist>6){preview(ev);arm();}
+  };
+  const finish = ev => {
+    if(ev.pointerId!==pointer)return;
+    R.removeEventListener('pointermove',mv);R.removeEventListener('pointerup',finish);R.removeEventListener('pointercancel',finish);R.removeEventListener('lostpointercapture',finish);
+    clearTimeout(et);gh.remove();dragging=false;
+    if(R.hasPointerCapture?.(pointer))R.releasePointerCapture(pointer);
+    if(dist>6)moved=Date.now();
+    if(ev.type!=='pointerup') { S.desk=snapshot;cur=startPage;renderDesk();return; }
+    if(dist<=6){renderDesk();if(!longPress)G.tap('', $(`[data-it="${id}"]`,ui.desk));return;}
+    const target=hit(ev), box=target?.closest('[data-box]');
+    if(folderTarget && box && box.dataset.box!=='dock') {
+      const [tl,ti]=find(folderTarget),tg=tl[ti],[sl,si]=find(id);
+      if(tg && si>=0){sl.splice(si,1);if(tg.t==='folder')tg.apps.push(it.app);else tl.splice(tl.indexOf(tg),1,{id:uid(),t:'folder',name:'文件夹',apps:[tg.app,it.app],row:tg.row,col:tg.col});}
+    } else if(box?.dataset.box==='dock' && it.t!=='w') {
+      const [sl,si]=find(id), tl=S.desk.dock;
+      if(sl===tl || tl.length<4){sl.splice(si,1);const to=target.closest('[data-it]'),i=tl.findIndex(x=>x.id===to?.dataset.it);tl.splice(i<0?tl.length:i,0,it);delete it.row;delete it.col;}
+    } else if(box) { lastCell='';preview(ev); }
+    clean();
+  };
+  place(e);hold();R.setPointerCapture?.(pointer);
+  R.addEventListener('pointermove',mv);R.addEventListener('pointerup',finish);R.addEventListener('pointercancel',finish);R.addEventListener('lostpointercapture',finish);
 }
 function folder(it) {
   const s = sheet({
@@ -129,10 +161,10 @@ function wAddSheet() {
     acts: { szf: v => { fz = v; s.reb(); }, pick: i => { cur = placeItem(S.desk.pages,all[+i].mk(),cur); s.close(); clean(); } } });
 }
 Object.assign(G, {
-  dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it); },
+  dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it, true); },
   edDone: () => { edit = 0; ui.desk.classList.remove('edit'); clean(); },
   go: i => goPage(+i),
-  tap: (_, t) => { if (Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder') return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); }, // 组件仅在长按进入编辑模式后可修改；普通点击不打开上传菜单。
+  tap: (_, t) => { if (dragging || Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder' && !edit) return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); }, // 组件仅在长按进入编辑模式后可修改；普通点击不打开上传菜单。
   del: id => { const [l, i] = find(id), it = l[i]; dropMedia(it); it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
   wAdd: () => wAddSheet(),
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
@@ -147,4 +179,5 @@ export function initDesk() {
   S.desk.pages = fitPages(S.desk.pages); save(); renderDesk();
   ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
 }
+
 

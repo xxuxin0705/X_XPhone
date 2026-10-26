@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {pageLayout,placeItem,fitPages,removeMoodNote,DESK_COLS,DESK_ROWS} from '../../desk-layout.js';
+import {pageLayout,placeItem,moveItem,fitPages,removeMoodNote,DESK_COLS,DESK_ROWS} from '../../desk-layout.js';
 import {S} from '../../core.js';
 let seq=0;const app=()=>({id:'a'+seq++,t:'app',app:'chat'}),widget=(w,h)=>({id:'w'+seq++,t:'w',k:'ccd',w,h,p:{}});
 assert.equal(DESK_COLS,4);assert.equal(DESK_ROWS,6);
@@ -25,3 +25,24 @@ assert(removeMoodNote(settings));assert.equal(settings.assets.widget.length,1);a
 assert(!S.assets.widget.some(a=>a.name==='心情便签'));
 console.log('Desk layout: 4x6 capacity, fragmented space, resize, move, stable overflow migration and mood-note removal checked.');
 console.log('1 passed, 0 failed');
+
+
+// 拖入空白格后，刷新/重新载入必须保留位置和空洞。
+const fixed=app(), photo=widget(2,2), customPages=[[fixed,photo],[]];
+assert(moveItem(customPages,photo,0,3,2));
+assert.deepEqual([photo.row,photo.col],[3,2]);
+let restored=fitPages(JSON.parse(JSON.stringify(customPages)));
+assert.deepEqual(pageLayout(restored[0]).placed.find(s=>s.it.id===photo.id),{it:restored[0][1],row:3,col:2,w:2,h:2});
+// 移入已占用区域，其他项目让位；跨页后不残留重复对象。
+assert(moveItem(customPages,fixed,0,3,2));valid(customPages[0]);
+assert.deepEqual([fixed.row,fixed.col],[3,2]);
+assert(moveItem(customPages,photo,1,4,2));customPages.forEach(valid);
+assert.equal(customPages.flat().filter(x=>x.id===photo.id).length,1);
+assert.equal(customPages[0].includes(photo),false);
+// 满页拒绝放入时，所有源数据不变。
+const full=[Array.from({length:24},app),[photo]], before=JSON.stringify(full);
+assert.equal(moveItem(full,photo,0,0,0),false);assert.equal(JSON.stringify(full),before);
+// 从 Dock 拖出、边界限制及旧版没有 row/col 的数据。
+const dockApp=app(),dock=[dockApp],dockPages=[[]];assert(moveItem(dockPages,dockApp,0,99,-4,dock));
+assert.equal(dock.length,0);assert.deepEqual([dockApp.row,dockApp.col],[5,0]);valid(dockPages[0]);
+console.log('Drag placement: empty cells, persisted holes, displaced widgets, cross-page uniqueness, full-page rollback and Dock checked.');

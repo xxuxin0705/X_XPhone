@@ -76,11 +76,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const bb = await p.locator('.desk .it.ccd').boundingBox(), dr = await p.locator('#stp .desk').boundingBox();
   await p.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await p.mouse.down(); await W(50);
   for (let i = 1; i <= 10; i++) { await p.mouse.move(bb.x + bb.width / 2 + (dr.x + dr.width - 6 - bb.x - bb.width / 2) * i / 10, bb.y + bb.height / 2); await W(16); }
-  ok(await E(`!!document.querySelector('.it.ghost') && document.querySelector('.desk .it.ccd').classList.contains('ph')`), '拖起来：浮着一个影子，原位置半透明占位');
+  ok(await E(`!!document.querySelector('.it.ghost') && document.querySelector('.desk .it.ccd').classList.contains('desk-placeholder')`), '拖起来：浮着一个影子，原位置半透明占位');
   await W(1100);
-  ok(await E(`core.S.desk.pages.length == 2 && core.S.desk.pages[1].some(x => x.k == 'ccd') && !!document.querySelector('.it.ghost')`), '停在右边缘：组件翻到下一页，影子还在手上');
+  ok(await E(`core.S.desk.pages.length == 2 && Math.round(document.querySelector('.desk .pages').scrollLeft / document.querySelector('.desk .pages').clientWidth) == 1 && !!document.querySelector('.it.ghost')`), '停在右边缘：组件翻到下一页，影子还在手上');
   await p.mouse.move(dr.x + dr.width / 2, dr.y + 200, { steps: 6 }); await W(100); await p.mouse.up(); await W(400);
-  ok(await E(`!document.querySelector('.it.ghost') && !document.querySelector('.desk .it.ph') && core.S.desk.pages[1].some(x => x.k == 'ccd') && Math.round(document.querySelector('.desk .pages').scrollLeft / document.querySelector('.desk .pages').clientWidth) == 1`), '松手：放在第二页，影子消失，停在第二页');
+  ok(await E(`!document.querySelector('.it.ghost') && !document.querySelector('.desk .it.desk-placeholder') && core.S.desk.pages[1].some(x => x.k == 'ccd') && Math.round(document.querySelector('.desk .pages').scrollLeft / document.querySelector('.desk .pages').clientWidth) == 1`), '松手：放在第二页，影子消失，停在第二页');
   ok(await E(`(() => { const b = document.querySelector('.desk .ed-bar').getBoundingClientRect(), d = document.querySelector('.desk .dock').getBoundingClientRect(); return b.bottom <= d.top + 1 && b.top > 500; })()`), '＋小组件 / ＋页面 / 完成 放到下面（在 Dock 上方）');
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();
+
 
