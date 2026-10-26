@@ -2,6 +2,7 @@
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickFile, pickImg, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
+import { liquid } from './glass.js';
 import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS } from './desk-layout.js';
 import { paintFrameHtml, mountPaintPhotos, fitPaintZoom } from './apps/theme/paint-frame.js';
 import { badgeHtml, badgeFields, BADGE_DEFAULT } from './apps/theme/badge.js';
@@ -47,6 +48,7 @@ export function renderDesk() {
   d.pages = fitPages(d.pages); cur = Math.min(cur,d.pages.length-1);
   el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dbar"><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div></div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
   mountWideVideos(el); mountPaintPhotos(el);
+  liquid($('.dock', el)); liquid($('.dots', el), { bezel: 10, scale: 18 }); $$('.ed-bar .btn', el).forEach(b => liquid(b, { bezel: 12, scale: 22 })); // 底部：液态玻璃
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
 }

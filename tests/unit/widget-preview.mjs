@@ -42,9 +42,9 @@ const layout = await import(new URL('desk-layout.js', root));
 const paint = await import(new URL('apps/theme/paint-frame.js', root));
 const badge = await import(new URL('apps/theme/badge.js', root));
 const coreStub = { S: {assets:{widget:[]},icons:{}}, save(){}, esc, uid:()=> 'id', $:()=>null, $$:()=>[], ui:{}, G:{}, APPS:{}, now:()=>new Date(2026,9,26,10,32), tpl:s=>s.replaceAll('{{user}}','测试用户'), form, menu(){}, sheet, defAv(){}, btn(){}, openApp(){}, dropMedia(){}, pickImg(){} };
-globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide,...layout,...paint,...badge};
+globalThis.widgetTest = {liquid:()=>{},...coreStub,...ck,...ccd,...wide,...layout,...paint,...badge};
 let desk = read('desk.js').replace(/^import .*?;$/gm, '');
-desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','paintFrameHtml','mountPaintPhotos','fitPaintZoom','badgeHtml','badgeFields','BADGE_DEFAULT','pageLayout','placeItem','fitPages','removeMoodNote','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
+desk = `const {${[...Object.keys(coreStub), 'liquid', 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','paintFrameHtml','mountPaintPhotos','fitPaintZoom','badgeHtml','badgeFields','BADGE_DEFAULT','pageLayout','placeItem','fitPages','removeMoodNote','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
 const dk = await import('data:text/javascript;base64,'+Buffer.from(desk).toString('base64'));
 for (const [k,K] of Object.entries(dk.WK)) {
  const it = { k, w:K.w,h:K.h };
