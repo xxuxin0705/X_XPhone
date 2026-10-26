@@ -1,4 +1,4 @@
-// 时间样式：字体可选（14 种内置 + 上传自己的字体）、日期在上 / 下、农历、粗细、颜色；桌面「时间」小组件（2×1 / 4×2）同样能选
+// 时间样式：字体可选（15 种内置 + 上传自己的字体）、日期在上 / 下、农历、粗细、颜色；桌面「时间」小组件（2×1 / 4×2）同样能选
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.woff': 'font/woff', '.html': 'text/html' };
@@ -14,8 +14,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`ck.dateText(new Date(2026, 9, 26), true)`) == '10月26日周一 · 丙午年九月十七', '日期写法和截图一样：10月26日周一 · 丙午年九月十七');
   const ld = await E(`[ck.lunar(new Date(2026, 1, 17)), ck.lunar(new Date(2026, 2, 8)), ck.lunar(new Date(2026, 2, 13))]`);
   ok(/正月初一$/.test(ld[0]) && /二十$/.test(ld[1]) && /廿五$/.test(ld[2]), '农历日子：初一 / 二十 / 廿五 ' + ld.join(' '));
-  // 锁屏默认：圆润字体，日期在上，有农历
-  ok(/xp-nunito/.test(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily`)), '「圆润」去掉了，默认「圆体」');
+  // 锁屏默认：苹果粗体，日期在上，有农历
+  ok(await E(`lk.lockClk().font == 'ios' && getComputedStyle(document.querySelector('.lock .lk-time')).fontWeight == '700'`), '锁屏默认苹果粗体，字重 700');
+  ok(/xp-rubik/.test(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily`)), '非苹果设备有内置粗体回退');
+  ok(await E(`!document.getElementById('xp-clk-fonts').textContent.includes('clk-ios.woff')`), '苹果粗体复用系统和内置字体，不请求不存在的字体文件');
+  await shot('clk_lock_ios.png');
+  await E(`document.fonts.load('80px xp-nunito')`);
   ok(await E(`document.fonts.check('80px xp-nunito')`), '字体文件加载好了');
   ok(await E(`(() => { core.S.lock.clk.font = 'round'; lk.lock(); return /xp-nunito/.test(getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily); })()`), '以前选过「圆润」的自动换成「圆体」');
   ok(await E(`(() => { const c = document.querySelector('.lock .clk'); return c.firstElementChild.classList.contains('clk-d') && /·.*年/.test(c.firstElementChild.textContent); })()`), '默认日期在时间上面，带农历');
@@ -27,7 +31,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/xp-bebas/.test(await E(`getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily`)), '换成「窄高」字体');
   // 主题 → 锁屏时间
   await E(`(() => { Object.assign(lk.lockClk(), { pos: 'top', lunar: true, auto: true, font: 'nunito' }); lk.unlock(); core.home(); core.APPS.theme.open(); })()`); await W(1000);
-  ok(await E(`document.querySelectorAll('[data-sec=lkc] .clk-f:not(.add)').length`) == 14 && !(await E(`!!document.querySelector('[data-sec=lkc] .clk-f[data-x=round]')`)), '主题里有「锁屏时间」，14 种字体（没有圆润了）');
+  ok(await E(`document.querySelectorAll('[data-sec=lkc] .clk-f:not(.add)').length`) == 15 && !(await E(`!!document.querySelector('[data-sec=lkc] .clk-f[data-x=round]')`)), '主题里有「锁屏时间」，15 种字体（包含苹果粗体）');
   // 上传自己的字体
   const [fc] = await Promise.all([p.waitForEvent('filechooser'), E(`document.querySelector('[data-sec=lkc] [data-a=clkup]').click()`)]);
   await fc.setFiles([{ name: 'SF Pro Rounded.woff', mimeType: 'font/woff', buffer: fs.readFileSync(path.join(root, 'assets/fonts/clk-shrikhand.woff')) }]); await W(1500);

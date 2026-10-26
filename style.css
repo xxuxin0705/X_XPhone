@@ -426,7 +426,7 @@
 .lk-clock .clk-t{font-size:calc(104px*var(--fz,1))}
 /* 时间样式（锁屏 / 时间小组件共用） */
 .clk{display:flex;flex-direction:column;align-items:center;gap:.06em;font-family:var(--clk-f)}.clk.al-l{align-items:flex-start;text-align:left}.clk.al-r{align-items:flex-end;text-align:right}
-.clk-t{display:block;font:var(--clk-w) 1em/1 var(--clk-f);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.clk-t{display:block;font:var(--clk-w) 1em/1 var(--clk-f);font-variant-numeric:tabular-nums;letter-spacing:var(--clk-ls,-.01em);white-space:nowrap}
 .clk-d{display:block;font:var(--clk-dw) 1em/1.25 var(--clk-f);letter-spacing:.04em;white-space:nowrap;opacity:.95}
 .clk.bot .clk-d{margin-top:.15em}
 .lk-text{margin-top:6px!important;font:italic 400 calc(16px*var(--fz,1))/1.4 "Cormorant Garamond",Georgia,"Songti SC",serif;letter-spacing:.1em;opacity:.92}
