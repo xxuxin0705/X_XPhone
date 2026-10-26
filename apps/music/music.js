@@ -3,6 +3,7 @@
 // 正文联动：开了「角色给你点歌」后，AI 在 <手机> 块里写「点歌|谁|歌名|歌手」→ 推荐里出现；「按剧情推荐」调一次 API 根据当前剧情推几首
 import { S, D, ui, G, $, $$, esc, uid, save, saveD, on, emit, page, sheet, menu, form, toast, ok, reg, top, back, meObj, defAv, llm, json, sysCtx, task, now, syncInject } from '../../core.js';
 import { search, playlist, listId, TOPS, HOT, SRC_DEF } from './api.js';
+import { SKINS, tintOf, rgb, mix, ecg, ecgStrip, ecgStats, notesFloat } from './skins.js';
 import { M, st, cur, key, same, MODES, playAt, playList, next, prev, toggle, seek, cycleMode, addNext, addQ, removeQ, clearQ, liked, toggleLike, addTo } from './player.js';
 
 const sv = (p, a = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${a}>${p}</svg>`;
@@ -24,7 +25,7 @@ const MI = {
   clock: sv('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'), lyr: sv('<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
   home: sv('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'), pen: sv('<path d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0 0-2.1l-1.9-1.9a1.5 1.5 0 0 0-2.1 0L4 16z"/>'),
   user: sv('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.4-6.5 8-6.5s7 2 8 6.5"/>'), gear: sv('<circle cx="12" cy="12" r="3"/><path d="M4.9 12a7 7 0 0 1 .1-1.2L3 9.3l2-3.4 2.2.7a7 7 0 0 1 2-1.2L9.8 3h4.4l.6 2.4a7 7 0 0 1 2 1.2l2.2-.7 2 3.4-2 1.5a7 7 0 0 1 0 2.4l2 1.5-2 3.4-2.2-.7a7 7 0 0 1-2 1.2l-.6 2.4H9.8l-.6-2.4a7 7 0 0 1-2-1.2L5 18.3l-2-3.4 2-1.5A7 7 0 0 1 4.9 12z"/>'),
-  plus: sv('<path d="M12 5v14M5 12h14"/>'), spark: sv('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'), play2: sv('<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/>'),
+  plus: sv('<path d="M12 5v14M5 12h14"/>'), disc: sv('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>'), spark: sv('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>'), play2: sv('<circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/>'),
 };
 export const ICON = `<svg viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="9" opacity=".25"/><path d="M10 16.5V8l6-1.5V15"/><circle cx="8.3" cy="16.6" r="1.9"/><circle cx="14.3" cy="15.1" r="1.9"/></svg>`;
 const mt = s => { s = Math.max(0, s | 0); return `${String(s / 60 | 0).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
@@ -47,10 +48,22 @@ const seg = () => `<div class="mu-seg">${[['heart', '心动'], ['rec', '推荐']
 let lyrOn = false, pick = null; // pick：歌词摘录模式里选中的行
 const lyrHtml = () => st.lrc.length ? st.lrc.map((l, i) => `<p data-i="${i}" data-t="${l.t}" data-a="${pick ? 'mpk' : 'mseekl'}" data-lp="mpkon" class="${pick?.has(i) ? 'pk' : ''}">${esc(l.x)}${l.tr ? `<small>${esc(l.tr)}</small>` : ''}</p>`).join('') : `<p class="mu-nolrc">${st.loading ? '' : '暂无歌词'}</p>`;
 const vinyl = s => `<div class="mu-vinyl ${st.playing ? 'on' : ''}" data-a="mlyr"><div class="mu-arm"></div><div class="mu-disc">${cv(s, 'mu-cvd')}</div></div>`;
-const heartPage = () => { const s = cur(), m = M();
+const skin = () => SKINS.some(x => x[0] == M().skin) ? M().skin : 'ncm';
+const skinVars = s => { const t = tintOf(s, rer); return `--t:${rgb(t)};--t2:${rgb(mix(t, 255, .82))};--t3:${rgb(mix(t, 255, .94))};--td:${rgb(mix(t, 0, .45))}`; };
+const lyr2 = () => { let i = -1; for (let k = 0; k < st.lrc.length; k++) { if (st.lrc[k].t <= st.t + .25) i = k; else break; } return `<div class="mu-l2"><b>${esc(st.lrc[i]?.x || (st.loading ? '' : st.lrc.length ? '' : '暂无歌词'))}</b><small>${esc(st.lrc[i + 1]?.x || '')}</small></div>`; };
+const srcName = () => { const m = M(); return m.qn || (m.q.length ? '当前播放' : ''); };
+// 各皮肤的「舞台」（唱片 / 歌词那块）
+const stage = (s, k) => {
+  if (lyrOn) return `<div class="mu-lrc" data-a="mlyr">${lyrHtml()}</div>${pick ? `<div class="mu-pkbar"><span>已选 ${pick.size} 句</span><b data-a="mpkx">取消</b><b class="pri" data-a="mpkok">摘录</b></div>` : ''}`;
+  if (k == 'glow') return `<div class="mu-vinyl glow ${st.playing ? 'on' : ''}" data-a="mlyr"><div class="mu-rings"><i></i><i></i><i></i></div><div class="mu-garm"></div><div class="mu-gdisc">${cv(s, 'mu-cvg')}</div></div>${lyr2()}${srcName() ? `<span class="mu-pill">${MI.disc}${esc(srcName())}</span>` : ''}`;
+  if (k == 'ecg') return `${ecgStats(st, s, MODES.find(x => x[0] == M().mode)[1])}<div class="mu-vinyl ecg ${st.playing ? 'on' : ''}" data-a="mlyr"><div class="mu-earm"></div><div class="mu-e3d"><div class="mu-edisc">${ecg()}<i class="mu-ehole"></i></div>${notesFloat()}</div></div>${ecgStrip()}`;
+  if (k == 'star') return `<div class="mu-starbox" data-a="mlyr"><div class="mu-slrc">${st.lrc.length ? lyrHtml() : `<p class="mu-nolrc">${st.loading ? '' : '暂无歌词'}</p>`}</div><div class="mu-stack">${[2, 1, 0].map(i => `<i style="--i:${i}">${cv(s, 'mu-cvs')}</i>`).join('')}</div></div>`;
+  return vinyl(s);
+};
+const heartPage = () => { const s = cur(), m = M(), k = skin();
   const nc = s ? notes().filter(n => same(n.song, s)).length : 0;
-  if (!s) return `<div class="mu-heart"><div class="mu-vinyl idle" data-a="mheartgo"><div class="mu-arm"></div><div class="mu-disc"><i class="mu-cvd mu-ph">${MI.heart}</i></div></div><p class="mu-tip2">${m.liked.length ? `${MI.heartOn} 开启心动模式，随机播放我喜欢的 ${m.liked.length} 首` : '先去喜欢几首歌，这里会随机放给你听'}</p></div>`;
-  return `<div class="mu-heart ${lyrOn ? 'lyr' : ''}">${lyrOn ? `<div class="mu-lrc" data-a="mlyr">${lyrHtml()}</div>${pick ? `<div class="mu-pkbar"><span>已选 ${pick.size} 句</span><b data-a="mpkx">取消</b><b class="pri" data-a="mpkok">摘录</b></div>` : ''}` : vinyl(s)}
+  if (!s) return `<div class="mu-heart sk-${k}" style="${skinVars(null)}"><div class="mu-vinyl idle" data-a="mheartgo"><div class="mu-arm"></div><div class="mu-disc"><i class="mu-cvd mu-ph">${MI.heartOn}</i></div></div><p class="mu-tip2">${MI.heartOn} 开启心动模式</p></div>`;
+  return `<div class="mu-heart sk-${k} ${lyrOn ? 'lyr' : ''}" style="${skinVars(s)}">${stage(s, k)}
   <div class="mu-meta"><div><b>${esc(s.name)}</b><small>${esc(s.artist)}</small></div><i data-a="mlike" class="${liked(s) ? 'on' : ''}">${liked(s) ? MI.heartOn : MI.heart}</i><i data-a="mnotes" data-x="cur">${MI.cmt}${nc ? `<em>${nc}</em>` : ''}</i><i data-a="mmore" data-x="now:0">${MI.more}</i></div>
   <div class="mu-prog"><input type="range" class="mu-seek" min="0" max="${Math.max(1, st.d | 0)}" step="1" value="${st.t | 0}"><div><span class="mu-ct">${mt(st.t)}</span><span class="mu-q">${st.err ? esc(st.err) : '极高音质'}</span><span class="mu-dt">${mt(st.d)}</span></div></div>
   <div class="mu-ctl"><i data-a="mmode">${MI[m.mode]}</i><i data-a="mprev">${MI.prev}</i><i data-a="mtog" class="big ${st.loading ? 'ld' : ''}">${st.playing ? MI.pause : MI.play}</i><i data-a="mnext">${MI.next}</i><i data-a="mq">${MI.list}</i></div></div>`; };
@@ -102,6 +115,8 @@ function tickP() {
   const t = top(), el = t?.el; if (!el?.classList.contains('musicapp')) return;
   const r = $('.mu-seek', el); if (r && !r._drag) { r.max = Math.max(1, st.d | 0); r.value = st.t | 0; r.style.setProperty('--p', st.d ? st.t / st.d : 0); $('.mu-ct', el).textContent = mt(st.t); $('.mu-dt', el).textContent = mt(st.d); }
   let i = -1; for (let k = 0; k < st.lrc.length; k++) { if (st.lrc[k].t <= st.t + .25) i = k; else break; }
+  const l2 = $('.mu-l2', el); if (l2 && l2._i !== i) { l2._i = i; $('b', l2).textContent = st.lrc[i]?.x || ''; $('small', l2).textContent = st.lrc[i + 1]?.x || ''; }
+  const es = $('.mu-ecg-stats', el); es && (es.children[1].querySelector('b').textContent = mt(st.t));
   const box = $('.mu-lrc', el); if (box && box._i !== i) { box._i = i; $$('p.on', box).forEach(p => p.classList.remove('on')); const p = $(`p[data-i="${i}"]`, box); p && (p.classList.add('on'), !pick && box.scrollTo({ top: p.offsetTop - box.clientHeight / 2 + p.offsetHeight / 2, behavior: 'smooth' })); }
 }
 /* ---------- 歌单页 ---------- */
@@ -115,7 +130,7 @@ function openList(id) {
     right: () => own ? `<b data-a="mplm" data-x="${id.slice(3)}">${MI.more}</b>` : id == 'hist' ? `<b class="txt" data-a="mlclr" data-x="hist">清空</b>` : '',
     body: () => `<div class="mu-hero" style="${data.tint ? `--c:${data.tint}` : ''}">${data.cover ? `<img class="mu-big" src="${esc(data.cover)}" alt="">` : tp ? `<i class="mu-big mu-tint">${MI.note}</i>` : list()[0]?.pic ? `<img class="mu-big" src="${esc(list()[0].pic)}" referrerpolicy="no-referrer" alt="">` : `<i class="mu-big mu-ph">${MI.note}</i>`}<div><b>${esc(data.n)}</b><small>${data.loading ? '加载中…' : data.err ? esc(data.err) : list().length + ' 首'}</small></div></div>
       ${list().length ? `<div class="mu-all"><b data-a="mall" data-x="${id}">${MI.play2}播放全部 <small>(${list().length})</small></b><i data-a="mall" data-x="${id}" data-s="1">${MI.shuf}</i></div>` : ''}<div class="mu-sec">${data.loading ? '' : rows(reglist('L', list()), list(), !!tp)}</div>`,
-    foot: () => mini(), acts: { ...A, mall: (x, t) => list().length && playList(list(), 0, !!t.dataset.s) }, onClose: () => setTimeout(rer) });
+    foot: () => mini(), acts: { ...A, mall: (x, t) => { if (!list().length) return; playList(list(), 0, !!t.dataset.s); M().qn = data.n; save(); } }, onClose: () => setTimeout(rer) });
   pg._list = list; pg._lid = id;
 }
 /* ---------- 播放队列 ---------- */
@@ -128,11 +143,21 @@ function openQueue() {
 const songAt = x => { const [c, i] = String(x).split(':'); return c == 'now' ? cur() : c == 'L' ? top()?._list?.()[+i] : CTX[c]?.[+i]; };
 async function songMenu(x) {
   const s = songAt(x); if (!s) return; const lid = String(x).startsWith('L:') ? top()?._lid : '';
-  const k = await menu([['n', '下一首播放'], ['q', '加入播放列表'], ['l', liked(s) ? '取消喜欢' : '喜欢'], ['a', '收藏到歌单'], ...(lid && lid != 'liked' && !lid.startsWith('top:') ? [['r', '从这个列表移除', 'danger']] : [])], `${esc(s.name)} · ${esc(s.artist)}`);
-  if (k == 'n') addNext(s); else if (k == 'q') { addQ(s); toast('已加入播放列表'); } else if (k == 'l') toast(toggleLike(s) ? '已喜欢' : '已取消喜欢');
+  const k = await menu([...(String(x).startsWith('now:') ? [['sk', '播放器美化']] : []), ['n', '下一首播放'], ['q', '加入播放列表'], ['l', liked(s) ? '取消喜欢' : '喜欢'], ['a', '收藏到歌单'], ...(lid && lid != 'liked' && !lid.startsWith('top:') ? [['r', '从这个列表移除', 'danger']] : [])], `${esc(s.name)} · ${esc(s.artist)}`);
+  if (k == 'sk') return pickSkin(); if (k == 'n') addNext(s); else if (k == 'q') { addQ(s); toast('已加入播放列表'); } else if (k == 'l') toast(toggleLike(s) ? '已喜欢' : '已取消喜欢');
   else if (k == 'a') { const m = M(), c = await menu([...m.lists.map(l => [l.id, esc(l.n)]), ['+', '＋ 新建歌单']], '收藏到歌单'); if (!c) return; const l = c == '+' ? await newList() : m.lists.find(x => x.id == c); l && addTo(l, s); }
   else if (k == 'r') { const l = listOf(lid); if (!l) return; l.songs.splice(l.songs.findIndex(y => same(y, s)), 1); save(); top()?.reb(); }
 }
+async function pickSkin() { const k = await menu(SKINS.map(([k, n]) => [k, `${skin() == k ? '✓ ' : ''}${n}`]), '播放器美化'); if (!k) return; M().skin = k; save(); rer(); }
+// 心动模式：我喜欢 + 最近听的 → 找这些歌手的其它歌混进来；什么都没有就从榜单 / 热门里挑
+const heartMode = () => task('心动模式', async sg => {
+  const m = M(), seeds = [...m.liked, ...m.hist].slice(0, 30), seen = new Set(seeds.map(key)), out = [...m.liked];
+  const artists = [...new Set(seeds.map(x => x.artist.split(/\s*[\/、&]\s*/)[0]).filter(a => a && a != '未知歌手'))].slice(0, 6);
+  for (const a of artists) { if (sg.aborted) return; try { const { list } = await search(a, 1, sg); list.filter(x => !seen.has(key(x))).slice(0, 5).forEach(x => { seen.add(key(x)); out.push(x); }); } catch { } }
+  if (out.length < 8) { const w = seeds.length ? HOT[Math.random() * HOT.length | 0] : TOPS[2][0]; try { const list = seeds.length ? (await search(w, 1, sg)).list : await playlist(w, sg); list.filter(x => !seen.has(key(x))).slice(0, 15).forEach(x => { seen.add(key(x)); out.push(x); }); } catch { } }
+  if (!out.length) throw Error('没找到能放的歌，检查一下音源');
+  playList(out, 0, true); m.qn = '心动模式'; save(); tab = 'home'; home = 'heart'; rer(); return `放 ${out.length} 首`;
+});
 async function newList() { const r = await form('新建歌单', [['n', '歌单名']]); if (!r?.n?.trim()) return null; const l = { id: uid(), n: r.n.trim(), songs: [] }; M().lists.unshift(l); save(); rer(); return l; }
 async function importList() {
   const r = await form('导入网易云歌单', [['u', '歌单链接或 ID']]); if (!r) return; const id = listId(r.u || ''); if (!id) return toast('没认出歌单 ID');
@@ -141,15 +166,16 @@ async function importList() {
 async function listMenu(id) {
   const l = M().lists.find(x => x.id == id); if (!l) return;
   const k = await menu([['p', '播放全部'], ['r', '重命名'], ['c', '换封面'], ['d', '删除歌单', 'danger']], esc(l.n));
-  if (k == 'p') l.songs.length && playList(l.songs);
+  if (k == 'p') l.songs.length && (playList(l.songs), M().qn = l.n, save());
   if (k == 'r') { const r = await form('重命名', [['n', '歌单名']], { n: l.n }); r?.n?.trim() && (l.n = r.n.trim(), save()); }
   if (k == 'c') { const r = await form('歌单封面', [['cover', '封面', 'img']], { cover: l.cover || '' }); r && (l.cover = r.cover, save()); }
   if (k == 'd' && await ok(`删除歌单「${l.n}」？`)) { M().lists = M().lists.filter(x => x != l); save(); top()?._lid == 'pl:' + l.id && back(); }
   top()?.reb?.(); rer();
 }
 async function mineMenu() {
-  const m = M(), k = await menu([['ask', `${m.ask ? '✓ ' : ''}角色给你点歌`], ['auto', `${m.auto ? '✓ ' : ''}点的歌自动播放`], ['tell', `${m.tell !== false ? '✓ ' : ''}让角色知道你在听什么`], ['imp', '导入网易云歌单'], ['src', '音源地址']]);
+  const m = M(), k = await menu([['skin', '播放器美化'], ['ask', `${m.ask ? '✓ ' : ''}角色给你点歌`], ['auto', `${m.auto ? '✓ ' : ''}点的歌自动播放`], ['tell', `${m.tell !== false ? '✓ ' : ''}让角色知道你在听什么`], ['imp', '导入网易云歌单'], ['src', '音源地址']]);
   if (!k) return;
+  if (k == 'skin') return pickSkin();
   if (k == 'ask' || k == 'auto') { m[k] = !m[k]; save(); syncInject(); toast(k == 'ask' ? (m.ask ? '角色会在剧情里给你点歌了' : '已关闭') : (m.auto ? '收到点歌会自动播放' : '已关闭')); }
   if (k == 'tell') { m.tell = m.tell === false; save(); syncInject(); }
   if (k == 'imp') importList();
@@ -173,13 +199,13 @@ async function pickDone() {
 /* ---------- 动作 ---------- */
 const A = {
   mtab: (x) => { tab = x; rer(); }, mhome: x => { home = x; lyrOn = false; pick = null; rer(); }, mgo: () => { tab = 'home'; home = 'heart'; rer(); },
-  mplay: (x) => { const [c, i] = String(x).split(':'), list = c == 'L' ? top()?._list?.() : CTX[c]; const s = list?.[+i]; if (!s) return; if (same(s, cur())) { st.playing || toggle(); tab = 'home'; home = 'heart'; return rer(); } c == 's' || c == 'rec' || c == 'ai' ? playAt(addQ(s)) : playList(list, +i); },
+  mplay: (x) => { const [c, i] = String(x).split(':'), list = c == 'L' ? top()?._list?.() : CTX[c]; const s = list?.[+i]; if (!s) return; if (same(s, cur())) { st.playing || toggle(); tab = 'home'; home = 'heart'; return rer(); } if (c == 's' || c == 'rec' || c == 'ai') playAt(addQ(s)); else { playList(list, +i); M().qn = top()?._lid ? (listOf(top()._lid)?.n || TOPS.find(t => 'top:' + t[0] == top()._lid)?.[1] || '') : ''; } save(); },
   mmore: x => songMenu(x), mtog: () => toggle(), mnext: () => next(), mprev: () => prev(), mmode: () => cycleMode(), mq: () => openQueue(),
   mlike: () => { const s = cur(); s && toast(toggleLike(s) ? '已喜欢' : '已取消喜欢'); },
   mlyr: (x, t, e) => { if (e.target.closest('[data-a="mseekl"],[data-a="mpk"],.mu-pkbar')) return; lyrOn = !lyrOn; pick = null; rer(); },
   mseekl: (x, t) => { seek(+t.dataset.t); st.playing || toggle(); },
   mpkon: (x, t) => { pick = new Set([+t.dataset.i]); rer(); }, mpk: (x, t) => { const i = +t.dataset.i; pick.has(i) ? pick.delete(i) : pick.add(i); pick.size || (pick = null); rer(); }, mpkx: () => { pick = null; rer(); }, mpkok: pickDone,
-  mheartgo: () => { const l = M().liked; if (!l.length) return toast('先去喜欢几首歌'); playList(l, 0, true); tab = 'home'; home = 'heart'; rer(); },
+  mheartgo: () => heartMode(),
   mkw: w => doSearch(w), mclr: () => { sq = ''; sres = null; rer(); }, mmoreres: () => !sbusy && doSearch(sq, true), mshc: () => { M().sh = []; save(); rer(); },
   mopen: x => openList(x), mnew: async () => { const l = await newList(); l && openList('pl:' + l.id); }, mplm: x => listMenu(x), mmenu: mineMenu, mai: aiRec,
   mnotes: x => { const s = x == 'cur' ? cur() : null; if (x == 'cur' && !s) return; page({ title: s ? `《${esc(s.name)}》的笔记` : '歌词本', cls: 'musicapp mu-notes', live: 1, body: () => notesPage(s), foot: () => mini(), acts: A }); },

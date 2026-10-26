@@ -1130,3 +1130,52 @@ i.ld{animation:mspulse 1s ease-in-out infinite alternate}@keyframes mspulse{to{o
 @keyframes mseq{0%{height:3px}100%{height:12px}}
 @media (max-width:520px){.isl.mu{display:flex;position:static;order:0;margin:0 auto 0 8px;width:auto;height:20px;gap:6px;padding:0 7px 0 3px;background:rgba(0,0,0,.55)}.isl.mu img{width:15px;height:15px;border-radius:4px}.sb{justify-content:flex-start}.sb .sb-r{margin-left:auto}}
 .musicapp .pg-back,.musicapp .pg-r>b{color:var(--pt)}.musicapp .pg-r>b.txt{color:#8e8e93;font-weight:400}.mu-mine .pg-back,.mu-mine .pg-r>b{color:#fff}
+/* ===== 播放器美化 ===== */
+/* 皮肤的页面底色：整页跟着换 */
+.mu-home-heart:has(.sk-glow) .pg-h{background:var(--t2)}.mu-home-heart:has(.sk-glow) .pg-b{background:linear-gradient(180deg,var(--t2),var(--t3) 55%,#fff)}.mu-home-heart:has(.sk-glow) .pg-f .mu-nav{background:#fff}.mu-home-heart{--t2:#fde3ea;--t3:#fff1f5}
+.mu-home-heart:has(.sk-ecg) .pg-h,.mu-home-heart:has(.sk-ecg) .pg-b,.mu-home-heart:has(.sk-ecg) .pg-f .mu-nav{background:#d9dfe7}
+.mu-home-heart:has(.sk-star) .pg-h,.mu-home-heart:has(.sk-star) .pg-b,.mu-home-heart:has(.sk-star) .pg-f .mu-nav{background:#0b0d14;color:#fff}
+.mu-home-heart:has(.sk-star) .pg-back,.mu-home-heart:has(.sk-star) .mu-seg b.on,.mu-home-heart:has(.sk-star) .mu-nav button.on,.sk-star .mu-meta i,.sk-star .mu-ctl i,.sk-star .mu-meta b{color:#fff}.mu-home-heart:has(.sk-star) .mu-nav{border-top-color:rgba(255,255,255,.08)}
+/* 歌词两行 + 来源小胶囊（星环） */
+.mu-l2{text-align:center;margin:6px 0 4px;min-height:44px}.mu-l2 b{display:block;color:var(--t);font-size:calc(15px*var(--fz,1));font-weight:600}.mu-l2 small{display:block;color:#9a9a9f;margin-top:4px;font-size:calc(13px*var(--fz,1))}
+.mu-pill{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;margin:6px 0 0;padding:5px 11px;border-radius:14px;background:rgba(255,255,255,.75);color:#555;font-size:calc(12px*var(--fz,1))}.mu-pill svg{width:14px;height:14px}
+/* 星环唱片：封面圆 + 几圈半透明亮环 + 细白唱臂 */
+.mu-vinyl.glow{flex:1;min-height:0}
+.mu-gdisc{position:relative;width:min(58%,220px);aspect-ratio:1;border-radius:50%;z-index:2;filter:drop-shadow(0 10px 20px rgba(0,0,0,.12))}.mu-cvg{width:100%;height:100%;border-radius:50%;object-fit:cover;background:#fff}.mu-gdisc .mu-ph{background:#fff;color:var(--t)}
+.mu-vinyl.glow.on .mu-gdisc{animation:muspin 20s linear infinite}
+.mu-rings{position:absolute;left:50%;top:50%;width:min(96%,360px);aspect-ratio:1;transform:translate(-50%,-50%)}
+.mu-rings i{position:absolute;inset:0;border-radius:50%;border:1.5px solid rgba(255,255,255,.95);box-shadow:0 0 0 12px color-mix(in srgb,var(--t) 22%,transparent),0 0 0 13px rgba(255,255,255,.6),0 0 36px color-mix(in srgb,var(--t) 45%,transparent);background:radial-gradient(circle,transparent 58%,color-mix(in srgb,var(--t) 18%,transparent) 60%,transparent 66%),
+  radial-gradient(1.4px 1.4px at 20% 30%,#fff 90%,transparent),radial-gradient(1.2px 1.2px at 70% 20%,#fff 90%,transparent),radial-gradient(1.6px 1.6px at 80% 65%,#fff 90%,transparent),radial-gradient(1.1px 1.1px at 35% 80%,#fff 90%,transparent),radial-gradient(1.3px 1.3px at 55% 90%,#fff 90%,transparent),radial-gradient(1px 1px at 12% 60%,#fff 90%,transparent);opacity:.9}
+.mu-rings i:nth-child(2){inset:9%;opacity:.7;transform:rotate(60deg)}.mu-rings i:nth-child(3){inset:19%;opacity:.5;transform:rotate(130deg)}
+.mu-vinyl.glow.on .mu-rings i{animation:muspin 40s linear infinite}.mu-vinyl.glow.on .mu-rings i:nth-child(2){animation-duration:55s;animation-direction:reverse}.mu-vinyl.glow.on .mu-rings i:nth-child(3){animation-duration:70s}
+.mu-garm{position:absolute;right:calc(50% - min(48%,180px) - 2px);top:calc(50% - min(48%,180px) - 8px);width:6px;height:46%;border-radius:3px;background:linear-gradient(#fff,#e9e9ee);box-shadow:0 2px 6px rgba(0,0,0,.12);transform-origin:50% 6px;transform:rotate(-30deg);transition:transform .6s var(--ease-out,ease-out);z-index:3}
+.mu-garm::before{content:'';position:absolute;top:-9px;left:-8px;width:22px;height:22px;border-radius:7px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.12)}.mu-garm::after{content:'';position:absolute;bottom:-2px;left:-6px;width:18px;height:20px;border-radius:5px;background:#fafafa;box-shadow:0 2px 5px rgba(0,0,0,.14)}
+.mu-vinyl.glow.on .mu-garm{transform:rotate(-6deg)}
+/* 心电唱片：斜着的 3D 唱盘，沟槽是心电图 */
+.sk-ecg{color:#4b5a74}.sk-ecg .mu-meta b,.sk-ecg .mu-ctl i,.sk-ecg .mu-meta i{color:#3a4760}
+.mu-ecg-stats{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;margin:2px 0 0;font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#6b7a94}.mu-ecg-stats div{display:flex;gap:6px;white-space:nowrap;overflow:hidden}.mu-ecg-stats span{width:40px;opacity:.7}.mu-ecg-stats b{color:#2f6fd6;font-weight:500}.mu-ecg-stats small{opacity:.55}
+.mu-vinyl.ecg{flex:1;min-height:0;perspective:700px}
+.mu-e3d{position:relative;width:min(100%,330px);aspect-ratio:1;transform-style:preserve-3d;transform:rotateX(62deg) rotateZ(-14deg)}
+.mu-edisc{position:absolute;inset:4%;border-radius:50%;background:radial-gradient(circle,#4f86e6 0,#7ea8ec 40%,#b8cdf2 62%,rgba(200,215,240,.4) 72%,transparent 74%);box-shadow:0 0 60px rgba(90,140,230,.35)}
+.mu-edisc::after{content:'';position:absolute;inset:-9%;border-radius:50%;border:1px solid rgba(255,255,255,.55);box-shadow:0 0 0 14px rgba(255,255,255,.12)}
+.mu-ecg-grooves{position:absolute;inset:0;width:100%;height:100%}
+.mu-ehole{position:absolute;left:50%;top:50%;width:22%;height:22%;margin:-11% 0 0 -11%;border-radius:50%;background:#15161c;box-shadow:inset 0 0 0 3px #2b2d36}.mu-ehole::after{content:'';position:absolute;left:46%;top:46%;width:8%;height:8%;border-radius:50%;background:#fff}
+.mu-vinyl.ecg.on .mu-edisc{animation:muspin 14s linear infinite}
+.mu-earm{position:absolute;right:16%;top:6%;width:4px;height:48%;border-radius:2px;background:rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(60,80,120,.25);transform-origin:50% 14px;transform:rotate(-14deg);transition:transform .6s var(--ease-out,ease-out);z-index:3}
+.mu-earm::before{content:'';position:absolute;top:0;left:-9px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:inset 0 0 0 6px #d9dfe7}.mu-earm::after{content:'';position:absolute;bottom:-6px;left:-6px;width:16px;height:20px;border-radius:3px;background:rgba(255,255,255,.95);transform:rotate(20deg)}
+.mu-vinyl.ecg.on .mu-earm{transform:rotate(-2deg)}
+.mu-fn{position:absolute;left:calc(30% + var(--i) * 14%);top:40%;color:#fff;font-size:18px;opacity:0;transform:translateZ(0)}.mu-vinyl.ecg.on .mu-fn{animation:mufn 4.5s ease-in-out infinite;animation-delay:calc(var(--i) * -1.1s)}
+@keyframes mufn{0%{opacity:0;transform:translate3d(0,0,0)}20%{opacity:.9}100%{opacity:0;transform:translate3d(calc(var(--i) * 6px - 10px),-30px,60px)}}
+.mu-ecg-strip{width:100%;height:18px;margin:4px 0 2px;color:#8a9ab7;opacity:.8}
+.sk-ecg .mu-prog input[type=range]{background:linear-gradient(90deg,#2f6fd6 calc(var(--p,0)*100%),rgba(60,90,140,.2) 0)!important}
+/* 星空歌词：深色星空、左边大字歌词、右边叠着的封面 */
+.sk-star{color:#fff}.sk-star .mu-meta small,.sk-star .mu-prog div{color:rgba(255,255,255,.55)}
+.sk-star .mu-prog input[type=range]{background:linear-gradient(90deg,#fff calc(var(--p,0)*100%),rgba(255,255,255,.2) 0)!important}#stp .sk-star .mu-prog input[type=range]::-webkit-slider-thumb{background:#fff}
+.mu-starbox{position:relative;flex:1;min-height:0;display:flex;cursor:pointer;background:radial-gradient(1px 1px at 12% 20%,#fff 90%,transparent),radial-gradient(1.5px 1.5px at 60% 10%,#fff 90%,transparent),radial-gradient(1px 1px at 85% 40%,#fff 90%,transparent),radial-gradient(1.2px 1.2px at 30% 70%,#fff 90%,transparent),radial-gradient(1px 1px at 75% 85%,#fff 90%,transparent),radial-gradient(1.8px 1.8px at 45% 45%,rgba(255,255,255,.8) 90%,transparent),radial-gradient(1px 1px at 92% 70%,#fff 90%,transparent);margin:0 -24px;padding:0 24px}
+.mu-slrc{flex:1;min-width:0;overflow-y:auto;mask:linear-gradient(transparent,#000 10%,#000 85%,transparent);padding:30% 0;z-index:1}
+.mu-slrc p{margin:0;padding:7px 0;text-align:left;font-size:calc(15px*var(--fz,1));color:rgba(255,255,255,.45);line-height:1.4;transition:color .25s,transform .25s var(--ease-out,ease-out);transform-origin:left;transform:scale(.96);cursor:pointer}
+.mu-slrc p.on{color:#fff;font-weight:700;font-size:calc(19px*var(--fz,1));transform:none;text-shadow:0 0 14px rgba(255,255,255,.5)}.mu-slrc p small{display:block;font-size:.8em;font-style:italic;font-family:Georgia,serif}.mu-slrc p.pk{background:rgba(255,255,255,.14);border-radius:6px;padding-left:6px}
+.mu-stack{position:absolute;right:16px;top:30%;width:44%;aspect-ratio:1}
+.mu-stack i{position:absolute;left:calc(var(--i) * 22%);top:calc(var(--i) * 24%);width:62%;aspect-ratio:1;border:2px solid rgba(255,255,255,.55);background:#000;box-shadow:0 10px 30px rgba(0,0,0,.6);display:grid;place-items:center;overflow:hidden;opacity:calc(1 - var(--i) * .25)}
+.mu-cvs{width:100%;height:100%;object-fit:cover;display:block}.mu-stack .mu-ph{color:#777;background:#1a1a22}
+.mu-starbox .mu-nolrc{color:rgba(255,255,255,.4)!important;text-align:left}

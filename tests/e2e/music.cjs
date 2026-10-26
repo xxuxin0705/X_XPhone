@@ -27,6 +27,16 @@ const songs = n => Array.from({ length: n }, (_, i) => ({ id: String(1000 + i), 
   ok(await E(`[...document.querySelectorAll('.mu-nav button')].map(b => b.textContent).join()`) == '首页,搜索,笔记,我的' && await E(`[...document.querySelectorAll('.mu-seg b')].map(b => b.textContent).join()`) == '心动,推荐', '四个页签：首页 / 搜索 / 笔记 / 我的；首页只有心动 / 推荐');
   ok(await E(`!!document.querySelector('.mu-home-heart .mu-vinyl.idle') && /心动模式|先去喜欢/.test(document.querySelector('.mu-heart').textContent)`), '没在放歌时：粉色黑胶页，提示心动模式');
   await shot('music_heart_empty.png');
+  // 心动模式：什么都没喜欢也能放（从榜单 / 热门里挑）；播放器美化
+  await E(`document.querySelector('[data-a=mheartgo]').click()`); await W(2500);
+  ok(await E(`pl.st.playing && core.S.music.q.length >= 5 && core.S.music.qn == '心动模式'`), '空着也能开心动模式：从榜单里挑了一批 ' + await E(`core.S.music.q.length`));
+  for (const k of ['glow', 'ecg', 'star']) { await E(`core.S.music.skin = '${k}'; core.save(); document.querySelector('[data-a=mtab][data-x=srch]').click(); document.querySelector('[data-a=mtab][data-x=home]').click()`); await W(700); await shot('skin_' + k + '.png'); ok(await E(`!!document.querySelector('.sk-${k}')`), '播放器美化：' + k); }
+  await E(`document.querySelector('[data-a=mmore][data-x="now:0"]').click()`); await W(300);
+  ok(/播放器美化/.test(await E(`document.querySelector('.sheet.mnu').textContent`)), '心动页 ⋯ 里有「播放器美化」');
+  await E(`document.querySelector('.sheet.mnu [data-x=sk]').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=ncm]').click()`); await W(400);
+  ok(await E(`core.S.music.skin == 'ncm' && !!document.querySelector('.sk-ncm .mu-disc')`), '切回粉色黑胶');
+  await E(`pl.clearQ(); core.S.music.hist = []; core.save()`); await W(200);
+  await E(`document.querySelector('[data-a=mtab][data-x=srch]').click()`); await W(300);
   // 搜索
   await E(`document.querySelector('[data-a=mtab][data-x=srch]').click()`); await W(300);
   ok(await E(`document.querySelectorAll('.mu-top').length`) == 4 && await E(`!!document.querySelector('.mu-sb input')`), '搜索页：搜索框 + 4 个榜单 + 快速发现');
