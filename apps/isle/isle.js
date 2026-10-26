@@ -24,6 +24,27 @@ function painter(cv, getState) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const play = islandPlay(cv, reduced);
   const x = cv.getContext('2d'); let W, H, R, t0 = performance.now(), raf, sq = { x: 1, y: 1, vx: 0, vy: 0 }, rot = 0, vrot = 0, drops = [], sparks = [], bolt = 0, whale = 0;
+  // 软体：一圈 48 个点，每个点一根径向弹簧，相邻的点互相拉着（戳一下会往外传开）；身体有重力，能被拉起来甩出去、落地压扁
+  const N = 48, off = new Float32Array(N), vel = new Float32Array(N), body = { x: 0, y: 0, vx: 0, vy: 0, air: false }; let pull = null;
+  const ang = i => i / N * TAU, wrap = i => (i % N + N) % N;
+  const dent = (a, amt, w = 1.4) => { for (let i = 0; i < N; i++) { let d = Math.abs(ang(i) - a); d = Math.min(d, TAU - d); vel[i] += amt * Math.exp(-(d * d) / (w * w * .18)); } };
+  const blob = (cx, cy, rx, ry) => { const P = []; for (let i = 0; i < N; i++) { const a = ang(i), k = 1 + off[i]; P.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]); }
+    x.beginPath(); const m = (i, j) => [(P[i][0] + P[j][0]) / 2, (P[i][1] + P[j][1]) / 2]; let s0 = m(N - 1, 0); x.moveTo(s0[0], s0[1]);
+    for (let i = 0; i < N; i++) { const e = m(i, wrap(i + 1)); x.quadraticCurveTo(P[i][0], P[i][1], e[0], e[1]); } x.closePath(); };
+  const step = () => {
+    // 拉着的时候：手指方向那一撮点跟着手指走（拉成水滴），身体也被带过去一点
+    if (pull) { const m = Math.min(1, pull.m), a = pull.a; for (let i = 0; i < N; i++) { let d = Math.abs(ang(i) - a); d = Math.min(d, TAU - d); const tg = m < .08 ? -.2 * Math.exp(-(d * d) / .35) : m * .5 * Math.exp(-(d * d) / (.5 - m * .25)) - m * .06; vel[i] += (tg - off[i]) * .25; } }
+    for (let i = 0; i < N; i++) vel[i] += -off[i] * .12 + (off[wrap(i - 1)] + off[wrap(i + 1)] - 2 * off[i]) * .3;
+    for (let i = 0; i < N; i++) { vel[i] *= .86; off[i] = Math.max(-.4, Math.min(.55, off[i] + vel[i])); }
+    // 身体：被拉时跟过去，松手弹回；在空中就是重力 + 落地弹
+    if (pull) { body.vx += (pull.dx * .3 - body.x) * .2; body.vy += (pull.dy * .3 - body.y) * .2; body.vx *= .6; body.vy *= .6; body.x += body.vx; body.y += body.vy; body.air = false; }
+    else if (body.air) { body.vy += .012; body.x += body.vx; body.y += body.vy; body.vx *= .99; const top = -(H / 2 - R * 1.15) / R; if (body.y < top) { body.y = top; body.vy = Math.abs(body.vy) * .4; dent(-Math.PI / 2, -.25, 1.6); }
+      body.x = Math.max(-.22, Math.min(.22, body.x));
+      if (body.y >= 0) { body.y = 0; const v = body.vy; body.vy = -v * .38; body.vx *= .7; dent(Math.PI / 2, -Math.min(.3, v * 1.6), 2.2); dent(0, Math.min(.18, v * .8), 1.2); dent(Math.PI, Math.min(.18, v * .8), 1.2); sq.vy -= Math.min(.25, v * .9); sq.vx += Math.min(.2, v * .7); if (Math.abs(body.vy) < .02) { body.vy = 0; body.air = false; } } }
+    else { body.vx += -body.x * .12; body.vy += -body.y * .12; body.vx *= .8; body.vy *= .8; body.x += body.vx; body.y += body.vy; }
+  };
+  const hop = v => { if (reduced) return; body.air = true; body.vy = -Math.abs(v); dent(Math.PI / 2, .12, 1.6); };
+
   const size = () => { const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2); cv.width = r.width * d; cv.height = r.height * d; x.setTransform(d, 0, 0, d, 0, 0); W = r.width; H = r.height; R = Math.min(W, H) * .42; };
   size(); const ro = typeof ResizeObserver == 'function' ? new ResizeObserver(size) : null; ro?.observe(cv);
   const px = (a, rx) => Math.cos(a + rot) * rx, pz = a => Math.sin(a + rot); // 假 3D：绕岛一圈的东西按角度算位置和前后
@@ -43,18 +64,20 @@ function painter(cv, getState) {
   const draw = () => {
     const st = getState(), s = st.scene || 'sunset', t = reduced ? 0 : (performance.now() - t0) / 1000, dark = DARK(s), stormy = s == 'storm', k = 1 + st.sea * .8;
     // 果冻的弹性：两个方向各自一根弹簧
-    for (const d of ['x', 'y']) { const v = 'v' + d; sq[v] += ((pd?.inside ? pd[d === 'x' ? 'tx' : 'ty'] : 1) - sq[d]) * .09; sq[v] *= .86; sq[d] += sq[v]; }
+    if (!reduced) step();
+    // 整体那根弹簧：飞起来时顺着速度方向拉长
+    const spd = body.air ? body.vy : 0; for (const d of ['x', 'y']) { const v = 'v' + d; sq[v] += ((d == 'y' ? 1 + Math.min(.25, Math.abs(spd) * 1.6) : 1 - Math.min(.18, Math.abs(spd) * 1.1)) - sq[d]) * .12; sq[v] *= .84; sq[d] += sq[v]; }
     vrot *= .95; rot += vrot + (reduced ? 0 : stormy ? .004 : .0015);
-    const cx = W / 2, cy = H / 2 + R * .06, rx = R * sq.x, ry = R * sq.y, jc = st.jelly;
+    const cx = W / 2 + body.x * R, cy = H / 2 + R * .06 + body.y * R, rx = R * sq.x, ry = R * sq.y, jc = st.jelly, fy = H / 2 + R * .06 + R, lift = Math.max(0, -body.y);
     x.clearRect(0, 0, W, H);
     // 展台上的柔和投影，保留透明球体的轮廓
-    let shadow = x.createRadialGradient(cx, cy + ry, 0, cx, cy + ry, rx * .9);
-    shadow.addColorStop(0, 'rgba(48,76,66,.2)'); shadow.addColorStop(1, 'rgba(48,76,66,0)');
-    x.save(); x.translate(cx, cy + ry * 1.02); x.scale(1, .15); x.fillStyle = shadow;
-    x.translate(-cx, -cy - ry); x.fillRect(cx - rx, cy + ry - rx, rx * 2, rx * 2); x.restore();
-    x.save(); x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, TAU); x.clip();
+    { const sr = rx * (.9 - lift * .35), sa = .2 / (1 + lift * 2.5); let shadow = x.createRadialGradient(cx, fy, 0, cx, fy, sr);
+    shadow.addColorStop(0, `rgba(48,76,66,${sa})`); shadow.addColorStop(1, 'rgba(48,76,66,0)');
+    x.save(); x.translate(cx, fy * 1.02 - cy * .02); x.scale(1, .15); x.fillStyle = shadow;
+    x.translate(-cx, -fy); x.fillRect(cx - sr, fy - sr, sr * 2, sr * 2); x.restore(); }
+    x.save(); blob(cx, cy, rx, ry); x.clip();
     // 天空 / 海
-    let g = x.createLinearGradient(0, cy - ry, 0, cy + ry * .2); g.addColorStop(0, SKY[s][0]); g.addColorStop(1, SKY[s][1]); x.fillStyle = g; x.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+    let g = x.createLinearGradient(0, cy - ry, 0, cy + ry * .2); g.addColorStop(0, SKY[s][0]); g.addColorStop(1, SKY[s][1]); x.fillStyle = g; x.fillRect(cx - rx * 2.2, cy - ry * 2.2, rx * 4.4, ry * 4.4);
     if (s == 'sun') { x.fillStyle = 'rgba(255,230,120,.95)'; x.beginPath(); x.arc(cx + rx * .45, cy - ry * .5, R * .11, 0, TAU); x.fill(); x.fillStyle = 'rgba(255,230,120,.25)'; x.beginPath(); x.arc(cx + rx * .45, cy - ry * .5, R * .2, 0, TAU); x.fill(); }
     if (s == 'sunset') { g = x.createRadialGradient(cx, cy - ry * .05, 0, cx, cy - ry * .05, R * .6); g.addColorStop(0, 'rgba(255,200,120,.9)'); g.addColorStop(1, 'rgba(255,200,120,0)'); x.fillStyle = g; x.fillRect(cx - rx, cy - ry, rx * 2, ry * 2); x.fillStyle = '#ffd38a'; x.beginPath(); x.arc(cx, cy - ry * .02, R * .13, 0, TAU); x.fill(); }
     if (s == 'night' || s == 'aurora' || s == 'fireworks') { for (let i = 0; i < 40; i++) { const a = rnd(i) * TAU, r = rnd(i, 2) * .95; x.fillStyle = `rgba(255,255,255,${.3 + .7 * Math.abs(Math.sin(t * 1.5 + i))})`; x.beginPath(); x.arc(cx + Math.cos(a) * rx * r, cy - ry * .25 + Math.sin(a) * ry * r * .55 - ry * .2, .9 + rnd(i, 3), 0, TAU); x.fill(); } }
@@ -99,11 +122,11 @@ function painter(cv, getState) {
     if (stormy) { if (bolt <= 0 && Math.random() < .012) bolt = 10; if (bolt > 0) { bolt--; x.fillStyle = `rgba(255,255,255,${bolt / 30})`; x.fillRect(cx - rx, cy - ry, rx * 2, ry * 2); x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); let bx = cx + rx * .3, by = cy - ry; x.moveTo(bx, by); for (let i = 0; i < 5; i++) { bx += (Math.random() - .5) * 30; by += ry * .18; x.lineTo(bx, by); } x.stroke(); } }
     if (s == 'fireworks') { sparks.length < 160 && Math.random() < .06 && (() => { const ox = cx + (Math.random() - .5) * rx, oy = cy - ry * (.3 + Math.random() * .4), col = `hsl(${Math.random() * 360},90%,70%)`; for (let i = 0; i < 24; i++) { const a = i / 24 * TAU, v = 1.2 + Math.random(); sparks.push({ x: ox, y: oy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 40 + Math.random() * 20, c: col }); } })(); sparks.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .03; p.l--; x.globalAlpha = Math.max(0, p.l / 60); x.fillStyle = p.c; x.fillRect(p.x, p.y, 2, 2); }); x.globalAlpha = 1; sparks = sparks.filter(p => p.l > 0); }
     // 果冻本体：颜色罩 + 边缘 + 高光
-    x.restore(); x.save(); x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, TAU); x.clip();
-    g = x.createRadialGradient(cx - rx * .3, cy - ry * .35, R * .1, cx, cy, R * 1.05); g.addColorStop(0, `rgba(${jc},${dark ? .08 : .16})`); g.addColorStop(.75, `rgba(${jc},${dark ? .12 : .22})`); g.addColorStop(1, `rgba(${jc},.55)`); x.fillStyle = g; x.fillRect(cx - rx, cy - ry, rx * 2, ry * 2);
+    x.restore(); x.save(); blob(cx, cy, rx, ry); x.clip();
+    g = x.createRadialGradient(cx - rx * .3, cy - ry * .35, R * .1, cx, cy, R * 1.05); g.addColorStop(0, `rgba(${jc},${dark ? .08 : .16})`); g.addColorStop(.75, `rgba(${jc},${dark ? .12 : .22})`); g.addColorStop(1, `rgba(${jc},.55)`); x.fillStyle = g; x.fillRect(cx - rx * 2.2, cy - ry * 2.2, rx * 4.4, ry * 4.4);
     x.restore();
     // 透明玻璃的暗缘与两道弧形反射，避免整圈白描边
-    x.strokeStyle = `rgba(${jc},.35)`; x.lineWidth = 1; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, TAU); x.stroke();
+    x.strokeStyle = `rgba(${jc},.35)`; x.lineWidth = 1; blob(cx, cy, rx, ry); x.stroke();
     x.save(); x.translate(cx, cy); x.scale(rx, ry);
     x.lineCap = 'round'; x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = .015;
     x.beginPath(); x.arc(0, 0, .94, Math.PI * 1.08, Math.PI * 1.48); x.stroke();
@@ -114,11 +137,12 @@ function painter(cv, getState) {
   };
   // 按住球：捏扁；松手弹回；在外面划：转岛
   let pd = null, lastShake = -Infinity, motionPrev = null, motionHits = 0, motionAt = 0;
-  const shake = () => { if (performance.now() - lastShake < 6000) return; lastShake = performance.now(); if (!reduced) { sq.vx = .12; sq.vy = -.1; vrot = .05; } play.gust(.9); play.say('shake', true); };
+  const shake = () => { if (performance.now() - lastShake < 6000) return; lastShake = performance.now(); if (!reduced) { hop(.16); vrot = .05; dent(0, .3, 1); dent(Math.PI, .3, 1); } play.gust(.9); play.say('shake', true); };
   play.listen(cv, 'pointerdown', e => {
     if (pd || e.isPrimary === false) return;
-    const r = cv.getBoundingClientRect(), dx = e.clientX - r.left - W / 2, dy = e.clientY - r.top - H / 2;
-    pd = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, at: performance.now(), turnAt: performance.now(), dir: 0, turns: 0, moved: 0, tx: 1.08, ty: .9, inside: Math.hypot(dx, dy) < R };
+    const r = cv.getBoundingClientRect(), dx = e.clientX - r.left - W / 2 - body.x * R, dy = e.clientY - r.top - H / 2 - R * .06 - body.y * R, a = Math.atan2(dy, dx), inside = Math.hypot(dx, dy) < R * 1.1;
+    pd = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, at: performance.now(), turnAt: performance.now(), dir: 0, turns: 0, moved: 0, inside, a };
+    if (inside && !reduced) { dent(a, -.14, 1.1); pull = { a, m: 0, dx: 0, dy: 0 }; } // 戳进去
     cv.setPointerCapture?.(e.pointerId); play.splash(dx / R, dy / R);
   });
   play.listen(cv, 'pointermove', e => {
@@ -126,7 +150,7 @@ function painter(cv, getState) {
     const time = performance.now(), delta = e.clientX - pd.lx, dt = Math.max(8, time - pd.at);
     const dx = (e.clientX - pd.x) / R, dy = (e.clientY - pd.y) / R;
     pd.moved = Math.max(pd.moved, Math.hypot(dx, dy));
-    if (pd.inside) { pd.tx = Math.max(.78, Math.min(1.25, 1.08 + dx * .4)); pd.ty = Math.max(.78, Math.min(1.25, .9 - dy * .4)); }
+    if (pd.inside && pull) { const m = Math.hypot(dx, dy); if (m > .08) { pull.a = Math.atan2(dy, dx); pull.m = m; pull.dx = dx; pull.dy = dy; } }
     else if (!reduced) vrot = Math.max(-.12, Math.min(.12, delta * .004));
     play.gust(delta / dt * .65);
     if (Math.abs(delta) > 5 && Math.abs(delta / dt) > .35) {
@@ -138,10 +162,14 @@ function painter(cv, getState) {
   });
   const up = e => { if (!pd || (e?.pointerId != null && e.pointerId !== pd.id)) return;
     if (e?.type === 'pointerup') play.say(pd.moved > .2 ? 'stretch' : (pd.y - cv.getBoundingClientRect().top > H * .6 ? 'water' : 'touch'));
-    pd = null;
+    if (pull && !reduced) { // 松手：拉得远就弹出去（往拉的反方向），拉得近就是戳一下弹回来
+      const m = pull.m; dent(pull.a, Math.min(.28, .12 + m * .15), 1.1);
+      if (m > .3) { body.air = true; body.vx = -pull.dx * .08; body.vy = -Math.abs(pull.dy) * .11 - m * .05; dent(pull.a + Math.PI, -.12, 1.4); } else hop(.05 + m * .1);
+    }
+    pull = null; pd = null;
   };
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) play.listen(cv, ev, up);
-  play.listen(window, 'blur', () => { pd = null; });
+  play.listen(window, 'blur', () => { pd = null; pull = null; });
   const motion = e => {
     if (!cv.isConnected || document.hidden) return;
     const a = e.accelerationIncludingGravity; if (!a || ![a.x, a.y, a.z].every(Number.isFinite)) return;
@@ -164,7 +192,7 @@ function painter(cv, getState) {
   play.listen(shakeButton, 'click', shake);
 
   draw();
-  return { stop: () => { stopped = true; cancelAnimationFrame(raf); ro?.disconnect(); play.stop(); }, size, enableMotion, shake };
+  return { stop: () => { stopped = true; cancelAnimationFrame(raf); ro?.disconnect(); play.stop(); }, size, enableMotion, shake, hop, dent };
 }
 
 /* ---------- 页面 ---------- */
@@ -185,7 +213,7 @@ const body = () => { const id = curId(), c = byId(id), r = id ? rec(id) : null, 
 const mount = el => { pt?.stop(); el.querySelectorAll('.is-who [role=button]').forEach(b => b.addEventListener('keydown', e => { if (e.key == 'Enter' || e.key == ' ') { e.preventDefault(); b.click(); } })); const cv = $('.is-cv', el); if (!cv) return; const id = curId(); pt = painter(cv, () => { const r = id ? rec(id) : { scene: 'sunset', sea: .4 }; return { scene: r.scene || 'sunset', sea: r.sea ?? .4, jelly: jelly(), landscape: S.isle?.landscape || 'garden' }; }); };
 const look = () => { const id = curId(), c = byId(id); if (!c) return; return task(`读 ${nm(c)} 的心情`, async sg => {
   const r = json(await llm(await sysCtx({ n: 10, rc: 3500, wi: 0, desc: 1000 }), `根据最近的剧情，判断${rn(c)}此刻的心情。只输出 JSON：{"mood":"两到四个字的心情词","scene":"sun|sunset|rain|storm|aurora|night|fog|fireworks 里选一个最贴切的","say":"${rn(c)}此刻没说出口的一句话，30字以内，第一人称","sea":0到1的数字表示情绪起伏大小}`, '读心情', sg, { aux: 1 }));
-  if (!r?.mood) throw Error('没读出来，再试一次'); setMood(id, r); pt?.shake(); return `${nm(c)}：${r.mood}`; }); };
+  if (!r?.mood) throw Error('没读出来，再试一次'); setMood(id, r); pt?.hop(.14); return `${nm(c)}：${r.mood}`; }); };
 reg({
   id: 'isle', name: '心屿', icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="#fff" opacity=".35"/><circle cx="12" cy="12" r="8" fill="none" stroke="#fff" stroke-width="1.4"/><ellipse cx="12" cy="14.2" rx="4.6" ry="1.7" fill="#fff"/><path d="M12 7.5v6.3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M12 8.3c1.2 0 2.2-.8 2.6-1.3M12 8.3c-1.2 0-2.2-.8-2.6-1.3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/><circle cx="8.3" cy="9.3" r=".9" fill="#fff"/></svg>',
   open: () => page({ title: '心屿', cls: 'isle', live: 1, right: () => `<b data-a="isset">${jellyDot()}</b>`, body, after: mount, onClose: () => { pt?.stop(); pt = null; },
