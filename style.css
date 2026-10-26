@@ -967,3 +967,19 @@
 .cpk-sq .cp-cursor{left:var(--cp-x);top:var(--cp-y)}
 .cpk-g .cp-cursor{left:var(--cp-g);top:50%}
 .cpk[data-mode="g"] .cpk-sq .cp-cursor,.cpk[data-mode="sq"] .cpk-g .cp-cursor{display:none}
+
+/* 横版金属 CCD：4×2 / 2×1，屏幕和贴纸独立于机壳。 */
+.it.wg.ccd-wide{container-type:size;background:none;box-shadow:none;border:0;padding:0;overflow:visible;backdrop-filter:none;-webkit-backdrop-filter:none}
+.cw-camera{position:absolute;left:50%;top:50%;width:min(98cqw,calc(98cqh * 900 / 460));aspect-ratio:900/460;transform:translate(-50%,-50%);filter:drop-shadow(0 5px 7px rgba(0,0,0,.2))}
+.cw-body{position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none}
+.cw-screen{position:absolute;left:7.2222%;top:20.8696%;width:67.3333%;height:66.087%;border-radius:4.8%/9.5%;overflow:hidden;background:#23272a}
+.cw-screen>img,.cw-screen>video{display:block;width:100%;height:100%;object-fit:cover;transform-origin:center}
+.cw-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:linear-gradient(135deg,#424b50,#252b30);color:#cdd4d7;font-style:normal}
+.cw-empty>span{font-size:28px}.cw-empty small{font-size:9px;opacity:.8}
+.cw-sticker{position:absolute;aspect-ratio:1;object-fit:contain;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.18))}
+
+.cw-style-picks{display:flex;gap:8px;justify-content:center;padding-top:10px}
+#stp .cw-style-pick{all:unset;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;flex:1;padding:7px 3px;border:2px solid transparent;border-radius:13px;background:var(--cd);cursor:pointer}
+#stp .cw-style-pick.on{border-color:var(--ac)}
+.cw-style-pick .wprev{width:100%;height:44px;pointer-events:none}
+.cw-style-pick>span{font-size:calc(10px*var(--fz,1));opacity:.8}

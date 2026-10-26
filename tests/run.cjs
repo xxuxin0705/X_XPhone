@@ -2,6 +2,7 @@
 // 浏览器测试需要 Playwright（Chromium）。截图在 tests/out/ 里（不进仓库）。
 const { spawnSync } = require('child_process'), path = require('path');
 const ALL = {
+  wide: ['unit/ccd-wide.mjs', '横版 CCD：机身配色、照片视频、贴纸、视频资源释放'],
   tint: ['unit/ccd-tint.mjs', 'CCD 浅色机壳：选色还原、高光阴影、暗框与透明度'],
   color: ['unit/color-drag.mjs', '取色圆圈：初始化、拖动、灰度、页面重画与取消'],
   wpreview: ['unit/widget-preview.mjs', '小组件设置：实时样式预览、尺寸、保存与取消'],

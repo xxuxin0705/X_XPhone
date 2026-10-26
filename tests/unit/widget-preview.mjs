@@ -37,10 +37,11 @@ page.close(); const liveValue = await liveResult; assert.equal(liveValue.zoom, 1
 // 通过真实组件渲染器生成设置预览，检查每种类型、尺寸、样式和模板变量。
 const ck = await import(new URL('apps/theme/clock.js', root));
 const ccd = await import(new URL('apps/theme/ccd.js', root));
+const wide = await import(new URL('apps/theme/ccd-wide.js', root));
 const coreStub = { S: {assets:{widget:[]}}, save(){}, esc, uid:()=> 'id', $:()=>null, $$:()=>[], ui:{}, G:{}, APPS:{}, now:()=>new Date(2026,9,26,10,32), tpl:s=>s.replaceAll('{{user}}','测试用户'), form, menu(){}, sheet, defAv(){}, btn(){}, openApp(){}, dropMedia(){}, pickImg(){} };
-globalThis.widgetTest = {...coreStub,...ck,...ccd};
+globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide};
 let desk = read('desk.js').replace(/^import .*?;$/gm, '');
-desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
+desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','wideHtml','WIDE_STYLES','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
 const dk = await import('data:text/javascript;base64,'+Buffer.from(desk).toString('base64'));
 for (const [k,K] of Object.entries(dk.WK)) {
  const it = { k, w:K.w,h:K.h };
@@ -51,6 +52,12 @@ for (const [k,K] of Object.entries(dk.WK)) {
  if(k==='custom') assert.match(html,/测试用户/);
  const large = dk.widgetPreview(it,{...props,sz:'4x4'});assert.match(large,/aspect-ratio:4\/4/);
 }
+assert.deepEqual(dk.sizes(dk.WK.ccdWide.w,dk.WK.ccdWide.h),[[2,1],[4,2]]);
+const widePreview=dk.widgetPreview({k:'ccdWide'},{...dk.WK.ccdWide.d,sz:'4x2'});
+assert.equal((widePreview.match(/data-a="wideStyle"/g)||[]).length,3);
+assert.match(widePreview,/data-x="silver"/);
+assert(dk.WK.ccdWide.f({...dk.WK.ccdWide.d,type:'video'}).some(f=>f[0]==='videoTip'));
+assert(dk.WK.ccdWide.f({...dk.WK.ccdWide.d,sticker:'sticker.png'}).some(f=>f[0]==='ss'));
 const camera=dk.widgetPreview({k:'ccd'},{...dk.WK.ccd.d,img:'photo.webp',zoom:180,px:20,py:70,sz:'2x2'});
 assert.match(camera,/object-position:center;transform:translate\(-30%,20%\) scale\(1.8\)/);
 // 不论照片原始比例或缩放多少，横向和纵向都直接平移，中心点保持不偏移。

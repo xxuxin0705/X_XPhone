@@ -17,6 +17,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(!cards.some(x => /^(pill|photo|cal|days|text):/.test(x)), '其他内置组件都没了 ' + cards.join(','));
   ok(cards.filter(x => x.startsWith('ccd:')).join() == 'ccd:2x2', 'CCD 只有一张卡片（2×2），大小加到桌面后再改');
   ok(await E(`!!document.querySelector('.sheet.wadd .wcard[data-k=ccd] img.ccd-body')`), '卡片里是实际渲染的相机预览');
+  ok(cards.includes('ccdWide:4x2') && await E(`!!document.querySelector('.sheet.wadd [data-k=ccdWide] svg.cw-body')`), '新增横版 CCD 4×2 卡片，展示实际机壳');
   const chips = await E(`[...document.querySelectorAll('.sheet.wadd .szf b')].map(x => x.textContent)`);
   ok(chips[0] == '全部尺寸' && chips.includes('2×2') && chips.includes('2×1') && !chips.includes('4×4'), '顶上有尺寸筛选 ' + chips.join(' '));
   await E(`document.querySelector('.sheet.wadd .szf [data-x="2x1"]').click()`); await W(200);
