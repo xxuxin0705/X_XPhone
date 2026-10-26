@@ -58,14 +58,15 @@
 .dock .it>span{display:none}
 .it .x,.ed-bar{display:none}
 .desk.edit .it .x{display:grid;place-items:center;position:absolute;top:-7px;left:-7px;z-index:3;width:22px;height:22px;border-radius:50%;background:rgba(90,90,90,.75);backdrop-filter:blur(6px);color:#fff;font-size:calc(15px*var(--fz,1));line-height:1}
-.desk.edit .ed-bar{display:flex;gap:8px;justify-content:center;padding:4px 12px 0;position:relative;z-index:2}
+.desk.edit .ed-bar{display:flex;gap:8px;justify-content:center;padding:0 12px 10px;position:relative;z-index:2}
 .ed-bar .btn{width:auto;margin:0;padding:7px 14px;font-size:calc(13px*var(--fz,1));border-radius:16px;background:rgba(255,255,255,.7);backdrop-filter:blur(10px)}
 .ed-bar .btn.pri{background:var(--ac)}
-.desk.edit .it:not(.drag){animation:jig .26s ease-in-out infinite alternate}
+.desk.edit .it:not(.ph){animation:jig .26s ease-in-out infinite alternate}
 .desk.edit .it:nth-child(2n){animation-delay:-.13s}
 .desk.edit .pages{overflow:hidden;touch-action:none}
 @keyframes jig{from{transform:rotate(-1.2deg)}to{transform:rotate(1.2deg)}}
-.it.drag{z-index:50;pointer-events:none;opacity:.92;transition:none;filter:drop-shadow(0 12px 20px rgba(0,0,0,.25))}
+.it.ghost{z-index:95;pointer-events:none;opacity:.95;transition:none;animation:none!important;filter:drop-shadow(0 12px 20px rgba(0,0,0,.25))}.it.ghost .x{display:none!important}
+.it.ph{opacity:.25;animation:none!important}
 .it.hov{outline:2px dashed rgba(255,255,255,.9);outline-offset:4px;border-radius:20px}
 
 /* ---------- 页面 / 通用组件 ---------- */
@@ -946,3 +947,6 @@
 .ccd-scr img{width:100%;height:100%;object-fit:cover;display:block;transform-origin:center}
 .ccd-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#8f8f99;font-style:normal;font-size:calc(22px*var(--fz,1))}
 .ccd-ph small{font-size:calc(9px*var(--fz,1))}
+
+/* 表单里的滑块 */
+.row.rg input[type=range]{flex:1;min-width:0;margin:0 10px;accent-color:var(--ac)}.row.rg em{font-style:normal;min-width:44px;text-align:right;color:#8e8e93;font-size:calc(14px*var(--fz,1))}

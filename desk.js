@@ -8,14 +8,15 @@ const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => (
 const gcd = (a, b) => b ? gcd(b, a % b) : a;
 export const sizes = (w, h) => { const g = gcd(w, h), rw = w / g, rh = h / g, o = []; for (let k = 1; k * rw <= 4 && k * rh <= 4; k++) o.push([k * rw, k * rh]); return o; };
 const szOpt = (w, h) => sizes(w, h).map(([a, b]) => [`${a}x${b}`, `${a}×${b}`]);
+// 背景：透明时什么都不用填；纯色 / 毛玻璃一个颜色；渐变两个颜色；都能拖不透明度
+const bgF = m => [['bg', '背景', 'sel', CCD_BG], ...(!m.bg || m.bg == 'none' ? [] : [['bgC', '背景颜色', 'color'], ...(m.bg == 'grad' ? [['bgC2', '渐变第二色', 'color']] : []), ['bgA', '背景不透明度', 'range', [0, 100, '%']]])];
 export const WK = {
   ccd: { n: 'CCD 相机', w: 2, h: 2, cls: 'ccd',
-    f: [['img', '照片', 'img'], ['body', '机身颜色', 'color'], ['zoom', '照片缩放 %', 'number', '100'], ['px', '左右位置 %', 'number', '50'], ['py', '上下位置 %', 'number', '50'],
-      ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
-    d: { body: CCD_PINK, bgC: '#ffffff', bgC2: '#ffd6e7' }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
+    f: m => [['img', '照片', 'img'], ['body', '机身颜色', 'color'], ['zoom', '照片缩放', 'range', [50, 300, '%']], ['px', '左右位置', 'range', [0, 100, '%']], ['py', '上下位置', 'range', [0, 100, '%']], ...bgF(m)],
+    d: { body: CCD_PINK, zoom: 100, px: 50, py: 50, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
   clock: { n: '时间', w: 2, h: 1, cls: 'clkw',
-    f: () => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['wt', '粗细（100～900）', 'number'], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['h12', '12 小时制', 'tog'], ['lang', '语言', 'sel', [['zh', '中文'], ['en', 'English']]], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
-      ['auto', '跟随主题配色', 'tog'], ['c', '颜色', 'color'], ['a', '不透明度 %', 'number', '100'], ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
+    f: m => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['h12', '12 小时制', 'tog'], ['lang', '语言', 'sel', [['zh', '中文'], ['en', 'English']]], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
+      ['auto', '跟随主题配色', 'tog'], ...(m.auto === false ? [['c', '颜色', 'color'], ['a', '不透明度', 'range', [0, 100, '%']]] : []), ...bgF(m)],
     d: { ...CLK_DEF, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: p => `<div class="ccd-bg" style="${ccdBg(p)}"></div>${clkHtml(p, now())}` },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },
 };
@@ -28,7 +29,7 @@ const item = it => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h} k-${it.k} 
   : `<div class="it app" data-it="${it.id}" data-a="tap" data-lp="dlp">${it.t == 'folder' ? x(it.id) : ''}<div class="ico ${it.t == 'folder' ? 'fdi' : 'a-' + it.app}">${it.t == 'folder' ? it.apps.map(a => `<i class="ico a-${a}">${icon(a)}</i>`).join('') : icon(it.app)}</div><span>${esc(it.t == 'folder' ? it.name : APPS[it.app]?.name)}</span></div>`;
 export function renderDesk() {
   const d = S.desk, el = ui.desk; if (!el) return;
-  el.innerHTML = `<div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div><div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${p.map(item).join('')}</div>`).join('')}</div><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="dock" data-box="dock">${d.dock.map(item).join('')}</div>`;
+  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${p.map(item).join('')}</div>`).join('')}</div><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div><div class="dock" data-box="dock">${d.dock.map(item).join('')}</div>`;
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
 }
@@ -39,26 +40,31 @@ function clean() {
 }
 const goPage = i => { cur = Math.max(0, Math.min(i, S.desk.pages.length - 1)); const p = $('.pages', ui.desk); p.scrollTo({ left: cur * p.clientWidth, behavior: 'smooth' }); };
 
+// 拖动：拿起来的是一个浮在最上层的「影子」，原位置留个半透明占位；拖到左右边缘停一下就翻页（平滑滑过去，手不用松）
 function drag(e, id) {
-  let el = $(`[data-it="${id}"]`, ui.desk), x0 = e.clientX, y0 = e.clientY, last = e, et, dist = 0; if (!el) return;
-  const sc = ui.root.getBoundingClientRect().width / ui.root.offsetWidth || 1, pd = ev => ev.preventDefault();
-  el.classList.add('drag');
+  let el = $(`[data-it="${id}"]`, ui.desk), last = e, et, dist = 0, lock = 0; // lock：刚翻过页，手离开边缘才能再翻 if (!el) return;
+  const R = ui.root, rr = () => R.getBoundingClientRect(), sc = rr().width / R.offsetWidth || 1, pd = ev => ev.preventDefault();
+  const r0 = el.getBoundingClientRect(), gh = el.cloneNode(true), ox = (e.clientX - r0.left) / sc, oy = (e.clientY - r0.top) / sc;
+  Object.assign(gh.style, { position: 'absolute', left: 0, top: 0, width: r0.width / sc + 'px', height: r0.height / sc + 'px', margin: 0 }); gh.classList.add('ghost'); gh.removeAttribute('data-it'); R.append(gh);
+  const place = ev => { const b = rr(); gh.style.transform = `translate(${(ev.clientX - b.left) / sc - ox}px,${(ev.clientY - b.top) / sc - oy}px) scale(1.06)`; };
+  const hold = () => { el = $(`[data-it="${id}"]`, ui.desk); el?.classList.add('ph'); };
+  place(e); hold();
+  const flip = edge => { et = 0; const n = cur + edge; if (n < 0) return; n >= S.desk.pages.length && S.desk.pages.push([]);
+    const [l, i] = find(id); S.desk.pages[n].push(...l.splice(i, 1)); const from = cur; cur = n; renderDesk(); hold();
+    const p = $('.pages', ui.desk); p.scrollLeft = from * p.clientWidth; requestAnimationFrame(() => p.scrollTo({ left: n * p.clientWidth, behavior: 'smooth' }));
+    navigator.vibrate?.(8); lock = 1; };
+  const arm = () => { const r = ui.desk.getBoundingClientRect(), x = last.clientX, edge = x < r.left + 36 * sc ? -1 : x > r.right - 36 * sc ? 1 : 0;
+    if (!edge || edge < 0 && !cur) { clearTimeout(et); et = 0; lock = 0; return; } if (lock) return; et ||= setTimeout(() => flip(edge), 420); };
   const mv = ev => {
-    last = ev; dist = Math.max(dist, Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY));
-    el.style.transform = `translate(${(ev.clientX - x0) / sc}px,${(ev.clientY - y0) / sc}px) scale(1.06)`;
-    const r = ui.desk.getBoundingClientRect(), edge = ev.clientX < r.left + 18 ? -1 : ev.clientX > r.right - 18 ? 1 : 0;
-    if (!edge) { clearTimeout(et); et = 0; } else if (!et && !(edge < 0 && !cur)) et = setTimeout(() => {
-      et = 0; const n = cur + edge; n >= S.desk.pages.length && S.desk.pages.push([]); const [l, i] = find(id); S.desk.pages[n].push(...l.splice(i, 1)); cur = n; renderDesk();
-      el = $(`[data-it="${id}"]`, ui.desk); el.classList.add('drag'); x0 = last.clientX; y0 = last.clientY;
-    }, 600);
+    last = ev; dist = Math.max(dist, Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY)); place(ev); arm();
     $$('.hov', ui.desk).forEach(x => x.classList.remove('hov')); document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-it]')?.classList.add('hov');
   };
-  const up = ev => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('touchmove', pd); clearTimeout(et); dist > 6 && (moved = Date.now()); drop(id, ev, el); };
-  addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('touchmove', pd, { passive: false });
+  const up = ev => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); removeEventListener('touchmove', pd); clearTimeout(et); dist > 6 && (moved = Date.now()); gh.remove(); drop(id, ev, $(`[data-it="${id}"]`, ui.desk)); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('touchmove', pd, { passive: false });
 }
 function drop(id, ev, el) {
   const p = document.elementFromPoint(ev.clientX, ev.clientY);
-  el.classList.remove('drag'); el.style.transform = ''; $$('.hov', ui.desk).forEach(x => x.classList.remove('hov'));
+  el?.classList.remove('ph'); $$('.hov', ui.desk).forEach(x => x.classList.remove('hov'));
   const te = p?.closest('[data-it]'), box = p?.closest('[data-box]'), [sl, si] = find(id), it = sl[si];
   if (!box || te == el) return;
   const tl = box.dataset.box == 'dock' ? S.desk.dock : S.desk.pages[box.dataset.box];
@@ -82,7 +88,7 @@ function folder(it) {
 // CCD：点一下换照片
 async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == null) return; const old = it.p.img; it.p.img = v || ''; save(); old && dropMedia(old); renderDesk(); }
 async function editW(it) {
-  const K = WK[it.k], r = await form(K.n, [...(typeof K.f == 'function' ? K.f() : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }); if (!r) return;
+  const K = WK[it.k], r = await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, {}, (k, v, m, s) => ['bg', 'auto'].includes(k) && s.reb()); if (!r) return; // 改了背景 / 配色方式：要填的项跟着变
   const { sz, ...p } = r; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk();
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
@@ -107,6 +113,6 @@ Object.assign(G, {
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
 });
 export function initDesk() {
-  S.desk ||= def(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); } }); // 时间小组件：日期默认挪到下面 renderDesk(); // 去掉已经不存在的组件
+  S.desk ||= def(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认挪到下面 renderDesk(); // 去掉已经不存在的组件
   ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
 }

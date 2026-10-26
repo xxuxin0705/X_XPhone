@@ -22,7 +22,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.fonts.load('80px xp-nunito')`);
   ok(await E(`document.fonts.check('80px xp-nunito')`), '字体文件加载好了');
   ok(await E(`(() => { core.S.lock.clk.font = 'round'; lk.lock(); return /xp-nunito/.test(getComputedStyle(document.querySelector('.lock .lk-time')).fontFamily); })()`), '以前选过「圆润」的自动换成「圆体」');
-  ok(await E(`(() => { const c = document.querySelector('.lock .clk'); return c.lastElementChild.classList.contains('clk-d') && /^[0-9]{4}年[0-9]+月[0-9]+日$/.test(c.lastElementChild.textContent); })()`), '默认日期在时间下面，年月日 ' + await E(`document.querySelector('.lock .clk').lastElementChild.textContent`));
+  ok(await E(`(() => { const c = document.querySelector('.lock .clk'); return c.firstElementChild.classList.contains('clk-d') && /^[0-9]{4}年[0-9]+月[0-9]+日$/.test(c.firstElementChild.textContent); })()`), '锁屏默认日期在时间上面，年月日 ' + await E(`document.querySelector('.lock .clk').firstElementChild.textContent`));
   await shot('clk_lock.png');
   // 日期在下、关农历、自选颜色
   await E(`(() => { Object.assign(lk.lockClk(), { pos: 'bot', h12: true, lang: 'en', auto: false, c: '#ff0000', a: 50, font: 'bebas' }); lk.lock(); })()`); await W(1200);
@@ -74,7 +74,19 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.desk .it.clkw').click()`); await W(400);
   const tx = await E(`document.querySelector('.sheet.in').textContent`);
   ok(/SF Pro Rounded/.test(await E(`[...document.querySelectorAll('.sheet.in select[data-k=font] option')].map(o => o.textContent).join()`)), '小组件的字体里也有上传的字体');
-  ok(/字体[\s\S]*粗细[\s\S]*日期位置[\s\S]*12 小时制[\s\S]*语言[\s\S]*颜色[\s\S]*背景/.test(tx), '小组件设置：字体、粗细、日期位置、12 小时制、颜色、背景');
+  ok(/字体[\s\S]*日期位置[\s\S]*12 小时制[\s\S]*语言[\s\S]*跟随主题配色[\s\S]*背景/.test(tx) && !/粗细/.test(tx), '小组件设置：字体、日期位置、12 小时制、语言、配色、背景（没有粗细）');
+  ok(!/背景颜色|渐变第二色|背景不透明度|不透明度/.test(tx) && !(await E(`!!document.querySelector('.sheet.in [data-k=c]')`)), '背景透明、跟随主题配色时：不显示颜色、渐变、不透明度');
+  const setSel = (k, v) => E(`(() => { const s = document.querySelector('.sheet.in [data-k=${k}]'); s.type == 'checkbox' ? (s.checked = ${JSON.stringify(v)}) : (s.value = ${JSON.stringify(v)}); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await setSel('bg', 'solid'); await W(200);
+  let tx2 = await E(`document.querySelector('.sheet.in').textContent`);
+  ok(/背景颜色/.test(tx2) && !/渐变第二色/.test(tx2) && await E(`document.querySelector('.sheet.in [data-k=bgA]').type == 'range'`), '选纯色：出现背景颜色 + 不透明度滑块，没有渐变色');
+  await setSel('bg', 'grad'); await W(200);
+  ok(/渐变第二色/.test(await E(`document.querySelector('.sheet.in').textContent`)), '选渐变：才出现渐变第二色');
+  await setSel('auto', false); await W(200);
+  ok(await E(`document.querySelector('.sheet.in [data-k=a]').type == 'range' && !!document.querySelector('.sheet.in [data-k=c]')`), '关掉跟随主题配色：出现颜色 + 不透明度滑块');
+  await E(`(() => { const r = document.querySelector('.sheet.in [data-k=a]'); r.value = 40; r.dispatchEvent(new Event('input', { bubbles: true })); r.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  ok(await E(`document.querySelector('.sheet.in [data-k=a]').nextElementSibling.textContent`) == '40%', '拖滑块：数值跟着显示');
+  await setSel('bg', 'none'); await setSel('auto', true); await W(200);
   ok(await E(`[...document.querySelectorAll('.sheet.in select[data-k=sz] option')].map(o => o.value).join(',')`) == '2x1,4x2', '调整大小只有 2×1 / 4×2');
   await E(`(() => { const s = document.querySelector('.sheet.in select[data-k=pos]'); s.value = 'bot'; s.dispatchEvent(new Event('change', { bubbles: true })); const f = document.querySelector('.sheet.in select[data-k=font]'); f.value = 'fredoka'; f.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector('.sheet.in [data-a=ok]').click(); })()`); await W(500);
   ok(await E(`(() => { const c = document.querySelector('.desk .it.clkw .clk'); return c.lastElementChild.classList.contains('clk-d') && /xp-fredoka/.test(getComputedStyle(c.querySelector('.clk-t')).fontFamily); })()`), '小组件改成日期在下、软糖字体');

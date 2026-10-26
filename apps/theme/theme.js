@@ -45,7 +45,7 @@ const clkSec = () => { const c = lockClk(), f = fx(S);
     + `<div class="seg">${[[false, '24 小时'], [true, '12 小时']].map(([k, n]) => `<button data-a="clkset" data-k2="h12" data-x="${k ? 1 : ''}" class="${!!c.h12 == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
     + `<div class="seg">${[['zh', '中文'], ['en', 'English']].map(([k, n]) => `<button data-a="clkset" data-k2="lang" data-x="${k}" class="${(c.lang || 'zh') == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
     + f.inp('lock.clk.wt', '粗细（100～900）', 'number', String(clkWt(c.font))) + f.tog('lock.clk.auto', '跟随壁纸配色')
-    + (c.auto === false ? f.inp('lock.clk.c', '颜色', 'color') + f.inp('lock.clk.a', '不透明度 %', 'number', '100') : '') + '</div>'; };
+    + (c.auto === false ? f.inp('lock.clk.c', '颜色', 'color') + `<label class="row rg"><span>不透明度</span><input type="range" data-k="lock.clk.a" min="0" max="100" value="${c.a ?? 100}" data-u="%"><em>${c.a ?? 100}%</em></label>` : '') + '</div>'; };
 const reClk = () => { const b = top()?.el.querySelector('.clk-set'); b && (b.outerHTML = clkSec()); };
 const mountPv = (el, pg) => {
   pv.forEach(h => h.stop()); pv = [];
