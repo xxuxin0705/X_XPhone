@@ -2,9 +2,10 @@
 import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
 import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task } from '../../core.js';
 import { vSec, vActs, vChange, meVoice } from './voice.js';
-import { C, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
+import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang } from './data.js';
 import { openFeed } from './chat.js';
+import { bridge as mzB } from '../music/music-share.js';
 
 const EMO = '❤️ 👍 😂 🥺 😮 😡 🥳 🙏'.split(' ');
 // 长按菜单的图标（仿微信深色气泡菜单）
@@ -29,7 +30,7 @@ function recPage(m) {
 const EMOJI = [...'😀😁😂🤣😊😇🙂😉😍🥰😘😚😋😛😜🤪😎🤓🥳😏😒😞😔😟😕🙁😣😖😫😩🥺😢😭😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🤗🤔🤭🤫🙄😬😴🤤😪😵🤐🥴🤢🤧😷🤒🤕🤑🤠😈👻💀👽🤖💩🙈🙉🙊💋💌💘💝💖💗💓💞💕💔❤🧡💛💚💙💜🤍🖤💯💢💥💫💦💨🕳💬👋🤚✋👌✌🤞🤟🤘🤙👈👉👆👇👍👎✊👊👏🙌👐🤲🙏💪🌹🌸🌙⭐🔥🎉🎁☕🍰🍓'];
 
 /* ---------- 回复协议：一行一条消息「名字: 内容」，功能用方括号标签（比 JSON 短、生成更快、不怕格式错） ---------- */
-const TAGS = '表情包|语音|图片|转账|收款|表情回应|引用|撤回|拍一拍|翻译';
+const TAGS = '表情包|语音|图片|转账|收款|表情回应|引用|撤回|拍一拍|翻译|音乐';
 export function parseReply(raw, ch) {
   raw = String(raw ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/【/g, '[').replace(/】/g, ']').replace(/\[(表情|贴纸|sticker)(?=[:：])/gi, '[表情包'); // 模型偶尔写成 [表情:xx]
   if (/^\s*[[{]/.test(raw) && /"(msgs|from)"/.test(raw)) { const d = json(raw), a = d?.msgs || (Array.isArray(d) && d); if (a) return a; } // 兼容模型仍输出 JSON
@@ -49,6 +50,7 @@ export function parseReply(raw, ch) {
     if ('表情包' in tg) out.push({ ...b, type: 'sticker', text: tg.表情包 || l.replace(/^[（(]|[)）]$/g, ''), tr: '' }), tg.表情包 || (l = '');
     if ('图片' in tg) out.push({ ...b, type: 'img', text: tg.图片 || l, tr: '' }), tg.图片 || (l = '');
     if ('语音' in tg) out.push({ ...b, type: 'voice', text: tg.语音 || l }), tg.语音 || (l = '');
+    if ('音乐' in tg) { const [n, a = ''] = (tg.音乐 || l.replace(/^[（(]|[)）]$/g, '')).split(/\s*[|，,]\s*/); n && out.push({ ...b, type: 'minv', text: n.replace(/^[《「“"']+|[》」”"']+$/g, '').trim(), artist: a.trim(), tr: '' }); tg.音乐 || (l = ''); } // 角色邀请一起听
     if ('转账' in tg) { const [a, n] = tg.转账.split('|'); out.push({ ...b, type: 'transfer', amount: parseFloat(a) || 0, text: n || '', tr: '' }); }
     l && out.push({ ...b, type: 'text', text: l, quote: tg.引用 });
   }
@@ -59,7 +61,11 @@ function replyP(ch, patNow) {
   const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${m.q.c}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
   const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg, tA = cf.trAuto !== false;
   const rn0 = Math.max(1, +cf.rmin || 1), rn1 = Math.max(rn0, +cf.rmax || 5), vn0 = Math.max(0, +cf.vmin || 0), vn1 = Math.max(vn0, cf.vmax == null ? 1 : +cf.vmax);
-  return `【当前聊天】${g ? `群聊「${ch.name}」 群主:${ch.owner ? rn(get(ch.owner)) : me} 管理员:${ch.admins.map(i => rn(get(i))).join('、') || '无'}\n成员：${ch.members.map(i => { const c = get(i); return `${rn(c)}(网名${c.nick}${ch.titles[i] ? '，头衔' + ch.titles[i] : ''})`; }).join('、')}${ch.notice ? '\n群公告：' + ch.notice : ''}` : `与${rn(ch)}（网名${ch.nick}）的私聊`}
+  const ls = mzB.getMusicListening(ch.id), snap = ls && G.mzSnapshot?.(), mt2 = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
+  const lsP = ls ? ['【一起听歌】', g ? `${me}在群里发起了一起听歌，群成员现在可以一起听。` : `${me}和${rn(ch)}正在一起听歌。`, `正在放：《${snap?.songName || ls.songName}》 - ${snap?.artist || ls.artist}${snap ? `，放到 ${mt2(snap.currentTime || 0)}${snap.duration ? ' / ' + mt2(snap.duration) : ''}` : ''}`,
+    snap?.lyric ? `现在唱到：${snap.lyric}${snap.lyricTranslation ? `（${snap.lyricTranslation}）` : ''}` : '', snap?.lyricWindow?.length ? `接下来的歌词：${snap.lyricWindow.slice(0, 6).join(' / ')}` : '',
+    snap?.favoriteSongs?.length ? `${me}红心歌单里的歌：${snap.favoriteSongs.slice(0, 12).join('；')}` : '', '回复时要知道你们正在一起听这首歌，可以自然地聊到歌、歌手、歌词或者放到哪了，别复述这段说明。'].filter(Boolean).join('\n') + '\n' : '';
+  return `${lsP}【当前聊天】${g ? `群聊「${ch.name}」 群主:${ch.owner ? rn(get(ch.owner)) : me} 管理员:${ch.admins.map(i => rn(get(i))).join('、') || '无'}\n成员：${ch.members.map(i => { const c = get(i); return `${rn(c)}(网名${c.nick}${ch.titles[i] ? '，头衔' + ch.titles[i] : ''})`; }).join('、')}${ch.notice ? '\n群公告：' + ch.notice : ''}` : `与${rn(ch)}（网名${ch.nick}）的私聊`}
 【聊天记录】\n${hist || '（空）'}
 
 请继续这段手机聊天${g ? '，让群成员按各自人设自然互动、互相接话' : `，你扮演${rn(ch)}回复${me}`}。像真人发消息：口语、短句，这一轮一共 ${rn0 == rn1 ? rn0 : `${rn0}-${rn1}`} 条（文字、图片、语音、表情各算一条）${vn1 ? `，其中语音 ${vn0 == vn1 ? vn0 : `${vn0}-${vn1}`} 条` : '，不发语音'}，符合人设与当前剧情。
@@ -69,6 +75,7 @@ function replyP(ch, patNow) {
 [语音:要说的话]　[图片:画面描述]　[转账:金额|备注]　[收款]（收下${me}的转账）
 [表情回应:emoji] 给${me}刚才的消息贴表情，表情要符合此刻的真实态度；也可 [表情回应:emoji|消息片段] 指定哪条
 [引用:消息片段] 正文　引用某条消息来回复
+[音乐:歌名|歌手] 想邀请${me}一起听一首歌时发（歌要真实存在，单独一行，不要每轮都发）
 [撤回] 撤回自己上一条（说漏嘴、发错时用）
 ${ch.cfg.pat ? `[拍一拍] 拍一拍${me}（就是微信的拍一拍，只会显示「谁拍了拍谁」，不用写动作${g ? '；群里想拍别的成员就写 [拍一拍:成员名]' : ''}）${patNow ? `\n本轮请${g ? '挑一位成员' : ''}用一次 [拍一拍]。` : '，剧情合适时再用。'}` : ''}
 ${tl.length ? `【语言】${tl.join('；')}：这些人的每一条文字和语音都直接用该语言写（一条都不能写成中文）${tA ? '，每一条的同一行末尾都附 [翻译:简体中文译文]，不能有的有有的没有' : '，不要附翻译'}。译文要沉浸式、完全贴合说话人的人设与此刻语气（傲娇就傲娇、撒娇就撒娇），口语自然，只翻原意、不加戏不漏内容；其他人照常说中文。表情包等标签不翻译。` : ''}`;
@@ -126,11 +133,27 @@ const stk0 = (m, ld) => `<div class="stk0 ${ld ? 'ld' : ''}"><b>${KAO[m.c.length
 const trq = (m, i, cf, ch) => { if (cf.trAuto !== false || !ch || m.f == 'me' || m.tp) return ''; const l = langFor(ch, m.f); return l && inLang(m.c, l) ? `<b class="tzb" data-a="trq" data-x="${i}" title="翻译">文</b>` : ''; };
 // 翻译：正文后面一个小「文」字按钮，点开在下面多一行译文 / 原文（两边样式一样，最多两行内容；不重画整个聊天，不会跳到最下面）
 const fold = (i, txt, lab, open) => `<b class="tzb ${open ? 'on' : ''}" data-a="tz" data-x="${i}" title="${lab}">文</b><p class="tzp" ${open ? '' : 'hidden'}>${esc(txt)}</p>`;
+// 音乐：分享卡片（白底，歌词摘录 + 歌曲行）/ 一起听卡片（封面铺底、唱片、两个人的头像）。会话数据在 apps/music/music-share.js
+const MZC = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd3d6"/><stop offset="1" stop-color="#f05a64"/></linearGradient></defs><rect width="120" height="120" fill="url(#g)"/><path d="M74 34v38a10 10 0 1 1-5-8.7V44l-22 5v28a10 10 0 1 1-5-8.7V40z" fill="#fff" fill-opacity=".92"/></svg>')}`;
+const mzImg = (u, c = '') => `<img class="${c}" src="${esc(u || MZC)}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${MZC}'">`;
+const mzSong = (m, i) => { const s = m.song || {}, ex = (m.ex || []).slice(0, 4);
+  return `<div class="mzs" data-a="mzsong" data-x="${i}">${ex.length ? `<blockquote>${ex.map(l => esc(l.txt)).join('<br>')}</blockquote>` : ''}${m.note ? `<p class="mzs-n">${esc(m.note)}</p>` : ''}<div class="mzs-r">${mzImg(s.pic)}<div><b>${esc(s.name || '未知歌曲')}</b><small>${esc(s.artist || '')}</small></div><i><svg viewBox="0 0 24 24"><path d="M9 7v10l8-5z" fill="#fff"/></svg></i></div><div class="mzs-f"><i></i>${ex.length ? '歌词摘录' : '音乐分享'}</div></div>`; };
+function mzCard(m, i, ch) {
+  const s = m.song || {}, ses = mzB.getMusicListening(ch.id), own = !!ses && (m.id ? ses.sourceMessageId == m.id : ses.songName == s.name);
+  const st = m.t == 'listen' ? (own && m.st != 'ended' ? 'on' : 'end') : m.st == 'accepted' && own ? 'on' : !m.st || m.st == 'pending' ? 'inv' : 'end';
+  const other = m.t == 'minv' ? get(m.f) : ch, me = meObj(), on = st == 'on';
+  const who = esc(m.t == 'minv' ? nm(other) : ch.type == 'g' ? ch.name : nm(ch));
+  const btn = on ? `<b class="mzc-b" data-a="mzend" data-x="${i}">取消听歌</b>` : st == 'inv' ? `<span class="mzc-bs"><b class="mzc-b" data-a="mzrej" data-x="${i}">拒绝</b><b class="mzc-b ok" data-a="mzacc" data-x="${i}">接受</b></span>` : `<em class="mzc-e">${m.st == 'rejected' ? '已拒绝' : '已结束'}</em>`;
+  return `<div class="mzc ${st}" ${on ? `data-a="mzopen" data-x="${i}"` : ''}><i class="mzc-bg" style="background-image:url('${esc(s.pic || MZC)}')"></i><div class="mzc-t"><div class="mzc-v"><i></i>${mzImg(s.pic)}</div><div class="mzc-i"><small>${on ? '<i class="mzc-dot"></i>正在共听' : st == 'inv' ? '邀请你一起听歌' : '共听已结束'}</small><b>${esc(s.name || '未知歌曲')}</b><span>${esc(s.artist || '')}</span></div></div>
+    <div class="mzc-f"><span class="mzc-u">${st == 'inv' ? '' : `<img src="${esc(avOf(me))}">`}<img src="${esc(avOf(other))}"><em>${st == 'inv' ? `来自 ${who}` : `你和 ${who}`}</em></span>${btn}</div></div>`;
+}
 function body(m, i, cf, ch) {
   const tzo = !!cf.trOpen != !!m.tz; // m.tz 记录这条是否被手动翻转过
   switch (m.t) {
     case 'sticker': (m.img || stkFill(m)); return m.img ? imgH({ img: m.img, alt: m.alt ? m.alt.split('|') : [] }, 'stk' + (m.sz == 's' ? ' sm' : '')) + stk0(m) : stk0(m, stkTry.has(m) && !stkDone.has(m));
     case 'rec': return `<div class="rec" data-a="recv" data-x="${i}"><b>${esc(m.c)}</b>${(m.rec || []).slice(0, 4).map(r => `<p>${esc(r.n)}: ${esc(r.c)}</p>`).join('')}<small>聊天记录</small></div>`;
+    case 'song': return mzSong(m, i);
+    case 'listen': case 'minv': return mzCard(m, i, ch);
     case 'img': return m.url ? `<img class="pic" src="${esc(m.url)}">` : `<div class="picd">🖼 ${esc(m.c)}</div>`;
     case 'voice': return `<div class="vc" data-a="play" data-x="${i}">${I.wave}${Math.max(1, Math.ceil(m.c.length / 4))}″</div>${m.open ? `<div class="vt">${esc(m.c)}</div>` : ''}${m.tr && m.open ? fold(i, m.tr, '翻译', tzo) : ''}`;
     case 'transfer': return `<div class="tf ${m.st ? 'done' : ''}" data-a="tf" data-x="${i}"><b>¥${(+m.amt).toFixed(2)}</b><small>${esc(m.st || m.c || (m.f == 'me' ? '待对方收款' : '请收款'))}</small><i>转账</i></div>`;
@@ -200,7 +223,7 @@ export function openChat(id) {
   const tool = async f => { $('.pan', pg.el).classList.remove('on'); await f(); };
   const pg = page({
     chat: id, live: 1, model: () => ch, cls: cls(), pan: (k, keep) => pan(k, keep), pkC, onClose: () => setTimeout(() => emit('chat')),
-    title: () => sel ? `<b class="txt msel-x" data-a="selx">取消</b><b>已选择 ${sel.size} 条消息</b>` : `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
+    title: () => sel ? `<b class="txt msel-x" data-a="selx">取消</b><b>已选择 ${sel.size} 条消息</b>` : `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}${mzB.getMusicListening(ch.id) ? '<i class="mzl" title="正在一起听歌" data-a="mzopen"><i></i><i></i><i></i></i>' : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
     right: () => sel ? `<b class="txt" data-a="selall">${sel.size && sel.size >= selable().length ? '全不选' : '全选'}</b>` : `<b data-a="cset">${I.more}</b>`, body: () => msgs(ch, sel),
     foot: () => sel ? `<div class="selto" data-a="selto">↑ 选择到这里</div><nav class="mbar2">${[['sfwd', '转发', MI.fwd], ['sinj', '注入正文', MI.inj], ['sdel', '删除', MI.del]].map(([a, l, ic]) => `<button data-a="${a}" class="${sel.size ? '' : 'dis'}">${ic}<span>${l}</span></button>`).join('')}</nav>` : `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="${{ kk: 'Enter a message', line: 'Aa' }[sty(ch)] || '发消息…'}"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg><svg class="s-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5c.6 4.6 3 7 7.6 7.6-4.6.6-7 3-7.6 7.6-.6-4.6-3-7-7.6-7.6 4.6-.6 7-3 7.6-7.6Z"/><path d="M18.5 14.5c.3 2.1 1.3 3.1 3.4 3.4-2.1.3-3.1 1.3-3.4 3.4-.3-2.1-1.3-3.1-3.4-3.4 2.1-.3 3.1-1.3 3.4-3.4Z"/></svg></button></div><div class="pan"></div>`,
     after: el => {
@@ -281,6 +304,16 @@ export function openChat(id) {
       sinj: () => { if (!sel.size) return; const L = [...sel].map(k => ch.msgs[k]), on = !L.every(m => m.inj); L.forEach(m => m.inj = on); saveD(); toast(on ? `已把 ${L.length} 条注入正文` : '已取消注入'); sel = null; rer(); },
       sfwd: async () => { if (!sel.size) return; const k = await menu([['one', '逐条转发'], ['all', '合并转发']]); if (!k) return; const L = [...sel].sort((a, b) => a - b).map(k => ch.msgs[k]); if (await fwd(L, k)) { sel = null; rer(); } },
       recv: i => recPage(ch.msgs[i]),
+      // 音乐卡片：分享的歌点一下就放；一起听卡片点开播放页；角色的邀请可以接受 / 拒绝
+      mzsong: async i => { const s = ch.msgs[i]?.song; if (!s?.name) return; const r = await G.mzPlay?.(s.name, s.artist, { id: s.id, pic: s.pic }).catch(() => null); r ? G.mzPlayer?.() : toast('这首歌暂时放不了'); },
+      mzopen: () => G.mzListen?.(),
+      mzend: async i => { if (!await ok('结束一起听？')) return; mzB.endMusicListening(ch.id, { reason: 'manual' }); },
+      mzrej: i => { const m = ch.msgs[i]; if (!m || m.t != 'minv') return; m.st = 'rejected'; push(ch, { t: 'sys', c: `你拒绝了一起听《${m.song?.name || '这首歌'}》` }); },
+      mzacc: async i => { const m = ch.msgs[i]; if (!m || m.t != 'minv') return; const s = m.song || {};
+        const r = await G.mzPlay?.(s.name, s.artist, { pic: s.pic }).catch(() => null); if (!r) return toast('这首歌暂时放不了');
+        m.id ||= 'mzi_' + Date.now().toString(36); Object.assign(s, { name: r.name || s.name, artist: r.artist || s.artist, pic: s.pic || r.pic || '' });
+        const snap = G.mzSnapshot?.() || { songName: s.name, artist: s.artist, cover: s.pic }; mzB.startMusicListening(ch.id, { name: nm(get(m.f) || ch), avatar: avOf(get(m.f) || ch) }, { ...snap, sourceMessageId: m.id }); m.st = 'accepted';
+        push(ch, { t: 'sys', c: `你接受了一起听《${s.name}》` }); },
       trq: async i => { const m = ch.msgs[i]; if (!m) return; m.tp = 1; emit('chat'); try { const z = await mt(m.c, 'zh-CN'); z != m.c ? (m.tr = z, m.tz = !cf.trOpen) : toast('这句不用翻译'); } catch { toast('机翻暂时不可用，稍后再试'); } m.tp = 0; saveD(); emit('chat'); },
       // 系统提示（拍一拍、撤回提示…）：长按也能删除 / 多选
       slp: async (i, t) => { const k = await pop(t, [['multi', '多选'], ['del', '删除']], false); if (k == 'multi') { sel = new Set([+i]); return rer(); } if (k == 'del') { drop(ch.msgs.splice(i, 1)); saveD(); emit('chat'); } },

@@ -36,7 +36,7 @@ export const stk = n => { n = String(n || '').trim(); const L = S.assets.sticker
 export const nre = r => (r || []).map(x => typeof x == 'string' ? { e: x, by: 'me' } : x);
 export const shake = () => { const s = ui.scr; s.classList.remove('shk'); void s.offsetWidth; s.classList.add('shk'); };
 
-// 消息类型：text sticker img voice transfer pat sys；以及动作 react accept recall
+// 消息类型：text sticker img voice transfer pat sys song listen minv；以及动作 react accept recall
 // 拍一拍跟微信一样：「“X” 拍了拍你」，后缀只用你在「我」里设置的拍一拍后缀（没设置就没有后缀）；
 // 群里写了成员名字就是拍那个人（+ TA 的后缀）。模型写的动作 / 后缀一律不用，微信的拍一拍没有自定义动作
 const patC = (ch, name, txt) => { const t = String(txt || ''), tg = ch.type == 'g' && t && ch.members.map(get).find(c => c && [c.real, c.nick, c.remark].some(n => n && t.includes(n)));
@@ -50,6 +50,7 @@ export function addMsg(ch, m) {
   if (t == 'recall') { const x = ch.msgs.findLast(x => x.f == f && !/sys|pat/.test(x.t)); x && Object.assign(x, { t: 'sys', c: `“${name}” 撤回了一条消息`, re: [] }); return null; }
   const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : String(m.text ?? ''), tr: m.tr || '', amt: +m.amount || 0, ts: +now() };
   const q = near(m.quote); q && (x.q = { w: who(ch, q.f), c: String(q.c).slice(0, 40) });
+  t == 'minv' && Object.assign(x, { song: { name: x.c, artist: String(m.artist || '').trim(), pic: '' }, st: 'pending', c: `[音乐]《${x.c}》${m.artist ? ' - ' + m.artist : ''}` }); // 角色邀请一起听
   t == 'sticker' && (x.img = stk(x.c)); ch.msgs.push(x); t == 'pat' && shake();
   f != 'me' && !viewing(ch.id) && (ch.unread = (ch.unread || 0) + 1);
   t == 'img' && S.api.img.auto && genImg(x.c, undefined, 'chat').then(u => { x.url = u; saveD(); emit('chat'); }).catch(e => fail('自动生图失败：' + e.message));

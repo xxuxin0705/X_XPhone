@@ -46,9 +46,13 @@ export const defAv = n => { n = String(n || '?'); return 'data:image/svg+xml,' +
 export const meObj = () => { const d = D().me; return { ...d, id: 'me', nick: d.nick || C().name1, real: d.real || C().name1 }; }; // nick＝网名，real＝真实姓名（默认酒馆里的名字）
 export const byId = id => D().chats.find(c => c.id == id);
 export function avOf(c) { if (!c) return defAv('?'); if (c.av) return c.av; const x = C(), ch = x.characters?.[x.characterId]; return (ch && c.real && c.real == x.name2 && x.getThumbnailUrl?.('avatar', ch.avatar)) || defAv(nm(c)); }
-export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]` }[m.t] || '') + (m.c || '');
+export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : m.t == 'song' ? `[分享音乐]《${m.song?.name || ''}》` : m.t == 'listen' ? '[一起听歌]' : m.t == 'minv' ? `[音乐邀请]《${m.song?.name || ''}》` : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]` }[m.t] || '') + (m.c || '');
 // 给模型看的：表情包要写清楚是什么意思（名字 + 说明 + 哪一组），不然对方看不懂你发了个啥
-export const say = m => { if (m.t == 'rec') return `[转发了一段聊天记录「${m.c}」：${(m.rec || []).map(r => `${r.n}: ${r.c}`).join(' / ')}]`; if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
+const mzSay = m => { const s = m.song || {}, t = `《${s.name || '未知歌曲'}》${s.artist ? ' - ' + s.artist : ''}`;
+  if (m.t == 'song') return `[分享音乐] 分享了歌曲${t}${m.ex?.length ? `，摘录的歌词：「${m.ex.map(l => l.txt).join(' / ')}」` : ''}${m.note ? `，附言：${m.note}` : ''}`;
+  if (m.t == 'listen') return m.st == 'ended' ? `[一起听歌] 发起过一起听${t}，现在已经结束了` : `[一起听歌] 邀请一起听${t}`;
+  return { accepted: `[音乐邀请] 邀请一起听${t}，对方接受了，正在一起听`, rejected: `[音乐邀请] 邀请一起听${t}，对方拒绝了`, ended: `[音乐邀请] 邀请一起听${t}，一起听已经结束` }[m.st] || `[音乐邀请] 邀请一起听${t}，等对方接受`; };
+export const say = m => { if (/^(song|listen|minv)$/.test(m.t)) return mzSay(m); if (m.t == 'rec') return `[转发了一段聊天记录「${m.c}」：${(m.rec || []).map(r => `${r.n}: ${r.c}`).join(' / ')}]`; if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
   if (!n && !d && m.img) { const x = S.stk?.mine?.flatMap(p => p.items).find(x => x.img == m.img) || S.assets.sticker.find(x => x.img == m.img); x && (n = x.l || x.name || '', d = x.d && x.d != n ? x.d : ''); } // 之前发的、后来才起名字的表情
   return `[表情包：${[n, d && `（${d}）`].join('') || '一个表情'}${m.pk ? `，「${m.pk}」里的` : ''}]`; };
 
@@ -88,8 +92,8 @@ function mk(o, cls, box) {
 const close = o => { o.el.classList.remove('in'); o.onClose?.(); setTimeout(() => o.el.remove(), 330); };
 export const page = o => (stack.push(o), mk(o, 'pg', ui.stack));
 export const top = () => stack.at(-1);
-export const back = () => { const o = stack.pop(); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
-export const home = () => { while (stack.length) back(); };
+export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
+export const home = () => { while (stack.length) back(true); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };
 // 失败提示：红色条一直留着，点 × 才关，可直接跳到调用日志；手机收起时同时用酒馆右上角弹窗提醒
@@ -223,7 +227,7 @@ export function bind(R) {
   let lp, lpd, swp = 0;
   // 右滑返回：任意页面横向右滑，跟手移动，松手超过30%宽度或快速滑动即返回上一级
   R.addEventListener('pointerdown', e => {
-    const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('input,textarea,select,.cpk,.cpr')) return;
+    const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('input,textarea,select,.cpk,.cpr,.phone-gesture-control,[data-no-swipe-back]')) return;
     const x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), w = pg.el.offsetWidth, sc = pg.el.getBoundingClientRect().width / w || 1; let on = 0, dx = 0;
     const end = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
     const mv = ev => {
@@ -700,12 +704,13 @@ ${wi ? `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')), wi)}
 }
 
 /* ---------- 正文联动：把标记的手机聊天注入提示词 ---------- */
+export const INJ = []; // App 注册的注入片段：() => 文本
 export function syncInject() {
   const c = C(); let t = '';
   if (S.mode == 'linked') t = D().chats.map(ch => { const ms = ch.msgs.filter(m => m.inj || ch.cfg?.inj).slice(-15); return ms.length ? `[${ch.type == 'g' ? '群聊「' + ch.name + '」' : '与' + rn(ch) + '的私聊'}]\n` + ms.map(m => `${m.f == 'me' ? meObj().nick : rn(byId(m.f))}: ${say(m)}`).join('\n') : ''; }).filter(Boolean).join('\n');
-  const u = c.name1, inl = S.inline ? `<手机同步格式>\n剧情里有人用手机（发消息、发朋友圈、加好友、拉群、转账、拍一拍）时，在本条回复最后附一个 <手机>…</手机> 块，一行一件事，只写${u}的手机上能看到的：\n私聊|发送者|接收者|内容（发表情包就写 [表情包:关键词]）\n群聊|群名|发送者|内容\n朋友圈|作者|内容\n加好友|真实姓名|网名|TA说的语言（说中文就不写）\n拉群|群名|成员1,成员2\n转账|发送者|接收者|金额|备注\n拍一拍|谁|动作\n${S.music?.ask ? `点歌|谁点的|歌名|歌手（角色想给${u}点一首歌时写，歌要真实存在，每次最多一首）\n` : ''}${S.isle?.auto ? `心情|谁|心情词|没说出口的一句话（主要角色的心情有明显变化时写）\n` : ''}人名都写真实姓名，${u}就写「${u}」。没有手机上的事就不要写这个块。这个块会自动收进手机，不会显示在正文里。\n</手机同步格式>` : '';
-  const np = S.music?.np && S.music.tell !== false ? `<正在听歌>${u}正在用手机听《${S.music.np.name}》- ${S.music.np.artist}</正在听歌>` : '';
-  c.setExtensionPrompt?.('st_phone', [np, t && `<手机聊天记录>\n以下是${u}手机里的聊天，相关角色知道这些内容：\n${t}\n</手机聊天记录>`, inl].filter(Boolean).join('\n'), 1, 2, false, 0); // 跟着正文一起输出，不额外调 API
+  const u = c.name1, inl = S.inline ? `<手机同步格式>\n剧情里有人用手机（发消息、发朋友圈、加好友、拉群、转账、拍一拍）时，在本条回复最后附一个 <手机>…</手机> 块，一行一件事，只写${u}的手机上能看到的：\n私聊|发送者|接收者|内容（发表情包就写 [表情包:关键词]）\n群聊|群名|发送者|内容\n朋友圈|作者|内容\n加好友|真实姓名|网名|TA说的语言（说中文就不写）\n拉群|群名|成员1,成员2\n转账|发送者|接收者|金额|备注\n拍一拍|谁|动作\n${S.isle?.auto ? `心情|谁|心情词|没说出口的一句话（主要角色的心情有明显变化时写）\n` : ''}人名都写真实姓名，${u}就写「${u}」。没有手机上的事就不要写这个块。这个块会自动收进手机，不会显示在正文里。\n</手机同步格式>` : '';
+  const ext = INJ.map(f => { try { return f(c) || ''; } catch { return ''; } }).filter(Boolean).join('\n'); // 各 App 自己要带进正文的格式（比如音乐卡）
+  c.setExtensionPrompt?.('st_phone', [ext, t && `<手机聊天记录>\n以下是${u}手机里的聊天，相关角色知道这些内容：\n${t}\n</手机聊天记录>`, inl].filter(Boolean).join('\n'), 1, 2, false, 0); // 跟着正文一起输出，不额外调 API
 }
 
 /* ---------- 消息弹窗 ---------- */
