@@ -128,7 +128,7 @@ export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
 const PHB = /<手机>([\s\S]*?)<\/手机>/g;
 export function inlineSync(id) {
   const c = C(), m = c.chat?.[id]; if (!m || !PHB.test(String(m.mes))) return 0; PHB.lastIndex = 0;
-  const d = { contacts: [], groups: [], msgs: [], posts: [] }, songs = [], u = c.name1, me = n => isMe(n) || n == u;
+  const d = { contacts: [], groups: [], msgs: [], posts: [] }, songs = [], moods = [], u = c.name1, me = n => isMe(n) || n == u;
   for (const [, b] of String(m.mes).matchAll(PHB)) for (const l of b.split('\n')) {
     const f = l.trim().replace(/^[-*•\d.、\s]+/, '').split(/\s*[|｜]\s*/), k = f[0], rest = i => f.slice(i).join('|').trim();
     if (k == '私聊' && f.length >= 4) { me(f[1]) ? d.msgs.push({ chat: f[2], from: u, text: rest(3) }) : me(f[2]) && d.msgs.push({ chat: f[1], from: f[1], text: rest(3) }); }
@@ -139,8 +139,9 @@ export function inlineSync(id) {
     else if (k == '转账' && f.length >= 4) { const t = { type: 'transfer', amount: parseFloat(f[3]) || 0, text: rest(4) }; me(f[2]) ? d.msgs.push({ chat: f[1], from: f[1], ...t }) : me(f[1]) && d.msgs.push({ chat: f[2], from: u, ...t }); }
     else if (k == '拍一拍' && f[1] && !me(f[1])) d.msgs.push({ chat: f[1], from: f[1], type: 'pat', text: rest(2) || '拍了拍你' });
     else if (k == '点歌' && f[2]) songs.push({ by: me(f[1]) ? '' : f[1], name: f[2].replace(/^[《「“"']+|[》」”"']+$/g, '').trim(), artist: (f[3] || '').trim() }); // 音乐 App：TA 推荐
+    else if (k == '心情' && f[1] && f[2] && !me(f[1])) moods.push({ who: f[1], mood: f[2].trim(), say: rest(3) }); // 心屿
   }
-  songs.length && emit('music-rec', songs);
+  songs.length && emit('music-rec', songs); moods.length && emit('isle-mood', moods);
   const out = applyDelta(d); out.forEach(([ch, x]) => notify(ch, x));
   const cut = t => String(t).replace(PHB, '').replace(/\n{3,}/g, '\n\n').trim();
   m.mes = cut(m.mes); Array.isArray(m.swipes) && m.swipes[m.swipe_id ?? 0] != null && (m.swipes[m.swipe_id ?? 0] = cut(m.swipes[m.swipe_id ?? 0])); // 正文里不显示这个块（当前这条 swipe 也一起清掉）
