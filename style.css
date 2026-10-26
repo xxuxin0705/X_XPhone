@@ -79,7 +79,7 @@
 /* ---------- 页面 / 通用组件 ---------- */
 .stack{position:absolute;inset:0;z-index:20;pointer-events:none}
 .pg,.pg-b{touch-action:pan-y}
-.pg{isolation:isolate;position:absolute;inset:0;padding-top:var(--sbh);display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s cubic-bezier(.25,.9,.3,1);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
+.pg{isolation:isolate;position:absolute;inset:0;padding-top:var(--sbh);display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s var(--ease-drawer);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
 .pg.in{transform:none}
 .pg-h{flex:none;display:flex;align-items:center;gap:6px;height:42px;padding:0 12px}
 .pg-back,.pg-r>b{display:grid;place-items:center;min-width:30px;height:32px;color:var(--ac);cursor:pointer;font-weight:500}
@@ -131,7 +131,7 @@
 /* ---------- 弹层 / 菜单 / 提示 ---------- */
 .sheets{position:absolute;inset:0;z-index:80;pointer-events:none;transition:background .3s}
 .sheets:has(.sheet.in){background:rgba(0,0,0,.28);pointer-events:auto}
-.sheet{position:absolute;left:8px;right:8px;bottom:8px;max-height:84%;display:flex;flex-direction:column;background:var(--pg);color:var(--pt);border-radius:30px;transform:translateY(110%);transition:transform .34s cubic-bezier(.25,.9,.3,1.05);box-shadow:0 -10px 40px rgba(0,0,0,.15)}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;max-height:84%;display:flex;flex-direction:column;background:var(--pg);color:var(--pt);border-radius:30px;transform:translateY(110%);transition:transform .34s var(--ease-drawer);box-shadow:0 -10px 40px rgba(0,0,0,.15)}
 .sheet.in{transform:none}
 .sheet::before{content:'';flex:none;width:38px;height:5px;margin:8px auto 0;border-radius:5px;background:rgba(127,127,127,.3)}
 .sheet .pg-h{height:40px}
@@ -334,7 +334,7 @@
 /* ---------- 悬浮球 / 横幅通知（页面级） ---------- */
 #stp-ball{position:fixed;left:18px;bottom:130px;z-index:10040;width:54px;height:54px;border-radius:19px;display:grid;place-items:center;cursor:grab;touch-action:none;
   background:linear-gradient(150deg,#c1f3cd,#6fcf8a);box-shadow:0 10px 26px rgba(80,170,110,.45),inset 0 1px 0 rgba(255,255,255,.7);transition:transform .2s}
-#stp-ball:hover{transform:scale(1.06)}
+@media (hover:hover) and (pointer:fine){#stp-ball:hover{transform:scale(1.06)}} /* 手机上点一下不会误触发 hover */
 #stp-ball::before{content:'';width:20px;height:31px;border:2.5px solid #fff;border-radius:7px;box-shadow:inset 0 -4px 0 -2px #fff}
 #stp-ball.dot::after{content:'';position:absolute;top:-3px;right:-3px;width:13px;height:13px;border-radius:50%;background:#ff3b30;border:2px solid #fff}
 #stp-ball[hidden]{display:none}
@@ -1028,3 +1028,15 @@
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 .lg::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;background:radial-gradient(120% 80% at 18% 0%,rgba(255,255,255,.13),transparent 55%)}
 .ed-bar .btn.lg{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.3);position:relative}.ed-bar .btn.pri.lg{background:color-mix(in srgb,var(--ac) 55%,transparent)!important}
+
+/* ===== 动效与细节（规则见 DESIGN.md） ===== */
+#stp{--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--ease-drawer:cubic-bezier(.32,.72,0,1)}
+/* 按下去要有反馈：轻轻缩一下（编辑桌面时不缩，免得和拖动打架） */
+#stp :is(.row[data-a],.mi,.wcard,.clk-f,.vchip,.szf b,.seg button,.ai,.tc):active,.desk:not(.edit) .it:active{transform:scale(.97);transition:transform 120ms var(--ease-out)}
+#stp :is(.row[data-a],.mi,.wcard,.clk-f,.vchip,.szf b,.seg button,.ai,.tc){transition:transform 160ms var(--ease-out)}
+/* 浏览器自带的部分也跟着主题：选中文字、光标 */
+#stp ::selection{background:color-mix(in srgb,var(--ac) 30%,transparent)}
+#stp :is(input,textarea){caret-color:var(--ac)}
+/* 系统设置了「减少动态效果」：去掉位移动画，只保留淡入淡出 */
+@media (prefers-reduced-motion:reduce){#stp *,#stp *::before,#stp *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}
+  #stp .pg,#stp .sheet{transition:opacity .2s ease!important}}
