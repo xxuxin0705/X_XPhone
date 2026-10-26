@@ -4,6 +4,7 @@ import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
 import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS, DESK_ROWS } from './desk-layout.js';
 import { paintFrameHtml, mountPaintPhotos, fitPaintZoom } from './apps/theme/paint-frame.js';
+import { badgeHtml, badgeFields, BADGE_DEFAULT } from './apps/theme/badge.js';
 import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
@@ -14,6 +15,8 @@ const szOpt = (w, h) => sizes(w, h).map(([a, b]) => [`${a}x${b}`, `${a}×${b}`])
 // 背景：透明时什么都不用填；纯色 / 毛玻璃一个颜色；渐变两个颜色；都能拖不透明度
 const bgF = m => [['bg', '背景', 'sel', CCD_BG], ...(!m.bg || m.bg == 'none' ? [] : [['bgC', '背景颜色', 'color'], ...(m.bg == 'grad' ? [['bgC2', '渐变第二色', 'color']] : []), ['bgA', '背景不透明度', 'range', [0, 100, '%']]])];
 export const WK = {
+  badgeRound: { n:'圆形磨砂吧唧',w:2,h:2,cls:'photo-badge',f:badgeFields,d:{...BADGE_DEFAULT},r:p=>badgeHtml(p,'circle'),after:mountPaintPhotos },
+  badgeHeart: { n:'爱心磨砂吧唧',w:2,h:2,cls:'photo-badge',f:badgeFields,d:{...BADGE_DEFAULT},r:p=>badgeHtml(p,'heart'),after:mountPaintPhotos },
   ccd: { n: 'CCD 相机', w: 2, h: 2, cls: 'ccd',
     f: m => [['img', '照片', 'img'], ['body', '机身颜色', 'color'], ['zoom', '照片缩放', 'range', [50, 300, '%']], ['px', '左右位置', 'range', [0, 100, '%']], ['py', '上下位置', 'range', [0, 100, '%']], ...bgF(m)],
     d: { body: CCD_PINK, zoom: 100, px: 50, py: 50, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2) },
@@ -192,7 +195,7 @@ async function editW(it) {
     paintFit: (_, t, e, pg) => { const m=pg.model(),img=$('.form-preview .paint-photo>img',pg.el);if(!img?.naturalWidth)return;Object.assign(m,{zoom:fitPaintZoom(img),px:50,py:50});apply(m);pg.reb(); },
     paintCover: (_, t, e, pg) => { const m=pg.model();Object.assign(m,{zoom:100,px:50,py:50});apply(m);pg.reb(); },
   };
-  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : it.k == 'paint' ? paintActs : {}, (k, v, m, s) => ['bg', 'auto', 'type'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply, after: K.after });
+  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : it.k == 'paint' ? paintActs : ['badgeRound','badgeHeart'].includes(it.k) ? {img:paintActs.img} : {}, (k, v, m, s) => ['bg', 'auto', 'type'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply, after: K.after });
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
 const CELL = 64; // 预览里一格的边长

@@ -12,7 +12,7 @@ export function paintFrameSvg(id = 'paint-frame-cutout') {
 }
 // 用完整原图的比例计算填满尺寸；不先把图片裁成相框比例。
 export function mountPaintPhotos(root) {
-  for(const img of root.querySelectorAll('.paint-photo>img')) {
+  for(const img of root.querySelectorAll('.paint-photo>img,.badge-photo>img')) {
     const loaded=()=>{ if(img.naturalWidth && img.naturalHeight)img.style.setProperty('--photo-ratio',img.naturalWidth/img.naturalHeight); };
     img.onload=loaded;loaded();
   }

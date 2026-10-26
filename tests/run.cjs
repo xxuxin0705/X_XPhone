@@ -2,6 +2,7 @@
 // 浏览器测试需要 Playwright（Chromium）。截图在 tests/out/ 里（不进仓库）。
 const { spawnSync } = require('child_process'), path = require('path');
 const ALL = {
+  badge: ['unit/badge.mjs', '圆形和爱心磨砂吧唧：固定哑光银边、完整照片、裁切 ID 与照片设置'],
   gesture: ['unit/desk-gesture.mjs', '编辑模式：轻扫翻页、按住拖动、点按、取消和底栏手势'],
   paint: ['unit/paint-frame.mjs', 'Windows 画图相框：固定配色、照片位置和装饰工具'],
   layout: ['unit/desk-layout.mjs', '桌面固定 4×6：容量、形状、改尺寸、换页和旧内容迁移'],

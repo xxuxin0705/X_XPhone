@@ -1004,9 +1004,18 @@
 .paint-window{position:absolute;left:50%;top:50%;width:var(--paint-size);aspect-ratio:1108/1132;transform:translate(-50%,-50%)}
 .paint-chrome{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .paint-photo{container-type:size;position:absolute;left:14.982%;top:10.2473%;width:79.2419%;height:68.5512%;overflow:hidden;background:#fff}
-.paint-photo>img{position:absolute;display:block;width:max(calc(100cqw * var(--photo-zoom,1)),calc(100cqh * var(--photo-ratio,1) * var(--photo-zoom,1)));height:auto;max-height:none;object-fit:initial}
+.paint-photo>img,.badge-photo>img{position:absolute;display:block;width:max(calc(100cqw * var(--photo-zoom,1)),calc(100cqh * var(--photo-ratio,1) * var(--photo-zoom,1)));height:auto;max-height:none;object-fit:initial}
 .paint-empty{position:absolute;inset:0;display:grid;place-items:center;color:#808080;font:12px Arial,sans-serif}
 .it.paint-frame>.ccd-bg{inset:auto;left:50%;top:50%;width:calc(var(--paint-size) + 16px);height:calc(var(--paint-size) * 1132 / 1108 + 16px);transform:translate(-50%,-50%);border-radius:12px}
 
 #stp .paint-chrome text{font-family:Tahoma,Arial,sans-serif}
+
+/* 磨砂吧唧：透明桌面背景，正圆或爱心始终保持原比例；银边固定为纯色。 */
+.it.wg.photo-badge{container-type:size;background:none;box-shadow:none;border:0;padding:0;overflow:visible;backdrop-filter:none;-webkit-backdrop-filter:none}
+.badge-stage{position:absolute;left:50%;top:50%;width:min(calc(100cqw - 12px),calc(100cqh - 12px));aspect-ratio:1;transform:translate(-50%,-50%);filter:drop-shadow(0 3px 4px rgba(70,50,65,.15))}
+.badge-defs{position:absolute;pointer-events:none}
+.badge-photo{container-type:size;position:absolute;inset:0;overflow:hidden;background:#f3edf0}
+.badge-empty{position:absolute;inset:0;display:grid;place-items:center;color:#a08e98;font:12px Arial,sans-serif}
+.badge-finish{position:absolute;inset:0;display:block;width:100%;height:100%;pointer-events:none}
+.badge-grain{mix-blend-mode:soft-light}
 
