@@ -36,7 +36,7 @@ export const WK = {
     d: { ...CLK_DEF, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: p => `<div class="ccd-bg" style="${ccdBg(p)}"></div>${clkHtml(p, now())}` },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },
 };
-const def = () => ({ pages: [[W('clock', 4, 2, { ...WK.clock.d }), W('ccd', 2, 2, { ...WK.ccd.d })]], dock: [A('chat'), A('theme'), A('settings')] });
+const def = () => ({ pages: [[W('clock', 4, 2, { ...WK.clock.d }), W('ccd', 2, 2, { ...WK.ccd.d })]], dock: [A('chat'), A('music'), A('theme'), A('settings')] });
 
 let edit = 0, cur = 0, moved = 0;
 export const icon = id => S.icons[id] ? `<img src="${esc(S.icons[id])}">` : APPS[id]?.icon || '';
@@ -229,6 +229,7 @@ export function initDesk() {
     const sticker = it.p.sticker; it.p = wideSettings(it.p); sticker && dropMedia(sticker); migrated = true;
   }
   migrated && save(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认在下面
+  if (!S.deskMusic) { S.deskMusic = 1; const has = [...S.desk.pages.flat(), ...S.desk.dock].some(x => x.app == 'music' || x.apps?.includes('music')); has || (S.desk.dock.length < 4 ? S.desk.dock.splice(1, 0, A('music')) : placeItem(S.desk.pages, A('music'), 0)); } // 新增的音乐 App：老桌面也放一个
   S.desk.pages = fitPages(S.desk.pages); save(); renderDesk();
   ui.desk.addEventListener('pointerdown', editGesture);
 }
