@@ -14,7 +14,7 @@ export const WK = {
       ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
     d: { body: CCD_PINK, bgC: '#ffffff', bgC2: '#ffd6e7' }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
   clock: { n: '时间', w: 2, h: 1, cls: 'clkw',
-    f: () => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['wt', '粗细（100～900）', 'number'], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['lunar', '农历', 'tog'], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
+    f: () => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['wt', '粗细（100～900）', 'number'], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['h12', '12 小时制', 'tog'], ['lang', '语言', 'sel', [['zh', '中文'], ['en', 'English']]], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
       ['auto', '跟随主题配色', 'tog'], ['c', '颜色', 'color'], ['a', '不透明度 %', 'number', '100'], ['bg', '背景', 'sel', CCD_BG], ['bgC', '背景颜色', 'color'], ['bgC2', '渐变第二色', 'color'], ['bgA', '背景不透明度 %', 'number', '60']],
     d: { ...CLK_DEF, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: p => `<div class="ccd-bg" style="${ccdBg(p)}"></div>${clkHtml(p, now())}` },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },

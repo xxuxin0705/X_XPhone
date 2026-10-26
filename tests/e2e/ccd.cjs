@@ -30,7 +30,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(szs.join(',') == '1x1,2x2,3x3,4x4', '调整大小只能选同比例：' + szs.join(','));
   ok(/机身颜色[\s\S]*背景[\s\S]*背景不透明度/.test(await E(`document.querySelector('.sheet.in').textContent`)), '设置里有机身颜色、背景、透明度');
   await E(`document.querySelector('.sheet.in select[data-k=sz]').value = '1x1'; document.querySelector('.sheet.in select[data-k=sz]').dispatchEvent(new Event('change', { bubbles: true }))`);
-  ok(await E(`document.querySelector('.sheet.in input[data-k=body]').type == 'color' && document.querySelector('.sheet.in input[data-k=body]').value == '#f2a7c4'`), '机身颜色是取色器，默认原图的粉');
+  ok(await E(`!document.querySelector('.sheet.in input[type=color]') && document.querySelector('.sheet.in input[data-k=body]').value == '#f2a7c4'`), '机身颜色用方形色板（不弹系统取色器），默认原图的粉');
   await E(`document.querySelector('.sheet.in input[data-k=body]').value = '#3366cc'; document.querySelector('.sheet.in input[data-k=body]').dispatchEvent(new Event('change', { bubbles: true }))`);
   await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(500);
   ok(await E(`!!document.querySelector('.desk .it.ccd.w1.h1')`), '改成 1×1：真的变成一格');

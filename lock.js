@@ -2,8 +2,8 @@
 // 密码二选一：4 位数字密码（备用密码 0000：不能修改、永远有效）或指纹（模拟，选了指纹就只能按指纹解锁）
 import { S, D, ui, $, esc, now, hm, save, sheet, toast, mediaSrc, uid } from './core.js';
 import { mountScene, sceneInk, sceneKey, SCENES } from './lockfx.js';
-import { clkHtml, dateText, CLK_DEF } from './apps/theme/clock.js';
-// 锁屏时间的样式（字体 / 日期在上还是下 / 农历 / 颜色）
+import { clkHtml, dateText, timeHtml, CLK_DEF } from './apps/theme/clock.js';
+// 锁屏时间的样式（字体 / 日期在上还是下 / 12・24 小时 / 中英文 / 颜色）
 export const lockClk = () => { const c = S.lock.clk ||= {}; c.font ??= 'ios'; for (const k in CLK_DEF) c[k] ??= CLK_DEF[k]; return c; };
 
 export const BACKUP = '0000';
@@ -85,7 +85,7 @@ export const lockFx = () => fx; // 测试 / 调试用：当前锁屏场景
 const visible = () => ui.root?.classList.contains('on');
 function clock() {
   if (!el) return; const d = now(), u = D().chats.reduce((a, c) => a + (c.unread || 0), 0);
-  $('.lk-time', el).textContent = hm(d); $('.lk-date', el).textContent = dateText(d, lockClk().lunar !== false);
+  $('.lk-time', el).innerHTML = timeHtml(lockClk(), d); $('.lk-date', el).textContent = dateText(d, lockClk().lang);
   const n = $('.lk-note', el); n.hidden = !u; u && ($('b', n).textContent = `${u} 条未读消息`);
 }
 async function wallpaper() {
@@ -95,10 +95,24 @@ async function wallpaper() {
   ui.scr.style.setProperty('--lk-sb', k == 'video' ? '#fff' : ink.ink); ui.scr.style.setProperty('--lk-sbs', k == 'video' ? 'rgba(0,0,0,.45)' : ink.shade);
   if (k == 'video') {
     const it = cust(), [iu, vu] = await Promise.all([it.img ? mediaSrc(it.img).catch(() => '') : '', it.video ? vidSrc(it.video).catch(() => '') : '']); vurl = [iu, vu].filter(u => u.startsWith('blob:')).join(' ');
+    inkFrom(iu || vu, !iu);
     if (iu && vu) { bg.innerHTML = `<img src="${esc(iu)}"><video class="live" src="${esc(vu)}" muted loop playsinline preload="auto"></video>`; const v = $('video', bg); v.onerror = () => vidErr(v); visible() && playLive(); return; } // 实况照片：一直循环播放
     bg.innerHTML = iu ? `<img src="${esc(iu)}">` : `<video src="${esc(vu)}" autoplay muted loop playsinline></video>`; const v2 = $('video', bg); v2 && (v2.onerror = () => vidErr(v2), v2.play?.().catch(() => {})); return;
   }
   bg.innerHTML = '<canvas></canvas>'; fx = mountScene($('canvas', bg), k, { active: () => locked && visible() });
+}
+// 自定义锁屏：看图片上半部分（时间那块）的颜色，浅色背景配深色字、深色背景配浅色字，色调跟着图走
+function inkFrom(u, isVid) {
+  if (!u) return; const m = isVid ? Object.assign(document.createElement('video'), { muted: true, playsInline: true, preload: 'auto', src: u }) : Object.assign(new Image(), { src: u });
+  const go = () => { try {
+    const c = document.createElement('canvas'); c.width = 24; c.height = 16; const x = c.getContext('2d'), w = m.videoWidth || m.naturalWidth, h = m.videoHeight || m.naturalHeight; if (!w) return;
+    x.drawImage(m, 0, 0, w, h * .45, 0, 0, 24, 16); const d = x.getImageData(0, 0, 24, 16).data; let r = 0, g = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; } const n = d.length / 4; r /= n * 255; g /= n * 255; b /= n * 255;
+    const M = Math.max(r, g, b), mi = Math.min(r, g, b), L = .2126 * r + .7152 * g + .0722 * b, dl = M - mi; let hu = 0; if (dl) hu = (M == r ? (g - b) / dl % 6 : M == g ? (b - r) / dl + 2 : (r - g) / dl + 4) * 60; hu = (hu + 360) % 360;
+    const sat = dl ? Math.min(1, dl / (1 - Math.abs(M + mi - 1))) : 0, light = L > .55;
+    const ink = light ? `hsl(${hu | 0} ${Math.round(Math.min(sat, .45) * 100)}% 24%)` : `hsl(${hu | 0} ${Math.round(Math.min(sat, .35) * 100)}% 94%)`, shade = light ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.4)';
+    if (!el || el.hidden) return; el.style.setProperty('--lk-ink', ink); el.style.setProperty('--lk-shade', shade); ui.scr.style.setProperty('--lk-sb', ink); ui.scr.style.setProperty('--lk-sbs', shade);
+  } catch { } };
+  isVid ? (m.onloadeddata = go) : (m.complete ? go() : (m.onload = go));
 }
 export function lock(preview) {
   preview && S.lock.rand && randLock(); // 随机锁屏开着时预览：每次从勾选的里面随机一张

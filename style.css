@@ -429,6 +429,12 @@
 .clk-t{display:block;font:var(--clk-w) 1em/1 var(--clk-f);font-variant-numeric:tabular-nums;letter-spacing:var(--clk-ls,-.01em);white-space:nowrap}
 .clk-d{display:block;font:var(--clk-dw) 1em/1.25 var(--clk-f);letter-spacing:.04em;white-space:nowrap;opacity:.95}
 .clk.bot .clk-d{margin-top:.15em}
+.clk-ap{font-style:normal;font-size:.26em;font-weight:600;letter-spacing:.02em;margin-left:.18em;vertical-align:.12em}
+/* 取色：一张方形色板，点哪选哪 */
+.cpw{flex:none;width:34px;height:34px;border-radius:10px;border:1px solid rgba(127,127,127,.35);cursor:pointer;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+.cpk{padding:4px 0 10px}.cpk[hidden]{display:none}
+.cpk-sq{height:180px;border-radius:12px;cursor:crosshair;touch-action:none;background:linear-gradient(to bottom,#fff,rgba(255,255,255,0) 50%,rgba(0,0,0,0) 50%,#000),linear-gradient(to right,#f00,#ff0 16.67%,#0f0 33.33%,#0ff 50%,#00f 66.67%,#f0f 83.33%,#f00)}
+.cpk-g{height:26px;margin-top:8px;border-radius:8px;cursor:crosshair;background:linear-gradient(to right,#fff,#000)}
 .lk-text{margin-top:6px!important;font:italic 400 calc(16px*var(--fz,1))/1.4 "Cormorant Garamond",Georgia,"Songti SC",serif;letter-spacing:.1em;opacity:.92}
 .lk-note{position:absolute;left:14px;right:14px;bottom:96px;display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:20px;background:rgba(255,255,255,.2);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);color:#fff;animation:tin .5s}
 .lk-note[hidden]{display:none}.lk-note>i{font-style:normal;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#34c759;font-size:calc(17px*var(--fz,1))}

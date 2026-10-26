@@ -125,11 +125,13 @@ export const ok = async q => (await menu([['y', q, 'danger']])) == 'y';
 
 /* ---------- 表单字段（data-k 自动双向绑定到 page.model() 或 S；$开头的键总是写入 S） ---------- */
 export const btn = (a, l, x = '', c = '') => `<button class="btn ${c}" data-a="${a}" data-x="${esc(x)}">${l}</button>`;
+let cpOpen = ''; // 展开着的色板（页面重画后保持展开）
 export const fx = m => {
   const v = k => k[0] == '$' ? getP(S, k.slice(1)) : getP(m, k), row = (l, h) => `<label class="row"><span>${l}</span>${h}</label>`;
   return {
     tog: (k, l) => row(l, `<input type="checkbox" class="sw" data-k="${k}" ${v(k) ? 'checked' : ''}>`),
-    inp: (k, l, t = 'text', ph = '') => row(l, `<input type="${t}" data-k="${k}" value="${esc(v(k))}" placeholder="${esc(ph)}">`),
+    inp: (k, l, t = 'text', ph = '') => t == 'color' ? `<div class="row cpr"><span>${l}</span><b class="cpw" data-a="cpk" style="background:${esc(v(k) || '#ffffff')}"></b><input type="hidden" data-k="${k}" value="${esc(v(k) || '#ffffff')}"></div><div class="cpk" ${cpOpen == k ? '' : 'hidden'}><div class="cpk-sq" data-a="cpsq"></div><div class="cpk-g" data-a="cpsq" data-x="g"></div></div>`
+      : row(l, `<input type="${t}" data-k="${k}" value="${esc(v(k))}" placeholder="${esc(ph)}">`),
     sel: (k, l, o) => row(l, `<select data-k="${k}">${o.map(([a, b]) => `<option value="${esc(a)}" ${a == (v(k) ?? '') ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`),
     seg: (k, o) => `<div class="seg">${o.map(([a, b]) => `<button data-a="seg" data-k2="${k}" data-x="${esc(a)}" class="${a == (v(k) ?? '') ? 'on' : ''}">${b}</button>`).join('')}</div>`,
     area: (k, l, ph = '') => `<label class="col"><span>${l}</span><textarea data-k="${k}" placeholder="${esc(ph)}">${esc(v(k))}</textarea></label>`,
@@ -237,6 +239,13 @@ export function bind(R) {
 Object.assign(G, {
   back: (x, t, e, pg) => pg?.close ? pg.close() : back(), home,
   seg: (x, t, e, pg) => { set(pg, t.dataset.k2, x); pg.re(); },
+  // 取色：点色块展开方形色板；在色板上点哪就是哪个颜色（左右是色相，上白下黑；下面一条是黑白灰）
+  cpk: (x, t) => { const p = t.closest('.cpr').nextElementSibling; p.hidden = !p.hidden; cpOpen = p.hidden ? '' : t.nextElementSibling.dataset.k; },
+  cpsq: (x, t, e) => { const r = t.getBoundingClientRect(), fx = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), fy = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    const hex = a => '#' + a.map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+    let c; if (x == 'g') c = hex([1 - fx, 1 - fx, 1 - fx]);
+    else { const l = 1 - fy, A = Math.min(l, 1 - l), f = n => { const q = (n + fx * 12) % 12; return l - A * Math.max(-1, Math.min(q - 3, 9 - q, 1)); }; c = hex([f(0), f(8), f(4)]); }
+    const row = t.closest('.cpk').previousElementSibling, inp = row.querySelector('input'); inp.value = c; row.querySelector('.cpw').style.background = c; inp.dispatchEvent(new Event('change', { bubbles: true })); },
   img: async (k, t, e, pg) => { const v = await pickImg(k.includes('bg') || k.includes('wall') || k.includes('cover') ? 1080 : 400); if (v != null) { set(pg, k, v); pg.re(); } },
   fold: (k, t) => { t.closest('.sec').classList.toggle('fold'); S.ui.fold[k] = !S.ui.fold[k]; save(); },
   secDrag: (x, t) => {

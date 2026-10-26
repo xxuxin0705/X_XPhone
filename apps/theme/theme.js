@@ -42,7 +42,9 @@ const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp
 const clkSec = () => { const c = lockClk(), f = fx(S);
   return `<div class="clk-set"><div class="clk-pv">${clkHtml(c, new Date())}</div><div class="clk-fs">${clkFonts().map(([k, n]) => `<div class="clk-f ${c.font == k ? 'on' : ''}" data-a="clkf" data-x="${esc(k)}"${k.startsWith('u:') ? ` data-lp="clkfd"` : ''}><b style="font-family:${clkFam(k)};font-weight:${clkWt(k)}">06:39</b><span>${esc(n)}</span></div>`).join('')}<div class="clk-f add" data-a="clkup"><b>＋</b><span>上传字体</span></div></div>`
     + `<div class="seg">${[['top', '日期在上'], ['bot', '日期在下']].map(([k, n]) => `<button data-a="clkp" data-x="${k}" class="${(c.pos || 'top') == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
-    + f.tog('lock.clk.lunar', '农历') + f.inp('lock.clk.wt', '粗细（100～900）', 'number', String(clkWt(c.font))) + f.tog('lock.clk.auto', '跟随壁纸配色')
+    + `<div class="seg">${[[false, '24 小时'], [true, '12 小时']].map(([k, n]) => `<button data-a="clkset" data-k2="h12" data-x="${k ? 1 : ''}" class="${!!c.h12 == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
+    + `<div class="seg">${[['zh', '中文'], ['en', 'English']].map(([k, n]) => `<button data-a="clkset" data-k2="lang" data-x="${k}" class="${(c.lang || 'zh') == k ? 'on' : ''}">${n}</button>`).join('')}</div>`
+    + f.inp('lock.clk.wt', '粗细（100～900）', 'number', String(clkWt(c.font))) + f.tog('lock.clk.auto', '跟随壁纸配色')
     + (c.auto === false ? f.inp('lock.clk.c', '颜色', 'color') + f.inp('lock.clk.a', '不透明度 %', 'number', '100') : '') + '</div>'; };
 const reClk = () => { const b = top()?.el.querySelector('.clk-set'); b && (b.outerHTML = clkSec()); };
 const mountPv = (el, pg) => {
@@ -131,6 +133,7 @@ reg({
         try { await new FontFace('xp-chk', await fl.arrayBuffer()).load(); } catch { return toast('这个字体文件读不出来'); }
         userFonts().push({ id, n: ((await fontName(fl)) || fl.name.replace(/\.\w+$/, '')).slice(0, 24), src }); lockClk().font = 'u:' + id; S.lock.clk.wt = ''; save(); reClk(); toast('已添加字体'); },
       clkfd: async k => { const id = k.slice(2), f = userFonts().find(x => x.id == id); if (!f || !await ok(`删除字体「${f.n}」？`)) return; userFonts().splice(userFonts().indexOf(f), 1); drop(f.src); lockClk().font == k && (S.lock.clk.font = 'nunito'); save(); reClk(); },
+      clkset: (x, el) => { const k = el.dataset.k2; lockClk()[k] = k == 'h12' ? !!x : x; save(); reClk(); },
       clkf: k => { lockClk().font = k; S.lock.clk.wt = ''; save(); reClk(); }, clkp: k => { lockClk().pos = k; save(); reClk(); },
       lwc: id => pickLock('c:' + id),
       wsel: id => pickWall(id), wadd: () => addWall(),
