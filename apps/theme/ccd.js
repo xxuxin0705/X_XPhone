@@ -1,5 +1,5 @@
 // 小手机 · 桌面小组件「CCD 相机」：一台真的 CCD 背面（assets/ccd/body.webp，抠好的图：机身以外透明、屏幕也是透明的），你的照片从屏幕里透出来。
-// 机身颜色随便选：拿机身图的明暗（高光、阴影都保留），换成你选的色相和饱和度，整体亮度往你选的颜色靠。算一次缓存一次。
+// 机身颜色以选中的 RGB 为底色，叠加原机壳的柔和明暗；屏幕暗框、中性色金属和透明区保留。
 // 相机后面还有一层「背景」：默认透明，也可以毛玻璃 / 纯色 / 渐变，后三种能调透明度。照片可以缩放、挪位置。
 import { esc } from '../../core.js';
 
@@ -21,16 +21,37 @@ const hexa = (h, a) => `rgba(${hex(h).join(',')},${a})`;
 const norm = h => /^#[0-9a-f]{6}$/i.test(h || '') ? h.toLowerCase() : CCD_PINK;
 
 /* ---------- 换机身颜色 ---------- */
-const rgb2hsl = (r, g, b) => { r /= 255; g /= 255; b /= 255; const M = Math.max(r, g, b), m = Math.min(r, g, b), l = (M + m) / 2; if (M == m) return [0, 0, l]; const d = M - m, s = l > .5 ? d / (2 - M - m) : d / (M + m); const h = M == r ? (g - b) / d + (g < b ? 6 : 0) : M == g ? (b - r) / d + 2 : (r - g) / d + 4; return [h / 6, s, l]; };
-const hsl2rgb = (h, s, l) => { if (!s) return [l, l, l].map(x => x * 255); const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q, f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; }; return [f(h + 1 / 3), f(h), f(h - 1 / 3)].map(x => x * 255); };
+const clamp = v => Math.max(0, Math.min(1, v));
+// 只把原图粉色机壳算入基准，排除透明区、暗框和中性色金属。
+const tintTone = src => {
+  const count = src.length / 4, light = new Float32Array(count), mask = new Float32Array(count), hist = new Uint32Array(256); let n = 0;
+  for (let j = 0; j < count; j++) {
+    const i = j * 4, r = src[i], g = src[i + 1], b = src[i + 2], l = (Math.max(r, g, b) + Math.min(r, g, b)) / 510;
+    light[j] = l;
+    const chroma = clamp((Math.min(r - g, b - g) - 2) / 12), t = clamp((l - .18) / .32);
+    mask[j] = chroma * t * t * (3 - 2 * t); // 深色细节逐渐退出染色，避免变成荧光描边。
+    if (src[i + 3] > 128 && mask[j] > .7 && l > .6) { hist[Math.round(l * 255)]++; n++; }
+  }
+  let anchor = .85, sum = 0;
+  if (n) for (let i = 0; i < hist.length; i++) { sum += hist[i]; if (sum >= n / 2) { anchor = i / 255; break; } }
+  return { light, mask, anchor };
+};
+// 以实选色为机壳中间色：高光向白色柔和混合，阴影按比例压暗 RGB，不再逐像素套用高饱和 HSL。
+export function recolorPixels(src, color, tone = tintTone(src)) {
+  const target = hex(norm(color)).map(v => v / 255), out = new Uint8ClampedArray(src), { light, mask, anchor } = tone;
+  for (let j = 0; j < mask.length; j++) {
+    const i = j * 4, amount = mask[j]; if (!src[i + 3] || !amount) continue;
+    const d = light[j] - anchor, highlight = .65 * clamp(d / Math.max(.01, 1 - anchor)), shadow = 1 - .85 * clamp(-d / Math.max(.01, anchor));
+    for (let k = 0; k < 3; k++) { const c = d >= 0 ? target[k] + (1 - target[k]) * highlight : target[k] * shadow; out[i + k] = src[i + k] * (1 - amount) + c * 255 * amount; }
+  }
+  return out;
+}
 const cache = new Map(); // 颜色 → 算好的图（data URL）
-let base; // 原图的像素（算一次）
-const loadBase = () => base ||= new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { const c = document.createElement('canvas'); c.width = CCD_W; c.height = CCD_H; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, CCD_W, CCD_H); let s = 0, n = 0; for (let i = 0; i < d.data.length; i += 4) if (d.data[i + 3] > 128) { s += rgb2hsl(d.data[i], d.data[i + 1], d.data[i + 2])[2]; n++; } res({ d, mean: n ? s / n : .7, cv: c }); }; im.onerror = () => res(null); im.src = CCD_URL; });
-// 算出某个颜色的机身：像素亮度 = 选的颜色的亮度 + (原像素亮度 − 原图平均亮度)，色相 / 饱和度用选的颜色
+let base; // 原图的像素和机壳明暗基准（算一次）
+const loadBase = () => base ||= new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { const c = document.createElement('canvas'); c.width = CCD_W; c.height = CCD_H; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, CCD_W, CCD_H); res({ d, tone: tintTone(d.data), cv: c }); }; im.onerror = () => res(null); im.src = CCD_URL; });
 async function recolor(c) {
   const b = await loadBase(); if (!b) return '';
-  const [h, s, l0] = rgb2hsl(...hex(c)), l = Math.max(.12, Math.min(.88, l0)), src = b.d.data, out = new ImageData(CCD_W, CCD_H), o = out.data;
-  for (let i = 0; i < src.length; i += 4) { const a = src[i + 3]; if (!a) continue; const L = rgb2hsl(src[i], src[i + 1], src[i + 2])[2], [r, g, bl] = hsl2rgb(h, s, Math.max(0, Math.min(1, l + (L - b.mean)))); o[i] = r; o[i + 1] = g; o[i + 2] = bl; o[i + 3] = a; }
+  const out = new ImageData(recolorPixels(b.d.data, c, b.tone), CCD_W, CCD_H);
   b.cv.getContext('2d').putImageData(out, 0, 0); return b.cv.toDataURL('image/png');
 }
 const pending = new Set();
@@ -47,3 +68,4 @@ export function ccdHtml(p, W = 2, H = 2) {
   const sty = `left:${CCD_SCR.x}%;top:${CCD_SCR.y}%;width:${CCD_SCR.w}%;height:${CCD_SCR.h}%`;
   return `<div class="ccd-bg" style="${ccdBg(p)}"></div><div class="ccd-cam"><div class="ccd-scr" style="${sty}">${img}</div><img class="ccd-body" data-c="${c}" src="${esc(ccdSrc(c))}" alt="" draggable="false"></div>`;
 }
+
