@@ -1,7 +1,7 @@
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickImg, pickFile, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
-import { wideHtml, WIDE_STYLES, mountWideVideos } from './apps/theme/ccd-wide.js';
+import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
 import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
@@ -16,11 +16,10 @@ export const WK = {
     f: m => [['img', '照片', 'img'], ['body', '机身颜色', 'color'], ['zoom', '照片缩放', 'range', [50, 300, '%']], ['px', '左右位置', 'range', [0, 100, '%']], ['py', '上下位置', 'range', [0, 100, '%']], ...bgF(m)],
     d: { body: CCD_PINK, zoom: 100, px: 50, py: 50, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
   ccdWide: { n: '横版 CCD 相机', w: 4, h: 2, cls: 'ccd-wide',
-    f: m => [['style','机身样式','sel',WIDE_STYLES], ...(m.style == 'custom' ? [['body','机身颜色','color']] : []), ['type','屏幕内容','sel',[['photo','照片'],['video','视频']]], ['img','照片 / 视频封面','img'],
+    f: m => [['body','机身颜色','color'], ['type','屏幕内容','sel',[['photo','照片'],['video','视频']]], ['img','照片 / 视频封面','img'],
       ...(m.type == 'video' ? [['videoTip',`<button class="btn" data-a="wideVideo">${m.video ? '替换视频' : '上传视频'}</button>${m.video ? '<button class="btn" data-a="wideVideoClear">清除视频</button>' : ''}`,'tip']] : []),
-      ['zoom','照片 / 视频缩放','range',[50,300,'%']], ['px','左右位置','range',[0,100,'%']], ['py','上下位置','range',[0,100,'%']], ['sticker','贴纸','img'],
-      ...(m.sticker ? [['sx','贴纸左右位置','range',[0,100,'%']],['sy','贴纸上下位置','range',[0,100,'%']],['ss','贴纸大小','range',[5,50,'%']]] : []), ...bgF(m)],
-    d: { style:'silver', body:'#c9cdcb', type:'photo', video:'', zoom:100, px:50, py:50, sticker:'', sx:80, sy:22, ss:18, bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60 },
+      ['zoom','照片 / 视频缩放','range',[50,300,'%']], ['px','左右位置','range',[0,100,'%']], ['py','上下位置','range',[0,100,'%']], ...bgF(m)],
+    d: { body:WIDE_SILVER, type:'photo', video:'', zoom:100, px:50, py:50, bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60 },
     r: wideHtml, after: mountWideVideos,
     tap: it => { if(it.p.type != 'video') return ccdPhoto(it); ui.desk.querySelectorAll(`[data-it="${it.id}"] video`).forEach(v=>v.play?.().catch(()=>{})); } },
   clock: { n: '时间', w: 2, h: 1, cls: 'clkw',
@@ -100,16 +99,15 @@ async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == nul
 // 和桌面共用渲染器，保留选定的宽高比例；预览没有桌面编辑按钮或点击动作。
 const widgetPreview = (it, m) => {
   const K = WK[it.k], { sz, ...p } = m, [w, h] = sz.split('x').map(Number);
-  return `<div class="wedit-preview"><div class="wedit-pv-head"><span>样式预览</span><small>${w}×${h}</small></div><div class="wedit-stage"><div class="wprev" style="width:min(100%,${Math.min(w * 72, 210 * w / h)}px);aspect-ratio:${w}/${h}"><div class="it wg w${w} h${h} k-${it.k} ${K.cls || ''}">${tpl(K.r(p, { ...it, w, h }))}</div></div></div></div>` + (it.k == 'ccdWide' ? `<div class="cw-style-picks">${WIDE_STYLES.filter(([k])=>k!='custom').map(([k,n])=>`<button class="cw-style-pick ${m.style==k?'on':''}" data-a="wideStyle" data-x="${k}" aria-label="${n}" aria-pressed="${m.style==k}"><div class="wprev"><div class="it wg ccd-wide">${wideHtml({...p,type:'photo',style:k})}</div></div><span>${n}</span></button>`).join('')}</div>` : '');
+  return `<div class="wedit-preview"><div class="wedit-pv-head"><span>样式预览</span><small>${w}×${h}</small></div><div class="wedit-stage"><div class="wprev" style="width:min(100%,${Math.min(w * 72, 210 * w / h)}px);aspect-ratio:${w}/${h}"><div class="it wg w${w} h${h} k-${it.k} ${K.cls || ''}">${tpl(K.r(p, { ...it, w, h }))}</div></div></div></div>`;
 };
 async function editW(it) {
   const K = WK[it.k], apply = m => { const { sz, ...p } = m; [it.w, it.h] = sz.split('x').map(Number); it.p = p; save(); renderDesk(); };
   const videoActs = {
-    wideStyle: (k,t,e,pg) => { const m=pg.model();m.style=k;apply(m);pg.reb(); },
     wideVideo: async (_, t, e, pg) => { const file = await pickFile('video/*'); if(!file) return; if(file.size > 40e6) return toast('视频超过 40MB，请选择小一点的视频'); try { const value = await putMedia(file,'widget'); if(!pg.el.isConnected) { dropMedia(value); return; } const m = pg.model(), old = m.video; m.video = value; apply(m); pg.reb(); old && dropMedia(old); } catch { toast('视频上传失败，请重试'); } },
     wideVideoClear: (_, t, e, pg) => { const m=pg.model(), old=m.video; m.video='';apply(m);pg.reb();old && dropMedia(old); },
   };
-  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : {}, (k, v, m, s) => ['bg', 'auto', 'style', 'type', 'sticker'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply, after: K.after });
+  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : {}, (k, v, m, s) => ['bg', 'auto', 'type'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply, after: K.after });
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
 const CELL = 64; // 预览里一格的边长
@@ -133,7 +131,12 @@ Object.assign(G, {
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
 });
 export function initDesk() {
-  S.desk ||= def(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认挪到下面 renderDesk(); // 去掉已经不存在的组件
+  S.desk ||= def();
+  let migrated = false;
+  for (const it of [...S.desk.pages.flat(), ...S.desk.dock]) if (it.k == 'ccdWide' && it.p && ['style','sticker','sx','sy','ss'].some(k => k in it.p)) {
+    const sticker = it.p.sticker; it.p = wideSettings(it.p); sticker && dropMedia(sticker); migrated = true;
+  }
+  migrated && save(); [...S.desk.pages, S.desk.dock].forEach(l => { for (let i = l.length; i--;) { l[i].t == 'w' && !WK[l[i].k] && l.splice(i, 1); l[i]?.k == 'clock' && l[i].p && !l[i].p.v2 && (l[i].p.pos = 'bot', l[i].p.v2 = 1); l[i]?.t == 'w' && l[i].p && delete l[i].p.wt; } }); // 时间小组件：日期默认挪到下面 renderDesk(); // 去掉已经不存在的组件
   ui.desk.addEventListener('pointerdown', e => { if (!edit || e.target.closest('.x,.ed-bar,.dots')) return; const t = e.target.closest('[data-it]'); t && drag(e, t.dataset.it); });
 }
 

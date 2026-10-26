@@ -41,7 +41,7 @@ const wide = await import(new URL('apps/theme/ccd-wide.js', root));
 const coreStub = { S: {assets:{widget:[]}}, save(){}, esc, uid:()=> 'id', $:()=>null, $$:()=>[], ui:{}, G:{}, APPS:{}, now:()=>new Date(2026,9,26,10,32), tpl:s=>s.replaceAll('{{user}}','测试用户'), form, menu(){}, sheet, defAv(){}, btn(){}, openApp(){}, dropMedia(){}, pickImg(){} };
 globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide};
 let desk = read('desk.js').replace(/^import .*?;$/gm, '');
-desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','wideHtml','WIDE_STYLES','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
+desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
 const dk = await import('data:text/javascript;base64,'+Buffer.from(desk).toString('base64'));
 for (const [k,K] of Object.entries(dk.WK)) {
  const it = { k, w:K.w,h:K.h };
@@ -54,10 +54,15 @@ for (const [k,K] of Object.entries(dk.WK)) {
 }
 assert.deepEqual(dk.sizes(dk.WK.ccdWide.w,dk.WK.ccdWide.h),[[2,1],[4,2]]);
 const widePreview=dk.widgetPreview({k:'ccdWide'},{...dk.WK.ccdWide.d,sz:'4x2'});
-assert.equal((widePreview.match(/data-a="wideStyle"/g)||[]).length,3);
-assert.match(widePreview,/data-x="silver"/);
+assert.doesNotMatch(widePreview,/data-a="wideStyle"/);
+assert.equal(dk.WK.ccdWide.d.body,wide.WIDE_SILVER);
+assert(dk.WK.ccdWide.f(dk.WK.ccdWide.d).some(f=>f[0]==='body'&&f[2]==='color'));
 assert(dk.WK.ccdWide.f({...dk.WK.ccdWide.d,type:'video'}).some(f=>f[0]==='videoTip'));
-assert(dk.WK.ccdWide.f({...dk.WK.ccdWide.d,sticker:'sticker.png'}).some(f=>f[0]==='ss'));
+assert(!dk.WK.ccdWide.f({...dk.WK.ccdWide.d,sticker:'sticker.png'}).some(f=>['sticker','sx','sy','ss','style'].includes(f[0])));
+for(const bg of ['none','glass','solid','grad']) {
+ const fields=dk.WK.ccdWide.f({...dk.WK.ccdWide.d,bg}).filter(f=>f[0].startsWith('bg'));
+ const previous=dk.WK.ccd.f({...dk.WK.ccd.d,bg}).filter(f=>f[0].startsWith('bg'));assert.deepEqual(fields,previous);
+}
 const camera=dk.widgetPreview({k:'ccd'},{...dk.WK.ccd.d,img:'photo.webp',zoom:180,px:20,py:70,sz:'2x2'});
 assert.match(camera,/object-position:center;transform:translate\(-30%,20%\) scale\(1.8\)/);
 // 不论照片原始比例或缩放多少，横向和纵向都直接平移，中心点保持不偏移。

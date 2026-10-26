@@ -1,11 +1,17 @@
-// 横版 CCD：透明屏幕、金属机身、照片/视频和一张可定位贴纸。
+// 横版 CCD：透明屏幕、金属机身和照片/视频；机身色与背景设置和竖版相机共用交互。
 import { esc, mediaSrc } from '../../core.js';
 import { ccdBg } from './ccd.js';
-export const WIDE_STYLES = [['silver','经典银'],['lavender','香芋紫'],['pink','樱花粉'],['custom','自定义颜色']];
+export const WIDE_SILVER = '#c9cdcb';
 const COLORS = { silver:'#c9cdcb', lavender:'#c7b7e8', pink:'#edb8cf' };
+// 兼容旧版三种样式，并移除已取消的贴纸数据，照片/视频与背景原样保留。
+export function wideSettings(p = {}) {
+  const { style, sticker, sx, sy, ss, ...rest } = p;
+  const body = style && style != 'custom' && COLORS[style] || rest.body;
+  return { ...rest, body: /^#[0-9a-f]{6}$/i.test(body || '') ? body : WIDE_SILVER };
+}
 const mix = (hex, to, amount) => { const rgb = hex.slice(1).match(/../g).map(x=>parseInt(x,16)); return '#' + rgb.map(c=>Math.round(c+(to-c)*amount).toString(16).padStart(2,'0')).join(''); };
 export function wideBody(p) {
-  const c = COLORS[p.style] || (/^#[0-9a-f]{6}$/i.test(p.body || '') ? p.body : COLORS.silver);
+  const c = wideSettings(p).body;
   const hi = mix(c,255,.85), mid = mix(c,255,.25), dark = mix(c,0,.4), rim = mix(c,0,.6);
   // 每个实例独立的渐变 ID，桌面与预览同时存在时不会串色。
   const id = 'cw-' + Math.random().toString(36).slice(2,10);
@@ -40,8 +46,7 @@ export function wideHtml(p) {
   const z = Math.max(50, Math.min(300,+p.zoom || 100))/100, x = Math.max(0,Math.min(100,+(p.px??50)))-50, y = Math.max(0,Math.min(100,+(p.py??50)))-50;
   const style = `object-position:center;transform:translate(${x}%,${y}%) scale(${z})`;
   const content = p.type === 'video' && p.video ? `<video data-wide-src="${esc(p.video)}" muted loop autoplay playsinline preload="metadata" style="${style}"${p.img ? ` poster="${esc(p.img)}"` : ''}></video>` : p.img ? `<img src="${esc(p.img)}" style="${style}" alt="">` : '<i class="cw-empty"><span>＋</span><small>添加照片 / 视频</small></i>';
-  const sticker = p.sticker ? `<img class="cw-sticker" src="${esc(p.sticker)}" alt="贴纸" style="left:${Math.max(0,Math.min(100,+(p.sx??80)))}%;top:${Math.max(0,Math.min(100,+(p.sy??22)))}%;width:${Math.max(5,Math.min(50,+p.ss||18))}%">` : '';
-  return `<div class="ccd-bg" style="${ccdBg(p)}"></div><div class="cw-camera"><div class="cw-screen">${content}</div>${wideBody(p)}${sticker}</div>`;
+  return `<div class="ccd-bg" style="${ccdBg(p)}"></div><div class="cw-camera"><div class="cw-screen">${content}</div>${wideBody(p)}</div>`;
 }
 // 本地数据库视频也能播放；预览更新或关闭后释放旧的 blob URL。
 const playing = new Map(); let observer;
