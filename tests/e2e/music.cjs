@@ -143,4 +143,9 @@ const songs = n => Array.from({ length: n }, (_, i) => ({ id: String(1000 + i), 
   // 关掉 App：歌照常放
   await E(`core.home()`); await W(400);
   ok(await E(`!core.top() && D().isPlaying`), '回桌面：音乐不停');
+  // 真机的开机顺序：设置里已经有旧数据和播放队列，刷新后应该自己迁移、自己恢复（不靠手动调用）
+  const p2 = await b.newPage(); p2.on('pageerror', e => errs.push(e.message));
+  await p2.addInitScript(() => { window.__preset = { st_phone: { music: { liked: [{ id: '7', name: '开机前的喜欢', artist: 'A' }] }, mz: { global_music_queue: JSON.stringify({ songs: [{ id: '1', name: '上次的队列', artist: 'B' }], index: 0 }), global_music_volume: '0.3' } } }; });
+  await p2.goto('http://localhost:8812/'); await p2.waitForFunction('window.booted');
+  ok(await p2.evaluate(`(async () => { const d = (await import('/apps/music/music.js')).musicApp.musicData; return d.getLiked()[0]?.name == '开机前的喜欢' && d.queue[0]?.name == '上次的队列' && Math.abs(d.audioPlayer.volume - .3) < .01; })()`), '刷新后：旧数据自动迁移，播放队列和音量恢复');
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

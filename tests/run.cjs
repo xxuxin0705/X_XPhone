@@ -5,7 +5,7 @@ const ALL = {
   badge: ['unit/badge.mjs', '圆形和爱心磨砂吧唧：固定哑光银边、完整照片、裁切 ID 与照片设置'],
   gesture: ['unit/desk-gesture.mjs', '编辑模式：轻扫翻页、按住拖动、点按、取消和底栏手势'],
   paint: ['unit/paint-frame.mjs', 'Windows 画图相框：固定配色、照片位置和装饰工具'],
-  layout: ['unit/desk-layout.mjs', '桌面固定 4×6：容量、形状、改尺寸、换页和旧内容迁移'],
+  layout: ['unit/desk-layout.mjs', '桌面固定 4×7：容量、形状、改尺寸、换页和旧内容迁移'],
   wide: ['unit/ccd-wide.mjs', '横版 CCD：默认银色、自定义颜色、共用背景、照片视频、视频资源释放'],
   tint: ['unit/ccd-tint.mjs', 'CCD 浅色机壳：选色还原、高光阴影、暗框与透明度'],
   color: ['unit/color-drag.mjs', '取色圆圈：初始化、拖动、灰度、页面重画与取消'],

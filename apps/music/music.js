@@ -230,17 +230,28 @@ class MusicApp {
     }
 }
 
-migrate();
-export const musicApp = new MusicApp();
+/**
+ * 等 initS() 读出真正的设置之后再建（index.js 的 init 里调用）。
+ * 不能在 import 时就建：那时 S 还是默认值，旧数据迁移、播放队列和音量都会读空。
+ */
+export let musicApp = null;
+export function initMusic() {
+    if (musicApp) return musicApp;
+    migrate();
+    musicApp = new MusicApp();
+    if (storage.get('music_show_floating', false)) musicApp.view.renderFloatingWidget();
+    return musicApp;
+}
+const app = () => musicApp || initMusic();
 
 /* ---------- 接到小手机 ---------- */
-INJ.push(c => musicApp.cardEnabled() ? musicApp.getCardPrompt().replace(/\{\{user\}\}/g, c?.name1 || '用户') : '');
+INJ.push(c => globalBox().card !== false ? (globalBox().cardPrompt || CARD_PROMPT).replace(/\{\{user\}\}/g, c?.name1 || '用户') : '');
 
 /** 收到 AI 回复：取出音乐卡，再把它从正文里去掉（只认正常生成的新回复） */
 export function cardSync(id) {
     const c = C(), m = c.chat?.[id];
     if (!m || m.is_user || !/<音乐卡>/.test(String(m.mes))) return false;
-    musicApp.takeCard(parseCard(m.mes));
+    app().takeCard(parseCard(m.mes));
     const cut = t => String(t).replace(CARD_RE, '').replace(/\n{3,}/g, '\n\n').trim();
     m.mes = cut(m.mes);
     if (Array.isArray(m.swipes) && m.swipes[m.swipe_id ?? 0] != null) m.swipes[m.swipe_id ?? 0] = cut(m.swipes[m.swipe_id ?? 0]);
@@ -251,21 +262,20 @@ export function cardSync(id) {
 try {
     const c = C(), E = c.eventTypes || c.event_types;
     c.eventSource?.on(E.MESSAGE_RECEIVED, id => cardSync(id));
-    c.eventSource?.on(E.CHAT_CHANGED, () => musicApp.onChatChanged());
+    c.eventSource?.on(E.CHAT_CHANGED, () => musicApp?.onChatChanged()); // 还没初始化就不用管，初始化时会读当前聊天
 } catch (_e) { /* 没有酒馆环境（测试）就算了 */ }
-setTimeout(() => { if (storage.get('music_show_floating', false)) musicApp.view.renderFloatingWidget(); }, 0);
 
 // 聊天那边要用的：接受角色的一起听邀请、点分享卡片放歌、打开一起听页面
 Object.assign(G, {
-    mfull: () => musicApp.open(() => musicApp.view.openPlayer()),
-    mzPlay: (name, artist, meta) => musicApp.musicData.playSongByName(name, artist, meta),
-    mzSnapshot: () => musicApp.musicData.getListeningSnapshot(),
-    mzListen: () => musicApp.open(() => musicApp.view.openListen()),
-    mzPlayer: () => musicApp.open(() => musicApp.view.openPlayer())
+    mfull: () => app().open(() => musicApp.view.openPlayer()),
+    mzPlay: (name, artist, meta) => app().musicData.playSongByName(name, artist, meta),
+    mzSnapshot: () => app().musicData.getListeningSnapshot(),
+    mzListen: () => app().open(() => musicApp.view.openListen()),
+    mzPlayer: () => app().open(() => musicApp.view.openPlayer())
 });
 
 reg({
     id: 'music', name: '音乐',
     icon: '<svg viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="9" opacity=".25"/><path d="M10 16.5V8l6-1.5V15"/><circle cx="8.3" cy="16.6" r="1.9"/><circle cx="14.3" cy="15.1" r="1.9"/></svg>',
-    open: () => musicApp.open()
+    open: () => app().open()
 });

@@ -7,7 +7,7 @@ import { randWall } from './apps/theme/theme.js';
 import { renderDesk, initDesk } from './desk.js';
 import { openChat, syncStory, inlineSync } from './apps/chat/chat.js';
 import './apps/settings/settings.js';
-import './apps/music/music.js';
+import { initMusic } from './apps/music/music.js';
 import './apps/isle/isle.js';
 import { applyTheme } from './apps/theme/theme.js';
 
@@ -34,7 +34,7 @@ function show() {
 }
 
 function init() {
-  initS();
+  initS(); initMusic(); // 音乐要读真正的设置（喜欢、队列、音量），所以放在 initS 之后
   document.body.insertAdjacentHTML('beforeend', `<div id="stp"><div class="stp-scr"><div class="sb">${SB}</div><div class="desk"></div><div class="stack"></div><div class="sheets"></div><div class="lock" hidden></div><div class="tasks"></div><div class="hb" data-a="home"></div></div></div><div id="stp-ball"></div><style id="stp-css"></style>`);
   Object.assign(ui, { root: $('#stp'), scr: $('#stp .stp-scr'), desk: $('#stp .desk'), stack: $('#stp .stack'), sheets: $('#stp .sheets'), tasks: $('#stp .tasks'), lock: $('#stp .lock') });
   G.home = () => top() ? home() : toggle(false);

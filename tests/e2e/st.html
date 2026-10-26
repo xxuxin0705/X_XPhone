@@ -1,6 +1,6 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"></head><body style="margin:0;background:#333">
 <script>
-const ctx = { extensionSettings: {}, chatMetadata: {}, saveSettingsDebounced(){}, saveMetadataDebounced(){}, name1:'徐照临', name2:'灰吕杵志', chat:[], characters:[{}], characterId:0, setExtensionPrompt(){}, substituteParams:s=>s, powerUserSettings:{}, getRequestHeaders:()=>({'X-CSRF-Token':'t'}), eventSource:{ h:{}, on(e,f){ (this.h[e] ||= []).push(f); }, emit(e,...a){ (this.h[e]||[]).forEach(f=>f(...a)); } }, eventTypes:{CHAT_CHANGED:'cc', MESSAGE_RECEIVED:'mr', CHAT_DELETED:'cd'}, chatId:'chatA', getCurrentChatId(){ return this.chatId; } };
+const ctx = { extensionSettings: window.__preset || {}, chatMetadata: {}, saveSettingsDebounced(){}, saveMetadataDebounced(){}, name1:'徐照临', name2:'灰吕杵志', chat:[], characters:[{}], characterId:0, setExtensionPrompt(){}, substituteParams:s=>s, powerUserSettings:{}, getRequestHeaders:()=>({'X-CSRF-Token':'t'}), eventSource:{ h:{}, on(e,f){ (this.h[e] ||= []).push(f); }, emit(e,...a){ (this.h[e]||[]).forEach(f=>f(...a)); } }, eventTypes:{CHAT_CHANGED:'cc', MESSAGE_RECEIVED:'mr', CHAT_DELETED:'cd'}, chatId:'chatA', getCurrentChatId(){ return this.chatId; } };
 window.SillyTavern = { getContext: () => ctx };
 </script>
 <script type="module">import '/index.js'; window.booted = 1;</script>
