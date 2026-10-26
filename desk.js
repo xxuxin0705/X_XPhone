@@ -2,7 +2,7 @@
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickFile, pickImg, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
-import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS, DESK_ROWS } from './desk-layout.js';
+import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS } from './desk-layout.js';
 import { paintFrameHtml, mountPaintPhotos, fitPaintZoom } from './apps/theme/paint-frame.js';
 import { badgeHtml, badgeFields, BADGE_DEFAULT } from './apps/theme/badge.js';
 import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
@@ -86,9 +86,11 @@ function drag(e, id, longPress = false) {
       }
     }
     const r=box.getBoundingClientRect(), css=getComputedStyle(box), sx=r.width/box.offsetWidth, sy=r.height/box.offsetHeight;
-    const left=parseFloat(css.paddingLeft), top=parseFloat(css.paddingTop), gapX=parseFloat(css.columnGap)||0, gapY=parseFloat(css.rowGap)||0;
-    const cw=(box.clientWidth-left-parseFloat(css.paddingRight)-(DESK_COLS-1)*gapX)/DESK_COLS;
-    const ch=(box.clientHeight-top-parseFloat(css.paddingBottom)-(DESK_ROWS-1)*gapY)/DESK_ROWS;
+    const top=parseFloat(css.paddingTop), gapX=parseFloat(css.columnGap)||0, gapY=parseFloat(css.rowGap)||0;
+    // 使用实际轨道尺寸；短屏网格会水平居中，高屏下方的留白不是行高。
+    const cw=parseFloat(css.gridTemplateColumns), ch=parseFloat(css.gridTemplateRows);
+    if(!cw || !ch)return;
+    const left=(box.clientWidth-DESK_COLS*cw-(DESK_COLS-1)*gapX)/2;
     const col=Math.round(((ev.clientX-r.left-ox)/sx-left)/(cw+gapX)), row=Math.round(((ev.clientY-r.top-oy)/sy-top)/(ch+gapY));
     const key=box.dataset.box+':'+row+':'+col;if(key===lastCell)return;
     if(moveItem(S.desk.pages,it,+box.dataset.box,row,col,S.desk.dock)) { lastCell=key;renderDesk();hold(); }

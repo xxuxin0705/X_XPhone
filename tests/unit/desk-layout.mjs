@@ -46,3 +46,23 @@ assert.equal(moveItem(full,photo,0,0,0),false);assert.equal(JSON.stringify(full)
 const dockApp=app(),dock=[dockApp],dockPages=[[]];assert(moveItem(dockPages,dockApp,0,99,-4,dock));
 assert.equal(dock.length,0);assert.deepEqual([dockApp.row,dockApp.col],[5,0]);valid(dockPages[0]);
 console.log('Drag placement: empty cells, persisted holes, displaced widgets, cross-page uniqueness, full-page rollback and Dock checked.');
+
+// 直接验证实际 CSS 的格子公式：长屏不拉伸行高，短屏按高度缩小，并保留六行容量。
+const css=(await import('node:fs')).readFileSync(new URL('../../style.css',import.meta.url),'utf8');
+const rule=css.match(/\.page\{([^}]+)\}/)[1];
+assert.match(rule,/grid-template-columns:repeat\(4,minmax\(0,var\(--desk-cell\)\)\)/);
+assert.match(rule,/grid-template-rows:repeat\(6,minmax\(0,var\(--desk-cell\)\)\)/);
+assert.match(rule,/justify-content:center;align-content:start/);
+const formula=rule.match(/--desk-cell:([^;]+)/)[1];
+const cellAt=(width,height)=>{
+ const expr=formula.replaceAll('100cqw',String(width)).replaceAll('100cqh',String(height)).replaceAll('px','').replaceAll('calc(','(').replaceAll('max(','Math.max(').replaceAll('min(','Math.min(');
+ return new Function('return '+expr)();
+};
+for(const [width,height] of [[390,650],[390,1000],[360,500],[390,350],[576,940]]) {
+ const cell=cellAt(width,height);assert(cell>0);
+ assert(4*cell+36+36<=width+.001);assert(6*cell+60+22<=height+.001);
+ const widgetWidth=3*cell+24,widgetHeight=3*cell+24;assert.equal(widgetWidth,widgetHeight);
+}
+assert.equal(cellAt(390,650),cellAt(390,1000),'加高屏幕不再加大应用上下间距');
+assert(cellAt(390,350)<cellAt(390,650),'短屏同时缩小行列，不改变单格比例');
+console.log('Actual CSS grid: square 1x1 cells and 3x3 widgets, tall/short viewports and six-row capacity checked.');
