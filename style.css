@@ -992,3 +992,14 @@
 .it.ccd>.ccd-bg,.it.ccd-wide>.ccd-bg{inset:auto;left:50%;top:50%;width:calc(var(--camera-w) + 20px);transform:translate(-50%,-50%);border-radius:18px}
 .it.ccd>.ccd-bg{height:calc(var(--camera-w) * 777 / 900 + 20px)}
 .it.ccd-wide>.ccd-bg{height:calc(var(--camera-w) * 460 / 900 + 20px)}
+
+/* 经典画图相框：固定灰框/蓝标题栏，整个窗口等比例缩放。 */
+.it.wg.paint-frame{container-type:size;background:none;box-shadow:none;border:0;padding:0;overflow:visible;backdrop-filter:none;-webkit-backdrop-filter:none;--paint-size:min(calc(100cqw - 16px),calc(100cqh - 16px))}
+.paint-window{position:absolute;left:50%;top:50%;width:var(--paint-size);aspect-ratio:1;transform:translate(-50%,-50%);filter:drop-shadow(0 3px 5px rgba(0,0,0,.18))}
+.paint-chrome{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.paint-photo{position:absolute;left:13.6667%;top:10%;width:81.6667%;height:73.3333%;overflow:hidden;background:#fff}
+.paint-photo>img{display:block;width:100%;height:100%;object-fit:cover;transform-origin:center}
+.paint-empty{position:absolute;inset:0;display:grid;place-items:center;color:#808080;font:12px Arial,sans-serif}
+.it.paint-frame>.ccd-bg{inset:auto;left:50%;top:50%;width:calc(var(--paint-size) + 16px);height:calc(var(--paint-size) + 16px);transform:translate(-50%,-50%);border-radius:12px}
+
+#stp .paint-chrome text{font-family:Tahoma,Arial,sans-serif}

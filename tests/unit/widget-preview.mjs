@@ -39,10 +39,11 @@ const ck = await import(new URL('apps/theme/clock.js', root));
 const ccd = await import(new URL('apps/theme/ccd.js', root));
 const wide = await import(new URL('apps/theme/ccd-wide.js', root));
 const layout = await import(new URL('desk-layout.js', root));
+const paint = await import(new URL('apps/theme/paint-frame.js', root));
 const coreStub = { S: {assets:{widget:[]}}, save(){}, esc, uid:()=> 'id', $:()=>null, $$:()=>[], ui:{}, G:{}, APPS:{}, now:()=>new Date(2026,9,26,10,32), tpl:s=>s.replaceAll('{{user}}','测试用户'), form, menu(){}, sheet, defAv(){}, btn(){}, openApp(){}, dropMedia(){}, pickImg(){} };
-globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide,...layout};
+globalThis.widgetTest = {...coreStub,...ck,...ccd,...wide,...layout,...paint};
 let desk = read('desk.js').replace(/^import .*?;$/gm, '');
-desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','pageLayout','placeItem','fitPages','removeMoodNote','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
+desk = `const {${[...Object.keys(coreStub), 'ccdHtml','ccdBg','CCD_BG','CCD_PINK','clkHtml','clkFonts','CLK_DEF','paintFrameHtml','pageLayout','placeItem','fitPages','removeMoodNote','wideHtml','WIDE_SILVER','wideSettings','mountWideVideos','pickFile','putMedia','toast'].join(',')}} = globalThis.widgetTest;` + desk + '\nexport { widgetPreview };';
 const dk = await import('data:text/javascript;base64,'+Buffer.from(desk).toString('base64'));
 for (const [k,K] of Object.entries(dk.WK)) {
  const it = { k, w:K.w,h:K.h };
@@ -64,6 +65,10 @@ for(const bg of ['none','glass','solid','grad']) {
  const fields=dk.WK.ccdWide.f({...dk.WK.ccdWide.d,bg}).filter(f=>f[0].startsWith('bg'));
  const previous=dk.WK.ccd.f({...dk.WK.ccd.d,bg}).filter(f=>f[0].startsWith('bg'));assert.deepEqual(fields,previous);
 }
+assert.equal(dk.WK.paint.w,3);assert.equal(dk.WK.paint.h,3);
+assert.deepEqual(dk.sizes(3,3),[[1,1],[2,2],[3,3],[4,4]]);
+assert(!dk.WK.paint.f(dk.WK.paint.d).some(f=>f[0]==='body'||f[0]==='style'));
+assert(!dk.WK.ccd.tap && !dk.WK.ccdWide.tap && !dk.WK.paint.tap);
 const camera=dk.widgetPreview({k:'ccd'},{...dk.WK.ccd.d,img:'photo.webp',zoom:180,px:20,py:70,sz:'2x2'});
 assert.match(camera,/object-position:center;transform:translate\(-30%,20%\) scale\(1.8\)/);
 // 不论照片原始比例或缩放多少，横向和纵向都直接平移，中心点保持不偏移。
@@ -86,6 +91,7 @@ const full=Array.from({length:24},(_,i)=>({id:'fill'+i,t:'w',k:'custom',w:1,h:1,
 coreStub.S.desk={pages:[full],dock:[]};
 const extra={id:'new-camera',t:'w',k:'ccdWide',w:4,h:2,p:{...liveDesk.WK.ccdWide.d}};
 assert.equal(liveDesk.addDeskWidget(extra,0),1);assert.equal(coreStub.S.desk.pages[0].length,24);assert.equal(pagesEl.scrollLeft,360);
+const beforeTap=page;coreStub.G.tap('',{dataset:{it:extra.id}});assert.equal(page,beforeTap,'非编辑模式点击组件不打开照片或设置');
 const make=id=>({id,t:'w',k:'ccd',w:4,h:2,p:{...liveDesk.WK.ccd.d}});
 const first=make('resize-first'),second=make('resize-second'),third=make('resize-third');
 coreStub.S.desk={pages:[[first,second,third]],dock:[]};

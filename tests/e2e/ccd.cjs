@@ -18,6 +18,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(cards.filter(x => x.startsWith('ccd:')).join() == 'ccd:2x2', 'CCD 只有一张卡片（2×2），大小加到桌面后再改');
   ok(await E(`!!document.querySelector('.sheet.wadd .wcard[data-k=ccd] img.ccd-body')`), '卡片里是实际渲染的相机预览');
   ok(cards.includes('ccdWide:4x2') && await E(`!!document.querySelector('.sheet.wadd [data-k=ccdWide] svg.cw-body')`), '新增横版 CCD 4×2 卡片，展示实际机壳');
+  ok(cards.includes('paint:3x3') && await E(`!!document.querySelector('.sheet.wadd [data-k=paint] svg.paint-chrome')`), '画图相框默认 3×3，卡片有实际预览');
   const chips = await E(`[...document.querySelectorAll('.sheet.wadd .szf b')].map(x => x.textContent)`);
   ok(chips[0] == '全部尺寸' && chips.includes('2×2') && chips.includes('2×1') && !chips.includes('4×4'), '顶上有尺寸筛选 ' + chips.join(' '));
   await E(`document.querySelector('.sheet.wadd .szf [data-x="2x1"]').click()`); await W(200);
@@ -52,10 +53,15 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const glassPad = await E(`(() => { const el = document.querySelector('.desk .it.ccd'), bg=el.querySelector('.ccd-bg').getBoundingClientRect(), cam=el.querySelector('.ccd-cam').getBoundingClientRect(); return [cam.left-bg.left,bg.right-cam.right,cam.top-bg.top,bg.bottom-cam.bottom]; })()`);
   ok(glassPad.every(x=>x>5) && Math.max(...glassPad)-Math.min(...glassPad)<1, '相机背景四周留白一致，不再只包住上下');
   ok(await E(`(() => { const page=document.querySelector('.desk .page');return getComputedStyle(page).gridTemplateRows.split(' ').length===6 && page.scrollHeight<=page.clientHeight+1 && getComputedStyle(page).overflowY==='hidden'; })()`), '桌面固定六行，没有纵向滚动');
-  // 点一下换照片
-  const [fc] = await Promise.all([p.waitForEvent('filechooser'), (async () => { await E(`document.querySelector('[data-a=edDone]').click()`); await W(300); await E(`document.querySelector('.desk .it.ccd').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=f]').click()`); })()]);
-  await fc.setFiles([{ name: 'p.jpg', mimeType: 'image/jpeg', buffer: fs.readFileSync(path.join(here, '../fixtures/still.jpg')) }]); await W(1500);
-  ok(await E(`!!core.S.desk.pages[0][0].p.img && !!document.querySelector('.desk .it.ccd .ccd-scr img')`), '点一下 CCD：换照片，照片显示在屏幕上');
+  // 普通点击没有上传动作；长按进入编辑后，在设置里更换照片。
+  await E(`document.querySelector('[data-a=edDone]').click()`);await W(300);
+  await E(`document.querySelector('.desk .it.ccd').click()`);await W(300);
+  ok(await E(`!document.querySelector('.sheet.in')`),'普通点击 CCD 不弹出上传菜单');
+  await E(`core.G.dlp('',document.querySelector('.desk .page'),new PointerEvent('pointerdown'));document.querySelector('.desk .it.ccd').click()`);await W(300);
+  const [fc] = await Promise.all([p.waitForEvent('filechooser'),(async()=>{await E(`document.querySelector('.sheet.in [data-a=img][data-x=img]').click()`);await W(200);await E(`document.querySelector('.sheet.mnu [data-x=f]').click()`);})()]);
+  await fc.setFiles([{name:'p.jpg',mimeType:'image/jpeg',buffer:fs.readFileSync(path.join(here,'../fixtures/still.jpg'))}]);await W(1500);
+  ok(await E(`!!core.S.desk.pages[0][0].p.img && !!document.querySelector('.desk .it.ccd .ccd-scr img')`),'编辑面板更换照片，桌面实时更新');
+  await E(`document.querySelector('.sheet.in:not(.mnu)')._pg.close();document.querySelector('[data-a=edDone]').click()`);await W(400);
   // 宽度填满屏幕的照片，放大后也应实际左右平移，而非仅修改无效的 object-position。
   const pan = await E(`(() => { const it = core.S.desk.pages[0][0]; const samples = [0,50,100].map(px => { Object.assign(it.p,{zoom:196,px,py:50}); dk.renderDesk(); const el = document.querySelector('.desk .ccd-scr img'), m = new DOMMatrix(getComputedStyle(el).transform); return m.m41; }); Object.assign(it.p,{zoom:100,px:50,py:50});dk.renderDesk();return samples; })()`);
   ok(pan[0] < 0 && Math.abs(pan[1]) < 1 && pan[2] > 0, '放大照片后，左右滑块确实平移图片');

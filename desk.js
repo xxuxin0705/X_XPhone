@@ -1,8 +1,9 @@
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
-import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickImg, pickFile, putMedia, toast } from './core.js';
+import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickFile, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
 import { wideHtml, WIDE_SILVER, wideSettings, mountWideVideos } from './apps/theme/ccd-wide.js';
 import { pageLayout, placeItem, fitPages, removeMoodNote } from './desk-layout.js';
+import { paintFrameHtml } from './apps/theme/paint-frame.js';
 import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
@@ -15,14 +16,16 @@ const bgF = m => [['bg', '背景', 'sel', CCD_BG], ...(!m.bg || m.bg == 'none' ?
 export const WK = {
   ccd: { n: 'CCD 相机', w: 2, h: 2, cls: 'ccd',
     f: m => [['img', '照片', 'img'], ['body', '机身颜色', 'color'], ['zoom', '照片缩放', 'range', [50, 300, '%']], ['px', '左右位置', 'range', [0, 100, '%']], ['py', '上下位置', 'range', [0, 100, '%']], ...bgF(m)],
-    d: { body: CCD_PINK, zoom: 100, px: 50, py: 50, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2), tap: it => ccdPhoto(it) },
+    d: { body: CCD_PINK, zoom: 100, px: 50, py: 50, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: (p, it) => ccdHtml(p, it?.w || 2, it?.h || 2) },
   ccdWide: { n: '横版 CCD 相机', w: 4, h: 2, cls: 'ccd-wide',
     f: m => [['body','机身颜色','color'], ['type','屏幕内容','sel',[['photo','照片'],['video','视频']]], ['img','照片 / 视频封面','img'],
       ...(m.type == 'video' ? [['videoTip',`<button class="btn" data-a="wideVideo">${m.video ? '替换视频' : '上传视频'}</button>${m.video ? '<button class="btn" data-a="wideVideoClear">清除视频</button>' : ''}`,'tip']] : []),
       ['zoom','照片 / 视频缩放','range',[50,300,'%']], ['px','左右位置','range',[0,100,'%']], ['py','上下位置','range',[0,100,'%']], ...bgF(m)],
     d: { body:WIDE_SILVER, type:'photo', video:'', zoom:100, px:50, py:50, bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60 },
-    r: wideHtml, after: mountWideVideos,
-    tap: it => { if(it.p.type != 'video') return ccdPhoto(it); ui.desk.querySelectorAll(`[data-it="${it.id}"] video`).forEach(v=>v.play?.().catch(()=>{})); } },
+    r: wideHtml, after: mountWideVideos },
+  paint: { n:'Windows 画图相框',w:3,h:3,cls:'paint-frame',
+    f:m=>[['img','照片','img'],['zoom','照片缩放','range',[50,300,'%']],['px','左右位置','range',[0,100,'%']],['py','上下位置','range',[0,100,'%']],...bgF(m)],
+    d:{zoom:100,px:50,py:50,bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60},r:paintFrameHtml },
   clock: { n: '时间', w: 2, h: 1, cls: 'clkw',
     f: m => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['h12', '12 小时制', 'tog'], ['lang', '语言', 'sel', [['zh', '中文'], ['en', 'English']]], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
       ['auto', '跟随主题配色', 'tog'], ...(m.auto === false ? [['c', '颜色', 'color'], ['a', '不透明度', 'range', [0, 100, '%']]] : []), ...bgF(m)],
@@ -100,8 +103,6 @@ function folder(it) {
     onClose: () => { it.name = $('.fd-n', s.el)?.value || it.name; clean(); },
   });
 }
-// CCD：点一下换照片
-async function ccdPhoto(it) { const v = await pickImg(1080, 'img'); if (v == null) return; const old = it.p.img; it.p.img = v || ''; save(); old && dropMedia(old); renderDesk(); }
 // 和桌面共用渲染器，保留选定的宽高比例；预览没有桌面编辑按钮或点击动作。
 const widgetPreview = (it, m) => {
   const K = WK[it.k], { sz, ...p } = m, [w, h] = sz.split('x').map(Number);
@@ -131,7 +132,7 @@ Object.assign(G, {
   dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it); },
   edDone: () => { edit = 0; ui.desk.classList.remove('edit'); clean(); },
   go: i => goPage(+i),
-  tap: (_, t) => { if (Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder') return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' ? openApp(it.app) : WK[it.k]?.tap?.(it); }, // 不在编辑时点组件：有自己的点击动作就执行（CCD 换照片）
+  tap: (_, t) => { if (Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder') return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); }, // 组件仅在长按进入编辑模式后可修改；普通点击不打开上传菜单。
   del: id => { const [l, i] = find(id), it = l[i]; dropMedia(it); it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
   wAdd: () => wAddSheet(),
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
