@@ -138,7 +138,7 @@ export function inlineSync(id) {
     else if (k == '拉群' && f[1]) d.groups.push({ name: f[1], members: String(f[2] || '').split(/[,，、]/).map(x => x.trim()).filter(x => x && !me(x)) });
     else if (k == '转账' && f.length >= 4) { const t = { type: 'transfer', amount: parseFloat(f[3]) || 0, text: rest(4) }; me(f[2]) ? d.msgs.push({ chat: f[1], from: f[1], ...t }) : me(f[1]) && d.msgs.push({ chat: f[2], from: u, ...t }); }
     else if (k == '拍一拍' && f[1] && !me(f[1])) d.msgs.push({ chat: f[1], from: f[1], type: 'pat', text: rest(2) || '拍了拍你' });
-    else if (k == '心情' && f[1] && f[2] && !me(f[1])) moods.push({ who: f[1], mood: f[2].trim(), say: rest(3) }); // 心屿
+    else if (k == '心情' && f[1] && f[2] && !me(f[1])) moods.push({ who: f[1], mood: f[2].trim(), say: (f[3] || '').trim(), world: f.slice(4).join(' ').trim() }); // 心屿：心情|谁|心情词|一句话|风景词
   }
   moods.length && emit('isle-mood', moods);
   const out = applyDelta(d); out.forEach(([ch, x]) => notify(ch, x));

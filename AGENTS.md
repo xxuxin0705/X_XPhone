@@ -57,10 +57,16 @@ apps/music/      音乐 App（界面从 yuzuki-phonetest 里作者自己的那�
   music-api.js     音源：vkeys 搜索 + Meting 播放 / 歌词 / 歌单 + 备用音源脚本
   music-share.js   和聊天联动：分享卡片、一起听会话
   music.css        音乐 App 自己的样式（打开时加载）
-apps/isle/       心屿：每个角色一座果冻球小岛，天气 = 心情，风景随机换
-  isle.js          数据和页面（心情、风景什么时候换）
-  globe.js         果冻球：软体外形、戳、拖着转（能翻过来）、拍一下乱弹
-  world.js         球里的 3D 世界：七种风景、心情天气（正交投影，按真实三维位置画）
+apps/isle/       心屿：每个角色一座果冻球里的 3D 小岛（three.js，打开时才加载 assets/three），天气 = 心情，风景随机换
+  isle.js          数据和页面（心情、风景什么时候换、AI 导演的风景词、按角色卡偏时代）
+  gen.js           风景配方（纯逻辑，Node 可测）：时代 × 气候 × 地形 × 地标套件 × 植物 × 动物 × 配色；hintOf 把风景词翻成配方，eraOf 认时代
+  jelly.js         果冻球：玻璃、软体变形、手势（戳、拖着转、翻面、双指缩放）、拍一下乱弹、画质自动降档
+  build.js         装配球里的世界：地形、烘焙 AO、水、天空、天气、粒子、动的零件
+  kits.js          建筑和道具套件（寺庙、神社、街道、学校、医院、咖啡馆、木屋……），按材质合并成少数网格
+  flora.js         植物：分枝生长的树 + 实例化叶片、草地、灌木、野花
+  mats.js          程序化材质：噪声 GLSL 注进 three.js 的 PBR 材质（草、岩、木、瓦、金属…），不用贴图
+  parts.js         零件累加器（按材质合并几何）
+assets/three/    three.js r170（MIT，带 LICENSE），只有心屿用
 apps/theme/      主题：壁纸、图标、气泡、小组件（时钟 clock、CCD 相机、吧唧 badge、画图相框）
 apps/settings/   设置：API、联动模式、时间、世界书、显示、日志、数据
 tests/           测试（见第五节）

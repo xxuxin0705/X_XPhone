@@ -28,15 +28,15 @@ const ALL = {
   ball: ['e2e/ball.cjs', '悬浮窗图标：12 个造型，主题美化里选（排在最前），设置 → 显示方式 显示当前的、可以换'],
   clk: ['e2e/clk.cjs', '时间样式：锁屏时间字体可选 / 日期在上或下 / 12・24 小时 / 中英文 / 粗细 / 颜色；桌面「时间」小组件'],
   music: ['e2e/music.cjs', '音乐 App：四个页签 / 播放页 / 摘录 / 歌单 / 心动模式 / 分享与一起听 / 角色邀请 / 正文音乐卡 / 音源地址 / 旧数据迁移'],
-  isle: ['e2e/isle.cjs', '心屿：心情天气 / 随机风景 / 戳 / 拖着转能翻过来 / 拍一下乱弹 / 潮汐记录'],
+  isle: ['e2e/isle.cjs', '心屿：心情天气 / 随机风景（时代 × 气候 × 地标套件）/ 戳 / 拖着转能翻过来 / 双指缩放 / 拍一下乱弹 / AI 导演按剧情选风景 / 潮汐记录', 1500e3], // 3D 用软件渲染，着色器编译慢，给它更长时间
   ccd: ['e2e/ccd.cjs', '桌面小组件：只剩 CCD；添加按尺寸筛选带预览；调整大小只能同比例；CCD 相机组件（机身颜色、照片、背景透明 / 毛玻璃 / 纯色 / 渐变 + 透明度、编辑模式换照片）'],
   prov: ['e2e/prov.cjs', '生图 / 语音服务商页：迁移、切换、快选拉取、Fish 网页接口、ElevenLabs'],
 };
 const pick = process.argv.slice(2).filter(k => ALL[k]), keys = pick.length ? pick : Object.keys(ALL);
 let bad = 0; const sum = [];
 for (const k of keys) {
-  const [f, d] = ALL[k]; process.stdout.write(`\n== ${k} · ${d}\n`);
-  const r = spawnSync(process.execPath, [path.join(__dirname, f)], { encoding: 'utf8', timeout: 300e3 });
+  const [f, d, to] = ALL[k]; process.stdout.write(`\n== ${k} · ${d}\n`);
+  const r = spawnSync(process.execPath, [path.join(__dirname, f)], { encoding: 'utf8', timeout: to || 300e3 });
   const out = (r.stdout || '') + (r.stderr || ''), m = out.match(/(\d+) passed, (\d+) failed/);
   out.split('\n').filter(l => /✗|errors?:|Error|FATAL/.test(l)).forEach(l => console.log(l));
   const okk = m && +m[2] == 0 && r.status == 0; okk || bad++;
