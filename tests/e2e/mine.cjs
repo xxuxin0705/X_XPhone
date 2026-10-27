@@ -97,12 +97,12 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR
   await E(`core.home()`); await W(300);
   // 4. 动态：真实姓名 + @网名；封面能换
   await E(`core.D().me.nick = '苹果'; core.S.style = 'kk'; core.APPS.chat.open()`); await W(500); await E(`document.querySelector('.chatapp.in [data-a=tab][data-x=feed]').click()`); await W(400);
-  ok(await E(`document.querySelector('.tw-h b').textContent`) == 'Moments' && await E(`!!document.querySelector('.tw-h .tw-r img')`), 'Kakao / LINE：动态页是 Moments，右上是我的头像（红圈）');
+  ok(await E(`document.querySelector('.ins-top b').textContent`) == 'Moments' && await E(`!!document.querySelector('.ins-top .ins-me img')`), 'Kakao / LINE：动态页是 Moments，右上是我的头像（红圈）');
   await E(`core.S.style = 'qq'; core.emit('chat')`); await W(400);
   ok(!(await E(`!!document.querySelector('.cv-tip')`)), '没封面时也不写「轻点设置封面」，直接点封面就能换');
-  await E(`document.querySelector('.qz-h').click()`); await W(300); await pick('u');
+  await E(`document.querySelector('.mz-head').click()`); await W(300); await pick('u');
   await p.fill('.sheet.in [data-k=u]', 'https://img.test/cover.png'); await p.press('.sheet.in [data-k=u]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(500);
-  ok(await E(`core.D().me.cover`) == 'https://img.test/cover.png' && /cover\.png/.test(await E(`document.querySelector('.qz-h').style.backgroundImage`)), '点封面换照片：立刻显示');
+  ok(await E(`core.D().me.cover`) == 'https://img.test/cover.png' && /cover\.png/.test(await E(`document.querySelector('.mz-head').style.getPropertyValue('--mz-cover')`)), '点封面换照片：立刻显示');
   await p.screenshot({ path: path.join(OUT, 'mine_d.png') });
   await E(`document.querySelector('.chatapp.in [data-a=tab][data-x=me]').click()`); await W(400);
   ok(/真实姓名：徐照临/.test(await E(`document.querySelector('.me-c').textContent`)) && !!(await E(`document.querySelector('[data-k=real]')`)), '「我」页：昵称（网名）和真实姓名分开，真实姓名默认用酒馆里的名字');

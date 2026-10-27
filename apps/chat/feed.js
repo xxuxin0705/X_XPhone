@@ -33,30 +33,30 @@ const ago = ts => { const s = (now() - ts) / 6e4, d = new Date(ts); return s < 1
 const OPEN = new Set(); // 点开了「查看翻译」的
 // 正文 / 评论文字：有译文就在后面放「查看翻译」，点开在下面多一行中文；这个人的私聊关了自动翻译就直接显示中文
 const tx = (t, tr, k, au) => { if (tr && au?.cfg?.trAuto === false) return esc(tr); const o = OPEN.has(k); return esc(t || '') + (tr ? ` <a class="f-tl" data-a="ftr" data-x="${k}">${o ? '收起翻译' : '查看翻译'}</a>${o ? `<span class="f-tz">${esc(tr)}</span>` : ''}` : ''); };
-const media = p => p.url ? `<img class="f-img" src="${esc(p.url)}" loading="lazy">` : p.imgd ? `<div class="picd">🖼 ${esc(p.imgd)}</div>` : '';
 const liked = p => p.likes.includes(nm(meObj()));
 const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))} <a class="f-r" data-a="crep" data-x="${p.id}|${i}">回复</a></div>`).join('');
-const lks = p => p.likes.length ? `<div class="f-lk">${FI.heartF}<span>${p.likes.map(dn).join('，')}</span></div>` : '';
 
 /* ---------- 三种样式的一条动态 ---------- */
-function postWx(p) { // 微信：毛玻璃卡片
-  const au = auOf(p), box = p.likes.length || p.cm.length;
-  return `<article class="fp wxp"><img class="av" src="${esc(avOf(au))}" data-a="pfeed" data-x="${p.a}"><div class="fp-m"><b class="f-n">${esc(nm(au))}</b><p class="fp-t">${tx(p.c, p.tr, p.id, au)}</p>${media(p)}
-<div class="fp-a"><time>${ago(p.ts)}</time><b class="fp-mo" data-a="pmore" data-x="${p.id}">${FI.more}</b></div>${box ? `<div class="fp-c">${lks(p)}${p.cm.length ? `<div class="f-cs">${cms(p)}</div>` : ''}</div>` : ''}</div></article>`;
+const imgs = p => p.url ? `<div class="mo-im"><img src="${esc(p.url)}" loading="lazy"></div>` : p.imgd ? `<div class="mo-im"><div class="picd">🖼 ${esc(p.imgd)}</div></div>` : '';
+const cmBox = p => p.likes.length || p.cm.length ? `<div class="mo-ia">${p.likes.length ? `<div class="mo-lk">${FI.heart}<span>${p.likes.map(dn).join('，')}</span></div>` : ''}${p.cm.length ? `<div class="mo-cs">${cms(p)}</div>` : ''}</div>` : '';
+function postWx(p) { // 微信朋友圈：白底列表，蓝名字，右下 ·· 按钮，灰底点赞评论区
+  const au = auOf(p);
+  return `<article class="mo wxm"><img class="av" src="${esc(avOf(au))}" data-a="pfeed" data-x="${p.a}"><div class="mo-m"><b class="mo-n" data-a="pfeed" data-x="${p.a}">${esc(nm(au))}</b>${p.c ? `<p class="mo-t">${tx(p.c, p.tr, p.id, au)}</p>` : ''}${imgs(p)}
+<div class="mo-f"><time>${ago(p.ts)}</time><b class="mo-ab" data-a="pmore" data-x="${p.id}">${FI.more}</b></div>${cmBox(p)}</div></article>`;
 }
-function postQq(p) { // QQ空间
+function postQq(p) { // QQ空间：圆头像 + 名字，正文，时间和 赞 / 评论 / 分享 同一行，下面“说点什么吧...”
   const au = auOf(p), me = meObj();
-  return `<article class="fp qqp"><div class="fp-h"><img class="av" src="${esc(avOf(au))}" data-a="pfeed" data-x="${p.a}"><b class="f-n">${esc(nm(au))}</b><b class="fp-mo" data-a="pmore" data-x="${p.id}">${FI.more}</b></div>
-<p class="fp-t">${tx(p.c, p.tr, p.id, au)}</p>${media(p)}<div class="fp-a"><time>${ago(p.ts)}</time><span class="fp-i"><b data-a="like" data-x="${p.id}" class="${liked(p) ? 'on' : ''}">${FI.thumb}</b><b data-a="cmt" data-x="${p.id}">${FI.cmt}</b><b data-a="pshare" data-x="${p.id}">${FI.share}</b></span></div>
-${lks(p)}${p.cm.length ? `<div class="f-cs">${cms(p)}</div>` : ''}<div class="qq-in" data-a="cmt" data-x="${p.id}"><img class="av" src="${esc(avOf(me))}">说点什么吧...</div></article>`;
+  return `<article class="mo qqm"><img class="av" src="${esc(avOf(au))}" data-a="pfeed" data-x="${p.a}"><b class="mo-n" data-a="pfeed" data-x="${p.a}">${esc(nm(au))}</b><b class="mo-ab" data-a="pmore" data-x="${p.id}">${FI.more}</b>
+${p.c ? `<p class="mo-t">${tx(p.c, p.tr, p.id, au)}</p>` : ''}${imgs(p)}<time>${ago(p.ts)}</time><span class="qq-acts"><b data-a="like" data-x="${p.id}" class="${liked(p) ? 'on' : ''}">${FI.thumb}</b><b data-a="cmt" data-x="${p.id}">${FI.cmt}</b><b data-a="pshare" data-x="${p.id}">${FI.share}</b></span>
+${cmBox(p)}<div class="qq-say" data-a="cmt" data-x="${p.id}"><img src="${esc(avOf(me))}"><span>说点什么吧...</span></div></article>`;
 }
-function postTw(p) { // Moments（Kakao / LINE）
-  const au = auOf(p), n = p.likes.length, lk = n ? `<p class="tw-lk">Liked by <b>${p.likes.slice(0, 2).map(dn).join(', ')}</b>${n > 2 || p.lx ? ` and <b>${(n > 2 ? n - 2 : 0) + (p.lx || 0)} others</b>` : ''}</p>` : '';
-  const only = !p.url && !p.imgd;
-  return `<article class="fp twp"><div class="fp-h"><i class="tw-r" data-a="pfeed" data-x="${p.a}"><img class="av" src="${esc(avOf(au))}"></i><b class="f-n">${esc(nm(au))}</b></div>
-${only ? `<div class="tw-card">${tx(p.c, p.tr, p.id, au)}</div>` : `<p class="fp-t">${tx(p.c, p.tr, p.id, au)}</p>${media(p)}`}
-<div class="tw-ic"><b data-a="like" data-x="${p.id}" class="${liked(p) ? 'on' : ''}">${liked(p) ? FI.heartF : FI.heart}</b><b data-a="cmt" data-x="${p.id}">${FI.ring}</b><i></i><b data-a="pshare" data-x="${p.id}">${FI.send}</b><b data-a="pgc" data-x="${p.id}">${FI.wand}</b><b data-a="pedit" data-x="${p.id}">${FI.edit}</b><b data-a="pdel" data-x="${p.id}">${FI.del}</b></div>
-${lk}${p.cm.length ? `<div class="f-cs">${cms(p)}</div>` : ''}<time class="tw-t">${ago(p.ts)}</time></article>`;
+function postTw(p) { // Moments：头像（红圈）+ 名字 → 文字卡片 / 大图 → 赞 评论 … 分享 魔法棒 编辑 删除 → Liked by → 评论 → 时间
+  const au = auOf(p), n = p.likes.length, t = p.c ? tx(p.c, p.tr, p.id, au) : '', has = p.url || p.imgd;
+  const lk = n ? `<div class="ins-lk">Liked by <b>${p.likes.slice(0, 2).map(dn).join(', ')}</b>${n > 2 || p.lx ? ` and <b>${(n > 2 ? n - 2 : 0) + (p.lx || 0)} others</b>` : ''}</div>` : '';
+  return `<article class="ins"><div class="ins-h"><i class="ins-av" data-a="pfeed" data-x="${p.a}"><img src="${esc(avOf(au))}"></i><b data-a="pfeed" data-x="${p.a}">${esc(nm(au))}</b></div>
+${has && t ? `<div class="ins-cap">${t}</div>` : ''}${has ? `<div class="ins-md">${p.url ? `<img src="${esc(p.url)}" loading="lazy">` : `<div class="picd">🖼 ${esc(p.imgd)}</div>`}</div>` : t ? `<div class="ins-card">${t}</div>` : ''}
+<div class="ins-acts"><b data-a="like" data-x="${p.id}" class="${liked(p) ? 'on' : ''}">${liked(p) ? FI.heartF : FI.heart}</b><b data-a="cmt" data-x="${p.id}">${FI.ring}</b><i></i><b class="sub" data-a="pshare" data-x="${p.id}">${FI.send}</b><b class="sub" data-a="pgc" data-x="${p.id}">${FI.wand}</b><b class="sub" data-a="pedit" data-x="${p.id}">${FI.edit}</b><b class="sub" data-a="pdel" data-x="${p.id}">${FI.del}</b></div>
+${lk}${p.cm.length ? `<div class="ins-cs">${cms(p)}</div>` : ''}<time class="ins-t">${ago(p.ts)}</time></article>`;
 }
 const ONE = { wx: postWx, qq: postQq, tw: postTw };
 
@@ -64,15 +64,15 @@ const ONE = { wx: postWx, qq: postQq, tw: postTw };
 const bg = u => u ? `style="background-image:url('${esc(u)}')"` : '';
 export function feed(aid, st = S.style) {
   const fs = FS[st], u = aid && aid != 'me' ? get(aid) : meObj(), mine = !aid || aid == 'me', ps = D().posts.filter(p => !aid || p.a == aid).sort((a, b) => b.ts - a.ts);
-  const cov = mine ? D().me.cover : u?.cover, cid = mine ? 'me' : aid, list = ps.map(ONE[fs]).join('') || '<p class="f-e">还没有动态</p>';
+  const cov = mine ? D().me.cover : u?.cover, cid = mine ? 'me' : aid, list = ps.map(ONE[fs]).join('') || `<p class="mo-e">${fs == 'tw' ? 'No posts yet' : '朋友圈空空如也'}</p>`;
   if (fs == 'wx' && aid) return album(u, aid, ps, cov);
-  if (fs == 'wx') return `<div class="feed f-wx2"><i class="f-bg" ${bg(D().me.fbg || cov)}></i><div class="fw2-cv" data-a="fcov" data-x="${cid}" ${bg(cov)}><b>${esc(nm(u))}</b><img class="av" src="${esc(avOf(u))}" data-a="myfeed"></div><div class="fw2-l">${list}</div></div>`;
+  if (fs == 'wx') { const fb = D().me.fbg; return `<div class="feed mz-wx ${fb ? 'has-bg' : ''}" ${bg(fb)}><div class="mo-cv" data-a="fcov" data-x="${cid}" ${bg(cov)}><div class="mo-cu"><b>${esc(nm(u))}</b><img src="${esc(avOf(u))}" data-a="myfeed"></div></div>${list}</div>`; }
   if (fs == 'qq') {
-    const me = D().me, n = D().posts.filter(p => p.a == (mine ? 'me' : aid)).length; me.qv ||= 1000 + Math.random() * 900 | 0;
-    return `<div class="feed f-qq2"><div class="qz-h" data-a="fcov" data-x="${cid}" ${bg(cov)}><div class="qz-u"><img class="av" src="${esc(avOf(u))}" data-a="${mine ? 'myfeed' : 'pfeed'}" data-x="${cid}"><div><b>${esc(nm(u))}</b><p><em class="qz-lv">LV${1 + (n / 5 | 0)}</em>${u?.sign ? `<em class="qz-sg">${esc(u.sign)}</em>` : ''}</p><small>${FI.eye}总量 ${me.qv + n * 37} · 说说 ${n}</small></div></div>
-${mine ? `<div class="qz-n"><b data-a="post">${FI.say}<span>说说</span></b><b data-a="post" data-x="img">${FI.img}<span>发图</span></b><b data-a="myfeed">${FI.book}<span>相册</span></b><b data-a="fgen">${FI.wand}<span>生成</span></b><b data-a="fmore">${FI.list}<span>更多</span></b></div><div class="qz-in" data-a="post">分享新鲜事...<b data-a="post" data-x="img">${FI.img}</b></div>` : ''}</div>${list}</div>`;
+    const n = D().posts.filter(p => p.a == cid).length, tot = ps.reduce((a, p) => a + 1 + p.likes.length + p.cm.length, 0) * 7 + 100, lv = Math.max(1, Math.min(64, (n / 3 | 0) + 1));
+    return `<div class="feed mz-qq"><div class="mz-head" data-a="fcov" data-x="${cid}" ${cov ? `style="--mz-cover:url('${esc(cov)}')"` : ''}><div class="mz-pf"><img class="mz-av" src="${esc(avOf(u))}" data-a="${mine ? 'myfeed' : 'pfeed'}" data-x="${cid}"><div class="mz-in"><b class="mz-nm">${esc(nm(u))}</b><p class="mz-bd"><em class="mz-lv">LV${lv}</em><em class="mz-tag">${esc(u?.sign || '这个人很懒，什么都没写')}</em></p><p class="mz-tot">${FI.eye}总量 <b>${tot}</b><i>·</i>说说 <b>${n}</b></p></div></div>
+${mine ? `<div class="mz-ics"><b data-a="post">${FI.say}<span>说说</span></b><b data-a="post" data-x="img">${FI.img}<span>发图</span></b><b data-a="myfeed">${FI.book}<span>相册</span></b><b data-a="fgen">${FI.wand}<span>生成</span></b><b data-a="fmore">${FI.list}<span>更多</span></b></div><div class="mz-share" data-a="post"><span>分享新鲜事...</span>${FI.img}</div>` : ''}</div>${list}</div>`;
   }
-  return `<div class="feed f-tw2"><div class="tw-h"><b>${mine ? 'Moments' : esc(nm(u))}</b><i class="tw-r" data-a="${mine ? 'myfeed' : 'fcov'}" data-x="${cid}"><img class="av" src="${esc(avOf(u))}"></i></div>${list}</div>`;
+  return `<div class="feed mz-tw"><div class="ins-top"><b>${mine ? 'Moments' : esc(nm(u))}</b><i class="ins-me" data-a="${mine ? 'myfeed' : 'fcov'}" data-x="${cid}"><img src="${esc(avOf(u))}"></i></div>${list}</div>`;
 }
 // 个人朋友圈（仿微信「个人相册」）：深色封面 + 名字头像，按天分组，左边日期、右边灰底文字 / 配图
 const dayOf = ts => { const d = new Date(ts), t = now(), y = new Date(+t - 864e5); return d.toDateString() == t.toDateString() ? ['今天'] : d.toDateString() == y.toDateString() ? ['昨天'] : [String(d.getDate()).padStart(2, '0'), d.getMonth() + 1 + '月']; };
@@ -133,7 +133,7 @@ export const FA = {
   pfeed: id => openFeed(id), myfeed: () => openFeed('me'),
   post: async x => { const r = await form('发表动态', [['c', '这一刻的想法...', 'area'], ['url', '配图', 'img']]); if (!r?.c && !r?.url) return; D().posts.unshift({ id: uid(), a: 'me', c: r.c || '', url: r.url, ts: +now(), likes: [], cm: [] }); saveD(); emit('chat'); },
   fgen: (x, t, e, pg) => genDlg(pg?.aid && pg.aid != 'me' ? pg.aid : ''),
-  apost: id => { const p = P(id); p && page({ title: '详情', live: 1, cls: 'feedpg', body: () => P(id) ? `<div class="feed f-wx2 one">${postWx(P(id))}</div>` : '<p class="f-e">已删除</p>', acts: FA }); },
+  apost: id => { const p = P(id); p && page({ title: '详情', live: 1, cls: 'feedpg', body: () => P(id) ? `<div class="feed mz-wx one">${postWx(P(id))}</div>` : '<p class="mo-e">已删除</p>', acts: FA }); },
   amore: async (x, t, e, pg) => { const k = await menu(pg.aid == 'me' ? [['post', '发朋友圈'], ['fgen', '生成动态']] : [['fgen', `让${esc(nm(get(pg.aid)))}发条朋友圈`]]); k && FA[k](x, t, e, pg); },
 };
 export function openFeed(aid) {
