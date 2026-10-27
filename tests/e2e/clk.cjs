@@ -62,8 +62,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(() => { core.home(); core.S.lock.on = false; core.S.desk.pages = [[]]; core.save(); dk.renderDesk(); core.G.dlp('', document.querySelector('.desk .page'), new PointerEvent('pointerdown')); })()`); await W(200);
   await E(`document.querySelector('[data-a=wAdd]').click()`); await W(500);
   const cards = await E(`[...document.querySelectorAll('.sheet.wadd .wcard[data-k=clock]')].map(x => x.dataset.sz)`);
-  ok(cards.join(',') == '2x1', '添加小组件里「时间」只有一张（2×1） ' + cards);
-  ok(await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock] .wc-s').textContent == '2×1' && getComputedStyle(document.querySelector('.sheet.wadd .wcard[data-k=clock] .wc-s')).color != 'rgba(0, 0, 0, 0)'`), '尺寸标签看得见');
+  ok(cards.join(',') == '4x2', '添加小组件里「时间」只有一张（4×2） ' + cards);
+  ok(await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock] .wc-s').textContent == '4×2' && getComputedStyle(document.querySelector('.sheet.wadd .wcard[data-k=clock] .wc-s')).color != 'rgba(0, 0, 0, 0)'`), '尺寸标签看得见');
   await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock]').click()`); await W(600);
   await E(`core.G.dlp('', document.querySelector('.desk .page'), new PointerEvent('pointerdown')); document.querySelector('[data-a=wAdd]').click()`); await W(500);
   await E(`document.querySelector('.sheet.wadd .wcard[data-k=clock]').click()`); await W(600);
@@ -76,8 +76,20 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`!document.querySelector('.sheet.in [data-a=ok]')`), '时间组件实时应用，不需要保存');
   ok(/SF Pro Rounded/.test(await E(`[...document.querySelectorAll('.sheet.in select[data-k=font] option')].map(o => o.textContent).join()`)), '小组件的字体里也有上传的字体');
   ok(/字体[\s\S]*日期位置[\s\S]*12 小时制[\s\S]*语言[\s\S]*跟随主题配色[\s\S]*背景/.test(tx) && !/粗细/.test(tx), '小组件设置：字体、日期位置、12 小时制、语言、配色、背景（没有粗细）');
-  ok(!/背景颜色|渐变第二色|背景不透明度|不透明度/.test(tx) && !(await E(`!!document.querySelector('.sheet.in [data-k=c]')`)), '背景透明、跟随主题配色时：不显示颜色、渐变、不透明度');
+  ok(!/背景颜色|渐变第二色|背景不透明度/.test(tx) && await E(`!!document.querySelector('.sheet.in [data-k=c]')`), '字体颜色始终可选，透明背景不显示背景颜色');
   const setSel = (k, v) => E(`(() => { const s = document.querySelector('.sheet.in [data-k=${k}]'); s.type == 'checkbox' ? (s.checked = ${JSON.stringify(v)}) : (s.value = ${JSON.stringify(v)}); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await E(`core.D().plot = { t: new Date(2001, 1, 3, 4, 5).getTime(), at: Date.now() }; core.S.time = 'real'`);
+  await setSel('source', 'story'); await W(100);
+  ok(await E(`document.querySelector('.form-preview .clk-t').textContent === '04:05' && core.S.desk.pages[0][0].p.source === 'story'`), '组件独立跟随剧情时间并保存');
+  await setSel('source', 'real'); await W(100);
+  ok(await E(`document.querySelector('.form-preview .clk-t').textContent === core.hm(new Date())`), '切回现实时间实时预览');
+  await E(`window.colorNodes = [document.querySelector('.sheet.in .pg-b'), document.querySelector('.form-preview .clk'), document.querySelector('.desk .it.clkw')]; window.colorMutations = []; window.colorObserver = new MutationObserver(rs => colorMutations.push(...rs)); colorObserver.observe(colorNodes[0], { childList: true, subtree: true });`);
+  for (const color of ['#00ff00', '#0000ff', '#ff00ff', '#ffff00']) await setSel('c', color);
+  await W(100);
+  ok(await E(`colorMutations.length === 0 && colorNodes[0] === document.querySelector('.sheet.in .pg-b') && colorNodes[1] === document.querySelector('.form-preview .clk') && colorNodes[2] === document.querySelector('.desk .it.clkw')`), '连续取色不重建面板、预览或桌面节点');
+  await E(`colorObserver.disconnect()`);
+  await setSel('c', '#ff0000'); await W(100);
+  ok(await E(`core.S.desk.pages[0][0].p.auto === false && getComputedStyle(document.querySelector('.form-preview .clk-t')).color === 'rgb(255, 0, 0)'`), '直接选颜色自动关闭主题配色并应用');
   await setSel('bg', 'solid'); await W(200);
   let tx2 = await E(`document.querySelector('.sheet.in').textContent`);
   ok(/背景颜色/.test(tx2) && !/渐变第二色/.test(tx2) && await E(`document.querySelector('.sheet.in [data-k=bgA]').type == 'range'`), '选纯色：出现背景颜色 + 不透明度滑块，没有渐变色');
@@ -93,5 +105,11 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`(() => { const c = document.querySelector('.desk .it.clkw .clk'); return c.lastElementChild.classList.contains('clk-d') && /xp-fredoka/.test(getComputedStyle(c.querySelector('.clk-t')).fontFamily); })()`), '小组件改成日期在下、软糖字体');
   await E(`document.querySelector('[data-a=edDone]').click()`); await W(300);
   await p.locator('#stp .desk').screenshot({ path: path.join(OUT, 'clk_desk.png') });
+  await E(`core.openApp('settings')`); await W(400);
+  ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display === 'none' && getComputedStyle(document.querySelector('.stack .pg')).paddingTop === '0px'`), '应用隐藏状态栏且不留顶部空隙');
+  await E(`core.page({title:'测试子页',body:()=>''}); core.back()`); await W(400);
+  ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display === 'none'`), '子页返回应用仍隐藏状态栏');
+  await E(`core.home()`); await W(400);
+  ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display !== 'none'`), '回到桌面恢复状态栏');
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();
 

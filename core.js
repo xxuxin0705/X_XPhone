@@ -58,7 +58,7 @@ export const say = m => { if (/^(song|listen|minv)$/.test(m.t)) return mzSay(m);
 
 /* ---------- 时间：跟随剧情 / 现实 ---------- */
 export const hm = d => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-export function now() { const p = D().plot; return S.time == 'story' && p ? new Date(p.t + Math.min(Date.now() - p.at, 108e5)) : new Date(); }
+export function now(source = S.time) { const p = D().plot; return source == 'story' && p ? new Date(p.t + Math.min(Date.now() - p.at, 108e5)) : new Date(); }
 export function scanTime(s) {
   const t = [...String(s).matchAll(/(\d{1,2})[:：](\d{2})/g)].filter(m => m[1] < 24 && m[2] < 60).pop(), d = [...String(s).matchAll(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})[日号]/g)].pop();
   if (!t && !d) return; const b = now(); d && (d[1] && b.setFullYear(+d[1]), b.setMonth(d[2] - 1, +d[3])); t && b.setHours(+t[1], +t[2]);
@@ -90,9 +90,9 @@ function mk(o, cls, box) {
   o.re(); box.append(el); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in'))); return o;
 }
 const close = o => { o.el.classList.remove('in'); o.onClose?.(); setTimeout(() => o.el.remove(), 330); };
-export const page = o => (stack.push(o), mk(o, 'pg', ui.stack));
+export const page = o => (stack.push(o), ui.scr?.classList.add('app-open'), mk(o, 'pg', ui.stack));
 export const top = () => stack.at(-1);
-export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
+export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); ui.scr?.classList.toggle('app-open', stack.length > 0); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
 export const home = () => { while (stack.length) back(true); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };
@@ -156,9 +156,9 @@ export const fx = m => {
 export const form = (title, fields, obj = {}, ext = {}, chg, opt = {}) => new Promise(res => {
   const m = structuredClone(obj), f = fx(m); let done;
   const preview = v => opt.preview ? `<div class="form-preview">${opt.preview(v)}</div>` : '';
-  const refreshPreview = v => { const el = $('.form-preview', s.el); if (el) { el.innerHTML = opt.preview(v); opt.after?.(s.el); } };
-  const s = sheet({ title, cls: opt.preview ? 'has-preview' : '', noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => { opt.live?.(m); chg?.(k, v, m, s); opt.preview && refreshPreview(m); },
-    after: el => { opt.after?.(el); if (opt.preview) el.oninput = e => { const t = e.target, k = t.dataset.k; if (!k || t.closest('.form-preview')) return; const draft = opt.live ? m : structuredClone(m); setP(draft, k, t.type == 'checkbox' ? t.checked : ['number', 'range'].includes(t.type) ? +t.value : t.value); opt.live?.(m); refreshPreview(draft); }; },
+  const refreshPreview = (v, k) => { const el = $('.form-preview', s.el); if (el && !opt.patchPreview?.(v, el, k)) { el.innerHTML = opt.preview(v); opt.after?.(s.el); } };
+  const s = sheet({ title, cls: opt.preview ? 'has-preview' : '', noBack: 1, model: () => m, save: () => {}, onChange: (k, v) => { opt.live?.(m, k); chg?.(k, v, m, s); opt.preview && refreshPreview(m, k); },
+    after: el => { opt.after?.(el); if (opt.preview) el.oninput = e => { const t = e.target, k = t.dataset.k; if (!k || t.closest('.form-preview')) return; const draft = opt.live ? m : structuredClone(m); setP(draft, k, t.type == 'checkbox' ? t.checked : ['number', 'range'].includes(t.type) ? +t.value : t.value); opt.live?.(m, k); refreshPreview(draft, k); }; },
     body: () => preview(m) + (typeof fields == 'function' ? fields(m) : fields).map(([k, l, t = 'text', o]) => t == 'tip' ? `<p class="tip">${l}</p>` : t == 'img' ? f.img(k, l) : t == 'area' ? f.area(k, l, o) : t == 'sel' ? f.sel(k, l, o) : t == 'tog' ? f.tog(k, l) : t == 'range' ? `<label class="row rg"><span>${l}</span><input type="range" data-k="${k}" min="${o[0]}" max="${o[1]}" value="${esc(m[k] ?? o[0])}" data-u="${o[2] || ''}"><em>${esc(m[k] ?? o[0])}${o[2] || ''}</em></label>` : t == 'multi' ? f.multi(k, l, o) : t == 'pull' ? `<div class="row"><span>${l}</span><input data-k="${k}" value="${esc(m[k])}" placeholder="${esc(o || '')}"><b class="pull" data-a="pull" data-x="${k}">拉取</b></div>` : f.inp(k, l, t, o)).join('') + (opt.live ? '' : btn('ok', '保存', '', 'pri')), acts: { ...ext, ok: () => { done = 1; s.close(); res(m); drop(obj); } }, onClose: () => { if (done) return; if (opt.live) { opt.live(m); drop(obj); res(m); } else { drop(m); res(null); } } });
 });
 // 可折叠、长按拖拽排序的分组

@@ -6,7 +6,7 @@ import { liquid } from './glass.js';
 import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS } from './desk-layout.js';
 import { paintFrameHtml, mountPaintPhotos, fitPaintZoom } from './apps/theme/paint-frame.js';
 import { badgeHtml, badgeFields, BADGE_DEFAULT } from './apps/theme/badge.js';
-import { clkHtml, clkFonts, CLK_DEF } from './apps/theme/clock.js';
+import { clkHtml, clkFonts, clkStyle, CLK_DEF } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
 // 尺寸：只能按原比例放大缩小（2×2 → 1×1 / 3×3 / 4×4；2×1 → 4×2），最大 4 格
@@ -30,10 +30,10 @@ export const WK = {
   paint: { n:'Windows 画图相框',w:3,h:3,cls:'paint-frame',
     f:m=>[['img','照片','img'],['zoom','照片缩放','range',[1,300,'%']],['photoFit','<button class="btn" data-a="paintFit">显示完整图片</button><button class="btn" data-a="paintCover">填满相框</button>','tip'],['px','左右位置','range',[0,100,'%']],['py','上下位置','range',[0,100,'%']],...bgF(m)],
     d:{zoom:100,px:50,py:50,bg:'none',bgC:'#ffffff',bgC2:'#ffd6e7',bgA:60},r:paintFrameHtml,after:mountPaintPhotos },
-  clock: { n: '时间', w: 2, h: 1, cls: 'clkw',
-    f: m => [['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['h12', '12 小时制', 'tog'], ['lang', '语言', 'sel', [['zh', '中文'], ['en', 'English']]], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
-      ['auto', '跟随主题配色', 'tog'], ...(m.auto === false ? [['c', '颜色', 'color'], ['a', '不透明度', 'range', [0, 100, '%']]] : []), ...bgF(m)],
-    d: { ...CLK_DEF, bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: p => `<div class="ccd-bg" style="${ccdBg(p)}"></div>${clkHtml(p, now())}` },
+  clock: { n: '时间', w: 4, h: 2, cls: 'clkw',
+    f: m => [['source', '时间来源', 'sel', [['real', '现实时间'], ['story', '剧情时间']]], ['font', '字体', 'sel', clkFonts().map(([k, n]) => [k, n])], ['pos', '日期位置', 'sel', [['top', '在时间上面'], ['bot', '在时间下面']]], ['h12', '12 小时制', 'tog'], ['lang', '语言', 'sel', [['zh', '中文'], ['en', 'English']]], ['al', '对齐', 'sel', [['c', '居中'], ['l', '靠左'], ['r', '靠右']]],
+      ['auto', '跟随主题配色', 'tog'], ['c', '字体颜色', 'color'], ['a', '不透明度', 'range', [0, 100, '%']], ...bgF(m)],
+    d: { ...CLK_DEF, source: 'real', bg: 'none', bgC: '#ffffff', bgC2: '#ffd6e7', bgA: 60 }, r: p => `<div class="ccd-bg" style="${ccdBg(p)}"></div>${clkHtml(p, now(p.source || S.time))}` },
   custom: { n: '自定义组件', w: 2, h: 2, f: [['html', 'HTML / CSS（支持 {{time}} {{date}} {{week}} {{user}} {{char}}）', 'area']], r: p => p.html || '' },
 };
 const def = () => ({ pages: [[W('clock', 4, 2, { ...WK.clock.d }), W('ccd', 2, 2, { ...WK.ccd.d }), A('isle')]], dock: [A('chat'), A('music'), A('theme'), A('settings')] });
@@ -185,7 +185,7 @@ const widgetPreview = (it, m) => {
   return `<div class="wedit-preview"><div class="wedit-pv-head"><span>样式预览</span><small>${w}×${h}</small></div><div class="wedit-stage"><div class="wprev" style="width:min(100%,${Math.min(w * 72, 210 * w / h)}px);aspect-ratio:${w}/${h}"><div class="it wg w${w} h${h} k-${it.k} ${K.cls || ''}">${tpl(K.r(p, { ...it, w, h }))}</div></div></div></div>`;
 };
 async function editW(it) {
-  const K = WK[it.k], apply = m => { const { sz, ...p } = m; [it.w, it.h] = sz.split('x').map(Number); it.p = p; const page = S.desk.pages.findIndex(list=>list.includes(it)); if(page>=0)cur = placeItem(S.desk.pages,it,page); save(); renderDesk(); };
+  const K = WK[it.k], apply = (m, key) => { if (it.k === 'clock' && (m.c !== (it.p?.c ?? K.d.c) || m.a !== (it.p?.a ?? K.d.a))) m.auto = false; const { sz, ...p } = m; if (it.k === 'clock' && ['c', 'a', 'auto'].includes(key)) { it.p = p; const node = [...ui.desk.querySelectorAll('[data-it]')].find(el => el.dataset.it === it.id)?.querySelector('.clk'); if (node) node.style.cssText = clkStyle(p); save(); return; } [it.w, it.h] = sz.split('x').map(Number); it.p = p; const page = S.desk.pages.findIndex(list=>list.includes(it)); if(page>=0)cur = placeItem(S.desk.pages,it,page); save(); renderDesk(); };
   const videoActs = {
     wideVideo: async (_, t, e, pg) => { const file = await pickFile('video/*'); if(!file) return; if(file.size > 40e6) return toast('视频超过 40MB，请选择小一点的视频'); try { const value = await putMedia(file,'widget'); if(!pg.el.isConnected) { dropMedia(value); return; } const m = pg.model(), old = m.video; m.video = value; apply(m); pg.reb(); old && dropMedia(old); } catch { toast('视频上传失败，请重试'); } },
     wideVideoClear: (_, t, e, pg) => { const m=pg.model(), old=m.video; m.video='';apply(m);pg.reb();old && dropMedia(old); },
@@ -199,7 +199,7 @@ async function editW(it) {
     paintFit: (_, t, e, pg) => { const m=pg.model(),img=$('.form-preview .paint-photo>img',pg.el);if(!img?.naturalWidth)return;Object.assign(m,{zoom:fitPaintZoom(img),px:50,py:50});apply(m);pg.reb(); },
     paintCover: (_, t, e, pg) => { const m=pg.model();Object.assign(m,{zoom:100,px:50,py:50});apply(m);pg.reb(); },
   };
-  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : it.k == 'paint' ? paintActs : ['badgeRound','badgeHeart'].includes(it.k) ? {img:paintActs.img} : {}, (k, v, m, s) => ['bg', 'auto', 'type'].includes(k) && s.reb(), { preview: m => widgetPreview(it, m), live: apply, after: K.after });
+  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, ...(it.k === 'clock' ? { source: it.p?.source || S.time } : {}), sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : it.k == 'paint' ? paintActs : ['badgeRound','badgeHeart'].includes(it.k) ? {img:paintActs.img} : {}, (k, v, m, s) => { if (it.k === 'clock' && ['c', 'a', 'auto'].includes(k)) { const toggle = s.el.querySelector('[data-k=auto]'); if (toggle) toggle.checked = m.auto; return; } if (['bg', 'auto', 'type'].includes(k)) s.reb(); }, { patchPreview: (m, el, k) => { if (it.k !== 'clock' || !['c', 'a', 'auto'].includes(k)) return false; const clock = el.querySelector('.clk'); if (!clock) return false; clock.style.cssText = clkStyle(m); return true; }, preview: m => widgetPreview(it, m), live: apply, after: K.after });
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
 const CELL = 64; // 预览里一格的边长

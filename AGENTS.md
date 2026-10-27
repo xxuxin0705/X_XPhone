@@ -10,7 +10,7 @@ SillyTavern（酒馆）扩展：在酒馆页面里放一部虚拟手机，有桌
 ## 一、作者定下的规矩（必须遵守）
 
 **工作方式**
-- 每轮做完直接推 `main`（不开 PR）。不止一个 AI 在推这个仓库，所以：**动手前先 `git pull`，推之前跑 `node tests/run.cjs` 全部通过**，推送失败就先 pull 再合并，不要强推。
+- 每轮做完提交并推送到 `GPT` 分支，等待用户要求再合并到 `main`（不开 PR）。不止一个 AI 在推这个仓库，所以：**动手前先 `git pull`，推之前只运行本次修改及直接受影响功能的测试，通过后推送**，推送失败就先 pull 再合并，不要强推。
 - 提交作者邮箱用 noreply（`git -c user.email=...noreply...`），**不要用真实邮箱**——仓库是公开的。也不要提交任何密钥、token、个人路径。
 - 回复用中文，讲清楚为什么这么做。
 
@@ -128,7 +128,7 @@ tests/           测试（见第五节）
 
 ## 五、测试
 
-- `node tests/run.cjs` 跑全部；`node tests/run.cjs music isle` 只跑几组。推之前必须全部通过。
+- `node tests/run.cjs music isle` 按改动范围选择测试组，不默认运行全量测试。修改部分及直接受影响流程测试通过后推送；只有用户要求时才运行 `node tests/run.cjs` 全量测试。
 - `tests/unit/*.mjs`：纯逻辑（Node 直接跑）。`tests/e2e/*.cjs`：Playwright + 模拟酒馆 `tests/e2e/st.html`，外网接口一律 `page.route` 模拟。
 - 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8815，新文件用 8816 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
 - 模拟 AI：`core.S.api.chat.src = 'tavern'` 后替换 `SillyTavern.getContext().generateRaw`。

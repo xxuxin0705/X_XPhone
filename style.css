@@ -79,7 +79,7 @@
 /* ---------- 页面 / 通用组件 ---------- */
 .stack{position:absolute;inset:0;z-index:20;pointer-events:none}
 .pg,.pg-b{touch-action:pan-y}
-.pg{isolation:isolate;position:absolute;inset:0;padding-top:var(--sbh);display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s var(--ease-drawer);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
+.pg{isolation:isolate;position:absolute;inset:0;padding-top:0;display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s var(--ease-drawer);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
 .pg.in{transform:none}
 .pg-h{flex:none;display:flex;align-items:center;gap:6px;height:42px;padding:0 12px}
 .pg-back,.pg-r>b{display:grid;place-items:center;min-width:30px;height:32px;color:var(--ac);cursor:pointer;font-weight:500}
@@ -1120,3 +1120,6 @@
 .is-playbar button:active{transform:scale(.97)}
 .is-playbar button:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.is-playbar button:active{transform:none}}
+
+/* 应用使用完整高度，桌面与锁屏保留状态栏。 */
+.stp-scr.app-open:not(.locked) > .sb{display:none}

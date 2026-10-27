@@ -20,9 +20,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(cards.includes('ccdWide:4x2') && await E(`!!document.querySelector('.sheet.wadd [data-k=ccdWide] svg.cw-body')`), '新增横版 CCD 4×2 卡片，展示实际机壳');
   ok(cards.includes('paint:3x3') && await E(`!!document.querySelector('.sheet.wadd [data-k=paint] svg.paint-chrome')`), '画图相框默认 3×3，卡片有实际预览');
   const chips = await E(`[...document.querySelectorAll('.sheet.wadd .szf b')].map(x => x.textContent)`);
-  ok(chips[0] == '全部尺寸' && chips.includes('2×2') && chips.includes('2×1') && !chips.includes('4×4'), '顶上有尺寸筛选 ' + chips.join(' '));
-  await E(`document.querySelector('.sheet.wadd .szf [data-x="2x1"]').click()`); await W(200);
-  ok(await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].every(x => x.dataset.sz == '2x1')`), '点 2×1：只剩 2×1 的卡片');
+  ok(chips[0] == '全部尺寸' && chips.includes('2×2') && chips.includes('4×2') && !chips.includes('4×4'), '顶上有尺寸筛选 ' + chips.join(' '));
+  await E(`document.querySelector('.sheet.wadd .szf [data-x="4x2"]').click()`); await W(200);
+  ok(await E(`[...document.querySelectorAll('.sheet.wadd .wcard')].every(x => x.dataset.sz == '4x2')`), '点 4×2：只剩 4×2 的卡片');
   await E(`document.querySelector('.sheet.wadd .szf [data-x=""]').click()`); await W(200);
   ok(await E(`dk.sizes(2, 1).map(x => x.join('x')).join(',') == '2x1,4x2' && dk.sizes(4, 1).map(x => x.join('x')).join(',') == '4x1' && dk.sizes(1, 2).map(x => x.join('x')).join(',') == '1x2,2x4'`), '比例规则：2×1 → 4×2，4×1 只有自己，1×2 → 2×4');
   await E(`document.querySelector('.sheet.wadd .wcard[data-k=ccd][data-sz="2x2"]').click()`); await W(800);
