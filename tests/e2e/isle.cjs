@@ -49,7 +49,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelectorAll('.is-who b')[1].click()`); await ready(); // 切回夏油杰，后面接着测他
   const seen = await E(`(() => { const c = new Set(), m = new Set(), e = new Set(); for (let i = 0; i < 300; i++) { const r = gen.makeRecipe(i * 7919 + 3); c.add(r.climate); m.add(r.mark); e.add(r.era); } return [c.size, m.size, e.size]; })()`);
   ok(seen[0] >= 11 && seen[1] >= 17 && seen[2] == 3, `随机不限定几种：300 次抽到 ${seen[0]} 种气候、${seen[1]} 种地标、${seen[2]} 个时代`);
-  ok(!(await E(`document.querySelector('.isle').textContent`)).match(/听风竹林|体感|花眠花园|果冻/) && !(await E(`!!document.querySelector('.is-bubble, .is-dot, [data-a=ismotion], [data-a=islandscape]')`)), '没有果冻颜色、风景选择、体感按钮和冒字气泡');
+  ok(!(await E(`document.querySelector('.isle').textContent`)).match(/听风竹林|体感|花眠花园|果冻/) && !(await E(`!!document.querySelector('.is-bubble, .is-dot, [data-a=ismotion], [data-a=islandscape]')`)), '没有果冻颜色、风景选择、体感按钮');
   // 戳：按住不动就在那里凹进去，松手弹回来
   const r = await p.locator('.isle canvas').boundingBox(), cx = r.x + r.width / 2, cy = r.y + r.height * .5;
   await p.mouse.move(cx + 40, cy - 10); await p.mouse.down(); await E('J().advance(.5)');
@@ -83,11 +83,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(!(await G()).body.air, '弹几下之后落回原地');
   ok(await E(`localCalls === 0`) && errs.length == 0, '戳、转、拍、缩放都不调用模型，也没有报错');
   // AI 导演：看看 TA 现在 带回风景词 → 岛按剧情拼；正文心情行第五段也是风景
-  await E(`SillyTavern.getContext().generateRaw = async () => '{"mood":"安心","scene":"night","say":"今晚不想回去。","sea":0.2,"world":"雪原 木屋 松树 炉火 小狐狸"}'`);
+  await E(`SillyTavern.getContext().generateRaw = async () => '{"mood":"安心","scene":"night","say":"今晚不想回去。","sea":0.2,"voices":["炉火好暖","再待一会儿"],"world":"雪原 木屋 松树 炉火 小狐狸"}'`);
   await E(`document.querySelector('[data-a=islook]').click()`); await W(600);
   const w1 = JSON.parse(await wd('_b.id'));
   ok(w1.climate == 'snow' && w1.mark == 'cabin' && await E(`core.D().isle.by[_b.id].world.animals.includes('fox') && core.D().isle.by[_b.id].world.extras.includes('bonfire')`), '看看 TA 现在：「雪原 木屋 松树 炉火 小狐狸」→ 雪原、木屋、篝火、小狐狸');
-  await E(`(() => { const c = SillyTavern.getContext(); c.chat.push({ mes: '雨停了。\\n<手机>\\n心情|五条悟|雀跃|明天也来。|古寺 求签 枫叶 香炉 钟声\\n</手机>', is_user: false }); c.eventSource.emit('mr', c.chat.length - 1, 'normal'); })()`); await W(300);
+  // 点一下球：冒出一句心声（跟心情一起生成的，不调模型）
+  await p.mouse.click(cx, cy); await W(400);
+  ok(/炉火好暖|再待一会儿/.test(await E(`document.querySelector('.is-voice')?.textContent || ''`)) && await E('localCalls === 0'), '点一下球：冒出 TA 的一句心声（水玻璃气泡，跟心情一起生成，不另外调模型）');
+  await E(`(() => { const c = SillyTavern.getContext(); c.chat.push({ mes: '雨停了。\\n<手机>\\n心情|五条悟|雀跃|明天也来。|古寺 求签 枫叶 香炉 钟声|签是大吉／想吃团子\\n</手机>', is_user: false }); c.eventSource.emit('mr', c.chat.length - 1, 'normal'); })()`); await W(300);
   const w2 = JSON.parse(await wd('_a.id'));
   ok(await E(`core.D().isle.by[_a.id].mood == '雀跃' && core.D().isle.by[_a.id].say == '明天也来。'`) && w2.climate == 'autumn' && w2.mark == 'temple' && w2.era == 'ancient', '正文心情行第五段的风景词：「古寺 求签 枫叶 香炉」→ 枫林 · 古寺（古风）');
   ok(JSON.stringify(await E(`gen.hintOf('现代 深夜便利店 路灯 雨 自动贩卖机')`)).includes('"mark":"street"') && (await E(`gen.hintOf('医院走廊 消毒水')`)).mark == 'hospital' && (await E(`gen.hintOf('学校操场 夕阳')`)).mark == 'school', '剧情在便利店 / 医院 / 学校 → 对应的街道、医院、学校套件');

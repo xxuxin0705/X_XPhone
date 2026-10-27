@@ -1115,6 +1115,11 @@
 @media(prefers-reduced-motion:reduce){.is-who b{transition:none}}
 
 /* 心屿：本地互动气泡与景观选择 */
+.is-voice{position:absolute;z-index:3;max-width:min(72%,240px);padding:10px 15px;border-radius:20px;pointer-events:none;color:#2f4a43;font-size:calc(13px*var(--fz,1));line-height:1.5;text-align:center;text-shadow:0 0 8px #fff,0 0 2px #fffc;background:linear-gradient(150deg,#ffffff70,#ffffff1f 55%,#ffffff40);border:1px solid #ffffff99;box-shadow:inset 0 1px 1px #fff,inset 0 -6px 14px #ffffff26,0 10px 26px -14px #1e323c66;-webkit-backdrop-filter:blur(7px) saturate(1.35);backdrop-filter:blur(7px) saturate(1.35);opacity:0;transform:translate(-50%,-100%) translateY(8px) scale(.95);transform-origin:50% 100%;transition:opacity .25s var(--ease-out,ease-out),transform .25s var(--ease-out,ease-out)}
+.is-voice:before{content:'';position:absolute;left:14%;top:5px;width:34%;height:7px;border-radius:50%;background:linear-gradient(#ffffffd0,#fff0);opacity:.8}
+.is-voice.on{opacity:1;transform:translate(-50%,-100%) translateY(-4px) scale(1)}
+.is-voice.off{opacity:0;transform:translate(-50%,-100%) translateY(-26px) scale(1.02);transition-duration:.9s}
+@media(prefers-reduced-motion:reduce){.is-voice,.is-voice.on,.is-voice.off{transform:translate(-50%,-100%)}}
 .is-playbar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:18px 12px 20px}
 .is-playbar button{border:1px solid var(--is-line,#cdd5c5);background:transparent;color:var(--is-ink,#456b5e);border-radius:14px;padding:9px 13px;min-height:44px;font:inherit;font-size:calc(12px*var(--fz,1));cursor:pointer}
 .is-playbar button:active{transform:scale(.97)}

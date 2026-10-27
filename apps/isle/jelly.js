@@ -169,7 +169,7 @@ export async function jelly(cv, getState, opts = {}) {
         const p = hit(e); if (!p) return;
         const g = S.grabAt(p, .6); if (!g) return; // 抓的范围大一点，拉出来更圆润
         cam.getWorldDirection(camDir); plane.setFromNormalAndCoplanarPoint(camDir, tv.fromArray(p));
-        press = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: 'poke', hit: p, rayDir: ray.ray.direction.toArray(), depth: 0, g, drag: null };
+        press = { id: e.pointerId, at: performance.now(), x0: e.clientX, y0: e.clientY, mode: 'poke', hit: p, rayDir: ray.ray.direction.toArray(), depth: 0, g, drag: null };
     });
     listen(el, 'pointermove', e => {
         if (fingers.has(e.pointerId)) fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -182,7 +182,8 @@ export async function jelly(cv, getState, opts = {}) {
     const up = e => {
         if (e?.pointerId != null) fingers.delete(e.pointerId); if (fingers.size < 2) pinch = null;
         if (!press || (e?.pointerId != null && e.pointerId !== press.id)) return;
-        endPress();
+        const tap = press.mode === 'poke' && performance.now() - press.at < 350 && e?.type === 'pointerup'; // 轻点（不是按住、不是拖）
+        endPress(); if (tap) opts.onTap?.(e.clientX, e.clientY);
     };
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) listen(el, ev, up);
     listen(el, 'wheel', e => { e.preventDefault(); zoomTo(zfT * (1 + Math.sign(e.deltaY) * .12)); idleAt = performance.now(); }, { passive: false });
