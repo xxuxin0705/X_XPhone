@@ -1,7 +1,8 @@
+import { MOMENTS_PROMPT, normalizeMoments } from './feed-generation.js';
 // 聊天 · 动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）+ 个人相册 + 生成动态弹窗
 // 角色的动态和评论在同一次生成里带上 [翻译]（tr），点「查看翻译」展开；不额外调用
-import { S, D, saveD, esc, uid, page, sheet, menu, form, toast, nm, rn, avOf, meObj, now, llm, json, sysCtx, task, emit, drop, pickImg, ok } from '../../core.js';
-import { get, find, isMe, applyDelta, sty, FS, FN, lname } from './data.js';
+import { S, D, saveD, esc, uid, page, sheet, menu, form, toast, nm, rn, avOf, meObj, now, llm, json, sysCtx, task, emit, drop, pickImg, ok, genImg } from '../../core.js';
+import { get, find, isMe, sty, FS, FN, lname } from './data.js';
 
 const sv = (d, f) => `<svg viewBox="0 0 24 24" ${f ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'}>${d}</svg>`;
 export const FI = {
@@ -34,10 +35,12 @@ const OPEN = new Set(); // 点开了「查看翻译」的
 // 正文 / 评论文字：有译文就在后面放「查看翻译」，点开在下面多一行中文；这个人的私聊关了自动翻译就直接显示中文
 const tx = (t, tr, k, au) => { if (tr && au?.cfg?.trAuto === false) return esc(tr); const o = OPEN.has(k); return esc(t || '') + (tr ? ` <a class="f-tl" data-a="ftr" data-x="${k}">${o ? '收起翻译' : '查看翻译'}</a>${o ? `<span class="f-tz">${esc(tr)}</span>` : ''}` : ''); };
 const liked = p => p.likes.includes(nm(meObj()));
-const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))} <a class="f-r" data-a="crep" data-x="${p.id}|${i}">回复</a></div>`).join('');
+const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))} <a class="f-r" data-a="crep" data-x="${p.id}|${i}">回复</a> <a class="f-r" data-a="fcdel" data-x="${p.id}|${i}">删除</a></div>`).join('');
 
 /* ---------- 三种样式的一条动态 ---------- */
-const imgs = p => p.url ? `<div class="mo-im"><img src="${esc(p.url)}" loading="lazy"></div>` : p.imgd ? `<div class="mo-im"><div class="picd">🖼 ${esc(p.imgd)}</div></div>` : '';
+const postImages = p => p.images?.length ? p.images : p.url ? [{url:p.url}] : p.imgd ? [{description:p.imgd}] : [];
+const imgs = p => { const list=postImages(p); return list.length ? `<div class="mo-images n${list.length}">${list.map((v,i)=>`<button type="button" class="mo-photo" data-a="fphoto" data-x="${p.id}|${i}">${v.url ? `<img src="${esc(v.url)}" loading="lazy" alt="${esc(v.description || '动态配图')}">` : `<span>${FI.img}<small>${esc(v.description || v.prompt)}</small></span>`}</button>`).join('')}</div>${p.location ? `<div class="mo-location">${esc(p.location)}</div>` : ''}` : p.location ? `<div class="mo-location">${esc(p.location)}</div>` : ''; };
+
 const cmBox = p => p.likes.length || p.cm.length ? `<div class="mo-ia">${p.likes.length ? `<div class="mo-lk">${FI.heart}<span>${p.likes.map(dn).join('，')}</span></div>` : ''}${p.cm.length ? `<div class="mo-cs">${cms(p)}</div>` : ''}</div>` : '';
 function postWx(p) { // 微信朋友圈：白底列表，蓝名字，右下 ·· 按钮，灰底点赞评论区
   const au = auOf(p);
@@ -51,10 +54,10 @@ ${p.c ? `<p class="mo-t">${tx(p.c, p.tr, p.id, au)}</p>` : ''}${imgs(p)}<time>${
 ${cmBox(p)}<div class="qq-say" data-a="cmt" data-x="${p.id}"><img src="${esc(avOf(me))}"><span>说点什么吧...</span></div></article>`;
 }
 function postTw(p) { // Moments：头像（红圈）+ 名字 → 文字卡片 / 大图 → 赞 评论 … 分享 魔法棒 编辑 删除 → Liked by → 评论 → 时间
-  const au = auOf(p), n = p.likes.length, t = p.c ? tx(p.c, p.tr, p.id, au) : '', has = p.url || p.imgd;
+  const au = auOf(p), n = p.likes.length, t = p.c ? tx(p.c, p.tr, p.id, au) : '', has = postImages(p).length;
   const lk = n ? `<div class="ins-lk">Liked by <b>${p.likes.slice(0, 2).map(dn).join(', ')}</b>${n > 2 || p.lx ? ` and <b>${(n > 2 ? n - 2 : 0) + (p.lx || 0)} others</b>` : ''}</div>` : '';
   return `<article class="ins"><div class="ins-h"><i class="ins-av" data-a="pfeed" data-x="${p.a}"><img src="${esc(avOf(au))}"></i><b data-a="pfeed" data-x="${p.a}">${esc(nm(au))}</b></div>
-${has && t ? `<div class="ins-cap">${t}</div>` : ''}${has ? `<div class="ins-md">${p.url ? `<img src="${esc(p.url)}" loading="lazy">` : `<div class="picd">🖼 ${esc(p.imgd)}</div>`}</div>` : t ? `<div class="ins-card">${t}</div>` : ''}
+${has && t ? `<div class="ins-cap">${t}</div>` : ''}${has ? `<div class="ins-md">${imgs(p)}</div>` : t ? `<div class="ins-card">${t}</div>` : ''}
 <div class="ins-acts"><b data-a="like" data-x="${p.id}" class="${liked(p) ? 'on' : ''}">${liked(p) ? FI.heartF : FI.heart}</b><b data-a="cmt" data-x="${p.id}">${FI.ring}</b><i></i><b class="sub" data-a="pshare" data-x="${p.id}">${FI.send}</b><b class="sub" data-a="pgc" data-x="${p.id}">${FI.wand}</b><b class="sub" data-a="pedit" data-x="${p.id}">${FI.edit}</b><b class="sub" data-a="pdel" data-x="${p.id}">${FI.del}</b></div>
 ${lk}${p.cm.length ? `<div class="ins-cs">${cms(p)}</div>` : ''}<time class="ins-t">${ago(p.ts)}</time></article>`;
 }
@@ -78,7 +81,7 @@ ${mine ? `<div class="mz-ics"><b data-a="post">${FI.say}<span>说说</span></b><
 const dayOf = ts => { const d = new Date(ts), t = now(), y = new Date(+t - 864e5); return d.toDateString() == t.toDateString() ? ['今天'] : d.toDateString() == y.toDateString() ? ['昨天'] : [String(d.getDate()).padStart(2, '0'), d.getMonth() + 1 + '月']; };
 function album(u, aid, ps, cov) {
   const days = []; ps.forEach(p => { const k = new Date(p.ts).toDateString(), l = days.at(-1); l && l.k == k ? l.ps.push(p) : days.push({ k, d: dayOf(p.ts), ps: [p] }); });
-  const it = p => `<div class="al-p ${p.url ? 'im' : ''}" data-a="apost" data-x="${p.id}">${p.url ? `<img src="${esc(p.url)}">` : ''}<p>${esc(p.tr && auOf(p).cfg?.trAuto === false ? p.tr : p.c || (p.imgd ? '[图片] ' + p.imgd : ''))}</p></div>`;
+  const it = p => { const first=postImages(p)[0]?.url; return `<div class="al-p ${first ? 'im' : ''}" data-a="apost" data-x="${p.id}">${first ? `<img src="${esc(first)}">` : ''}<p>${esc(p.tr && auOf(p).cfg?.trAuto === false ? p.tr : p.c || (p.imgd ? '[图片] ' + p.imgd : ''))}</p></div>`; };
   return `<div class="album"><div class="al-cv" data-a="fcov" data-x="${aid}" ${bg(cov)}><b>${esc(nm(u))}</b><img class="av" src="${esc(avOf(u))}"></div><p class="al-sg">${esc(u?.sign || '这个人很神秘，什么也没留下~')}</p>
 ${days.map(g => `<div class="al-d"><div class="al-t"><b>${g.d[0]}</b>${g.d[1] ? `<small>${g.d[1]}</small>` : ''}</div><div class="al-l">${g.ps.map(it).join('')}</div></div>`).join('') || `<p class="al-e">${aid == 'me' ? '你' : 'TA'} 还没有发过朋友圈</p>`}</div>`;
 }
@@ -87,38 +90,67 @@ export const feedRight = () => `<b data-a="fgen">${FI.wand}</b><b data-a="post">
 
 /* ---------- 生成动态：选条数、必定出现的人、只让选中的人发 ---------- */
 const friends = () => D().chats.filter(c => c.type == 'p' && c.fr !== 0);
+let generating = false;
+const pendingComments = new Set();
 function genDlg(pre) {
+  if (generating) return toast('正在生成中，请稍等');
+  if (!friends().length) return toast('请先添加联系人');
   const st = { n: 3, sel: new Set(pre ? [pre] : []), only: !!pre };
   const sum = () => { const ns = [...st.sel].map(i => nm(get(i))).filter(Boolean); return `${st.n} 条，${!ns.length ? '随机挑人发' : st.only ? `只让 ${ns.join('、')} 发` : `${ns.join('、')} 必定出现，其余随机`}`; };
   const s = sheet({
     title: '生成动态', noBack: 1, cls: 'gdlg', body: () => `<h6>生成条数</h6><div class="gd-n">${[1, 2, 3, 4, 5, 6, 8, 10].map(n => `<b data-a="gdn" data-x="${n}" class="${st.n == n ? 'on' : ''}">${n}</b>`).join('')}</div>
 <h6>必定出现的人 <small>不选 = 随机</small></h6><div class="gd-p">${friends().map(c => `<div data-a="gdp" data-x="${c.id}" class="${st.sel.has(c.id) ? 'on' : ''}"><img src="${esc(avOf(c))}"><span>${esc(nm(c))}</span></div>`).join('')}</div>
 <div class="gd-o ${st.only ? 'on' : ''}" data-a="gdo"><i></i>只让选中的人发</div><p class="gd-s">${esc(sum())}</p><div class="gd-b"><button data-a="gdx">取消</button><button class="pri" data-a="gdg">生成</button></div>`,
-    acts: { gdn: n => { st.n = +n; s.re(); }, gdp: id => { st.sel.has(id) ? st.sel.delete(id) : st.sel.add(id); s.re(); }, gdo: () => { st.only = !st.only; s.re(); }, gdx: () => s.close(), gdg: () => { s.close(); genFeed(st); } },
+    acts: { gdn: n => { st.n = +n; s.re(); }, gdp: id => { st.sel.has(id) ? st.sel.delete(id) : st.sel.add(id); if(st.sel.size > st.n) st.n = Math.min(10, st.sel.size); s.re(); }, gdo: () => { if (!st.sel.size) return; st.only = !st.only; s.re(); }, gdx: () => s.close(), gdg: () => { s.close(); genFeed(st); } },
   });
 }
 // 每个人用什么语言写（跟他私聊里的「角色消息翻译为」）：外语正文 + 中文译文一起生成
 const langRule = L => { const r = L.map(c => [c, c.cfg?.lang]).filter(([, l]) => l && l != 'zh-TW'); return r.length ? `【语言】${r.map(([c, l]) => `${rn(c)}用${lname(l)}`).join('；')}：这些人的正文和评论 text 直接用该语言写，tr 写简体中文译文（贴合说话人的人设、口癖和语气，口语自然）；其他人用中文，tr 留空。` : '【语言】都用简体中文，tr 留空。'; };
-const JS = '{"posts":[{"author":"真实姓名","text":"正文","tr":"","img":"配图画面描述(可空)","likes":["名字"],"comments":[{"from":"名字","text":"","tr":"","to":"回复谁(可空)"}]}]}';
+
 function genFeed(st) {
-  const ns = [...st.sel].map(get).filter(Boolean), who = !ns.length ? '从联系人里挑合适的人发' : st.only ? `只能由这些人发：${ns.map(rn).join('、')}` : `这些人每人至少发一条：${ns.map(rn).join('、')}，其余从联系人里挑`;
-  task('正在生成动态', async sg => {
-    const ps = json(await llm(await sysCtx(), `生成 ${st.n} 条贴合人设与当前剧情的${FN[S.style]}动态。${who}。可附带其他联系人的点赞和评论，评论之间可以互相回复（to 写被回复的人），可以提到${meObj().nick}。\n${langRule(friends())}\n只输出JSON：${JS}`, '生成动态', sg))?.posts;
-    if (!Array.isArray(ps)) throw Error('返回格式不对'); applyDelta({ posts: ps }); return `新增 ${ps.length} 条动态`;
+  if (generating) return;
+  const data = D(), selected = [...st.sel].map(get).filter(Boolean), names=selected.map(rn), contacts=friends();
+  if(!contacts.length)return toast('请先添加联系人');
+  generating = true;
+  const prompt = MOMENTS_PROMPT.replaceAll('{{currentStoryTime}}', now().toLocaleString('zh-CN')).replaceAll('{{memoryInfo}}','以提供的剧情和世界书为准').replaceAll('{{contactsInfo}}',contacts.map(c=>`${rn(c)}：${c.desc || c.sign || ''}`).join('；')).replaceAll('{{user}}',nm(meObj()));
+  return task('正在生成动态', async sg => {
+    try {
+      const only = st.only && names.length > 0;
+      const result = json(await llm(await sysCtx(), `${prompt}\n${langRule(contacts)}\n【本次数量】只生成 ${st.n} 条动态。\n【配图不是必须的】很多动态只发文字，images 写空数组。\n${names.length ? only ? '【指定发布者】只能由这些好友发布：'+names.join('、') : '【必定出现】这些好友必须各发至少一条：'+names.join('、') : ''}`, '生成动态', sg));
+      if(D() !== data) throw Error('聊天已切换，本次结果未写入');
+      const posts=normalizeMoments(result,contacts,{n:st.n,names,only},nm(meObj()),+now());
+      if(!posts.length)throw Error('这次没有生成出内容，再试一次吧');
+      const split = text => { const m=String(text).match(/^([\s\S]*?)\s*\[翻译[:：]([^\]]*)\]\s*$/);return m ? [m[1].trim(),m[2].trim()] : [text,'']; };
+      const added=posts.map(p=> { const [c,tr]=split(p.text); return {id:uid(),a:contacts.find(c=>[rn(c),nm(c)].includes(p.author)).id,c,tr:p.tr||tr,ts:p.ts,location:p.location,images:p.images.map(v=>/^https?:\/\/|^data:image\/|^\//.test(v)?{url:v}:{description:v,prompt:(v.match(/[（(]([^（）()]*)[）)]\s*$/)?.[1] || v)}),likes:p.likes,cm:p.comments.map(v=>{const [c,tr]=split(v.text);return {f:v.from,c,tr:v.tr||tr,...(v.to?{to:v.to}:{})};})}; });
+      data.posts.unshift(...added); saveD();emit('chat');return `新增 ${added.length} 条动态`;
+    } finally {generating=false;}
   });
 }
 // 给一条动态生成 / 续写评论（我评论后、或点魔法棒）
 function genCmt(p, why) {
-  const au = auOf(p), L = friends();
-  task('正在生成评论', async sg => {
+  if (pendingComments.has(p.id)) return toast('正在生成评论');
+  const data = D(), au = auOf(p), L = friends();
+  pendingComments.add(p.id);
+  return task('正在生成评论', async sg => {
+    try {
     const r = json(await llm(await sysCtx(), `${p.a == 'me' ? meObj().nick : rn(au)}发了动态：“${p.c}”${p.tr ? `（${p.tr}）` : ''}\n已有评论：${p.cm.map(c => `${nm(who(c.f))}${c.to ? '回复' + nm(who(c.to)) : ''}：${c.c}`).join('；') || '无'}\n${why}\n${langRule(L)}\n只输出JSON：{"comments":[{"from":"名字","text":"","tr":"","to":"回复谁(可空)"}],"likes":["名字"]}`, '动态评论', sg));
-    r?.comments?.forEach(c => c.text && p.cm.push({ f: c.from, c: c.text, tr: c.tr || '', ...(c.to && { to: c.to }) })); r?.likes?.forEach(n => n && !p.likes.includes(n) && p.likes.push(n)); saveD(); emit('chat'); return '收到评论';
+    if(D() !== data || !data.posts.includes(p)) return '动态已删除或聊天已切换';
+    const allowed = new Set(L.flatMap(c=>[rn(c),nm(c)]));
+    r?.comments?.filter(c=>allowed.has(c.from))?.forEach(c => c.text && p.cm.push({ f: c.from, c: c.text, tr: c.tr || '', ...(c.to && { to: c.to }) })); r?.likes?.filter(n=>allowed.has(n))?.forEach(n => n && !p.likes.includes(n) && p.likes.push(n)); saveD(); emit('chat'); return '收到评论';
+    } finally {pendingComments.delete(p.id);}
   });
 }
 
 /* ---------- 操作 ---------- */
 const share = async p => { const to = await menu(D().chats.filter(c => c.fr !== 0 || c.type == 'g').map(c => [c.id, esc(nm(c))]), '分享到…'); const T = to && get(to); if (!T) return; const n = nm(auOf(p)); T.msgs.push({ f: 'me', t: 'rec', c: `${n}的${FN[S.style]}`, rec: [{ n, c: p.c + (p.tr ? `（${p.tr}）` : '') }], ts: +now() }); saveD(); emit('chat'); toast(`已分享给 ${nm(T)}`); };
 export const FA = {
+  fphoto: async value => { const [id,index]=value.split('|'), p=P(id), image=p && postImages(p)[+index];if(!image)return;
+    if(image.url)return page({title:'图片',cls:'feed-image',body:()=>`<img class="feed-full-image" src="${esc(image.url)}" alt="动态配图">`});
+    const choice=await menu([['description','查看图片描述'],['generate','生成图片']]);
+    if(choice==='description')return page({title:'图片描述',body:()=>`<p>${esc(image.description || image.prompt)}</p>`});
+    if(choice==='generate')return task('生成动态配图',async sg=>{const data=D(),url=await genImg(image.prompt || image.description,sg,'chat');if(D()!==data||!data.posts.includes(p)) {drop(url);return '动态已删除';} if(!p.images?.length)p.images=postImages(p);p.images[+index]={...image,url};saveD();emit('chat');return '图片已生成';});
+  },
+  fcdel: async value => {const [id,index]=value.split('|'),p=P(id);if(!p || !await ok('删除这条评论？'))return;p.cm.splice(+index,1);saveD();emit('chat');},
   fcov: async (x, t, e, pg) => { const o = x == 'me' ? D().me : get(x); if (!o) return; const v = await pickImg(1080, 'cover'); if (v == null) return; drop(o.cover); o.cover = v; saveD(); emit('chat'); pg?.re?.(); },
   fmore: async () => { const k = await menu([['cov', '换封面'], ['bg', '换动态背景']]); if (!k) return; const v = await pickImg(1080, 'cover'); if (v == null) return; const m = D().me, f = k == 'cov' ? 'cover' : 'fbg'; drop(m[f]); m[f] = v; saveD(); emit('chat'); },
   ftr: k => { OPEN.has(k) ? OPEN.delete(k) : OPEN.add(k); emit('chat'); },
