@@ -139,7 +139,7 @@ export async function jelly(cv, getState, opts = {}) {
         if (air) { S.walls = { x: rm.x, top: rm.top }; if (S.ke < .02 && S.c[1] < .15) { if ((calm += dt) > .5) { air = false; S.gravity = 0; S.tether = 0; S.walls = null; idleAt = performance.now(); } } else calm = 0; }
         else S.tether = Math.min(1, S.tether + dt * 2); // 落地后慢慢把绳子拴回去
         if (air && S.c[1] < .02) landed = true;
-        S.damp = air ? (landed ? 4 : 1.5) : press ? 2 : 10; // 拖着时灵活；摇一摇第一次落地后就收住，只再小弹一下；一松手回弹一两下就停
+        S.damp = air ? (landed ? 2.5 : 1.2) : press ? 2 : 3; // 拖着时灵活；摇一摇第一次落地后就收住，只再小弹一下；一松手回弹一两下就停
         S.step(Math.min(dt, 1 / 30));
         // 放着不动：像不倒翁一样慢慢立回来，再慢慢自转
         if (!press && !air && performance.now() - idleAt > 1500) {

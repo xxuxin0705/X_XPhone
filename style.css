@@ -1118,6 +1118,8 @@
 .is-h[role=button]{cursor:pointer;-webkit-tap-highlight-color:transparent}.is-h.msel{align-items:flex-start}.is-h.msel.on{background:color-mix(in srgb,var(--ac) 7%,transparent);border-radius:14px}
 .is-h .ck{flex:none;width:22px;height:22px;margin-top:6px;border-radius:50%;border:1.6px solid #c4c4c7;box-shadow:none;display:grid;place-items:center;transition:background-color .15s,border-color .15s}.is-h.on .ck{background:var(--ac);border-color:var(--ac)}.is-h.on .ck::after{content:'\2713';color:#fff;font-size:calc(13px*var(--fz,1));font-weight:700}
 .isle-history .is-h.msel:before{display:none}
+.is-peek{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 12px 8px;padding:7px 8px 7px 14px;border-radius:14px;background:color-mix(in srgb,var(--ac) 10%,transparent);color:var(--is-ink,#456b5e);font-size:calc(12px*var(--fz,1))}
+.is-peek button{border:0;border-radius:10px;padding:6px 11px;min-height:32px;background:var(--ac);color:#fff;font:inherit;cursor:pointer}.is-peek button:active{transform:scale(.97)}
 .is-voice{position:absolute;z-index:3;width:0;height:0;pointer-events:none}
 .is-vb{position:absolute;left:0;bottom:0;width:max-content;max-width:210px;padding:10px 16px 11px;border-radius:22px;translate:-50% 0;color:#21352f;font-size:calc(13px*var(--fz,1));line-height:1.5;text-align:center;opacity:0;will-change:transform,opacity;
   background:radial-gradient(120% 100% at 50% 55%,#ffffffb8 0 45%,#ffffff70 75%,#ffffff2e 100%);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);
@@ -1134,4 +1136,4 @@
 @media(prefers-reduced-motion:reduce){.is-playbar button:active{transform:none}}
 
 /* 应用里状态栏还在（右上角能直接关手机），只是矮一点、字小一点，少占地方。 */
-.stp-scr.app-open:not(.locked) > .sb{height:calc(var(--sbh) * .68);padding-top:0;font-size:12px}
+.stp-scr.app-open:not(.locked) > .sb,.stp-scr.locked > .sb{height:calc(var(--sbh) * .68);padding-top:0;font-size:12px} /* 锁屏也一样矮 */

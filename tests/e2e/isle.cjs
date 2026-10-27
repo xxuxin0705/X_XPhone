@@ -38,8 +38,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 风景：每座岛一座随机拼的岛（时代 × 气候 × 地形 × 地标套件…），切换角色 / 重新打开 / 心情变化都会换
   const wd = id => E(`JSON.stringify((({ climate, terrain, mark, era }) => ({ climate, terrain, mark, era }))(core.D().isle.by[${id}].world))`);
   ok(JSON.parse(await wd('_b.id')).climate && /·/.test(await E(`document.querySelector('.is-caption').textContent`)), '每座岛都有一座风景（标题里写着气候 · 地标）');
-  let changed = 0; for (let i = 0; i < 4; i++) { const was = await wd('_b.id'); await E(`core.home(); core.openApp('isle')`); await W(80); changed += (await wd('_b.id')) != was; }
-  ok(changed == 4, '每次打开心屿都换一座岛'); await ready(); await p.waitForFunction('J().frames > 1', null, { timeout: 180000 });
+  let changed = 0; for (let i = 0; i < 3; i++) { const was = await wd('_b.id'); await E(`core.home(); core.openApp('isle')`); await W(80); changed += (await wd('_b.id')) != was; }
+  ok(changed == 0, '重开心屿岛不变（只有心情更新才换，花 API 生成的地点不会被随机掉）'); await ready(); await p.waitForFunction('J().frames > 1', null, { timeout: 180000 });
   const pg0 = await E('PROG()'); for (let i = 0; i < 2; i++) { await E(`core.home(); core.openApp('isle')`); await ready(); await p.waitForFunction('J().frames > 1', null, { timeout: 180000 }); }
   await E(`document.querySelectorAll('.is-who b')[0].click()`); await ready(); await p.waitForFunction('J().frames > 1', null, { timeout: 180000 });
   ok(await E('PROG()') <= pg0 + 1, `重开、切角色都不重新编译着色器（程序数 ${pg0} → ${await E('PROG()')}）`);
