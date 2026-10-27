@@ -18,8 +18,11 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAKElEQVR
   const vis = () => E(`(() => { const g = document.querySelector('.chat .go'); const v = s => getComputedStyle(g.querySelector(s)).display != 'none'; return (v('.s-send') ? 'send' : '') + (v('.s-stop') ? 'stop' : '') + (v('.s-reply') ? 'reply' : ''); })()`);
   const type = async t => { await p.fill('.chat .ip', t); await E(`document.querySelector('.chat .ip').dispatchEvent(new Event('input'))`); };
   ok(await vis() == 'reply' && await E(`document.querySelectorAll('.chat .go svg').length`) == 3, '输入框空着：按钮是 ✦（让对方回复）');
-  await type('在吗'); ok(await vis() == 'send', '打了字：变成发送');
-  await p.click('.chat .go'); await p.waitForTimeout(200);
+  const wx = await E(`!!document.querySelector('.chat.st-wx')`), ws = () => E(`getComputedStyle(document.querySelector('.chat .wsend')).display != 'none' && getComputedStyle(document.querySelector('.chat [data-x=more]')).display == 'none'`);
+  ok(!wx || !(await ws()), '微信风格空输入：没有发送键，只有 ＋');
+  await type('在吗'); ok(wx ? await ws() : await vis() == 'send', '打了字：变成发送');
+  await p.click(wx ? '.chat .wsend' : '.chat .go'); await p.waitForTimeout(200);
+  ok(!wx || !(await ws()), '发完：发送键收回，变回 ＋');
   ok(await vis() == 'reply' && nReq == 0, '发出去后：不会自动回复，按钮回到 ✦');
   await p.screenshot({ path: path.join(OUT, 'send_a.png') });
   await type('有事找你'); await p.keyboard.press('Enter'); await p.waitForTimeout(300);

@@ -258,18 +258,29 @@
 .st-wx{--br:4px;--ibg:#f7f7f7;--wxtf:#fa9d3b}
 .st-wx.dark{--ibg:#1e1e1e}
 .st-wx .bub{padding:9px 11px;box-shadow:none}
-.st-wx.sh-def .bub::before{top:12px;left:-3.5px;width:9px;height:9px;border-radius:1px}
+/* 单行气泡正好和 40px 头像一样高，尾巴对准头像中线 */
+.st-wx .bub{box-sizing:border-box;min-height:40px;line-height:22px}
+.st-wx.sh-def .bub::before{top:15.5px;left:-3.5px;width:9px;height:9px;border-radius:1px}
 .st-wx.sh-def .me .bub::before{left:auto;right:-3.5px}
 .st-wx .pic{border-radius:4px}
 .st-wx .ib{background:var(--ibg);border-top:.5px solid rgba(0,0,0,.07);padding:7px 8px 22px;gap:6px}
 .st-wx .ib button{width:32px;height:36px;border-radius:4px}
 .st-wx .ib svg{width:28px;height:28px}
 #stp .st-wx .ip{border-radius:4px;min-height:36px;padding:8px 10px}
-.st-wx .ib .go{width:44px;height:32px;margin-bottom:2px;border-radius:4px}
-.st-wx .ib .go svg{width:17px;height:17px}
+/* 微信底栏：[✦让对方回] [输入框] [表情] [＋]；有字时 ＋ 换成绿色“发送”，发完变回来 */
+.ib .wsend{display:none!important}
+.st-wx .ib .go{order:-1;width:34px;height:36px;background:none;color:var(--t1);animation:none}
+.st-wx .ib .go::before{content:'';position:absolute;width:25px;height:25px;border:1.7px solid currentColor;border-radius:50%;box-sizing:border-box}
+.st-wx .ib .go{position:relative}
+#stp .st-wx .go .s-send{display:none!important}#stp .st-wx .go:not(.wait) .s-reply{display:block;width:14px;height:14px}#stp .st-wx .go.wait .s-stop{display:block;width:15px;height:15px}#stp .st-wx .go.wait .s-reply{display:none}
+.st-wx .ib .go.wait{color:var(--sac)}
+.st-wx .ib [data-x=stk]{order:1}.st-wx .ib [data-x=more]{order:2}
+.st-wx .ib.has [data-x=more]{display:none}
+.st-wx .ib.has .wsend{display:grid!important;order:3;width:auto;height:32px;margin:0 2px 2px 2px;padding:0 12px;border-radius:4px;background:var(--sac);color:#fff;font-size:calc(14px*var(--fz,1));animation:wsin .16s ease-out}
+@keyframes wsin{from{transform:scale(.7);opacity:0}}
 .st-wx .pan{background:var(--ibg);border-top:.5px solid rgba(0,0,0,.07);margin-top:0;padding-top:18px}
 .st-wx .tl{color:#666}.st-wx.dark .tl{color:#aaa}
-.st-wx .tl i{width:58px;height:58px;border-radius:12px}
+.st-wx .tl i{width:58px;height:58px;border-radius:12px;color:#191919}.st-wx .tl i svg{width:27px;height:27px}.st-wx.dark .tl i{color:#e6e6e6}
 .st-wx .tf{position:relative;box-sizing:border-box;width:240px;max-width:100%;min-height:88px;padding:13px 12px 26px 62px;border-radius:4px;background:var(--wxtf)}
 .st-wx .tf::before{content:'';position:absolute;left:12px;top:13px;width:40px;height:40px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='20' cy='20' r='17'/%3E%3Cpath d='M12 16h15l-4-4M28 24H13l4 4'/%3E%3C/svg%3E") center/contain no-repeat}
 .st-wx .tf::after{content:'';position:absolute;top:14px;left:-5px;border:6px solid transparent;border-left:0;border-right-color:var(--wxtf)}
