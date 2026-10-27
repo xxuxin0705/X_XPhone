@@ -422,12 +422,12 @@
 .tpic{display:block;width:calc(100% - 28px);margin:6px 14px 16px;border-radius:14px}
 
 /* ---------- 锁屏 ---------- */
-.lock{position:absolute;inset:0;z-index:85;overflow:hidden;color:var(--lk-ink,#fff);background:#000;outline:none;transition:transform .48s cubic-bezier(.6,0,.2,1),opacity .48s}
+.lock{position:absolute;inset:0;z-index:85;overflow:hidden;color:var(--lk-ink,#fff);background:#000;outline:none;transition:transform .4s var(--ease-drawer,cubic-bezier(.32,.72,0,1)),opacity .4s var(--ease-drawer,cubic-bezier(.32,.72,0,1))}
 .lock[hidden]{display:none}
-.lock.out{transform:translateY(-100%);opacity:.3;pointer-events:none}
+.lock.out{transform:translateY(-100%);opacity:.6;pointer-events:none}
 .lk-bg,.lk-bg canvas,.lk-bg video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
 .stp-scr.locked .sb{z-index:88;color:var(--lk-sb,#fff);text-shadow:0 0 6px var(--lk-sbs,rgba(0,0,0,.3))}.stp-scr.locked .sb-t{opacity:0}
-.lk-ui{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding-top:60px;touch-action:none;transition:transform .35s cubic-bezier(.2,.9,.3,1),opacity .35s}
+.lk-ui{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding-top:60px;touch-action:none;transition:opacity .25s}
 .lk-ic{width:20px;height:20px;opacity:.88;filter:drop-shadow(0 1px 4px var(--lk-shade))}
 .lk-clock{margin-top:8px;text-align:center;text-shadow:0 0 22px var(--lk-shade),0 1px 3px var(--lk-shade)}
 .lk-clock .clk-d{font-size:calc(17px*var(--fz,1))}

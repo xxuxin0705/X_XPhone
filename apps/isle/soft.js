@@ -59,7 +59,7 @@ export function softBall(o = {}) {
     const AqqInv = Aqq.map((v, k) => (k % 4 === 0 ? 1 / v : 0)); // 球面点：对角阵
 
     const S = {
-        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? 2, smooth: o.smooth ?? .1, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 1e-4, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
+        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? 2, smooth: o.smooth ?? .4, be: o.be ?? .97, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 1e-4, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
         grab: null, q: [0, 0, 0, 1], A: [1, 0, 0, 0, 1, 0, 0, 0, 1], c: [0, 0, 0], ke: 0,
     };
     /** 抓住：p 是抓的那一点（世界坐标），r 抓的范围 */
@@ -116,7 +116,7 @@ export function softBall(o = {}) {
                 let cx = 0, cy = 0, cz = 0; for (let i = 0; i < nS; i++) { cx += X[i * 3]; cy += X[i * 3 + 1]; cz += X[i * 3 + 2]; } cx /= nS; cy /= nS; cz /= nS;
                 const Ap = new Float64Array(9); for (let i = 0; i < nS; i++) { const px = X[i * 3] - cx, py = X[i * 3 + 1] - cy, pz = X[i * 3 + 2] - cz; for (let b = 0; b < 3; b++) { const q = R0[i * 3 + b] * AqqInv[b * 4]; Ap[b * 3] += px * q; Ap[b * 3 + 1] += py * q; Ap[b * 3 + 2] += pz * q; } }
                 gq = extractRotation(Ap, gq, 2); const Rm = qmat(gq);
-                const det = Ap[0] * (Ap[4] * Ap[8] - Ap[7] * Ap[5]) - Ap[3] * (Ap[1] * Ap[8] - Ap[7] * Ap[2]) + Ap[6] * (Ap[1] * Ap[5] - Ap[4] * Ap[2]), sc = 1 / Math.cbrt(Math.max(.05, det)), be = .65, k = S.smooth;
+                const det = Ap[0] * (Ap[4] * Ap[8] - Ap[7] * Ap[5]) - Ap[3] * (Ap[1] * Ap[8] - Ap[7] * Ap[2]) + Ap[6] * (Ap[1] * Ap[5] - Ap[4] * Ap[2]), sc = 1 / Math.cbrt(Math.max(.05, det)), be = S.be, k = S.smooth;
                 for (let m = 0; m < 9; m++) GM[m] = Rm[m] * (1 - be) + Ap[m] * sc * be; // 目标变换 = 旋转 和 保体积的拉伸 混一下
                 for (let i = 0; i < nS; i++) { const rx = R0[i * 3], ry = R0[i * 3 + 1], rz = R0[i * 3 + 2]; X[i * 3] += (cx + GM[0] * rx + GM[3] * ry + GM[6] * rz - X[i * 3]) * k; X[i * 3 + 1] += (cy + GM[1] * rx + GM[4] * ry + GM[7] * rz - X[i * 3 + 1]) * k; X[i * 3 + 2] += (cz + GM[2] * rx + GM[5] * ry + GM[8] * rz - X[i * 3 + 2]) * k; }
             }
