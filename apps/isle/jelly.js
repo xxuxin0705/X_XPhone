@@ -38,8 +38,8 @@ async function engine() {
         geo.boundingSphere = new T.Sphere(new T.Vector3(), 4); // 顶点一直在动：给个够大的包围球，射线和裁剪都不用每帧重算
         const skyGeo = new T.BufferGeometry(); skyGeo.setIndex(geo.index); skyGeo.setAttribute('position', new T.BufferAttribute(base.slice(), 3)); skyGeo.setAttribute('dir', new T.BufferAttribute(base.slice(), 3)); skyGeo.boundingSphere = geo.boundingSphere;
         const glass = { high: null, low: null };
-        // 果冻感：低反射、无清漆、折射率像水，厚一点让里面的东西随形变轻轻扭曲
-        glass.high = new T.MeshPhysicalMaterial({ color: '#ffffff', transmission: 1, thickness: .45, roughness: .03, ior: 1.33, attenuationColor: new T.Color('#e8f7ff'), attenuationDistance: 10, envMapIntensity: .09, specularIntensity: .35, transparent: true, depthWrite: false });
+        // 果冻感：低反射、无清漆；折射只留一点点（太强会变成放大镜，把岛底下的土放大得满球都是）
+        glass.high = new T.MeshPhysicalMaterial({ color: '#ffffff', transmission: 1, thickness: .06, roughness: .03, ior: 1.12, attenuationColor: new T.Color('#e8f7ff'), attenuationDistance: 10, envMapIntensity: .09, specularIntensity: .35, transparent: true, depthWrite: false });
         glass.low = new T.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { c: { value: new T.Color('#d6f0ff') } }, vertexShader: 'varying vec3 n,v;void main(){n=normalize(normalMatrix*normal);vec4 p=modelViewMatrix*vec4(position,1.);v=-p.xyz;gl_Position=projectionMatrix*p;}', fragmentShader: 'uniform vec3 c;varying vec3 n,v;void main(){float f=pow(1.-max(0.,dot(normalize(n),normalize(v))),3.);vec3 l=normalize(vec3(-.5,.8,.6));float s=pow(max(0.,dot(reflect(-l,normalize(n)),normalize(v))),80.);gl_FragColor=vec4(c+s,.04+f*.3+s*.35);}' });
         const globe = new T.Mesh(geo, glass.high); globe.renderOrder = 5; root.add(globe);
         const rim = new T.Mesh(geo, new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: T.AdditiveBlending, uniforms: {}, vertexShader: 'varying vec3 n,v;void main(){n=normalize(normalMatrix*normal);vec4 p=modelViewMatrix*vec4(position,1.);v=-p.xyz;gl_Position=projectionMatrix*p;}', fragmentShader: 'varying vec3 n,v;void main(){float f=pow(1.-max(0.,dot(normalize(n),normalize(v))),5.);gl_FragColor=vec4(.85,.95,1.,f*.1);}' })); rim.renderOrder = 6; root.add(rim);
@@ -94,7 +94,7 @@ export async function jelly(cv, getState, opts = {}) {
     S.reset(); S.walls = null;
 
     /* ---------- 相机：按画布比例算距离，让整个球（加一点弹跳余量）正好放下、居中 ---------- */
-    let def = 4.4, zf = 1, zfT = 1; const Z = { min: .58, max: 1.35 };
+    let def = 4.4, zf = 1, zfT = 1; const Z = { min: .72, max: 1.35 };
     const dist = () => def * zf;
     const placeCam = () => { const d = dist(); cam.position.set(0, d * .2, d * .98); cam.lookAt(0, -.02, 0); };
 
@@ -138,6 +138,7 @@ export async function jelly(cv, getState, opts = {}) {
         if (press?.g) { if (press.mode === 'poke') { press.depth = Math.min(.24, press.depth + dt * .9); const d = press.rayDir; press.g.target = [press.hit[0] + d[0] * press.depth, press.hit[1] + d[1] * press.depth, press.hit[2] + d[2] * press.depth]; } else if (press.drag) press.g.target = press.drag; }
         if (air) { S.walls = { x: rm.x, top: rm.top }; if (S.ke < .02 && S.c[1] < .15) { if ((calm += dt) > .5) { air = false; S.gravity = 0; S.tether = 0; S.walls = null; idleAt = performance.now(); } } else calm = 0; }
         else S.tether = Math.min(1, S.tether + dt * 2); // 落地后慢慢把绳子拴回去
+        S.damp = air ? 1 : press ? 2 : 10; // 拖着时灵活、空中弹得起来；一松手就收住，只回弹一两下
         S.step(Math.min(dt, 1 / 30));
         // 放着不动：像不倒翁一样慢慢立回来，再慢慢自转
         if (!press && !air && performance.now() - idleAt > 1500) {
@@ -160,6 +161,7 @@ export async function jelly(cv, getState, opts = {}) {
     const endPress = () => { if (!press) return; S.release(); press = null; idleAt = performance.now(); };
     const fdist = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
     listen(el, 'pointerdown', e => {
+        if (e.isPrimary) { fingers.clear(); pinch = null; } // 第一根手指：清掉之前没收到抬起的「幽灵手指」，否则单指会被当成双指缩放
         fingers.set(e.pointerId, { x: e.clientX, y: e.clientY }); try { el.setPointerCapture(e.pointerId); } catch { } e.preventDefault(); idleAt = performance.now();
         if (fingers.size === 2) { endPress(); pinch = { d0: fdist(), z0: zfT }; return; }
         if (fingers.size > 2 || press) return;

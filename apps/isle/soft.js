@@ -59,7 +59,7 @@ export function softBall(o = {}) {
     const AqqInv = Aqq.map((v, k) => (k % 4 === 0 ? 1 / v : 0)); // 球面点：对角阵
 
     const S = {
-        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? .6, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 3e-7, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
+        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? 2, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 3e-7, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
         grab: null, q: [0, 0, 0, 1], A: [1, 0, 0, 0, 1, 0, 0, 0, 1], c: [0, 0, 0], ke: 0,
     };
     /** 抓住：p 是抓的那一点（世界坐标），r 抓的范围 */

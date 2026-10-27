@@ -67,7 +67,9 @@ const BARK = { broad: '#6b5440', maple: '#5a4636', sakura: '#5c4a44', pine: '#5e
  */
 export function tree(acc, lv, r, sp, o) {
     const { p, h } = o, bark = 'wood:y:' + (BARK[sp] || '#6b5440'), col = o.col || ['#4e8a3c', '#5f9b47', '#3f7a33'];
-    const leaf = (kind, br, extra) => leafAlong(lv, br, kind, col[(r() * col.length) | 0], r, extra);
+    // 冬天：阔叶树、枫、樱只剩光秃秃的枝（枝条多长几根，看着不空）；秋天叶子稀一点（在往下掉）
+    const bare = o.season === 'winter' && (sp === 'broad' || sp === 'maple' || sp === 'sakura'), thin = o.season === 'autumn' ? 1.6 : 1;
+    const leaf = (kind, br, extra) => bare || leafAlong(lv, br, kind, col[(r() * col.length) | 0], r, { ...extra, every: (extra.every || .018) * thin });
     if (sp === 'broad' || sp === 'maple' || sp === 'sakura') {
         const spread = sp === 'sakura' ? 1.15 : 1, kind = sp === 'maple' ? 'maple' : sp === 'sakura' ? 'blossom' : 'broad', rT = .016 * (h / .25) + .003;
         const trunk = grow(r, p.clone().add(V(0, -.01, 0)), V((r() - .5) * .25, 1, (r() - .5) * .25), h * .32 + .01, rT, rT * .75, { wobble: .25, decay: .8 }); tube(acc, trunk, bark);
@@ -76,7 +78,7 @@ export function tree(acc, lv, r, sp, o) {
             const az = az0 + i / nL * TAU + (r() - .5) * .6, ang = (.55 + r() * .35) * spread, side = perp(tdir).applyAxisAngle(tdir, az), dir = tdir.clone().multiplyScalar(Math.cos(ang)).addScaledVector(side, Math.sin(ang));
             const lead = grow(r, top, dir, h * (.38 + r() * .18), rT * .7, rT * .22, { wobble: .45, decay: .7, up: sp === 'sakura' ? -.1 : .15, droop: sp === 'sakura' ? .35 : .1 }); tube(acc, lead, bark);
             leaf(kind, lead, { t0: .4, every: .014, w: .026, h: .03, tip: 9, upBias: .25 });
-            const nS = 2 + (r() * 2 | 0); for (let j = 0; j < nS; j++) { const { p: sp0, d: sd } = sampleAt(lead, .35 + r() * .5); const s2 = perp(sd).applyAxisAngle(sd, r() * TAU), d2 = sd.clone().multiplyScalar(.6).add(s2.multiplyScalar(.8)).add(V(0, .3, 0)).normalize(); const sub = grow(r, sp0, d2, h * (.18 + r() * .14), rT * .3, rT * .08, { wobble: .5, decay: .7, droop: .25 }); tube(acc, sub, bark, null, 4); leaf(kind, sub, { t0: .15, every: .012, w: .024, h: .028, tip: 8, upBias: .3 }); }
+            const nS = bare ? 4 + (r() * 2 | 0) : 2 + (r() * 2 | 0); for (let j = 0; j < nS; j++) { const { p: sp0, d: sd } = sampleAt(lead, .35 + r() * .5); const s2 = perp(sd).applyAxisAngle(sd, r() * TAU), d2 = sd.clone().multiplyScalar(.6).add(s2.multiplyScalar(.8)).add(V(0, .3, 0)).normalize(); const sub = grow(r, sp0, d2, h * (.18 + r() * .14), rT * .3, rT * .08, { wobble: .5, decay: .7, droop: .25 }); tube(acc, sub, bark, null, 4); leaf(kind, sub, { t0: .15, every: .012, w: .024, h: .028, tip: 8, upBias: .3 }); }
         }
     } else if (sp === 'pine') {
         const rT = .013 * (h / .3) + .003, trunk = grow(r, p.clone().add(V(0, -.01, 0)), V((r() - .5) * .1, 1, (r() - .5) * .1), h + .01, rT, rT * .15, { wobble: .12, decay: .85, seg: h / 8 }); tube(acc, trunk, bark);

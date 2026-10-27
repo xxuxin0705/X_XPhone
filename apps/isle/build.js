@@ -159,8 +159,8 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     /* 零件：树、灌木、建筑 */
     for (const it of rc.items) {
         const p = new T.Vector3(it.x, hAt(it.x, it.z), it.z), tr = /^(broad|maple|sakura|pine|palm|cypress|bamboo)$/.test(it.type);
-        if (tr) { F.tree(acc, lv, rng(it.k), it.type, { p, h: (it.type === 'palm' ? .3 : it.type === 'pine' || it.type === 'cypress' ? .32 : it.type === 'bamboo' ? .3 : .26) * it.s, col: rc.pal.foliage }); continue; }
-        if (it.type === 'bush') { F.bush(lv, rng(it.k), p, rc.pal.foliage, rc.climate === 'sakura' ? 'blossom' : 'broad', .045 * it.s); continue; }
+        if (tr) { F.tree(acc, lv, rng(it.k), it.type, { p, h: (it.type === 'palm' ? .3 : it.type === 'pine' || it.type === 'cypress' ? .32 : it.type === 'bamboo' ? .3 : .26) * it.s, col: rc.pal.foliage, season: rc.season }); continue; }
+        if (it.type === 'bush') { if (rc.season !== 'winter') F.bush(lv, rng(it.k), p, rc.pal.foliage, rc.climate === 'sakura' && rc.season === 'spring' ? 'blossom' : 'broad', .045 * it.s); continue; }
         if (it.type === 'cactus') { F.cactus(acc, rng(it.k), p, .12 * it.s); continue; }
         if (it.type === 'mushroom') { F.mushroom(acc, rng(it.k), p, .1 * it.s, ['#e84c5a', '#f4a259', '#9b6bd6'][it.k % 3], rc.glow); continue; }
         const kit = KITS[it.type]; if (!kit) continue;
@@ -208,7 +208,7 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
         W = WEATHER[scene] || WEATHER.sunset; const u = skyM.userData.u;
         u.top.value.set(W.top); u.hor.value.set(W.hor); u.sun.value.set(...W.sun[2]); u.sunc.value.set(W.sun[1]); u.sunk.value = W.night ? 0 : scene === 'fog' ? .3 : 1; u.cloud.value = W.cloud ?? .4; u.stars.value = W.stars ? 1 : 0; u.night.value = W.night ? 1 : 0;
         sun.color.set(W.sun[1]); sun.intensity = W.sun[0]; sun.position.set(...W.sun[2]).multiplyScalar(2); hemi.intensity = W.hemi[0]; hemi.color.set(W.hemi[1]); hemi.groundColor.set(W.hemi[2]); amb.intensity = W.night ? .06 : .12;
-        U.uSunCol.value.set(W.sun[1]).multiplyScalar(Math.min(1.2, W.sun[0] * .6)); U.uWet.value = W.wet ? 1 : 0; U.uWind.value = W.wind ?? .2; snowT = rc.snowy ? 1 : W.snow ? .85 : 0; if (rc.snowy) U.uSnow.value = 1; else if (!W.snow) U.uSnow.value = 0; /* 下雪的天气：积雪慢慢盖上来 */
+        U.uSunCol.value.set(W.sun[1]).multiplyScalar(Math.min(1.2, W.sun[0] * .6)); U.uWet.value = W.wet ? 1 : 0; U.uWind.value = W.wind ?? .2; snowT = rc.snowy ? 1 : W.snow ? .85 : rc.frost ? .45 : 0; if (rc.snowy) U.uSnow.value = 1; else if (rc.frost) U.uSnow.value = Math.max(U.uSnow.value, .45); else if (!W.snow) U.uSnow.value = 0; /* 下雪的天气：积雪慢慢盖上来 */
         au.children.forEach(a => a.userData.u.o.value = W.aurora ? 1 : 0); moon.visible = !!W.moon; sunGlow.visible = !W.night && scene !== 'fog' && scene !== 'rain' && !W.snow; sunGlow.position.set(...W.sun[2]).normalize().multiplyScalar(.82); sunGlow.material.color.set(scene === 'sunset' ? '#ffb070' : '#fff1b0'); sunGlow.scale.setScalar(scene === 'sunset' ? .7 : .5);
         const lit = W.night || scene === 'rain' || scene === 'fog'; U.uLit.value = lit ? 1 : 0; lampLight.intensity = lit ? .8 : 0; halos.forEach(h => h.visible = lit || h.userData.always);
         for (const k in parts) parts[k].visible = false; if (W.rain) parts.rain.visible = true; if (rc.snowy || W.snow) parts.snow.visible = true; if (rc.fall && parts[rc.fall] && !W.rain) parts[rc.fall].visible = true; if (parts.firefly) parts.firefly.visible = !!W.night && !W.rain;
