@@ -98,10 +98,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const eras = await E(`(() => { let m = 0; for (let i = 0; i < 40; i++) if (gen.makeRecipe(i * 31 + 5, { era: 'modern' }).era == 'modern') m++; let a = 0; for (let i = 0; i < 40; i++) if (gen.makeRecipe(i * 31 + 5, { era: 'ancient' }).era == 'ancient') a++; return [m, a]; })()`);
   ok(eras[0] >= 36 && eras[1] >= 36, `偏时代：要现代就 ${eras[0]}/40 次是现代场景，要古风就 ${eras[1]}/40 次是古风场景`);
   ok(await E(`localCalls === 0`), '认时代、挑风景都没调用模型');
-  // 跟着剧情变：开关 → 提示词
-  ok(!(await E(`ep.at(-1) || ''`)).includes('心情|'), '默认提示词里没有心情格式');
-  await E(`document.querySelector('.isle [data-a=isset]').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=auto]').click()`); await W(400);
-  ok(await E(`core.S.isle.auto === true`) && /心情\|谁\|心情词\|没说出口的一句话\|TA心里那座岛此刻的风景[\s\S]*现代[\s\S]*古寺 求签/.test(await E(`ep.at(-1)`)), '打开「跟着剧情变」：提示词里加上心情格式（风景词要写时代和剧情所在的地方）');
+  // 心情格式一直在提示词里（没有「跟着剧情变」开关了）
+  await E(`core.saveD()`); await W(300);
+  ok(!(await E(`!!document.querySelector('.isle [data-a=isset]')`)) && /心情\|谁\|心情词\|没说出口的一句话\|TA心里那座岛此刻的风景[\s\S]*季节[\s\S]*古寺 求签/.test(await E(`ep.at(-1) || ''`)), '没有「跟着剧情变」开关，提示词里一直带着心情格式（风景词要写时代、季节和地点）');
   // 潮汐记录
   await E(`document.querySelector('[data-a=ishist]').click()`); await W(400);
   ok(await E(`document.querySelectorAll('.is-h').length`) == 2 && /雀跃[\s\S]*枫林 · 古寺/.test(await E(`document.querySelector('.is-hist').textContent`)), '潮汐记录：两条，带当时的风景');

@@ -99,7 +99,7 @@ export async function jelly(cv, getState, opts = {}) {
     const placeCam = () => { const d = dist(); cam.position.set(0, d * .2, d * .98); cam.lookAt(0, -.02, 0); };
 
     /* ---------- 状态 ---------- */
-    let idleAt = 0, press = null, scene_ = '', building = false, pop = 1, air = false, calm = 0;
+    let idleAt = 0, press = null, scene_ = '', building = false, pop = 1, air = false, calm = 0, landed = false;
     let W = 1, H = 1;
     const size = () => { const r = el.getBoundingClientRect(); if (!r.width) return; W = r.width; H = r.height; renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : 1.5)); renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); def = Math.max(1.15 / TAN, 1.1 / (TAN * cam.aspect)); placeCam(); E.world?.setPixel(renderer.getPixelRatio()); };
     size(); const ro = typeof ResizeObserver == 'function' ? new ResizeObserver(size) : null; ro?.observe(el);
@@ -138,7 +138,8 @@ export async function jelly(cv, getState, opts = {}) {
         if (press?.g) { if (press.mode === 'poke') { press.depth = Math.min(.24, press.depth + dt * .9); const d = press.rayDir; press.g.target = [press.hit[0] + d[0] * press.depth, press.hit[1] + d[1] * press.depth, press.hit[2] + d[2] * press.depth]; } else if (press.drag) press.g.target = press.drag; }
         if (air) { S.walls = { x: rm.x, top: rm.top }; if (S.ke < .02 && S.c[1] < .15) { if ((calm += dt) > .5) { air = false; S.gravity = 0; S.tether = 0; S.walls = null; idleAt = performance.now(); } } else calm = 0; }
         else S.tether = Math.min(1, S.tether + dt * 2); // 落地后慢慢把绳子拴回去
-        S.damp = air ? 1 : press ? 2 : 10; // 拖着时灵活、空中弹得起来；一松手就收住，只回弹一两下
+        if (air && S.c[1] < .02) landed = true;
+        S.damp = air ? (landed ? 4 : 1.5) : press ? 2 : 10; // 拖着时灵活；摇一摇第一次落地后就收住，只再小弹一下；一松手回弹一两下就停
         S.step(Math.min(dt, 1 / 30));
         // 放着不动：像不倒翁一样慢慢立回来，再慢慢自转
         if (!press && !air && performance.now() - idleAt > 1500) {
@@ -166,7 +167,7 @@ export async function jelly(cv, getState, opts = {}) {
         if (fingers.size === 2) { endPress(); pinch = { d0: fdist(), z0: zfT }; return; }
         if (fingers.size > 2 || press) return;
         const p = hit(e); if (!p) return;
-        const g = S.grabAt(p, .5); if (!g) return;
+        const g = S.grabAt(p, .6); if (!g) return; // 抓的范围大一点，拉出来更圆润
         cam.getWorldDirection(camDir); plane.setFromNormalAndCoplanarPoint(camDir, tv.fromArray(p));
         press = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: 'poke', hit: p, rayDir: ray.ray.direction.toArray(), depth: 0, g, drag: null };
     });
@@ -189,7 +190,7 @@ export async function jelly(cv, getState, opts = {}) {
     /** 拍一下：像拍篮球——解开拴绳、打开重力，往随机方向弹出去，砸到地上压扁再弹 */
     const bounce = () => {
         if (reduced) { S.kick(0, 1.2, 0); return; }
-        endPress(); air = true; calm = 0; S.tether = 0; S.gravity = -14; const rm = room(); S.walls = { x: rm.x, top: rm.top };
+        endPress(); air = true; landed = false; calm = 0; S.tether = 0; S.gravity = -14; const rm = room(); S.walls = { x: rm.x, top: rm.top };
         S.kick((Math.random() < .5 ? -1 : 1) * (1.4 + Math.random() * 1.4), 5.5 + Math.random() * 1.5, 0, [(Math.random() - .5) * 6, (Math.random() - .5) * 6, (Math.random() - .5) * 5]); idleAt = performance.now();
     };
     const hop = () => { if (!reduced) S.kick(0, 2.4, 0); };

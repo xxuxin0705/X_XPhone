@@ -1,6 +1,6 @@
 // 小手机 · 心屿：每个角色一座装在果冻球里的小岛，岛上的天气就是 TA 此刻的心情，风景随机变
 // 晴天 = 开心，细雨 = 难过，风暴 = 生气，极光 = 想念 / 温柔，星夜 = 疲惫，雾 = 迷茫，烟花 = 兴奋，落日 = 平静
-// 心情来源：① 点「看看 TA 现在」调一次 API 读最近剧情；② 开了「跟着剧情变」后，AI 在 <手机> 块里写「心情|谁|心情|一句话」
+// 心情来源：① 点「看看 TA 现在」调一次 API 读最近剧情；② 开着手机同步时，AI 在 <手机> 块里顺带写「心情|谁|心情|一句话|风景词」（一直开着，没有开关）
 // 风景每次随机拼（gen.js：气候 × 地形 × 地标 × 植物 × 动物 × 配色），打开心屿、切换角色、心情变化时换一座；
 // AI 导演：「看看 TA 现在」和正文心情行里带几个风景词，本地翻成配方（不额外调 API）
 // 球和手势在 jelly.js（three.js，按需加载），球里的世界在 build.js
@@ -49,13 +49,12 @@ const look = () => { const id = curId(), c = byId(id); if (!c) return; return ta
   if (!r?.mood) throw Error('没读出来，再试一次'); setMood(id, r); pt?.hop(); return `${nm(c)}：${r.mood}`; }); };
 reg({
   id: 'isle', name: '心屿', icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="#fff" opacity=".35"/><circle cx="12" cy="12" r="8" fill="none" stroke="#fff" stroke-width="1.4"/><ellipse cx="12" cy="14.2" rx="4.6" ry="1.7" fill="#fff"/><path d="M12 7.5v6.3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M12 8.3c1.2 0 2.2-.8 2.6-1.3M12 8.3c-1.2 0-2.2-.8-2.6-1.3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/><circle cx="8.3" cy="9.3" r=".9" fill="#fff"/></svg>',
-  open: () => { const id = curId(); id && reroll(rec(id), ''); return page({ title: '心屿', cls: 'isle', live: 1, right: () => `<b data-a="isset">${I.more}</b>`, body, after: mount, onClose: () => { pt?.stop(); pt = null; },
+  open: () => { const id = curId(); id && reroll(rec(id), ''); return page({ title: '心屿', cls: 'isle', live: 1, body, after: mount, onClose: () => { pt?.stop(); pt = null; },
     acts: {
       iswho: (x, t, e, pg) => { if (ISL().cur == x && curId() == x) return; ISL().cur = x; reroll(rec(x), ''); pg.re(); },
       isshake: () => pt?.bounce(),
       islook: look,
       ishist: () => { const id = curId(), c = byId(id), r = rec(id); page({ title: `${nm(c)}的潮汐记录`, cls: 'isle isle-history', body: () => r.hist.length ? `<div class="is-hist">${r.hist.map(h => `<div class="is-h"><i class="sc-${h.scene}"></i><div><b>${esc(h.mood)}</b><small>${SCENES[h.scene] || ''}${h.world ? ' · ' + esc(h.world) : ''} · ${new Date(h.ts).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>${h.say ? `<p>「${esc(h.say)}」</p>` : ''}</div></div>`).join('')}</div>` : '<div class="is-empty"><p>还没有记录</p></div>' }); },
-      isset: async (x, t, e, pg) => { const k = await menu([['auto', `${S.isle?.auto ? '✓ ' : ''}跟着剧情变`]], '心屿'); if (!k) return; S.isle ||= {}; S.isle.auto = !S.isle.auto; delete S.isle.jelly; delete S.isle.landscape; syncInject(); save(); pg.re(); },
     } }); },
 });
 on('isle', () => { const t = top(); t?.el?.classList.contains('isle') && t.re(); });

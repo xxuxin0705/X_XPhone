@@ -59,7 +59,7 @@ export function softBall(o = {}) {
     const AqqInv = Aqq.map((v, k) => (k % 4 === 0 ? 1 / v : 0)); // 球面点：对角阵
 
     const S = {
-        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? 2, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 3e-7, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
+        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? 2, smooth: o.smooth ?? .12, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 3e-7, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
         grab: null, q: [0, 0, 0, 1], A: [1, 0, 0, 0, 1, 0, 0, 0, 1], c: [0, 0, 0], ke: 0,
     };
     /** 抓住：p 是抓的那一点（世界坐标），r 抓的范围 */
@@ -75,7 +75,7 @@ export function softBall(o = {}) {
     S.rotate = (ax, ay, az, a) => { const M = qmat(qaxis(ax, ay, az, a)), c = S.c; for (let i = 0; i < n; i++) { for (const B of [X, Vl]) { const isX = B === X, x = B[i * 3] - (isX ? c[0] : 0), y = B[i * 3 + 1] - (isX ? c[1] : 0), z = B[i * 3 + 2] - (isX ? c[2] : 0); B[i * 3] = M[0] * x + M[3] * y + M[6] * z + (isX ? c[0] : 0); B[i * 3 + 1] = M[1] * x + M[4] * y + M[7] * z + (isX ? c[1] : 0); B[i * 3 + 2] = M[2] * x + M[5] * y + M[8] * z + (isX ? c[2] : 0); } } };
 
     /** 往前算 dt 秒（内部分 sub 个小步） */
-    const G = new Float64Array(nS * 3), Ef = Float64Array.from(E.flat());
+    const G = new Float64Array(nS * 3), Ef = Float64Array.from(E.flat()), GM = new Float64Array(9); let gq = [0, 0, 0, 1];
     S.step = (dt, sub = 5) => {
         const h = dt / sub, h2 = h * h;
         // 柔度（XPBD）：越小越硬。表面边最软（能拉长、起褶），内部支撑硬一点，体积几乎不变
@@ -108,6 +108,15 @@ export function softBall(o = {}) {
             if (g) for (let k = 0; k < g.ids.length; k++) { const i = g.ids[k], wk = g.w[k], f = wk / (wk + aG / h2); for (let a = 0; a < 3; a++) X[i * 3 + a] -= (X[i * 3 + a] - g.target[a] - g.off[k][a]) * f; }
             // 中心拴在原位（软弹簧）
             if (S.tether > 0) { const k = W[C] / (W[C] + aT / S.tether / h2); for (let a = 0; a < 3; a++) X[C * 3 + a] -= (X[C * 3 + a] - S.anchor[a]) * k; }
+            // 整体形状（形状匹配）：每个表面点轻轻拉向「整个球被均匀拉伸 / 转动后它该在的位置」——拉出来是光滑的椭圆，不会鼓出一个个包
+            if (S.smooth > 0) {
+                let cx = 0, cy = 0, cz = 0; for (let i = 0; i < nS; i++) { cx += X[i * 3]; cy += X[i * 3 + 1]; cz += X[i * 3 + 2]; } cx /= nS; cy /= nS; cz /= nS;
+                const Ap = new Float64Array(9); for (let i = 0; i < nS; i++) { const px = X[i * 3] - cx, py = X[i * 3 + 1] - cy, pz = X[i * 3 + 2] - cz; for (let b = 0; b < 3; b++) { const q = R0[i * 3 + b] * AqqInv[b * 4]; Ap[b * 3] += px * q; Ap[b * 3 + 1] += py * q; Ap[b * 3 + 2] += pz * q; } }
+                gq = extractRotation(Ap, gq, 2); const Rm = qmat(gq);
+                const det = Ap[0] * (Ap[4] * Ap[8] - Ap[7] * Ap[5]) - Ap[3] * (Ap[1] * Ap[8] - Ap[7] * Ap[2]) + Ap[6] * (Ap[1] * Ap[5] - Ap[4] * Ap[2]), sc = 1 / Math.cbrt(Math.max(.05, det)), be = .65, k = S.smooth;
+                for (let m = 0; m < 9; m++) GM[m] = Rm[m] * (1 - be) + Ap[m] * sc * be; // 目标变换 = 旋转 和 保体积的拉伸 混一下
+                for (let i = 0; i < nS; i++) { const rx = R0[i * 3], ry = R0[i * 3 + 1], rz = R0[i * 3 + 2]; X[i * 3] += (cx + GM[0] * rx + GM[3] * ry + GM[6] * rz - X[i * 3]) * k; X[i * 3 + 1] += (cy + GM[1] * rx + GM[4] * ry + GM[7] * rz - X[i * 3 + 1]) * k; X[i * 3 + 2] += (cz + GM[2] * rx + GM[5] * ry + GM[8] * rz - X[i * 3 + 2]) * k; }
+            }
             // 地面、墙
             const wl = S.walls;
             for (let i = 0; i < n; i++) {
@@ -132,12 +141,12 @@ export function softBall(o = {}) {
     S.volRatio = () => vol() / V0;
     /** 球面离正圆差多少（最大的半径偏差）：回弹好了就接近 0 */
     S.dev = () => { let m = 0; for (let i = 0; i < nS; i++) m = Math.max(m, Math.abs(Math.hypot(X[i * 3] - S.c[0], X[i * 3 + 1] - S.c[1], X[i * 3 + 2] - S.c[2]) - 1)); return m; };
-    S.reset = () => { X.set(R0); Vl.fill(0); S.q = [0, 0, 0, 1]; S.grab = null; S.gravity = 0; S.tether = 1; };
+    S.reset = () => { X.set(R0); Vl.fill(0); S.q = [0, 0, 0, 1]; gq = [0, 0, 0, 1]; S.grab = null; S.gravity = 0; S.tether = 1; };
     return S;
 }
 
 /** 渲染网格的每个顶点跟着最近的 3 个表面粒子走：预先算好权重 */
-export function skinWeights(renderPos, S, k = 3) {
+export function skinWeights(renderPos, S, k = 4) {
     const nv = renderPos.length / 3, ids = new Int32Array(nv * k), ws = new Float32Array(nv * k), base = new Float32Array(nv * 3);
     for (let v = 0; v < nv; v++) {
         const x = renderPos[v * 3], y = renderPos[v * 3 + 1], z = renderPos[v * 3 + 2], l = Math.hypot(x, y, z) || 1;
