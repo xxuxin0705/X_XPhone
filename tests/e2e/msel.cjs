@@ -93,15 +93,12 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   await ctx.route(/\/api\/translate\/google/, r => { const b = JSON.parse(r.request().postData()); r.fulfill({ status: 200, body: b.lang == 'ko' ? '뭐야' : '什么呀' }); });
   await E(`(async () => { window._k = dt.add(dt.blank('p', { real: '姜照临', fr: 1 })); _k.cfg.lang = 'ko'; core.S.api.chat = { src: 'custom', cur: 'a', list: [{ id: 'a', name: 'x', url: 'https://relay.test/v1', key: 'k', model: 'm' }] }; talk.openChat(_k.id); })()`); await W(500);
   await ctx.route(/relay\.test/, r => r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ['姜照临: 뭐야? [翻译:什么？]', '姜照临: 뭐야', '姜照临: 别装死啊'].map(l => `data: ${JSON.stringify({ choices: [{ delta: { content: l + '\n' } }] })}\n\n`).join('') + 'data: [DONE]\n\n' }));
-  let nTr = 0; await ctx.route(/\/api\/translate\//, r => { nTr++; r.fulfill({ status: 200, body: '' }); });
   await E(`talk.gen(_k)`); await W(3500);
-  const kk0 = await E(`JSON.stringify(_k.msgs.map(m => [m.c, m.tr]))`);
-  ok(kk0 == '[["뭐야?","什么？"],["뭐야",""],["别装死啊",""]]' && nTr == 0, '翻译不另外调用机翻：漏写的先原样放着 ' + kk0);
-  // 下一轮回复时顺带让模型补（[补译]），不额外调用
-  let p2 = ''; await ctx.route(/relay\.test/, r => { p2 = r.request().postData(); r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ['[补译:1|뭐야|什么呀]', '[补译:2|죽은 척하지 마|别装死啊]'].map(l => `data: ${JSON.stringify({ choices: [{ delta: { content: l + '\n' } }] })}\n\n`).join('') + 'data: [DONE]\n\n' }); });
-  await E(`talk.gen(_k)`); await W(1500);
   const kk = await E(`JSON.stringify(_k.msgs.map(m => [m.c, m.tr]))`);
-  ok(/补全翻译/.test(p2) && /#1 /.test(p2) && !/#0 /.test(p2) && kk == '[["뭐야?","什么？"],["뭐야","什么呀"],["죽은 척하지 마","别装死啊"]]', '下一轮顺带补译：漏写的补中文、写成中文的换成韩语原文 ' + kk);
+  ok(kk == '[["뭐야?","什么？"],["뭐야","什么呀"],["뭐야","别装死啊"]]', '模型漏写译文 / 写成中文：马上用免费机翻补上（不调用聊天模型） ' + kk);
+  await E(`_k.cfg.lang = 'ja'; talk.retrans(_k)`); await W(800);
+  ok(await E(`_k.msgs.every(m => m.tr)`) && await E(`_k.msgs[0].tr`) == '什么？', '改了角色语言：原文马上换成新语言，中文译文保持 ' + await E(`JSON.stringify(_k.msgs.map(m => [m.c, m.tr]))`));
+  await E(`_k.cfg.lang = 'ko'`);
   await E(`_k.cfg.trAuto = false; core.emit('chat')`); await W(200);
   ok(!/뭐야/.test(await E(`document.querySelector('.chat .cv').textContent`)) && /别装死啊/.test(await E(`document.querySelector('.chat .cv').textContent`)), '关掉自动翻译：直接显示中文');
   await E(`_k.cfg.trAuto = true; core.emit('chat')`); await W(200);

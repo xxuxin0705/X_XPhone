@@ -68,7 +68,8 @@ export function applyDelta(d, cur) {
   });
   d.msgs?.forEach(m => { const ch = cur || find(m.chat) || upsert({ real: isMe(m.from) ? m.chat : m.from }), x = ch && addMsg(ch, m); x && out.push([ch, x]); });
   d.posts?.forEach(p => {
-    const po = { id: uid(), a: isMe(p.author) ? 'me' : upsert({ real: p.author }).id, c: p.text || '', imgd: p.img || '', ts: +now() - Math.random() * 18e6, likes: p.likes || [], cm: (p.comments || []).map(c => ({ f: c.from, c: c.text })) };
+    const sp = t => { const m = String(t || '').match(/^([\s\S]*?)\s*[\[【]翻译[:：]([^\]】]*)[\]】]\s*$/); return m ? [m[1].trim(), m[2].trim()] : [String(t || '').trim(), '']; }; // 正文里夹着 [翻译:…] 也拆开
+    const [pc, ptr] = sp(p.text), po = { id: uid(), a: isMe(p.author) ? 'me' : upsert({ real: p.author }).id, c: pc, tr: p.tr || ptr, imgd: p.img || '', ts: +now() - Math.random() * 18e6, likes: (p.likes || []).filter(Boolean), lx: Math.random() < .6 ? Math.random() * 120 | 0 : 0, cm: (p.comments || []).map(c => { const [cc, ct] = sp(c.text); return { f: c.from, c: cc, tr: c.tr || ct, ...(c.to && { to: c.to }) }; }) };
     D().posts.unshift(po); po.imgd && S.api.img.auto && genImg(po.imgd, undefined, 'chat').then(u => { po.url = u; saveD(); emit('chat'); }).catch(e => fail('动态配图失败：' + e.message));
   });
   saveD(); emit('chat'); return out;

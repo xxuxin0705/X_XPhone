@@ -2,6 +2,8 @@
 import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
 import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
+import { feed, FA, openFeed, feedRight } from './feed.js';
+export { openFeed };
 export { openChat, applyDelta };
 
 /* ---------- 提示词 ---------- */
@@ -151,7 +153,6 @@ export function inlineSync(id) {
 export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1 }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 
 /* ---------- 渲染 ---------- */
-const ago = ts => { const s = (now() - ts) / 6e4; return s < 1 ? '刚刚' : s < 60 ? (s | 0) + '分钟前' : s < 1440 ? (s / 60 | 0) + '小时前' : tT(ts); };
 // 多选模式：msel 是选中的会话 id（null = 没在多选）
 let msel = null;
 const vis = () => D().chats.filter(c => c.fr !== 0 || c.msgs.length);
@@ -159,34 +160,10 @@ const list = () => vis().sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(
   const m = c.msgs.at(-1);
   return `<div class="cl ${c.pin ? 'pin' : ''} ${msel ? 'msel' : ''} ${msel?.has(c.id) ? 'on' : ''}" data-a="open" data-x="${c.id}" data-lp="clp">${msel ? '<i class="ck"></i>' : ''}<div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${gsz(c)})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
 }).join('') || `<div class="empty"><p>还没有聊天 ✧</p>${btn('tab', '去通讯录添加联系人', 'ct', 'pri')}</div>`;
-const post = (p, fs) => {
-  const a = p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' }, me = nm(meObj()), lk = p.likes.includes(me);
-  return `<article class="po"><img class="av" src="${esc(avOf(a))}" data-a="pfeed" data-x="${p.a}"><div class="po-m"><b class="po-n">${esc(fs == 'tw' ? a.real || a.nick || nm(a) : nm(a))}</b>${fs == 'tw' ? `<small class="po-h">@${esc(a.nick || a.real)} · ${ago(p.ts)}</small>` : ''}<p>${esc(p.c)}</p>${p.url ? `<img class="po-i" src="${esc(p.url)}">` : p.imgd ? `<div class="picd">🖼 ${esc(p.imgd)}</div>` : ''}
-<div class="po-a">${fs != 'tw' ? `<time>${ago(p.ts)}</time>` : ''}<span data-a="like" data-x="${p.id}" class="${lk ? 'on' : ''}">${lk ? '♥' : '♡'} ${p.likes.length || ''}</span><span data-a="cmt" data-x="${p.id}">💬 ${p.cm.length || ''}</span>${p.a == 'me' ? `<span data-a="pdel" data-x="${p.id}">删除</span>` : ''}</div>
-${p.likes.length || p.cm.length ? `<div class="po-c">${p.likes.length ? `<div class="lk">♡ ${esc(p.likes.join('，'))}</div>` : ''}${p.cm.map(c => `<div><b>${esc(c.f)}</b>：${esc(c.c)}</div>`).join('')}</div>` : ''}</div></article>`;
-};
-function feed(aid, st = S.style) {
-  const fs = FS[st], u = aid && aid != 'me' ? get(aid) : meObj(), ps = D().posts.filter(p => !aid || p.a == aid), sg = esc(u?.sign || ''), av = esc(avOf(u)), n = esc(nm(u));
-  // 封面：自己的存在「我」里，别人的存在联系人里；点封面就能换（相册上传 / 图片链接）
-  const cov = (!aid || aid == 'me') ? D().me.cover : u?.cover, cs = cov ? `style="background-image:url('${esc(cov)}')"` : '', ck = `data-a="fcov" data-x="${aid && aid != 'me' ? aid : 'me'}"`, tip = ''; // 不写「轻点设置封面」，直接点封面就能换
-  const hd = fs == 'wx' ? `<div class="fw-cv" ${ck} ${cs}>${tip}<b>${n}</b><img class="av" src="${av}"></div><p class="fw-sg">${sg}</p>`
-    : fs == 'qq' ? `<div class="fq-cv" ${ck} ${cs}>${tip}</div><div class="fq-h"><img class="av" src="${av}"><div><b>${n}</b><small>${sg || '这个人很懒～'}</small></div></div><div class="fq-n">${['说说', '日志', '相册', '留言', '更多'].map(x => `<span><i>${x[0]}</i>${x}</span>`).join('')}</div>${aid ? '' : '<div class="fq-in" data-a="post">分享新鲜事...</div>'}`
-      : `<div class="ft-cv" ${ck} ${cs}>${tip}</div><div class="ft-h"><img class="av" src="${av}"><b>${esc(u?.real || u?.nick || '')}</b><small>@${esc(u?.nick || u?.real)}</small>${sg ? `<p>${sg}</p>` : ''}</div>`; // 推特式：真实姓名 + @网名
-  if (fs == 'wx' && aid) return album(u, aid, ps, ck, cs);
-  return `<div class="feed f-${fs}">${hd}${ps.map(p => post(p, fs)).join('') || '<p class="empty">还没有动态</p>'}</div>`;
-}
-// 个人朋友圈（仿微信「个人相册」）：深色封面 + 右边名字头像，下面按天分组，左边日期、右边灰底文字 / 配图
-const dayOf = ts => { const d = new Date(ts), t = now(), y = new Date(+t - 864e5); return d.toDateString() == t.toDateString() ? ['今天'] : d.toDateString() == y.toDateString() ? ['昨天'] : [String(d.getDate()).padStart(2, '0'), d.getMonth() + 1 + '月']; };
-function album(u, aid, ps, ck, cs) {
-  const days = []; ps.slice().sort((a, b) => b.ts - a.ts).forEach(p => { const k = new Date(p.ts).toDateString(), l = days.at(-1); l && l.k == k ? l.ps.push(p) : days.push({ k, d: dayOf(p.ts), ps: [p] }); });
-  const it = p => `<div class="al-p ${p.url ? 'im' : ''}" data-a="apost" data-x="${p.id}">${p.url ? `<img src="${esc(p.url)}">` : ''}<p>${esc(p.c || (p.imgd ? '[图片] ' + p.imgd : ''))}</p></div>`;
-  return `<div class="album"><div class="al-cv" ${ck} ${cs}><b>${esc(nm(u))}</b><img class="av" src="${esc(avOf(u))}"></div><p class="al-sg">${esc(u?.sign || '这个人很神秘，什么也没留下~')}</p>
-${days.map(g => `<div class="al-d"><div class="al-t"><b>${g.d[0]}</b>${g.d[1] ? `<small>${g.d[1]}</small>` : ''}</div><div class="al-l">${g.ps.map(it).join('')}</div></div>`).join('') || `<p class="al-e">${aid == 'me' ? '你' : 'TA'} 还没有发过朋友圈</p>`}</div>`;
-}
 const meP = () => {
   const f = fx(D().me), m = meObj();
   return `<div class="me-c" data-a="img" data-x="av"><img class="av" src="${esc(avOf(m))}"><div><b>${esc(m.nick)}</b><small>真实姓名：${esc(m.real)}</small><small>${esc(m.sign || '点击头像更换 · 下方编辑签名')}</small></div></div>${sec('me', [
-    ['p', '个人资料', f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名', 'text', C().name1 + '（默认酒馆里的名字）') + f.inp('sign', '签名') + f.inp('ps', '我的拍一拍后缀', 'text', '如：的小脑袋') + f.img('cover', '动态封面')],
+    ['p', '个人资料', f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名', 'text', C().name1 + '（默认酒馆里的名字）') + f.inp('sign', '签名') + f.inp('ps', '我的拍一拍后缀', 'text', '如：的小脑袋') + f.img('cover', '动态封面') + f.img('fbg', '动态背景')],
     ['w', '钱包', `<div class="wal"><small>余额</small><b>¥${(+D().me.wallet || 0).toFixed(2)}</b></div>` + f.inp('wallet', '修改余额', 'number')],
     ['s', '默认风格', f.seg('$style', STY) + '<p class="tip">决定新聊天样式与动态页：微信→朋友圈 / QQ→空间 / Kakao·LINE→推特式动态。单个聊天可在聊天设置里单独改。</p>'],
     ['d', '我的动态', btn('myfeed', '查看我的' + FN[S.style])]])}`;
@@ -194,28 +171,6 @@ const meP = () => {
 const tabs = tab => { const u = D().chats.reduce((a, c) => a + (c.unread || 0), 0); return `<nav class="tabs">${[['list', TN[S.style], I.chat], ['ct', CN[S.style], I.book], ['feed', FN[S.style], I.star], ['me', '我', I.user]].map(([k, l, i]) => `<button data-a="tab" data-x="${k}" class="${tab == k ? 'on' : ''}">${i}<span>${l}</span>${k == 'list' && u ? `<i class="badge">${u}</i>` : ''}</button>`).join('')}</nav>`; };
 const stCls = (el, c) => { const keep = el.classList.contains('in'); el.className = `pg ${c}${keep ? ' in' : ''}`; };
 
-/* ---------- 动态操作（主页动态和个人动态共用） ---------- */
-const P = id => D().posts.find(p => p.id == id);
-async function genFeed(aid) {
-  const who = aid && aid != 'me' ? rn(get(aid)) : '';
-  task('正在生成动态', async sg => { const ps = json(await llm(await sysCtx(), `为${who || '联系人们（挑2-3位）'}生成${who ? 2 : 3}条贴合人设与当前剧情的${FN[S.style]}动态，可附带其他联系人的点赞和评论，可以提到${meObj().nick}。\n只输出JSON：{"posts":[{"author":"真实姓名","text":"","img":"配图画面描述(可空)","likes":["名字"],"comments":[{"from":"名字","text":""}]}]}`, '生成动态', sg))?.posts; if (!ps) throw Error('返回格式不对'); applyDelta({ posts: ps }); return `新增 ${ps.length} 条动态`; });
-}
-const FA = {
-  fcov: async (x, t, e, pg) => { const o = x == 'me' ? D().me : get(x); if (!o) return; const v = await pickImg(1080, 'cover'); if (v == null) return; drop(o.cover); o.cover = v; saveD(); emit('chat'); pg?.re?.(); },
-  like: id => { const p = P(id), me = nm(meObj()); p.likes = p.likes.includes(me) ? p.likes.filter(x => x != me) : [...p.likes, me]; saveD(); emit('chat'); },
-  cmt: async id => {
-    const p = P(id), r = await form('评论', [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c }); saveD(); emit('chat'); if (p.a == 'me') return;
-    task('等待评论回复', async sg => { json(await llm(await sysCtx(), `${rn(get(p.a))}发了动态：“${p.c}”\n评论区：${p.cm.map(c => c.f + '：' + c.c).join('；')}\n请生成${rn(get(p.a))}（以及可能路过的联系人）对最新评论的回复1-2条。只输出JSON：{"comments":[{"from":"名字","text":""}]}`, '动态评论', sg))?.comments?.forEach(c => p.cm.push({ f: c.from, c: c.text })); saveD(); emit('chat'); return '收到回复'; });
-  },
-  pfeed: id => openFeed(id), myfeed: () => openFeed('me'),
-  pdel: id => { drop(D().posts.filter(p => p.id == id)); D().posts = D().posts.filter(p => p.id != id); saveD(); emit('chat'); },
-  post: async () => { const r = await form('发表动态', [['c', '这一刻的想法...', 'area'], ['url', '配图', 'img']]); if (!r?.c && !r?.url) return; D().posts.unshift({ id: uid(), a: 'me', c: r.c || '', url: r.url, ts: +now(), likes: [], cm: [] }); saveD(); emit('chat'); },
-  fgen: (x, t, e, pg) => genFeed(pg.aid),
-  // 个人相册：点一条看详情（能点赞评论）；右上角 ··· 里发朋友圈 / 让 TA 发
-  apost: id => { const p = P(id); p && page({ title: '详情', live: 1, cls: 'feedpg', body: () => P(id) ? `<div class="feed f-wx">${post(P(id), 'wx')}</div>` : '<p class="empty">已删除</p>', acts: FA }); },
-  amore: async (x, t, e, pg) => { const k = await menu(pg.aid == 'me' ? [['post', '发朋友圈'], ['fgen', '让大家发点什么']] : [['fgen', `让${esc(nm(get(pg.aid)))}发条朋友圈`]]); k && FA[k](x, t, e, pg); },
-};
-export function openFeed(aid) { const st = aid && aid != 'me' ? sty(get(aid)) : S.style, al = FS[st] == 'wx'; page({ title: al ? '' : FN[st], aid, live: 1, cls: 'feedpg st-' + st + (al ? ' alpg' : ''), right: () => al ? `<b data-a="amore">${I.more}</b>` : `<b data-a="fgen">${I.spark}</b>${aid == 'me' ? `<b data-a="post">${I.cam}</b>` : ''}`, body: () => feed(aid, st), acts: FA }); }
 
 /* ---------- 添加联系人 ---------- */
 async function aiInit() {
@@ -427,8 +382,8 @@ reg({
   id: 'chat', name: '聊天', icon: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.5 4C5.4 4 2 6.8 2 10.2c0 1.9 1 3.6 2.7 4.7L4 17.5l3-1.6c.8.2 1.6.3 2.5.3 4.1 0 7.5-2.8 7.5-6.2S13.6 4 9.5 4z"/><path opacity=".8" d="M22 14.6c0-2.3-1.7-4.3-4.2-5.2l.1.9c0 4-3.7 7.2-8.4 7.4 1.1 1.4 3.1 2.3 5.3 2.3.6 0 1.2-.1 1.8-.2l2.4 1.2-.5-2c1.4-1 2.5-2.6 2.5-4.4z"/></svg>',
   open: () => page({
     cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; },
-    title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: FN[S.style], me: '我' })[tab],
-    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? `<b data-a="fgen">${I.spark}</b><b data-a="post">${I.cam}</b>` : '',
+    title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],
+    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? feedRight() : '',
     body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + tab); ctBind(el); },
     onChange: k => k == '$style' && emit('chat'),
     acts: {

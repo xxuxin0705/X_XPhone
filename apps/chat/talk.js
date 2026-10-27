@@ -64,7 +64,7 @@ export function parseReply(raw, ch) {
 function replyP(ch, patNow) {
   const g = ch.type == 'g', me = meObj().nick, sk = [...new Set([...S.assets.sticker.map(s => s.name), ...S.stk.mine.flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
   const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${m.q.c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
-  const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg, bf = bfList(ch);
+  const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg;
   const rn0 = Math.max(1, +cf.rmin || 1), rn1 = Math.max(rn0, +cf.rmax || 5), vn0 = Math.max(0, +cf.vmin || 0), vn1 = Math.max(vn0, cf.vmax == null ? 1 : +cf.vmax);
   const ls = mzB.getMusicListening(ch.id), snap = ls && G.mzSnapshot?.(), mt2 = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const lsP = ls ? ['【一起听歌】', g ? `${me}在群里发起了一起听歌，群成员现在可以一起听。` : `${me}和${rn(ch)}正在一起听歌。`, `正在放：《${snap?.songName || ls.songName}》 - ${snap?.artist || ls.artist}${snap ? `，放到 ${mt2(snap.currentTime || 0)}${snap.duration ? ' / ' + mt2(snap.duration) : ''}` : ''}`,
@@ -82,9 +82,7 @@ ${sty(ch) == 'wx' ? '' : `[表情回应:emoji] 给${me}刚才的消息贴表情�
 [音乐:歌名|歌手] 想邀请${me}一起听一首歌时发（歌要真实存在，单独一行，不要每轮都发）
 [撤回] 撤回自己上一条（说漏嘴、发错时用）
 ${ch.cfg.pat ? `[拍一拍] 拍一拍${me}（就是微信的拍一拍，只会显示「谁拍了拍谁」，不用写动作${g ? '；群里想拍别的成员就写 [拍一拍:成员名]' : ''}）${patNow ? `\n本轮请${g ? '挑一位成员' : ''}用一次 [拍一拍]。` : '，剧情合适时再用。'}` : ''}
-${tl.length ? `【语言】${tl.join('；')}：这些人的每一条文字和语音都直接用该语言写（一条都不能写成中文），每一条的同一行末尾都附 [翻译:简体中文译文]，不能有的有有的没有。译文要沉浸式、完全贴合说话人的人设与此刻语气（傲娇就傲娇、撒娇就撒娇），口语自然，只翻原意、不加戏不漏内容；其他人照常说中文。表情包等标签不翻译。` : ''}${bf.length ? `
-【补全翻译】下面是之前没配好双语、或者换了语言的消息（给的是中文意思）。在本轮回复的最后，每条另起一行写 [补译:编号|要求的语言写的原文|简体中文译文]，原文要像这个人当时亲口说的，带上他的口癖、语气和人设，意思不变：
-${bf.map(([k, m]) => `#${k} ${rn(get(m.f))}（要${lname(langFor(ch, m.f))}）: ${m.tr || m.c}`).join('\n')}` : ''}`;
+${tl.length ? `【语言】${tl.join('；')}：这些人的每一条文字和语音都直接用该语言写（一条都不能写成中文），每一条的同一行末尾都附 [翻译:简体中文译文]，不能有的有有的没有。译文要沉浸式、完全贴合说话人的人设与此刻语气（傲娇就傲娇、撒娇就撒娇），口语自然，只翻原意、不加戏不漏内容；其他人照常说中文。表情包等标签不翻译。` : ''}`;
 }
 
 /* ---------- 生成 ---------- */
@@ -98,7 +96,15 @@ export const stopGen = ch => { clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id)
 //  以前只有中文（或模型漏写译文）的消息：下一轮回复时顺便让模型补上另一半（[补译]），也不额外调用
 const SCR = { ko: /[가-힯]/, ja: /[぀-ヿ]/, ru: /[Ѐ-ӿ]/, th: /[฀-๿]/ }, LAT = /^(en|fr|de|es|vi)$/;
 const inLang = (t, l) => SCR[l] ? SCR[l].test(t) : LAT.test(l) ? /[A-Za-z]/.test(t) && !/[一-鿿]/.test(t) : true;
-const bfList = ch => ch.msgs.map((m, k) => [k, m]).slice(-40).filter(([, m]) => { const l = langFor(ch, m.f); return l && l != 'zh-TW' && /text|voice/.test(m.t) && m.f != 'me' && !m.orig && /[\p{L}]/u.test(m.c || '') && !(m.tr && inLang(m.c, l)); }).slice(-12);
+const need = (ch, m) => { const l = langFor(ch, m.f); return l && l != 'zh-TW' && /text|voice/.test(m.t) && m.f != 'me' && !m.orig && !m.tp && /[\p{L}]/u.test(m.c || '') && !(m.tr && inLang(m.c, l)) && l; };
+// 没跟回复一起带上译文的（模型漏写），或者后来改了语言：用免费机翻马上补 / 换（不调用聊天模型）
+export async function retrans(ch) {
+  for (const m of ch.msgs.filter(m => need(ch, m))) {
+    const l = need(ch, m); if (!l) continue; m.tp = 1; emit('chat');
+    try { const zh = m.tr || (/[一-鿿]/.test(m.c) && !inLang(m.c, l) ? m.c : await mt(m.c, 'zh-CN')), f = await mt(zh, l); f && f != zh && Object.assign(m, { c: f, tr: zh }); } catch { }
+    m.tp = 0; saveD(); emit('chat');
+  }
+}
 const zhOnly = (m, ch) => ch.cfg.trAuto === false && m.tr && m.f != 'me' && !m.orig; // 关着自动翻译：直接说中文
 const said = (m, ch) => zhOnly(m, ch) ? m.tr : m.c;
 export async function gen(ch) {
@@ -110,11 +116,9 @@ export async function gen(ch) {
     const lastR = ch.msgs.findLastIndex(m => m.f != 'me' && !/sys|pat/.test(m.t)), see = S.stk.see !== false ? ch.msgs.slice(lastR + 1).filter(m => m.f == 'me' && m.t == 'sticker' && m.img).slice(-3) : [];
     const P = replyP(ch, ch.cfg.pat && Math.random() < .3) + (see.length ? `\n\n【表情包图片】附上了${meObj().nick}刚发的 ${see.length} 个表情包的图片，按顺序对应上面最后 ${see.length} 个「[表情包：…]」。先看图弄懂${meObj().nick}想表达的情绪和意思，再自然地回应。` : '');
     const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img) }), ch);
-    const bf = new Map(bfList(ch).map(([k, m]) => [k, m]));
-    for (const m of ms.filter(m => m.type == 'bt')) { const x = bf.get(m.k); if (!x) continue; const l = langFor(ch, x.f); if (!inLang(m.text, l)) continue; x.tr = m.tr || (inLang(x.c, l) ? x.tr : x.c) || x.tr; x.c = m.text; }
     for (const m of ms.filter(m => m.type != 'bt')) { if (ac.signal.aborted) break; const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
   } catch (e) { ac.signal.aborted ? toast('已停止回复') : fail(`${nm(ch)} · 回复失败：${e.message}`); }
-  finally { busy = 0; CTL = null; emit('chat'); goSync(); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
+  finally { busy = 0; CTL = null; emit('chat'); goSync(); retrans(ch); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
 }
 const push = (ch, m) => {
   const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); // 不自动回复：想发几条发几条，发完点右下角 ✦ 让对方回
@@ -342,7 +346,7 @@ export function cset(ch) {
   const f = fx(ch), g = ch.type == 'g', mem = () => ch.members.map(i => [i, nm(get(i))]);
   page({
     title: g ? '群聊设置' : '聊天设置', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
-    onChange: k => /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; }),
+    onChange: k => (/^cfg\.(lang|trFollow|trAuto)$/.test(k) && D().chats.forEach(retrans), /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; })),
     body: () => sec('cset', [
       ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
         : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])],
