@@ -1,4 +1,3 @@
-import { photoHtml, photoSizes, playerHtml, PLAYER_STYLES, mountPlayers } from './apps/theme/media-widgets.js';
 // 小手机 · 桌面：多页网格 / Dock / 文件夹 / 小组件 / 长按编辑拖拽
 import { S, save, esc, uid, $, $$, ui, G, APPS, now, tpl, form, menu, sheet, defAv, btn, openApp, drop as dropMedia, pickFile, pickImg, putMedia, toast } from './core.js';
 import { ccdHtml, ccdBg, CCD_BG, CCD_PINK } from './apps/theme/ccd.js';
@@ -17,8 +16,6 @@ const szOpt = (w, h) => sizes(w, h).map(([a, b]) => [`${a}x${b}`, `${a}×${b}`])
 // 背景：透明时什么都不用填；纯色 / 毛玻璃一个颜色；渐变两个颜色；都能拖不透明度
 const bgF = m => [['bg', '背景', 'sel', CCD_BG], ...(!m.bg || m.bg == 'none' ? [] : [['bgC', '背景颜色', 'color'], ...(m.bg == 'grad' ? [['bgC2', '渐变第二色', 'color']] : []), ['bgA', '背景不透明度', 'range', [0, 100, '%']]])];
 export const WK = {
-  photo: { n:'图片',w:2,h:2,cls:'plain-photo',f:m=>[['img','图片','img'],['fit','填充方式','sel',[['cover','填满'],['contain','完整显示']]],['zoom','缩放','range',[100,300,'%']],['px','左右位置','range',[0,100,'%']],['py','上下位置','range',[0,100,'%']],['radius','圆角','range',[0,32,'px']]],d:{img:'',fit:'cover',zoom:100,px:50,py:50,radius:24},r:photoHtml },
-  record: { n:'唱片播放器',w:2,h:2,cls:'music-record',f:[['skin','样式','sel',PLAYER_STYLES]],d:{skin:'vinyl'},r:playerHtml,after:mountPlayers },
   badgeRound: { n:'圆形磨砂吧唧',w:2,h:2,cls:'photo-badge',f:badgeFields,d:{...BADGE_DEFAULT},r:p=>badgeHtml(p,'circle'),after:mountPaintPhotos },
   badgeHeart: { n:'爱心磨砂吧唧',w:2,h:2,cls:'photo-badge',f:badgeFields,d:{...BADGE_DEFAULT},r:p=>badgeHtml(p,'heart'),after:mountPaintPhotos },
   ccd: { n: 'CCD 相机', w: 2, h: 2, cls: 'ccd',
@@ -50,7 +47,7 @@ export function renderDesk() {
   const d = S.desk, el = ui.desk; if (!el) return;
   d.pages = fitPages(d.pages); cur = Math.min(cur,d.pages.length-1);
   el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dbar"><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div></div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
-  mountWideVideos(el); mountPaintPhotos(el); mountPlayers(el);
+  mountWideVideos(el); mountPaintPhotos(el);
   liquid($('.dock', el)); liquid($('.dots', el), { bezel: 10, scale: 18 }); $$('.ed-bar .btn', el).forEach(b => liquid(b, { bezel: 12, scale: 22 })); // 底部：液态玻璃
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
@@ -202,7 +199,7 @@ async function editW(it) {
     paintFit: (_, t, e, pg) => { const m=pg.model(),img=$('.form-preview .paint-photo>img',pg.el);if(!img?.naturalWidth)return;Object.assign(m,{zoom:fitPaintZoom(img),px:50,py:50});apply(m);pg.reb(); },
     paintCover: (_, t, e, pg) => { const m=pg.model();Object.assign(m,{zoom:100,px:50,py:50});apply(m);pg.reb(); },
   };
-  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', it.k === 'photo' ? photoSizes() : szOpt(K.w, K.h)]], { ...K.d, ...it.p, ...(it.k === 'clock' ? { source: it.p?.source || S.time } : {}), sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : it.k == 'paint' ? paintActs : ['badgeRound','badgeHeart','photo'].includes(it.k) ? {img:paintActs.img} : {}, (k, v, m, s) => { if (it.k === 'clock' && ['c', 'a', 'auto'].includes(k)) { const toggle = s.el.querySelector('[data-k=auto]'); if (toggle) toggle.checked = m.auto; return; } if (['bg', 'auto', 'type'].includes(k)) s.reb(); }, { patchPreview: (m, el, k) => { if (it.k !== 'clock' || !['c', 'a', 'auto'].includes(k)) return false; const clock = el.querySelector('.clk'); if (!clock) return false; clock.style.cssText = clkStyle(m); return true; }, preview: m => widgetPreview(it, m), live: apply, after: K.after });
+  await form(K.n, m => [...(typeof K.f == 'function' ? K.f(m) : K.f || []), ['sz', '尺寸', 'sel', szOpt(K.w, K.h)]], { ...K.d, ...it.p, ...(it.k === 'clock' ? { source: it.p?.source || S.time } : {}), sz: it.w + 'x' + it.h }, it.k == 'ccdWide' ? videoActs : it.k == 'paint' ? paintActs : ['badgeRound','badgeHeart'].includes(it.k) ? {img:paintActs.img} : {}, (k, v, m, s) => { if (it.k === 'clock' && ['c', 'a', 'auto'].includes(k)) { const toggle = s.el.querySelector('[data-k=auto]'); if (toggle) toggle.checked = m.auto; return; } if (['bg', 'auto', 'type'].includes(k)) s.reb(); }, { patchPreview: (m, el, k) => { if (it.k !== 'clock' || !['c', 'a', 'auto'].includes(k)) return false; const clock = el.querySelector('.clk'); if (!clock) return false; clock.style.cssText = clkStyle(m); return true; }, preview: m => widgetPreview(it, m), live: apply, after: K.after });
 }
 // 添加小组件：按尺寸筛选，每个组件的每种尺寸都有一张实际渲染的预览卡片
 const CELL = 64; // 预览里一格的边长
@@ -212,7 +209,7 @@ function wAddSheet() {
   const szs = [...new Set(all.map(e => `${e.w}x${e.h}`))].sort((a, b) => a.split('x').reduce((x, y) => x * y) - b.split('x').reduce((x, y) => x * y) || a.localeCompare(b));
   let fz = '';
   const card = (e, i) => `<div class="wcard" data-a="pick" data-x="${i}" data-k="${e.k}" data-sz="${e.w}x${e.h}"><div class="wprev" style="width:${e.w * CELL}px;height:${e.h * CELL}px"><div class="it wg w${e.w} h${e.h} k-${e.k} ${e.cls}">${tpl(WK[e.k].r(e.p, { w: e.w, h: e.h }))}</div></div><span class="wc-n">${esc(e.n)}</span><span class="wc-s">${e.w}×${e.h}</span></div>`;
-  const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件', after: el => { mountPaintPhotos(el); mountPlayers(el); },
+  const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件', after: mountPaintPhotos,
     body: () => `<div class="szf">${[['', '全部尺寸'], ...szs.map(z => [z, z.replace('x', '×')])].map(([v, l]) => `<b class="${fz == v ? 'on' : ''}" data-a="szf" data-x="${v}">${l}</b>`).join('')}</div><div class="wgrid">${all.map((e, i) => !fz || `${e.w}x${e.h}` == fz ? card(e, i) : '').join('')}</div>`,
     acts: { szf: v => { fz = v; s.reb(); }, pick: i => { cur = placeItem(S.desk.pages,all[+i].mk(),cur); s.close(); clean(); } } });
 }

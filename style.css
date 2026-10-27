@@ -1123,21 +1123,3 @@
 
 /* 应用使用完整高度，桌面与锁屏保留状态栏。 */
 .stp-scr.app-open:not(.locked) > .sb{display:none}
-
-/* 图片与唱片桌面组件 */
-.photo-widget{width:100%;height:100%;overflow:hidden;background:var(--cd,#eee);display:grid;place-items:center;color:var(--pt,#777)}
-.photo-widget>img{width:100%;height:100%;display:block}.photo-widget>svg{width:35%;height:35%;opacity:.45}
-.record-widget{width:100%;height:100%;overflow:hidden;border-radius:24px;background:#343b36;color:#f4f0df;display:flex;flex-direction:column;padding:8%;box-sizing:border-box;container-type:inline-size;box-shadow:inset 0 1px 1px #ffffff30,0 8px 20px -14px #17231e88}
-.rw-deck{position:relative;flex:1;min-height:0;display:grid;place-items:center}
-.rw-disc{height:100%;max-width:100%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:repeating-radial-gradient(circle at center,#202222 0 2px,#393c39 2.5px 3px,#181b19 3.5px 5px);box-shadow:0 5px 9px #0006;animation:record-turn 12s linear infinite;animation-play-state:paused}
-.playing .rw-disc{animation-play-state:running}.rw-label{width:35%;height:35%;border-radius:50%;overflow:hidden;background:radial-gradient(circle,#e9dfc9 0 6%,#bc7f5e 7% 15%,#e1b594 16%);position:relative}.rw-label img{width:100%;height:100%;object-fit:cover}.rw-label:after{content:'';position:absolute;inset:45%;border-radius:50%;background:#272b26;border:1px solid #fff8}
-.rw-arm{position:absolute;right:8%;top:3%;width:9%;height:65%;border-radius:8px;background:linear-gradient(90deg,#7c817b,#e9e9da,#7a817b);transform:rotate(-25deg);transform-origin:50% 5%;box-shadow:2px 3px 4px #0005;transition:transform 200ms}.playing .rw-arm{transform:rotate(-8deg)}.rw-arm:after{content:'';position:absolute;bottom:-3%;left:-25%;width:150%;height:20%;background:#aaa99d;border-radius:3px}
-.rw-led{position:absolute;left:0;top:5%;width:4px;height:4px;background:#939585;border-radius:50%}.playing .rw-led{background:#bcdb95}
-.rw-info{padding-top:5%;text-align:left;min-width:0}.record-widget button{border:0;background:none;color:inherit;padding:0;cursor:pointer;font:inherit}.record-widget .rw-title{display:block;max-width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:calc(12px*var(--fz,1));font-weight:600}.rw-artist{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;opacity:.6;font-size:calc(9px*var(--fz,1));margin-top:3px}.rw-controls{display:flex;align-items:center;justify-content:space-between;margin-top:5px}.rw-controls button{width:30px;height:26px;display:grid;place-items:center}.rw-controls svg{width:17px;height:17px}.rw-controls button:active{opacity:.55}.rw-controls .rw-toggle{background:#ffffff17;border-radius:50%;width:28px;height:28px}
-.rw-cd{background:linear-gradient(135deg,#f5f4f0,#b9c3c8);color:#37424a}.rw-cd .rw-disc{background:conic-gradient(#c8cdd2,#fbf9ee,#add7d7,#d9b9d1,#fefdf8,#b5c8d5,#c8cdd2);border:1px solid #fff9}.rw-cd .rw-label{background:#eef0ed;width:26%;height:26%}.rw-cd .rw-arm{display:none}.rw-cd .rw-controls .rw-toggle{background:#ffffff80}
-.rw-cream{background:#f4e8d5;color:#715a4e}.rw-cream .rw-disc{background:repeating-radial-gradient(circle,#705a4b 0 2px,#92745b 2.5px 3px,#685343 3.5px 5px)}.rw-cream .rw-label{background:radial-gradient(circle,#f3e4ce 0 10%,#c48b87 11% 100%)}.rw-cream .rw-arm{background:linear-gradient(90deg,#b3a68d,#fff6e0,#aa9c83)}.rw-cream .rw-controls .rw-toggle{background:#dccbb4}
-@keyframes record-turn{to{transform:rotate(360deg)}}
-.desk.edit .rw-disc{animation-play-state:paused}
-@media(prefers-reduced-motion:reduce){.rw-disc{animation:none}.rw-arm{transition:none}}
-.desk.edit .record-widget button{pointer-events:none}
-.stp-scr.app-open .desk .rw-disc,.stp-scr.locked .desk .rw-disc{animation-play-state:paused}

@@ -270,8 +270,6 @@ Object.assign(G, {
     mfull: () => app().open(() => musicApp.view.openPlayer()),
     mzPlay: (name, artist, meta) => app().musicData.playSongByName(name, artist, meta),
     mzSnapshot: () => app().musicData.getListeningSnapshot(),
-    mzWidgetSnapshot: () => { const d = musicApp?.musicData, s = d?.getCurrentSong(); return s ? { songName: s.name, artist: s.artist, cover: s.pic, isPlaying: !!d.isPlaying } : null; },
-    mzControl: action => { const d = app().musicData; if (!d.getCurrentSong()) return app().open(); if (action === 'toggle') d.togglePlay(); else if (action === 'prev') d.prev(); else if (action === 'next') d.next(); },
     mzListen: () => app().open(() => musicApp.view.openListen()),
     mzPlayer: () => app().open(() => musicApp.view.openPlayer())
 });
