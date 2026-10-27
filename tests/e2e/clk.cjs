@@ -83,6 +83,11 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`document.querySelector('.form-preview .clk-t').textContent === '04:05' && core.S.desk.pages[0][0].p.source === 'story'`), '组件独立跟随剧情时间并保存');
   await setSel('source', 'real'); await W(100);
   ok(await E(`document.querySelector('.form-preview .clk-t').textContent === core.hm(new Date())`), '切回现实时间实时预览');
+  await E(`window.colorNodes = [document.querySelector('.sheet.in .pg-b'), document.querySelector('.form-preview .clk'), document.querySelector('.desk .it.clkw')]; window.colorMutations = []; window.colorObserver = new MutationObserver(rs => colorMutations.push(...rs)); colorObserver.observe(colorNodes[0], { childList: true, subtree: true });`);
+  for (const color of ['#00ff00', '#0000ff', '#ff00ff', '#ffff00']) await setSel('c', color);
+  await W(100);
+  ok(await E(`colorMutations.length === 0 && colorNodes[0] === document.querySelector('.sheet.in .pg-b') && colorNodes[1] === document.querySelector('.form-preview .clk') && colorNodes[2] === document.querySelector('.desk .it.clkw')`), '连续取色不重建面板、预览或桌面节点');
+  await E(`colorObserver.disconnect()`);
   await setSel('c', '#ff0000'); await W(100);
   ok(await E(`core.S.desk.pages[0][0].p.auto === false && getComputedStyle(document.querySelector('.form-preview .clk-t')).color === 'rgb(255, 0, 0)'`), '直接选颜色自动关闭主题配色并应用');
   await setSel('bg', 'solid'); await W(200);
