@@ -5,8 +5,8 @@
 ## 怎么跑
 
 ```bash
-node tests/run.cjs            # 全部
-node tests/run.cjs unit ct    # 只跑某几组
+node tests/run.cjs isle       # 平时：只跑改动相关的组（改到共用文件再加 e2e）
+node tests/run.cjs            # 全部：很慢，只在用户要求时跑
 ```
 
 - 需要 Node 22 以上。
