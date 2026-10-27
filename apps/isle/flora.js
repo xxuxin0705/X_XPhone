@@ -1,6 +1,6 @@
 // 心屿 · 植物：树是「长」出来的（树干沿带噪声的曲线分枝，再铺上几百片实例化的叶片），还有草地、灌木、野花
 // 叶片是贴了 canvas 画的叶形的小平面，按树种分成几个 InstancedMesh（一种叶子一个 draw call）
-import { leafTex, SURF } from './mats.js';
+import { leafTex, leaf as leafMat, grass as grassMat } from './mats.js';
 let T;
 export const setThree = three => { T = three; };
 const TAU = Math.PI * 2;
@@ -23,7 +23,7 @@ export class Leaves {
     build() {
         const g = new T.Group();
         for (const s of this.sets.values()) {
-            const im = new T.InstancedMesh(new T.PlaneGeometry(1, 1), SURF.leaf(leafTex(s.kind), { color: s.color }), s.m.length);
+            const im = new T.InstancedMesh(new T.PlaneGeometry(1, 1), leafMat(leafTex(s.kind), s.color), s.m.length);
             s.m.forEach((m, i) => im.setMatrixAt(i, m)); im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; im.userData.leaves = true; g.add(im);
         }
         return g;
@@ -119,7 +119,7 @@ export function mushroom(acc, r, p, h, cap, glow) {
 }
 /** 草地：几千根小三角，按高度带色 */
 export function grass(r, n, hAt, R, ok, c1, c2) {
-    const im = new T.InstancedMesh(new T.BufferGeometry(), SURF.grass(c1, c2), n); const g = im.geometry;
+    const im = new T.InstancedMesh(new T.BufferGeometry(), grassMat(c1, c2), n); const g = im.geometry;
     g.setAttribute('position', new T.Float32BufferAttribute([-.5, 0, 0, .5, 0, 0, 0, 1, 0], 3)); g.setAttribute('normal', new T.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
     const m = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), v = new T.Vector3(), s = new T.Vector3(); let k = 0;
     for (let i = 0; i < n * 3 && k < n; i++) { const a = r() * TAU, d = Math.sqrt(r()) * R * .97, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!ok(x, z)) continue; q.setFromEuler(e.set((r() - .5) * .4, r() * TAU, (r() - .5) * .4)); m.compose(v.set(x, hAt(x, z) - .001, z), q, s.set(.0025 + r() * .002, .008 + r() * .012, 1)); im.setMatrixAt(k++, m); }

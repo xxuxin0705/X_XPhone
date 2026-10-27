@@ -23,32 +23,11 @@ export const WEATHER = {
 
 let T;
 const col = c => new T.Color(c);
-/** 材质名 → 材质：'wood:x:#8b6a4b' 'paint:#d9534f:1' 'lamp:#ffd36a:1.5:1' 'tile:#4a4d58:70' 'rock:#9a978f' … */
-function matFor(key, cache, ao) {
-    if (cache.has(key)) return cache.get(key);
-    const [kind, a, b, c] = key.split(':'); let m;
-    switch (kind) {
-        case 'ground': m = M.SURF.ground({}, ao); break;
-        case 'sandG': m = M.SURF.sand({}, ao); break;
-        case 'snowG': m = M.SURF.snow({}, ao); break;
-        case 'rock': m = M.SURF.rock(.5, { color: a, vertexColors: false }); break;
-        case 'rockV': m = M.SURF.rock(.7); break;
-        case 'sand': m = M.SURF.sand({ color: a, vertexColors: false }); break;
-        case 'wood': m = M.SURF.wood(a, b, +c || 0); break;
-        case 'lacquer': m = M.SURF.lacquer(a); break;
-        case 'plaster': m = M.SURF.plaster(a); break;
-        case 'concrete': m = M.SURF.concrete(a); break;
-        case 'asphalt': m = M.SURF.asphalt(); break;
-        case 'tile': m = M.SURF.tile(a, +b || 70); break;
-        case 'gold': m = M.SURF.gold(a); break;
-        case 'metal': m = M.SURF.metal(a); break;
-        case 'paint': m = M.SURF.paint(a, +b); break;
-        case 'glass': m = M.SURF.glass(); break;
-        case 'lamp': m = M.SURF.lamp(a, +b || 1, +c || 0); break;
-        case 'beam': m = new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, uniforms: { o: { value: 0 } }, vertexShader: 'varying float v;void main(){v=uv.y;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: 'uniform float o;varying float v;void main(){gl_FragColor=vec4(1.,.9,.6,(1.-v)*.35*o);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' }); break;
-        default: m = M.SURF.paint('#ff00ff', 0);
-    }
-    cache.set(key, m); return m;
+/** 材质名 → 材质：实体表面全走 mats.js 的全局缓存（共用一个着色器程序）；光柱单独一个 */
+let beamMat;
+function matFor(key) {
+    if (key === 'beam') return beamMat ||= new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, uniforms: { o: { value: 0 } }, vertexShader: 'varying float v;void main(){v=uv.y;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: 'uniform float o;varying float v;void main(){gl_FragColor=vec4(1.,.9,.6,(1.-v)*.35*o);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' });
+    return M.solid(key);
 }
 
 /* ---------- 噪声（CPU，做山丘和岩壁） ---------- */
@@ -70,7 +49,7 @@ function bodyGeo(R, top, depth, segs, n, c1, c2) {
     for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++) { const a = i * segs + j, b = i * segs + (j + 1) % segs, c = a + segs, d = b + segs; idx.push(a, b, c, b, d, c); }
     const g = new T.BufferGeometry(); g.setIndex(idx); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(colr, 3)); g.computeVertexNormals(); return g;
 }
-function terrain(rc, n, mats, ao) {
+function terrain(rc, n) {
     const { terrain: tt, R, pal } = rc, sea = tt === 'sea' || tt === 'atoll', TOP = -.12, g = new T.Group(), desert = rc.climate === 'desert';
     const hill = tt === 'plateau' ? .014 : tt === 'floating' ? .035 : .022;
     const h = (x, z) => { const d = Math.hypot(x, z) / R; const base = n(x * 4 + 9, z * 4) * hill + n(x * 9, z * 9 + 3) * hill * .4 + n(x * 20, z * 20) * hill * .12; const edge = tt === 'plateau' ? Math.max(0, d - .8) * .08 : 0; const lake = tt === 'lake' ? -Math.max(0, .4 - d) * .25 : 0; return base * (1 - d * d * .5) + edge + lake; };
@@ -79,10 +58,10 @@ function terrain(rc, n, mats, ao) {
     const islands = tt === 'twin' ? [[-.36, .1, R], [.36, -.12, R * .8]] : [[0, 0, R]];
     const gm = desert ? 'sandG' : rc.snowy ? 'snowG' : 'ground';
     for (const [ox, oz, r] of islands) {
-        const top = new T.Mesh(diskGeo(r, 26, 72, (x, z) => h(x, z), groundCol), matFor(gm, mats, ao)); top.position.set(ox, TOP, oz); top.receiveShadow = true; top.castShadow = false; g.add(top);
+        const top = new T.Mesh(diskGeo(r, 26, 72, (x, z) => h(x, z), groundCol), matFor(gm)); top.position.set(ox, TOP, oz); top.receiveShadow = true; top.castShadow = false; g.add(top);
         const depth = tt === 'floating' || tt === 'twin' ? .5 + r * .3 : sea ? .1 : .16;
-        const body = new T.Mesh(bodyGeo(r * .995, TOP - .003, depth, 72, n, pal.cliff, tt === 'floating' || tt === 'twin' ? '#2f2622' : pal.cliffDark), matFor('rockV', mats)); body.position.set(ox, 0, oz); body.castShadow = body.receiveShadow = true; g.add(body);
-        if (tt === 'floating' || tt === 'twin') for (let i = 0; i < 4; i++) { const s = new T.Mesh(new T.SphereGeometry(.05 + i * .01, 7, 5), matFor('rock:' + pal.cliffDark, mats)); s.scale.set(1.3, .8, 1); s.position.set(ox + n(i * 3, 7) * .6 * r, TOP - .25 - i * .12, oz + n(i * 5, 2) * .6 * r); s.userData.float = { y: s.position.y, ph: i }; g.add(s); }
+        const body = new T.Mesh(bodyGeo(r * .995, TOP - .003, depth, 72, n, pal.cliff, tt === 'floating' || tt === 'twin' ? '#2f2622' : pal.cliffDark), matFor('rock')); body.position.set(ox, 0, oz); body.castShadow = body.receiveShadow = true; g.add(body);
+        if (tt === 'floating' || tt === 'twin') for (let i = 0; i < 4; i++) { const s = new T.Mesh(new T.SphereGeometry(.05 + i * .01, 7, 5), matFor('rock:' + pal.cliffDark)); s.scale.set(1.3, .8, 1); s.position.set(ox + n(i * 3, 7) * .6 * r, TOP - .25 - i * .12, oz + n(i * 5, 2) * .6 * r); s.userData.float = { y: s.position.y, ph: i }; g.add(s); }
     }
     g.userData = { h, TOP, islands };
     return g;
@@ -134,10 +113,19 @@ function particles(kind, count) {
     for (let i = 0; i < count; i++) { pos.set([(r() * 2 - 1), 0, (r() * 2 - 1)], i * 3); ph[i] = r() * 2.4; sp[i] = .5 + r(); }
     const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('ph', new T.BufferAttribute(ph, 1)); g.setAttribute('sp', new T.BufferAttribute(sp, 1));
     const cfg = { rain: { c: '#dfeaff', sz: 1.6, v: 1.6, sway: 0, tex: dotTex, a: .55 }, snow: { c: '#ffffff', sz: 3.2, v: .22, sway: .08, tex: dotTex, a: .9 }, petal: { c: '#f8c1d2', sz: 4.5, v: .25, sway: .14, tex: petalTex, a: .95 }, leaf: { c: '#e8743b', sz: 4.2, v: .3, sway: .12, tex: petalTex, a: .95 }, ash: { c: '#c8c0b8', sz: 2.4, v: -.12, sway: .05, tex: dotTex, a: .6 }, spore: { c: '#d8b4ff', sz: 2.6, v: -.06, sway: .1, tex: dotTex, a: .8 }, firefly: { c: '#d9ff6a', sz: 3.5, v: -.03, sway: .2, tex: glowTex, a: 1 } }[kind];
-    const m = new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: kind === 'firefly' ? T.AdditiveBlending : T.NormalBlending, uniforms: { t: { value: 0 }, o: { value: 1 }, c: { value: col(cfg.c) }, sz: { value: cfg.sz }, v: { value: cfg.v }, sway: { value: cfg.sway }, tex: { value: cfg.tex }, px: { value: 2 }, lo: { value: kind === 'firefly' ? -.3 : -1.2 } },
+    const m = new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: kind === 'firefly' ? T.AdditiveBlending : T.NormalBlending, uniforms: { t: { value: 0 }, o: { value: 1 }, c: { value: col(cfg.c) }, sz: { value: cfg.sz }, v: { value: cfg.v }, sway: { value: cfg.sway }, tex: { value: cfg.tex }, px: { value: 2 }, lo: { value: kind === 'firefly' ? -.3 : -1.2 }, al: { value: cfg.a } },
         vertexShader: `attribute float ph,sp;uniform float t,v,sway,sz,px,lo;varying float a;void main(){float y=1.2-mod(t*v*sp+ph,2.4);if(v<0.)y=lo+mod(t*(-v)*sp+ph,1.6);float x=position.x+sin(t*1.3+ph*7.)*sway;float z=position.z+cos(t*1.1+ph*5.)*sway;vec3 p=vec3(x,y,z);float d=length(p);a=step(d,.97)*(.5+.5*sin(t*3.+ph*9.));if(v>0.)a=step(d,.97);gl_PointSize=sz*px*(.7+.3*sp);gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
-        fragmentShader: `uniform sampler2D tex;uniform vec3 c;uniform float o;varying float a;void main(){vec4 s=texture2D(tex,gl_PointCoord);gl_FragColor=vec4(c,s.a*a*o*${cfg.a.toFixed(2)});\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}` });
+        fragmentShader: `uniform sampler2D tex;uniform vec3 c;uniform float o,al;varying float a;void main(){vec4 s=texture2D(tex,gl_PointCoord);gl_FragColor=vec4(c,s.a*a*o*al);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}` });
     const p = new T.Points(g, m); p.frustumCulled = false; p.userData.u = m.uniforms; return p;
+}
+
+/** 按天气烤环境光用的东西：每个渲染器一套，所有岛共用（PMREM 自己的着色器不用每座岛重编） */
+const BAKERS = new WeakMap();
+function bakerFor(renderer) {
+    if (!renderer) return null; let b = BAKERS.get(renderer); if (b) return b;
+    const sc = new T.Scene(); const u = { top: { value: col('#4da3f0') }, hor: { value: col('#cfe9ff') }, bot: { value: col('#3a3f55') }, sun: { value: new T.Vector3(1, 1, 0) }, sunc: { value: col('#fff4dc') }, sunk: { value: 1 } };
+        sc.add(new T.Mesh(new T.SphereGeometry(5, 16, 8), new T.ShaderMaterial({ side: T.BackSide, uniforms: u, vertexShader: 'varying vec3 p;void main(){p=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: 'uniform vec3 top,hor,bot,sun,sunc;uniform float sunk;varying vec3 p;void main(){vec3 n=normalize(p);vec3 c=n.y<0.?mix(hor,bot,smoothstep(0.,-.4,n.y)):mix(hor,top,smoothstep(0.,.6,n.y));float s=max(0.,dot(n,normalize(sun)));c+=sunc*(pow(s,40.)*2.+pow(s,4.)*.3)*sunk;gl_FragColor=vec4(c,1.);}' })));
+    b = { pm: new T.PMREMGenerator(renderer), scene: sc, u }; BAKERS.set(renderer, b); return b;
 }
 
 /**
@@ -145,10 +133,10 @@ function particles(kind, count) {
  * @param {object} rc gen.js 的配方
  * @param {{quality:string, reduced:boolean}} opts
  */
-export function buildWorld(THREE, rc, { quality = 'high', reduced = false, renderer = null } = {}) {
+export function buildWorld(THREE, rc, { quality = 'high', reduced = false, renderer = null, weather = 'sunset' } = {}) {
     T = THREE; M.setThree(T); PT.setThree(T); F.setThree(T); setKitsThree(T); textures(); const hi = quality === 'high'; M.setLow(!hi);
-    const group = new T.Group(), n = noise2(rc.seed), r = rng(rc.seed + 1), sea = rc.terrain === 'sea' || rc.terrain === 'atoll', mats = new Map();
-    const ao = bakeAO(rc), land = terrain(rc, n, mats, ao); group.add(land); const { h, TOP, islands } = land.userData;
+    const group = new T.Group(), n = noise2(rc.seed), r = rng(rc.seed + 1), sea = rc.terrain === 'sea' || rc.terrain === 'atoll';
+    const ao = bakeAO(rc); M.setAO(ao); const land = terrain(rc, n); group.add(land); const { h, TOP, islands } = land.userData;
     const hAt = (x, z) => { let best = null; for (const [ox, oz, rr] of islands) { const d = Math.hypot(x - ox, z - oz); if (d < rr && (!best || d < best.d)) best = { d, ox, oz, r: rr }; } return best ? TOP + h(x - best.ox, z - best.oz) : TOP; };
     const onLand = (x, z) => islands.some(([ox, oz, rr]) => Math.hypot(x - ox, z - oz) < rr * .97);
     const anim = [], movers = []; // 每帧要动的东西
@@ -156,7 +144,7 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     /* 水 */
     const waters = [];
     const water = (radius, y, o) => { const w = new T.Mesh(new T.CircleGeometry(radius, 64).rotateX(-Math.PI / 2), M.waterMat({ c1: o.shallow ? '#7fd6e8' : rc.pal.water, c2: o.shallow ? '#4fb8d4' : rc.pal.waterDeep, radius, ring: o.ring || 0, amp: o.shallow ? .004 : .012 })); w.position.y = y; w.renderOrder = 2; waters.push(w); return w; };
-    if (sea) { group.add(water(.975, -.15, { ring: rc.R + .03 })); if (rc.terrain === 'atoll') { const ring = new T.Mesh(new T.RingGeometry(rc.R + .12, rc.R + .3, 64).rotateX(-Math.PI / 2), matFor('sand:' + rc.pal.sand, mats)); ring.position.y = -.145; ring.receiveShadow = true; group.add(ring); group.add(water(rc.R + .12, -.142, { shallow: true })); } }
+    if (sea) { group.add(water(.975, -.15, { ring: rc.R + .03 })); if (rc.terrain === 'atoll') { const ring = new T.Mesh(new T.RingGeometry(rc.R + .12, rc.R + .3, 64).rotateX(-Math.PI / 2), matFor('sand:' + rc.pal.sand)); ring.position.y = -.145; ring.receiveShadow = true; group.add(ring); group.add(water(rc.R + .12, -.142, { shallow: true })); } }
     if (rc.terrain === 'lake') group.add(water(rc.R * .4, TOP - .02, { shallow: true }));
     /* 哪些地方不长草：建筑、池塘、小路 */
     const bare = []; const FOOT = { temple: .17, street: .26, school: .19, hospital: .16, shrine: .13, pagoda: .1, castle: .12, cafe: .11, izakaya: .1, station: .16, ferris: .1, lighthouse: .09, windmill: .07, tower: .06, observatory: .07, cabin: .1, house: .09, tent: .07, pyramid: .11, pond: .12, hotspring: .09, crater: .14, bonfire: .05 };
@@ -165,7 +153,7 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     /* 小路（踏脚石）、小溪、灯笼串 */
     if (rc.extras.includes('path') && !sea) { const a0 = r() * TAU; for (let i = 0; i < 11; i++) { const d = .15 + i * .075, a = a0 + Math.sin(i * .9) * .25, x = Math.cos(a) * d * rc.R, z = Math.sin(a) * d * rc.R; if (!onLand(x, z)) continue; bare.push([x, z, .03]); acc.put('sph', 'rock:' + (rc.snowy ? '#aab4c0' : '#c9b99a'), [x, hAt(x, z) - .006, z], [.022 * (1 + r() * .3), .008, .017], [0, a, 0], null, 8); } }
     if (rc.extras.includes('river') && !sea) { const a0 = r() * TAU; for (let i = 0; i < 12; i++) { const d = .05 + i * .085, a = a0 + Math.sin(i * .7) * .3, x = Math.cos(a) * d * rc.R, z = Math.sin(a) * d * rc.R; if (!onLand(x, z)) continue; bare.push([x, z, .035]); acc.put('cyl', 'paint:#5fc3dd:1', [x, hAt(x, z) + .002, z], [.034, .004, .024], [0, a, 0], null, 10); for (let k = 0; k < 2; k++) acc.put('sph', 'rock:#8a8580', [x + (r() - .5) * .05, hAt(x, z), z + (r() - .5) * .05], [.008, .005, .007], [0, r() * 3, 0], null, 5); } }
-    if (rc.extras.includes('lanterns') && !sea) { const kk = K(acc, k => matFor(k, mats)), a0 = r() * TAU; for (let i = 0; i < 6; i++) { const a = a0 + i * .35, d = rc.R * .82, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!onLand(x, z)) continue; const y = hAt(x, z); kk.cyl('wood:y:#4a3626', x, y + .05, z, .003, .1, 5); kk.paperLamp(x, y + .085, z, i % 2 ? '#ff7a5c' : '#ffd27a', .008); } }
+    if (rc.extras.includes('lanterns') && !sea) { const kk = K(acc, matFor), a0 = r() * TAU; for (let i = 0; i < 6; i++) { const a = a0 + i * .35, d = rc.R * .82, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!onLand(x, z)) continue; const y = hAt(x, z); kk.cyl('wood:y:#4a3626', x, y + .05, z, .003, .1, 5); kk.paperLamp(x, y + .085, z, i % 2 ? '#ff7a5c' : '#ffd27a', .008); } }
     /* 零件：树、灌木、建筑 */
     for (const it of rc.items) {
         const p = new T.Vector3(it.x, hAt(it.x, it.z), it.z), tr = /^(broad|maple|sakura|pine|palm|cypress|bamboo)$/.test(it.type);
@@ -175,23 +163,23 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
         if (it.type === 'mushroom') { F.mushroom(acc, rng(it.k), p, .1 * it.s, ['#e84c5a', '#f4a259', '#9b6bd6'][it.k % 3], rc.glow); continue; }
         const kit = KITS[it.type]; if (!kit) continue;
         const ks = it.s * KS, base = PT.mat4(it.x, p.y, it.z, ks, ks, ks, 0, it.rot, 0), n0 = acc.extra.length;
-        kit(K(acc, k => matFor(k, mats), base), rc, rng(it.k));
+        kit(K(acc, matFor, base), rc, rng(it.k));
         for (let i = n0; i < acc.extra.length; i++) { const mv = acc.extra[i], wrap = new T.Group(); wrap.applyMatrix4(base); const at = mv.userData.at || [0, mv.userData.y || 0, 0]; mv.position.set(...at); wrap.add(mv); group.add(wrap); movers.push(mv); }
         acc.extra.length = n0;
         // 池塘 / 温泉的水面
         if (it.type === 'pond' || it.type === 'hotspring') { const w = water(it.type === 'pond' ? .11 * it.s : .07 * it.s, p.y + .004, { shallow: true }); w.position.x = it.x; w.position.z = it.z; group.add(w); if (it.type === 'hotspring') { const st = glow('#ffffff', .18, it.x, p.y + .06, it.z, .35); st.userData.steam = { y: p.y + .06 }; group.add(st); anim.push(st); } }
     }
-    if (rc.extras.includes('bridge') && rc.terrain === 'twin') { const base = PT.mat4(0, TOP + .01, 0, 1, 1, 1, 0, Math.atan2(-.22, .72), 0); KITS.bridge(K(acc, k => matFor(k, mats), base), rc, r); }
+    if (rc.extras.includes('bridge') && rc.terrain === 'twin') { const base = PT.mat4(0, TOP + .01, 0, 1, 1, 1, 0, Math.atan2(-.22, .72), 0); KITS.bridge(K(acc, matFor, base), rc, r); }
     /* 草、野花 */
     if (!rc.snowy && rc.climate !== 'desert' && !rc.lava) { const gr = F.grass(r, hi ? 2600 : 900, hAt, rc.R, grassOk, rc.pal.grass[0], rc.pal.grass[1]); group.add(gr); }
     if (rc.extras.includes('flowers') && !sea && !rc.snowy) F.flowers(lv, r, rc.climate === 'lavender' ? 260 : 90, hAt, rc.R, grassOk, rc.climate === 'lavender' ? ['#9b7fd6', '#8a6fc9', '#b39ae6'] : ['#ffe27a', '#f6a3b4', '#ffffff', '#b9a3e8', '#ff8a65']);
     /* 合并 */
-    const solid = acc.build(Object.fromEntries(mats), k => matFor(k, mats)); group.add(solid); const leaves = lv.build(); group.add(leaves);
+    const solid = acc.build({}, matFor); group.add(solid); const leaves = lv.build(); group.add(leaves);
     const halos = (acc.glows || []).map(g => { const sp = glow(g.c, g.size, g.x, g.y, g.z, g.a); sp.userData.always = g.c === '#ffa040'; group.add(sp); return sp; });
     /* 动物、船 */
-    const mover = (type, data) => { const a = new PT.Acc(); KITS[type](K(a, k => matFor(k, mats)), rc, r); const g = a.build({}, k => matFor(k, mats)); Object.assign(g.userData, data); group.add(g); movers.push(g); return g; };
-    if (rc.animals.includes('whale') && (sea || rc.terrain === 'lake')) { const a = new PT.Acc(), kk = K(a, k => matFor(k, mats)); const b = 'paint:#4a7fc4:0'; kk.sph(b, 0, 0, 0, .05, 10, [1.9, .8, 1]); kk.put('cone', b, [-.1, .005, 0], [.02, .05, .02], [0, 0, Math.PI / 2 + .3], null, 6); kk.box(b, -.13, .01, 0, .04, .008, .06); kk.sph('paint:#ffffff:0', .03, .012, .03, .006, 5); kk.sph('paint:#dff2ff:0', 0, .035, 0, .02, 6, [.4, 1.2, .4]); const g = a.build({}, k => matFor(k, mats)); g.userData.orbit = { r: sea ? .62 : rc.R * .2, y: sea ? -.15 : TOP - .02, v: .25, a: 0, bob: 1 }; group.add(g); movers.push(g); }
-    if (rc.animals.includes('birds')) for (let i = 0; i < 3; i++) { const a = new PT.Acc(), kk = K(a, k => matFor(k, mats)); for (const s of [-1, 1]) kk.put('box', 'paint:#3b3a40:0', [s * .01, 0, 0], [.02, .002, .006], [0, 0, s * .5]); const g = a.build({}, k => matFor(k, mats)); g.userData.fly = { a: i * 2.1, r: .5 + i * .08, y: .35 + i * .06, v: .5 + i * .1 }; group.add(g); movers.push(g); }
+    const mover = (type, data) => { const a = new PT.Acc(); KITS[type](K(a, matFor), rc, r); const g = a.build({}, matFor); Object.assign(g.userData, data); group.add(g); movers.push(g); return g; };
+    if (rc.animals.includes('whale') && (sea || rc.terrain === 'lake')) { const a = new PT.Acc(), kk = K(a, matFor); const b = 'paint:#4a7fc4:0'; kk.sph(b, 0, 0, 0, .05, 10, [1.9, .8, 1]); kk.put('cone', b, [-.1, .005, 0], [.02, .05, .02], [0, 0, Math.PI / 2 + .3], null, 6); kk.box(b, -.13, .01, 0, .04, .008, .06); kk.sph('paint:#ffffff:0', .03, .012, .03, .006, 5); kk.sph('paint:#dff2ff:0', 0, .035, 0, .02, 6, [.4, 1.2, .4]); const g = a.build({}, matFor); g.userData.orbit = { r: sea ? .62 : rc.R * .2, y: sea ? -.15 : TOP - .02, v: .25, a: 0, bob: 1 }; group.add(g); movers.push(g); }
+    if (rc.animals.includes('birds')) for (let i = 0; i < 3; i++) { const a = new PT.Acc(), kk = K(a, matFor); for (const s of [-1, 1]) kk.put('box', 'paint:#3b3a40:0', [s * .01, 0, 0], [.02, .002, .006], [0, 0, s * .5]); const g = a.build({}, matFor); g.userData.fly = { a: i * 2.1, r: .5 + i * .08, y: .35 + i * .06, v: .5 + i * .1 }; group.add(g); movers.push(g); }
     if (rc.extras.includes('boat') && (sea || rc.terrain === 'lake')) mover('boat', { orbit: { r: sea ? .55 : rc.R * .25, y: sea ? -.15 : TOP - .02, v: .12, a: 2 } });
     /* 天空和天气 */
     const skyM = sky(rc), au = aurora(); group.add(skyM, au);
@@ -201,7 +189,7 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     addP('rain', 220); addP('snow', 160); if (rc.fall === 'petal') addP('petal', 90); if (rc.fall === 'leaf') addP('leaf', 90); if (rc.fall === 'ash') addP('ash', 80); if (rc.fall === 'spore') addP('spore', 70); if (rc.extras.includes('fireflies')) addP('firefly', 40);
     /* 灯光 */
     const hemi = new T.HemisphereLight('#bfe3ff', '#8a7a60', .9), sun = new T.DirectionalLight('#fff4dc', 2), amb = new T.AmbientLight('#ffffff', .12);
-    sun.position.set(1, 1.6, .6); sun.castShadow = true; sun.shadow.mapSize.set(hi ? 2048 : 1024, hi ? 2048 : 1024); Object.assign(sun.shadow.camera, { left: -1, right: 1, top: 1, bottom: -1, near: .1, far: 5 }); sun.shadow.bias = -.0006; sun.shadow.normalBias = .006; sun.shadow.radius = 2;
+    sun.position.set(1, 1.6, .6); sun.castShadow = true; sun.shadow.mapSize.set(hi ? 1024 : 512, hi ? 1024 : 512); Object.assign(sun.shadow.camera, { left: -1, right: 1, top: 1, bottom: -1, near: .1, far: 5 }); sun.shadow.bias = -.0006; sun.shadow.normalBias = .006; sun.shadow.radius = 2;
     const lampLight = new T.PointLight('#ffd36a', 0, 1.2, 2); const mk = rc.items.find(i => i.type === rc.mark); lampLight.position.set(mk?.x || 0, TOP + .25, mk?.z || 0);
     group.add(hemi, sun, sun.target, amb, lampLight);
     /* 烟花 / 闪电 */
@@ -211,11 +199,9 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     let W = WEATHER.sunset, flash = 0, nextBolt = 2;
     const U = M.U, wv = new T.Vector3(), wt = new T.Vector3();
     // 环境光照：按天气从天空颜色烤一张小环境图给岛上的 PBR 材质（不用球外那个亮房间，否则夜里也亮得像白天）
-    const envScene = new T.Scene(), envU = { top: { value: col('#4da3f0') }, hor: { value: col('#cfe9ff') }, bot: { value: col('#3a3f55') }, sun: { value: new T.Vector3(1, 1, 0) }, sunc: { value: col('#fff4dc') }, sunk: { value: 1 } };
-    envScene.add(new T.Mesh(new T.SphereGeometry(5, 16, 8), new T.ShaderMaterial({ side: T.BackSide, uniforms: envU, vertexShader: 'varying vec3 p;void main(){p=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: 'uniform vec3 top,hor,bot,sun,sunc;uniform float sunk;varying vec3 p;void main(){vec3 n=normalize(p);vec3 c=n.y<0.?mix(hor,bot,smoothstep(0.,-.4,n.y)):mix(hor,top,smoothstep(0.,.6,n.y));float s=max(0.,dot(n,normalize(sun)));c+=sunc*(pow(s,40.)*2.+pow(s,4.)*.3)*sunk;gl_FragColor=vec4(c,1.);}' })));
-    let envTex = null; const pm = renderer ? new T.PMREMGenerator(renderer) : null;
-    const allMats = () => { const out = [...mats.values()]; group.traverse(o => { if (o.userData.leaves || o.isInstancedMesh) out.push(o.material); }); return out; };
-    const bakeEnv = () => { if (!pm) return; const old = envTex; envU.top.value.set(W.top); envU.hor.value.set(W.hor); envU.bot.value.set(W.hemi[2]); envU.sun.value.set(...W.sun[2]); envU.sunc.value.set(W.sun[1]); envU.sunk.value = W.night ? 0 : W.sun[0] * .4; envTex = pm.fromScene(envScene, .04).texture; for (const m of allMats()) if ('envMap' in m) { m.envMap = envTex; m.envMapIntensity = W.night ? .45 : W.fog ? .7 : 1; m.needsUpdate = m.envMap !== envTex; } old?.dispose(); };
+    const BK = bakerFor(renderer), envU = BK?.u; let envTex = null; const pm = BK?.pm;
+    const allMats = () => M.allCached();
+    const bakeEnv = () => { if (!pm) return; const old = envTex; envU.top.value.set(W.top); envU.hor.value.set(W.hor); envU.bot.value.set(W.hemi[2]); envU.sun.value.set(...W.sun[2]); envU.sunc.value.set(W.sun[1]); envU.sunk.value = W.night ? 0 : W.sun[0] * .4; envTex = pm.fromScene(BK.scene, .04).texture; for (const m of allMats()) if ('envMap' in m) { m.envMap = envTex; m.envMapIntensity = W.night ? .45 : W.fog ? .7 : 1; } old?.dispose(); };
     function setWeather(scene) {
         W = WEATHER[scene] || WEATHER.sunset; const u = skyM.userData.u;
         u.top.value.set(W.top); u.hor.value.set(W.hor); u.sun.value.set(...W.sun[2]); u.sunc.value.set(W.sun[1]); u.sunk.value = W.night ? 0 : scene === 'fog' ? .3 : 1; u.cloud.value = W.cloud ?? .4; u.stars.value = W.stars ? 1 : 0; u.night.value = W.night ? 1 : 0;
@@ -251,7 +237,7 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
         if (W.lightning) { nextBolt -= dt; if (nextBolt <= 0) { nextBolt = 2 + Math.random() * 4; flash = 1; const pts = [new T.Vector3((Math.random() - .5) * .8, .9, -.3)]; for (let i = 1; i < 6; i++) pts.push(new T.Vector3(pts[i - 1].x + (Math.random() - .5) * .15, .9 - i * .17, -.3)); bolt.geometry.setFromPoints(pts); } if (flash > 0) { flash -= dt * 5; bolt.material.opacity = Math.max(0, flash); hemi.intensity = W.hemi[0] + Math.max(0, flash) * 1.2; } }
         else if (bolt.material.opacity) { bolt.material.opacity = 0; }
     }
-    setWeather('sunset');
-    const stats = () => ({ tris: acc.tris, leaves: lv.count, meshes: solid.children.length + leaves.children.length, mats: mats.size });
-    return { group, update, setWeather, setPixel, stats, get fog() { return W.fog; }, get night() { return !!W.night; }, dispose: () => { group.traverse(o => { o.geometry?.dispose?.(); if (o.material && !o.userData.mk) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose?.()); }); mats.forEach(m => m.dispose()); ao.tex.dispose(); envTex?.dispose(); pm?.dispose(); } };
+    setWeather(weather);
+    const stats = () => ({ tris: acc.tris, leaves: lv.count, meshes: solid.children.length + leaves.children.length, mats: M.allCached().length });
+    return { group, update, setWeather, setPixel, stats, get fog() { return W.fog; }, get night() { return !!W.night; }, dispose: () => { group.traverse(o => { o.geometry?.dispose?.(); if (o.material && !o.material.userData?.u && o.material !== beamMat) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose?.()); }); ao.tex.dispose(); envTex?.dispose(); } }; // 共用的材质留着（着色器不用重编），环境贴图留到下一座岛换掉
 }

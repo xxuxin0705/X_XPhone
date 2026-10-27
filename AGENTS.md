@@ -60,11 +60,13 @@ apps/music/      音乐 App（界面从 yuzuki-phonetest 里作者自己的那�
 apps/isle/       心屿：每个角色一座果冻球里的 3D 小岛（three.js，打开时才加载 assets/three），天气 = 心情，风景随机换
   isle.js          数据和页面（心情、风景什么时候换、AI 导演的风景词、按角色卡偏时代）
   gen.js           风景配方（纯逻辑，Node 可测）：时代 × 气候 × 地形 × 地标套件 × 植物 × 动物 × 配色；hintOf 把风景词翻成配方，eraOf 认时代
-  jelly.js         果冻球：玻璃、软体变形、手势（戳、拖着转、翻面、双指缩放）、拍一下乱弹、画质自动降档
+  jelly.js         果冻球：玻璃、软体变形、手势（戳、拖着转、翻面、双指缩放）、拍一下乱弹、画质自动降档；
+                   渲染器 / 场景 / 编译好的着色器常驻（每次打开把同一块画布挪进页面），打开手机时 warm() 预热
   build.js         装配球里的世界：地形、烘焙 AO、水、天空、天气、粒子、动的零件
   kits.js          建筑和道具套件（寺庙、神社、街道、学校、医院、咖啡馆、木屋……），按材质合并成少数网格
   flora.js         植物：分枝生长的树 + 实例化叶片、草地、灌木、野花
-  mats.js          程序化材质：噪声 GLSL 注进 three.js 的 PBR 材质（草、岩、木、瓦、金属…），不用贴图
+  mats.js          程序化材质：噪声 GLSL 注进 three.js 的 PBR 材质（草、岩、木、瓦、金属…），不用贴图；
+                   所有实体表面共用一个着色器程序（uSurf 选表面）——手机上编译着色器最慢，别再按表面拆成多个程序
   parts.js         零件累加器（按材质合并几何）
 assets/three/    three.js r170（MIT，带 LICENSE），只有心屿用
 apps/theme/      主题：壁纸、图标、气泡、小组件（时钟 clock、CCD 相机、吧唧 badge、画图相框）
@@ -88,7 +90,7 @@ tests/           测试（见第五节）
 - `sheet` / `menu` / `form` / `ok` / `toast`：底部弹层、选项菜单、表单（`data-k` 自动双向绑定）、确认框、提示。
 - 点击用 `data-a="动作名" data-x="参数"`，长按用 `data-lp`；动作先在页面的 `acts` 里找，再到全局 `G` 里找。
 - 右滑返回会跳过 `input`、色板、`.phone-gesture-control` 和 `[data-no-swipe-back]` 里的元素。
-- 事件总线 `on` / `emit`：`chat`（聊天数据变了）、`stk`（表情包）、`cfg`（设置项变了）、`badge`、`home`、`open-chat`、`isle` / `isle-mood`。
+- 事件总线 `on` / `emit`：`chat`（聊天数据变了）、`stk`（表情包）、`cfg`（设置项变了）、`badge`、`home`、`open-chat`、`isle` / `isle-mood`、`phone-open`（手机从收起变成打开，心屿用它趁空闲预热 3D）。
 
 **AI 和费用**
 - `llm(系统, 用户, 描述, signal, { aux, images })`：调聊天模型，自动记日志；`aux: 1` 走设置里的「生成用模型」（生成联系人、读心情这类活；没设就用聊天模型），`images` 一起发图片。

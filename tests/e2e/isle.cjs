@@ -11,11 +11,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.goto('http://localhost:8815/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = async n => p.screenshot({ path: path.join(OUT, n), clip: await p.locator('#stp .stp-scr').boundingBox() }); // 不用 locator.screenshot：WebGL 一直在重画，它会等「元素稳定」等到超时
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.is = await import('/apps/isle/isle.js'); window.gen = await import('/apps/isle/gen.js'); core.S.lock.on = false; window.ep = []; SillyTavern.getContext().setExtensionPrompt = (k, v) => ep.push(v);
-    window._a = dt.add(dt.blank('p', { real: '五条悟', fr: 1 })); window._b = dt.add(dt.blank('p', { real: '夏油杰', fr: 1 })); core.saveD(); window.J = () => is._globe(); })()`); await W(300);
+    window._a = dt.add(dt.blank('p', { real: '五条悟', fr: 1 })); window._b = dt.add(dt.blank('p', { real: '夏油杰', fr: 1 })); core.saveD(); window.J = () => is._globe(); window.jj = await import('/apps/isle/jelly.js'); window.PROG = () => jj._eng()?.renderer.info.programs.length ?? -1; })()`); await W(300);
   // 等球建好（软件渲染要编译几十个着色器，慢）；after 之后 advance(0) 立刻按当前配方重建，不等下一帧
   const ready = async () => { await p.waitForFunction('J() && J().state.stats', null, { timeout: 180000 }); await E('J().advance(0)'); };
   const G = () => E('J().state');
   ok(await E(`!!core.APPS.isle && [...core.S.desk.pages.flat(), ...core.S.desk.dock].some(x => x.app == 'isle')`), '桌面上有「心屿」');
+  // 打开手机：趁空闲预热（加载 three.js、编译着色器），点进心屿时不用等
+  await E(`core.emit('phone-open')`); await p.waitForFunction('jj._eng()?.warmed && J() == null', null, { timeout: 300000 }); await p.waitForFunction('jj._eng().trash == null || jj._eng().trash.length == 0', null, { timeout: 300000 });
+  ok(await E(`jj._eng().warmed && PROG() > 5`), `打开手机后预热好了：${await E('PROG()')} 个着色器程序已经编译`);
   await E(`core.openApp('isle')`); await ready();
   ok(await E(`document.querySelectorAll('.isle .is-who b').length == 2 && !!document.querySelector('.isle canvas') && document.querySelector('.isle canvas').width > 300`), '打开：两个角色的头像、果冻球画出来了');
   ok(/还不知道[\s\S]*五条悟的岛/.test(await E(`document.querySelector('.is-card').textContent`)), '还没读过心情：显示「还不知道」');
@@ -36,7 +39,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const wd = id => E(`JSON.stringify((({ climate, terrain, mark, era }) => ({ climate, terrain, mark, era }))(core.D().isle.by[${id}].world))`);
   ok(JSON.parse(await wd('_b.id')).climate && /·/.test(await E(`document.querySelector('.is-caption').textContent`)), '每座岛都有一座风景（标题里写着气候 · 地标）');
   let changed = 0; for (let i = 0; i < 4; i++) { const was = await wd('_b.id'); await E(`core.home(); core.openApp('isle')`); await W(80); changed += (await wd('_b.id')) != was; }
-  ok(changed == 4, '每次打开心屿都换一座岛'); await ready();
+  ok(changed == 4, '每次打开心屿都换一座岛'); await ready(); await p.waitForFunction('J().frames > 1', null, { timeout: 180000 });
+  const pg0 = await E('PROG()'); for (let i = 0; i < 2; i++) { await E(`core.home(); core.openApp('isle')`); await ready(); await p.waitForFunction('J().frames > 1', null, { timeout: 180000 }); }
+  await E(`document.querySelectorAll('.is-who b')[0].click()`); await ready(); await p.waitForFunction('J().frames > 1', null, { timeout: 180000 });
+  ok(await E('PROG()') <= pg0 + 1, `重开、切角色都不重新编译着色器（程序数 ${pg0} → ${await E('PROG()')}）`);
+  const fit = await E(`(() => { const e = jj._eng(), T = e.T, cv = document.querySelector('.isle canvas'), r = cv.getBoundingClientRect(); const pj = v => { const p = new T.Vector3(...v).project(e.cam); return [(p.x + 1) / 2 * r.width, (1 - p.y) / 2 * r.height]; }; const c = pj([0, 0, 0]), top = pj([0, 1, 0]), bot = pj([0, -1, 0]); return { c: c[1] / r.height, top: top[1], bot: r.height - bot[1], h: r.height }; })()`);
+  ok(Math.abs(fit.c - .5) < .05 && fit.top > 8 && fit.bot > 8 && Math.abs(fit.top - fit.bot) < fit.h * .1, `球在画布里居中、上下都没被切（上留 ${fit.top | 0}px，下留 ${fit.bot | 0}px）`);
+  ok(await E(`document.querySelector('.isle canvas') === jj._eng().canvas && document.querySelectorAll('.isle canvas').length == 1`), '画布是常驻的那一块（不新建 WebGL）');
+  await E(`document.querySelectorAll('.is-who b')[1].click()`); await ready(); // 切回夏油杰，后面接着测他
   const seen = await E(`(() => { const c = new Set(), m = new Set(), e = new Set(); for (let i = 0; i < 300; i++) { const r = gen.makeRecipe(i * 7919 + 3); c.add(r.climate); m.add(r.mark); e.add(r.era); } return [c.size, m.size, e.size]; })()`);
   ok(seen[0] >= 11 && seen[1] >= 17 && seen[2] == 3, `随机不限定几种：300 次抽到 ${seen[0]} 种气候、${seen[1]} 种地标、${seen[2]} 个时代`);
   ok(!(await E(`document.querySelector('.isle').textContent`)).match(/听风竹林|体感|花眠花园|果冻/) && !(await E(`!!document.querySelector('.is-bubble, .is-dot, [data-a=ismotion], [data-a=islandscape]')`)), '没有果冻颜色、风景选择、体感按钮和冒字气泡');

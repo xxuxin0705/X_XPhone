@@ -1086,11 +1086,11 @@
 .is-who b.on{opacity:1}.is-who img{width:40px;height:40px;border-radius:50%;object-fit:cover;border:3px solid var(--is-paper);outline:1px solid transparent}
 .is-who .on img{outline-color:#708e7c}.is-who span{display:block;max-width:68px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:calc(11px*var(--fz,1));letter-spacing:.04em}
 .is-who b:focus-visible{outline:2px solid var(--is-ink);outline-offset:3px;border-radius:8px}
-.is-stage{position:relative;margin:0 -12px;padding:16px 0 10px}
+.is-stage{position:relative;margin:0 -12px;padding:12px 0 6px}
 .is-caption{display:flex;justify-content:space-between;align-items:center;margin:0 12px;font-size:calc(11px*var(--fz,1));letter-spacing:.08em;color:var(--is-muted)}
 .is-caption span:first-child{max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .is-caption span:last-child{display:flex;align-items:center;gap:5px}.is-caption span:last-child:before{content:'';width:4px;height:4px;background:#97aa88;border-radius:50%}
-.is-cv{display:block;width:100%;aspect-ratio:.92;touch-action:none;cursor:grab}.is-cv:active{cursor:grabbing}
+.is-cv{display:block;width:100%;aspect-ratio:.95;margin-top:6px;touch-action:none;cursor:grab}.is-cv:active{cursor:grabbing}
 .is-sealine{display:flex;align-items:center;gap:14px;justify-content:center;margin:0 26px 8px;color:#9ba795}
 .is-sealine svg{width:58px;height:16px}.is-sealine span{font-family:Georgia,'Songti SC',serif;white-space:nowrap;font-size:calc(10px*var(--fz,1));letter-spacing:.16em}
 .is-card{position:relative;margin:8px 0 0;padding:22px 0 0;border-top:1px solid #cdd5c5}
@@ -1115,7 +1115,7 @@
 @media(prefers-reduced-motion:reduce){.is-who b{transition:none}}
 
 /* 心屿：本地互动气泡与景观选择 */
-.is-playbar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 12px 18px}
+.is-playbar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:18px 12px 20px}
 .is-playbar button{border:1px solid var(--is-line,#cdd5c5);background:transparent;color:var(--is-ink,#456b5e);border-radius:14px;padding:9px 13px;min-height:44px;font:inherit;font-size:calc(12px*var(--fz,1));cursor:pointer}
 .is-playbar button:active{transform:scale(.97)}
 .is-playbar button:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
