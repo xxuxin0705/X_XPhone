@@ -99,7 +99,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAKElEQVR
   await E(`core.D().me.nick = '苹果'; core.S.style = 'kk'; core.APPS.chat.open()`); await W(500); await E(`document.querySelector('.chatapp.in [data-a=tab][data-x=feed]').click()`); await W(400);
   const h = await E(`document.querySelector('.ft-h b').textContent + '|' + document.querySelector('.ft-h small').textContent`);
   ok(h == '徐照临|@苹果', '动态页：上面是真实姓名（酒馆里的名字），下面 @网名：' + h);
-  ok(/轻点设置封面/.test(await E(`document.querySelector('.ft-cv').textContent`)), '没封面时提示「轻点设置封面」');
+  ok(!(await E(`!!document.querySelector('.cv-tip')`)), '没封面时也不写「轻点设置封面」，直接点封面就能换');
   await E(`document.querySelector('.ft-cv').click()`); await W(300); await pick('u');
   await p.fill('.sheet.in [data-k=u]', 'https://img.test/cover.png'); await p.press('.sheet.in [data-k=u]', 'Tab'); await E(`document.querySelector('.sheet.in [data-a=ok]').click()`); await W(500);
   ok(await E(`core.D().me.cover`) == 'https://img.test/cover.png' && /cover\.png/.test(await E(`document.querySelector('.ft-cv').style.backgroundImage`)), '点封面换照片：立刻显示');

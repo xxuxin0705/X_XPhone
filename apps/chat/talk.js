@@ -83,8 +83,8 @@ ${sty(ch) == 'wx' ? '' : `[表情回应:emoji] 给${me}刚才的消息贴表情�
 [撤回] 撤回自己上一条（说漏嘴、发错时用）
 ${ch.cfg.pat ? `[拍一拍] 拍一拍${me}（就是微信的拍一拍，只会显示「谁拍了拍谁」，不用写动作${g ? '；群里想拍别的成员就写 [拍一拍:成员名]' : ''}）${patNow ? `\n本轮请${g ? '挑一位成员' : ''}用一次 [拍一拍]。` : '，剧情合适时再用。'}` : ''}
 ${tl.length ? `【语言】${tl.join('；')}：这些人的每一条文字和语音都直接用该语言写（一条都不能写成中文），每一条的同一行末尾都附 [翻译:简体中文译文]，不能有的有有的没有。译文要沉浸式、完全贴合说话人的人设与此刻语气（傲娇就傲娇、撒娇就撒娇），口语自然，只翻原意、不加戏不漏内容；其他人照常说中文。表情包等标签不翻译。` : ''}${bf.length ? `
-【补全翻译】下面是之前没配好双语的消息。在本轮回复的最后，每条另起一行写 [补译:编号|该语言原文|简体中文译文]，原文要像这个人当时亲口说的，语气、人设和原意都不变：
-${bf.map(([k, m]) => `#${k} ${rn(get(m.f))}: ${m.c}${m.tr ? `（${m.tr}）` : ''}`).join('\n')}` : ''}`;
+【补全翻译】下面是之前没配好双语、或者换了语言的消息（给的是中文意思）。在本轮回复的最后，每条另起一行写 [补译:编号|要求的语言写的原文|简体中文译文]，原文要像这个人当时亲口说的，带上他的口癖、语气和人设，意思不变：
+${bf.map(([k, m]) => `#${k} ${rn(get(m.f))}（要${lname(langFor(ch, m.f))}）: ${m.tr || m.c}`).join('\n')}` : ''}`;
 }
 
 /* ---------- 生成 ---------- */
@@ -283,7 +283,7 @@ export function openChat(id) {
         const k = await pop(t.closest('.msg')?.querySelector('.bub') || t, [
           ...(stk && !has ? [['add', '添加']] : []), ...(text ? [['copy', '复制']] : []), ['fwd', '转发'], ['q', '引用'],
           ...(m.t == 'text' ? [['edit', '编辑']] : []), ['multi', '多选'],
-          ...(mine ? [['rc', '撤回']] : [['regen', '重新生成']]), ['del', '删除']], m.t != 'rec' && sty(ch) != 'wx'); if (!k) return; // 注入正文只在多选里（整个聊天开了注入就不用）；微信没有贴表情
+          ...(mine ? [['rc', '撤回']] : ch.msgs.slice(+i + 1).every(x => x.f != 'me') ? [['regen', '重新生成']] : []), /* 只有最新一轮回复能重新生成 */ ['del', '删除']], m.t != 'rec' && sty(ch) != 'wx'); if (!k) return; // 注入正文只在多选里（整个聊天开了注入就不用）；微信没有贴表情
         if (k[0] == '~') return pg.acts.rpx(i + '|' + k.slice(1)); // 表情回应
         if (k == 'q') { q = i; qbar(); return $('.ip', pg.el).focus(); }
         if (k == 'add') { S.assets.sticker.unshift({ id: uid(), name: m.c && m.c != '表情' ? m.c : '表情', img: m.img }); C().saveSettingsDebounced(); return toast('已添加到「我的表情」'); }
@@ -299,7 +299,7 @@ export function openChat(id) {
           else { m.tp = 1; emit('chat'); try { const t = await mt(m.c, ch.cfg.lang); if (t != m.c) { m.orig = m.c; m.c = t; m.tz = !ch.cfg.trOpen; } else toast('这句不用翻译'); } catch (e) { toast('机翻暂时不可用，稍后再试'); } m.tp = 0; }
         }
         k == 'inj' && (m.inj = !m.inj); k == 'tts' && tts(m.c, get(m.f)?.voice, get(m.f)?.sex).catch(e => fail('朗读失败：' + e.message)); k == 'copy' && navigator.clipboard?.writeText(m.c).then(() => toast('已复制'), () => {});
-        k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && drop(ch.msgs.splice(i, 1)); k == 'regen' && (drop(ch.msgs.splice(+i + (mine ? 1 : 0))), gen(ch));
+        k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && drop(ch.msgs.splice(i, 1)); k == 'regen' && (drop(ch.msgs.splice(ch.msgs.findLastIndex(x => x.f == 'me') + 1)), gen(ch)); // 整轮回复重来
         saveD(); emit('chat');
       },
       // 多选（仿微信）：点消息勾选；「选择到这里」从第一条选中的一直选到屏幕上看到的最后一条；全选；转发 / 注入正文 / 删除

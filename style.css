@@ -266,6 +266,7 @@
 .st-wx.sh-def .bub::before{top:15.5px;left:-3.5px;width:9px;height:9px;border-radius:1px}
 .st-wx.sh-def .me .bub::before{left:auto;right:-3.5px}
 .st-wx .pic{border-radius:4px}
+.st-wx .bub:is(.b-transfer,.b-hb,.b-sticker,.b-img){padding:0;min-height:0} /* 卡片 / 图片顶边和头像齐平 */
 .st-wx .ib{background:var(--ibg);border-top:.5px solid rgba(0,0,0,.07);padding:7px 8px 22px;gap:6px}
 .st-wx .ib button{width:32px;height:36px;border-radius:4px}
 .st-wx .ib svg{width:29px;height:29px;color:#191919}.st-wx.dark .ib svg{color:#e6e6e6}
@@ -295,6 +296,27 @@
 .st-wx .tf.done{--wxtf:#fbd2a2}
 .st-wx .cl-m b{font-weight:400;font-size:calc(16px*var(--fz,1))}
 .st-wx .tabs{background:var(--ibg)}
+
+/* ---------- 个人朋友圈（仿微信个人相册）---------- */
+.alpg{background:#fff}
+.alpg .pg-h{position:absolute;left:0;right:0;top:calc(var(--sbh) * .68);z-index:3;background:none!important;border:0;box-shadow:none;color:#fff}
+.alpg .pg-h svg{color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
+.alpg .pg-b{padding:0!important;background:#fff!important}
+.album{min-height:100%;padding-bottom:40px;font-family:"Noto Serif SC","Source Han Serif SC","Songti SC",STSong,serif;color:#191919}
+.al-cv{position:relative;height:300px;margin-bottom:34px;background:linear-gradient(180deg,#5f6876,#353b46) center/cover;cursor:pointer}
+.al-cv b{position:absolute;right:104px;bottom:14px;color:#fff;font-size:calc(18px*var(--fz,1));font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+.al-cv .av{position:absolute;right:16px;bottom:-30px;width:68px;height:68px;border-radius:10px;border:2px solid #fff;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.al-sg{margin:0 0 22px;padding:0 18px;text-align:right;font-size:calc(13px*var(--fz,1));color:#999}
+.al-d{display:flex;gap:12px;padding:0 16px 0 18px;margin-bottom:22px}
+.al-t{flex:none;width:62px;padding-top:2px}
+.al-t b{font-size:calc(22px*var(--fz,1));font-weight:700;letter-spacing:1px}.al-t small{margin-left:2px;font-size:calc(11px*var(--fz,1));font-weight:600}
+.al-l{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.al-p{display:flex;gap:9px;cursor:pointer}
+.al-p p{flex:1;margin:0;padding:10px 12px;background:#f3f3f3;font-size:calc(14px*var(--fz,1));line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.al-p.im p{background:none;padding:0;-webkit-line-clamp:4}
+.al-p img{flex:none;width:78px;height:78px;object-fit:cover}
+.al-p:active p{background:#e8e8e8}.al-p.im:active p{background:none}
+.al-e{margin:40px 0;text-align:center;color:#a3a3a3;font-size:calc(14.5px*var(--fz,1))}
 
 /* ---------- 转账 / 发红包 整页（仿微信）---------- */
 .paypg{background:#ededed}.paypg .pg-h{background:#ededed}.paypg .pg-back{color:#191919}

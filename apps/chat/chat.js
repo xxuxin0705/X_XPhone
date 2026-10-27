@@ -168,11 +168,20 @@ ${p.likes.length || p.cm.length ? `<div class="po-c">${p.likes.length ? `<div cl
 function feed(aid, st = S.style) {
   const fs = FS[st], u = aid && aid != 'me' ? get(aid) : meObj(), ps = D().posts.filter(p => !aid || p.a == aid), sg = esc(u?.sign || ''), av = esc(avOf(u)), n = esc(nm(u));
   // 封面：自己的存在「我」里，别人的存在联系人里；点封面就能换（相册上传 / 图片链接）
-  const cov = (!aid || aid == 'me') ? D().me.cover : u?.cover, cs = cov ? `style="background-image:url('${esc(cov)}')"` : '', ck = `data-a="fcov" data-x="${aid && aid != 'me' ? aid : 'me'}"`, tip = cov ? '' : '<i class="cv-tip">轻点设置封面</i>';
+  const cov = (!aid || aid == 'me') ? D().me.cover : u?.cover, cs = cov ? `style="background-image:url('${esc(cov)}')"` : '', ck = `data-a="fcov" data-x="${aid && aid != 'me' ? aid : 'me'}"`, tip = ''; // 不写「轻点设置封面」，直接点封面就能换
   const hd = fs == 'wx' ? `<div class="fw-cv" ${ck} ${cs}>${tip}<b>${n}</b><img class="av" src="${av}"></div><p class="fw-sg">${sg}</p>`
     : fs == 'qq' ? `<div class="fq-cv" ${ck} ${cs}>${tip}</div><div class="fq-h"><img class="av" src="${av}"><div><b>${n}</b><small>${sg || '这个人很懒～'}</small></div></div><div class="fq-n">${['说说', '日志', '相册', '留言', '更多'].map(x => `<span><i>${x[0]}</i>${x}</span>`).join('')}</div>${aid ? '' : '<div class="fq-in" data-a="post">分享新鲜事...</div>'}`
       : `<div class="ft-cv" ${ck} ${cs}>${tip}</div><div class="ft-h"><img class="av" src="${av}"><b>${esc(u?.real || u?.nick || '')}</b><small>@${esc(u?.nick || u?.real)}</small>${sg ? `<p>${sg}</p>` : ''}</div>`; // 推特式：真实姓名 + @网名
-  return `<div class="feed f-${fs}">${hd}${ps.map(p => post(p, fs)).join('') || '<p class="empty">还没有动态，点右上角 ✦ 让大家发点什么</p>'}</div>`;
+  if (fs == 'wx' && aid) return album(u, aid, ps, ck, cs);
+  return `<div class="feed f-${fs}">${hd}${ps.map(p => post(p, fs)).join('') || '<p class="empty">还没有动态</p>'}</div>`;
+}
+// 个人朋友圈（仿微信「个人相册」）：深色封面 + 右边名字头像，下面按天分组，左边日期、右边灰底文字 / 配图
+const dayOf = ts => { const d = new Date(ts), t = now(), y = new Date(+t - 864e5); return d.toDateString() == t.toDateString() ? ['今天'] : d.toDateString() == y.toDateString() ? ['昨天'] : [String(d.getDate()).padStart(2, '0'), d.getMonth() + 1 + '月']; };
+function album(u, aid, ps, ck, cs) {
+  const days = []; ps.slice().sort((a, b) => b.ts - a.ts).forEach(p => { const k = new Date(p.ts).toDateString(), l = days.at(-1); l && l.k == k ? l.ps.push(p) : days.push({ k, d: dayOf(p.ts), ps: [p] }); });
+  const it = p => `<div class="al-p ${p.url ? 'im' : ''}" data-a="apost" data-x="${p.id}">${p.url ? `<img src="${esc(p.url)}">` : ''}<p>${esc(p.c || (p.imgd ? '[图片] ' + p.imgd : ''))}</p></div>`;
+  return `<div class="album"><div class="al-cv" ${ck} ${cs}><b>${esc(nm(u))}</b><img class="av" src="${esc(avOf(u))}"></div><p class="al-sg">${esc(u?.sign || '这个人很神秘，什么也没留下~')}</p>
+${days.map(g => `<div class="al-d"><div class="al-t"><b>${g.d[0]}</b>${g.d[1] ? `<small>${g.d[1]}</small>` : ''}</div><div class="al-l">${g.ps.map(it).join('')}</div></div>`).join('') || `<p class="al-e">${aid == 'me' ? '你' : 'TA'} 还没有发过朋友圈</p>`}</div>`;
 }
 const meP = () => {
   const f = fx(D().me), m = meObj();
@@ -202,8 +211,11 @@ const FA = {
   pdel: id => { drop(D().posts.filter(p => p.id == id)); D().posts = D().posts.filter(p => p.id != id); saveD(); emit('chat'); },
   post: async () => { const r = await form('发表动态', [['c', '这一刻的想法...', 'area'], ['url', '配图', 'img']]); if (!r?.c && !r?.url) return; D().posts.unshift({ id: uid(), a: 'me', c: r.c || '', url: r.url, ts: +now(), likes: [], cm: [] }); saveD(); emit('chat'); },
   fgen: (x, t, e, pg) => genFeed(pg.aid),
+  // 个人相册：点一条看详情（能点赞评论）；右上角 ··· 里发朋友圈 / 让 TA 发
+  apost: id => { const p = P(id); p && page({ title: '详情', live: 1, cls: 'feedpg', body: () => P(id) ? `<div class="feed f-wx">${post(P(id), 'wx')}</div>` : '<p class="empty">已删除</p>', acts: FA }); },
+  amore: async (x, t, e, pg) => { const k = await menu(pg.aid == 'me' ? [['post', '发朋友圈'], ['fgen', '让大家发点什么']] : [['fgen', `让${esc(nm(get(pg.aid)))}发条朋友圈`]]); k && FA[k](x, t, e, pg); },
 };
-export function openFeed(aid) { const st = aid && aid != 'me' ? sty(get(aid)) : S.style; page({ title: FN[st], aid, live: 1, cls: 'feedpg st-' + st, right: () => `<b data-a="fgen">${I.spark}</b>${aid == 'me' ? `<b data-a="post">${I.cam}</b>` : ''}`, body: () => feed(aid, st), acts: FA }); }
+export function openFeed(aid) { const st = aid && aid != 'me' ? sty(get(aid)) : S.style, al = FS[st] == 'wx'; page({ title: al ? '' : FN[st], aid, live: 1, cls: 'feedpg st-' + st + (al ? ' alpg' : ''), right: () => al ? `<b data-a="amore">${I.more}</b>` : `<b data-a="fgen">${I.spark}</b>${aid == 'me' ? `<b data-a="post">${I.cam}</b>` : ''}`, body: () => feed(aid, st), acts: FA }); }
 
 /* ---------- 添加联系人 ---------- */
 async function aiInit() {
