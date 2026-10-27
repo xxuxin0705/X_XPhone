@@ -46,7 +46,7 @@ export const defAv = n => { n = String(n || '?'); return 'data:image/svg+xml,' +
 export const meObj = () => { const d = D().me; return { ...d, id: 'me', nick: d.nick || C().name1, real: d.real || C().name1 }; }; // nick＝网名，real＝真实姓名（默认酒馆里的名字）
 export const byId = id => D().chats.find(c => c.id == id);
 export function avOf(c) { if (!c) return defAv('?'); if (c.av) return c.av; const x = C(), ch = x.characters?.[x.characterId]; return (ch && c.real && c.real == x.name2 && x.getThumbnailUrl?.('avatar', ch.avatar)) || defAv(nm(c)); }
-export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : m.t == 'song' ? `[分享音乐]《${m.song?.name || ''}》` : m.t == 'listen' ? '[一起听歌]' : m.t == 'minv' ? `[音乐邀请]《${m.song?.name || ''}》` : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]` }[m.t] || '') + (m.c || '');
+export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : m.t == 'song' ? `[分享音乐]《${m.song?.name || ''}》` : m.t == 'listen' ? '[一起听歌]' : m.t == 'minv' ? `[音乐邀请]《${m.song?.name || ''}》` : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]`, hb: `[红包¥${m.amt}]` }[m.t] || '') + (m.c || '');
 // 给模型看的：表情包要写清楚是什么意思（名字 + 说明 + 哪一组），不然对方看不懂你发了个啥
 const mzSay = m => { const s = m.song || {}, t = `《${s.name || '未知歌曲'}》${s.artist ? ' - ' + s.artist : ''}`;
   if (m.t == 'song') return `[分享音乐] 分享了歌曲${t}${m.ex?.length ? `，摘录的歌词：「${m.ex.map(l => l.txt).join(' / ')}」` : ''}${m.note ? `，附言：${m.note}` : ''}`;

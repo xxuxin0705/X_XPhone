@@ -50,6 +50,7 @@ apps/chat/       聊天 App
   data.js          联系人 / 群 / 消息的增删改（addMsg、applyDelta）
   sticker*.js      表情包：免费表情库、表情商店、我的表情
   voice.js ocr.js  语音、识图
+  pay.js           转账 / 发红包整页（自带数字键盘，红包单个 ≤200）、拆红包卡片
 apps/music/      音乐 App（界面从 yuzuki-phonetest 里作者自己的那版搬来）
   music.js         小手机这边的入口和适配：存储、图层壳、音乐卡、灵动岛、给聊天用的 G.mz*
   music-view.js    界面（首页 / 搜索 / 笔记 / 我的、播放页、一起听、各种弹层）

@@ -46,9 +46,10 @@ export function addMsg(ch, m) {
   const t = m.type || 'text', f = isMe(m.from) ? 'me' : ch.type == 'p' ? ch.id : member(ch, m.from), name = who(ch, f);
   const near = frag => (frag && ch.msgs.findLast(x => !/sys|pat/.test(x.t) && (String(x.c) + (x.orig || '')).includes(frag))) || null;
   if (t == 'react') { const x = near(m.frag) || ch.msgs.findLast(x => x.f == 'me' && !/sys|pat/.test(x.t)); x && (x.re = [...nre(x.re), { e: m.text || '❤️', by: f }]); return null; }
+  if (t == 'hbopen') { const x = ch.msgs.findLast(x => x.t == 'hb' && x.f == 'me' && !x.st); x && (x.st = '已被领取', ch.msgs.push({ f: 'sys', t: 'sys', c: `${name}领取了你的红包`, ts: +now() })); return null; }
   if (t == 'accept') { const x = ch.msgs.findLast(x => x.t == 'transfer' && x.f == 'me' && !x.st); x && (x.st = '已收款'); return null; }
   if (t == 'recall') { const x = ch.msgs.findLast(x => x.f == f && !/sys|pat/.test(x.t)); x && Object.assign(x, { t: 'sys', c: `“${name}” 撤回了一条消息`, re: [] }); return null; }
-  const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : String(m.text ?? ''), tr: m.tr || '', amt: +m.amount || 0, ts: +now() };
+  const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : t == 'hb' ? String(m.text || '恭喜发财，大吉大利') : String(m.text ?? ''), tr: m.tr || '', amt: t == 'hb' ? Math.min(200, +m.amount || 0) : +m.amount || 0, ts: +now() };
   const q = near(m.quote); q && (x.q = { w: who(ch, q.f), c: String(q.c).slice(0, 40) });
   t == 'minv' && Object.assign(x, { song: { name: x.c, artist: String(m.artist || '').trim(), pic: '' }, st: 'pending', c: `[音乐]《${x.c}》${m.artist ? ' - ' + m.artist : ''}` }); // 角色邀请一起听
   t == 'sticker' && (x.img = stk(x.c)); ch.msgs.push(x); t == 'pat' && shake();
