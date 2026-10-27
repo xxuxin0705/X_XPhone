@@ -13,11 +13,12 @@ const TAU = Math.PI * 2, KS = 1.3; // 套件整体放大一点，细节看得清
 export const WEATHER = {
     sun: { top: '#3f8fe0', hor: '#cfe5f7', sun: [2.2, '#fff4dc', [1, 1.5, .6]], hemi: [.7, '#bfe3ff', '#8a7a60'], fog: 0, night: false, cloud: .35 },
     sunset: { top: '#4d4a9a', hor: '#ffb27a', sun: [1.9, '#ffb070', [1.5, .45, .5]], hemi: [.6, '#ffc9a0', '#6a5a60'], fog: 0, night: false, cloud: .45 },
-    rain: { top: '#5b6a80', hor: '#aab5c2', sun: [.6, '#dfe6ee', [.6, 1.4, .8]], hemi: [.6, '#c7d0da', '#5a6068'], fog: .25, night: false, rain: 1, cloud: .9, wet: 1 },
-    storm: { top: '#171d2b', hor: '#434c5e', sun: [.4, '#c9d2e0', [.4, 1.2, 1]], hemi: [.45, '#8c98ac', '#3a4048'], fog: .35, night: true, rain: 2, lightning: true, cloud: 1, wet: 1, wind: 1 },
+    rain: { top: '#56657a', hor: '#a6b1be', sun: [.55, '#dfe6ee', [.6, 1.4, .8]], hemi: [.6, '#c7d0da', '#5a6068'], fog: .3, night: false, rain: 1, cloud: .95, wet: 1, wind: .45, waves: 1.6 },
+    storm: { top: '#121722', hor: '#3a4354', sun: [.35, '#c9d2e0', [.4, 1.2, 1]], hemi: [.4, '#8c98ac', '#3a4048'], fog: .4, night: true, rain: 2, lightning: true, cloud: 1, wet: 1, wind: 1, waves: 3 },
     aurora: { top: '#030818', hor: '#163050', sun: [.35, '#9fb8ff', [-.8, 1.2, .6]], hemi: [.4, '#6f9bd6', '#243040'], fog: 0, night: true, aurora: true, stars: true, moon: true, cloud: .1 },
     night: { top: '#060a20', hor: '#263468', sun: [.4, '#aab8ff', [-.8, 1.3, .7]], hemi: [.4, '#7f94d6', '#242c44'], fog: 0, night: true, stars: true, moon: true, cloud: .25 },
     fog: { top: '#a6b0ba', hor: '#e6eaee', sun: [.7, '#f2f2f2', [.5, 1.2, 1]], hemi: [.7, '#dfe4e8', '#7a8088'], fog: .7, night: false, cloud: .6 },
+    snow: { top: '#8d9bb0', hor: '#dfe6ee', sun: [.7, '#eef3ff', [.4, 1.3, .8]], hemi: [.75, '#e3ebf5', '#8a909a'], fog: .3, night: false, snow: 1, cloud: .85, wind: .35 },
     fireworks: { top: '#090b28', hor: '#2a2d5e', sun: [.35, '#aab0ff', [-.6, 1.2, .8]], hemi: [.45, '#8d93e8', '#2c2c48'], fog: 0, night: true, stars: true, fireworks: true, cloud: .15 },
 };
 
@@ -80,7 +81,7 @@ function bakeAO(rc) {
 function sky(rc) {
     const sea = rc.terrain === 'sea' || rc.terrain === 'atoll';
     const u = { top: { value: col('#4da3f0') }, hor: { value: col('#cfe9ff') }, bot: { value: col(sea ? rc.pal.waterDeep : '#3a3f55') }, wl: { value: sea ? -.15 : -3 }, sun: { value: new T.Vector3(1, 1, 0) }, sunc: { value: col('#fff4dc') }, sunk: { value: 1 }, cloud: { value: .4 }, t: M.U.uTime, stars: { value: 0 }, night: { value: 0 } };
-    const m = new T.ShaderMaterial({ uniforms: u, side: T.BackSide, vertexShader: 'varying vec3 p;void main(){p=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    const m = new T.ShaderMaterial({ uniforms: u, side: T.BackSide, vertexShader: 'attribute vec3 dir;varying vec3 p;void main(){p=dir;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
         fragmentShader: `${M.NOISE_GLSL}uniform vec3 top,hor,bot,sun,sunc;uniform float wl,sunk,cloud,t,stars,night;varying vec3 p;
         void main(){vec3 n=normalize(p);vec3 L=normalize(sun);
           vec3 c=mix(hor,top,pow(smoothstep(-.05,.6,n.y),.7));
@@ -95,16 +96,17 @@ function sky(rc) {
           gl_FragColor=vec4(c,1.);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>}` });
-    const o = new T.Mesh(new T.SphereGeometry(.985, 40, 24), m); o.renderOrder = -10; o.userData.u = u; return o;
+    return { material: m, userData: { u } }; // 网格由 jelly.js 建：天空贴着会变形的玻璃内壁，戳凹时不会从玻璃里穿出去
 }
 function aurora() {
     const g = new T.Group(); for (let b = 0; b < 3; b++) { const geo = new T.PlaneGeometry(1.5, .22, 40, 1); const m = new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, uniforms: { t: { value: 0 }, o: { value: 0 }, c: { value: col(['#78ebbe', '#a0c8eb', '#c8aae1'][b]) }, k: { value: b } }, vertexShader: 'uniform float t,k;varying vec2 vu;void main(){vu=uv;vec3 p=position;p.y+=sin(p.x*5.+t*.8+k)*.05;p.z+=cos(p.x*3.+t*.5+k)*.03;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}', fragmentShader: 'uniform vec3 c;uniform float o,t;varying vec2 vu;void main(){float a=sin(vu.y*3.14159)*(.5+.5*sin(vu.x*20.+t*2.))*smoothstep(0.,.15,vu.x)*smoothstep(1.,.85,vu.x);gl_FragColor=vec4(c,a*.45*o);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' }); const p = new T.Mesh(geo, m); p.position.set(0, .5 + b * .08, -.55); p.rotation.x = .3; p.userData.u = m.uniforms; g.add(p); } return g;
 }
-let glowTex, petalTex, dotTex;
+let glowTex, petalTex, dotTex, streakTex;
 const canvasTex = (draw, size = 64) => { const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size); const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; return t; };
 const textures = () => {
     glowTex ||= canvasTex((x, s) => { const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.25, 'rgba(255,255,255,.6)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, s, s); });
     dotTex ||= canvasTex((x, s) => { const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.7, 'rgba(255,255,255,.9)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, s, s); }, 32);
+    streakTex ||= canvasTex((x, s) => { const g = x.createLinearGradient(0, 0, 0, s); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.7, 'rgba(255,255,255,.9)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(s / 2 - 1.5, 0, 3, s); }, 32);
     petalTex ||= canvasTex((x, s) => { x.translate(s / 2, s / 2); x.rotate(.6); x.fillStyle = '#fff'; x.beginPath(); x.ellipse(0, 0, s * .42, s * .22, 0, 0, TAU); x.fill(); }, 32);
 };
 const glow = (c, size, x, y, z, a = .9) => { const s = new T.Sprite(new T.SpriteMaterial({ map: glowTex, color: c, transparent: true, blending: T.AdditiveBlending, depthWrite: false, opacity: a })); s.scale.set(size, size, 1); s.position.set(x, y, z); return s; };
@@ -112,7 +114,7 @@ function particles(kind, count) {
     const pos = new Float32Array(count * 3), ph = new Float32Array(count), sp = new Float32Array(count), r = Math.random;
     for (let i = 0; i < count; i++) { pos.set([(r() * 2 - 1), 0, (r() * 2 - 1)], i * 3); ph[i] = r() * 2.4; sp[i] = .5 + r(); }
     const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('ph', new T.BufferAttribute(ph, 1)); g.setAttribute('sp', new T.BufferAttribute(sp, 1));
-    const cfg = { rain: { c: '#dfeaff', sz: 1.6, v: 1.6, sway: 0, tex: dotTex, a: .55 }, snow: { c: '#ffffff', sz: 3.2, v: .22, sway: .08, tex: dotTex, a: .9 }, petal: { c: '#f8c1d2', sz: 4.5, v: .25, sway: .14, tex: petalTex, a: .95 }, leaf: { c: '#e8743b', sz: 4.2, v: .3, sway: .12, tex: petalTex, a: .95 }, ash: { c: '#c8c0b8', sz: 2.4, v: -.12, sway: .05, tex: dotTex, a: .6 }, spore: { c: '#d8b4ff', sz: 2.6, v: -.06, sway: .1, tex: dotTex, a: .8 }, firefly: { c: '#d9ff6a', sz: 3.5, v: -.03, sway: .2, tex: glowTex, a: 1 } }[kind];
+    const cfg = { rain: { c: '#dfeaff', sz: 7, v: 1.8, sway: 0, tex: streakTex, a: .55 }, snow: { c: '#ffffff', sz: 3.2, v: .22, sway: .08, tex: dotTex, a: .9 }, petal: { c: '#f8c1d2', sz: 4.5, v: .25, sway: .14, tex: petalTex, a: .95 }, leaf: { c: '#e8743b', sz: 4.2, v: .3, sway: .12, tex: petalTex, a: .95 }, ash: { c: '#c8c0b8', sz: 2.4, v: -.12, sway: .05, tex: dotTex, a: .6 }, spore: { c: '#d8b4ff', sz: 2.6, v: -.06, sway: .1, tex: dotTex, a: .8 }, firefly: { c: '#d9ff6a', sz: 3.5, v: -.03, sway: .2, tex: glowTex, a: 1 } }[kind];
     const m = new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: kind === 'firefly' ? T.AdditiveBlending : T.NormalBlending, uniforms: { t: { value: 0 }, o: { value: 1 }, c: { value: col(cfg.c) }, sz: { value: cfg.sz }, v: { value: cfg.v }, sway: { value: cfg.sway }, tex: { value: cfg.tex }, px: { value: 2 }, lo: { value: kind === 'firefly' ? -.3 : -1.2 }, al: { value: cfg.a } },
         vertexShader: `attribute float ph,sp;uniform float t,v,sway,sz,px,lo;varying float a;void main(){float y=1.2-mod(t*v*sp+ph,2.4);if(v<0.)y=lo+mod(t*(-v)*sp+ph,1.6);float x=position.x+sin(t*1.3+ph*7.)*sway;float z=position.z+cos(t*1.1+ph*5.)*sway;vec3 p=vec3(x,y,z);float d=length(p);a=step(d,.97)*(.5+.5*sin(t*3.+ph*9.));if(v>0.)a=step(d,.97);gl_PointSize=sz*px*(.7+.3*sp);gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,
         fragmentShader: `uniform sampler2D tex;uniform vec3 c;uniform float o,al;varying float a;void main(){vec4 s=texture2D(tex,gl_PointCoord);gl_FragColor=vec4(c,s.a*a*o*al);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}` });
@@ -143,8 +145,8 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     const acc = new PT.Acc(), lv = new F.Leaves();
     /* 水 */
     const waters = [];
-    const water = (radius, y, o) => { const w = new T.Mesh(new T.CircleGeometry(radius, 64).rotateX(-Math.PI / 2), M.waterMat({ c1: o.shallow ? '#7fd6e8' : rc.pal.water, c2: o.shallow ? '#4fb8d4' : rc.pal.waterDeep, radius, ring: o.ring || 0, amp: o.shallow ? .004 : .012 })); w.position.y = y; w.renderOrder = 2; waters.push(w); return w; };
-    if (sea) { group.add(water(.975, -.15, { ring: rc.R + .03 })); if (rc.terrain === 'atoll') { const ring = new T.Mesh(new T.RingGeometry(rc.R + .12, rc.R + .3, 64).rotateX(-Math.PI / 2), matFor('sand:' + rc.pal.sand)); ring.position.y = -.145; ring.receiveShadow = true; group.add(ring); group.add(water(rc.R + .12, -.142, { shallow: true })); } }
+    const water = (radius, y, o) => { const amp = o.shallow ? .004 : .012, w = new T.Mesh(new T.CircleGeometry(radius, 64).rotateX(-Math.PI / 2), M.waterMat({ c1: o.shallow ? '#7fd6e8' : rc.pal.water, c2: o.shallow ? '#4fb8d4' : rc.pal.waterDeep, radius, ring: o.ring || 0, amp })); w.userData.amp0 = amp; w.position.y = y; w.renderOrder = 2; waters.push(w); return w; };
+    if (sea) { group.add(water(.93, -.15, { ring: rc.R + .03 })); if (rc.terrain === 'atoll') { const ring = new T.Mesh(new T.RingGeometry(rc.R + .12, rc.R + .3, 64).rotateX(-Math.PI / 2), matFor('sand:' + rc.pal.sand)); ring.position.y = -.145; ring.receiveShadow = true; group.add(ring); group.add(water(rc.R + .12, -.142, { shallow: true })); } }
     if (rc.terrain === 'lake') group.add(water(rc.R * .4, TOP - .02, { shallow: true }));
     /* 哪些地方不长草：建筑、池塘、小路 */
     const bare = []; const FOOT = { temple: .17, street: .26, school: .19, hospital: .16, shrine: .13, pagoda: .1, castle: .12, cafe: .11, izakaya: .1, station: .16, ferris: .1, lighthouse: .09, windmill: .07, tower: .06, observatory: .07, cabin: .1, house: .09, tent: .07, pyramid: .11, pond: .12, hotspring: .09, crater: .14, bonfire: .05 };
@@ -182,11 +184,11 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     if (rc.animals.includes('birds')) for (let i = 0; i < 3; i++) { const a = new PT.Acc(), kk = K(a, matFor); for (const s of [-1, 1]) kk.put('box', 'paint:#3b3a40:0', [s * .01, 0, 0], [.02, .002, .006], [0, 0, s * .5]); const g = a.build({}, matFor); g.userData.fly = { a: i * 2.1, r: .5 + i * .08, y: .35 + i * .06, v: .5 + i * .1 }; group.add(g); movers.push(g); }
     if (rc.extras.includes('boat') && (sea || rc.terrain === 'lake')) mover('boat', { orbit: { r: sea ? .55 : rc.R * .25, y: sea ? -.15 : TOP - .02, v: .12, a: 2 } });
     /* 天空和天气 */
-    const skyM = sky(rc), au = aurora(); group.add(skyM, au);
+    const skyM = sky(rc), au = aurora(); group.add(au);
     const moon = glow('#fff6cf', .22, -.5, .62, -.5, 1); moon.material.blending = T.NormalBlending; group.add(moon);
-    const sunGlow = glow('#fff1b0', .9, .55, .6, -.5, .45); group.add(sunGlow);
+    const sunGlow = glow('#fff1b0', .5, .55, .6, -.5, .32); group.add(sunGlow);
     const parts = {}; const addP = (k, c) => { parts[k] = particles(k, reduced ? c / 3 | 0 : c); parts[k].visible = false; group.add(parts[k]); };
-    addP('rain', 220); addP('snow', 160); if (rc.fall === 'petal') addP('petal', 90); if (rc.fall === 'leaf') addP('leaf', 90); if (rc.fall === 'ash') addP('ash', 80); if (rc.fall === 'spore') addP('spore', 70); if (rc.extras.includes('fireflies')) addP('firefly', 40);
+    addP('rain', hi ? 420 : 200); addP('snow', hi ? 260 : 130); if (rc.fall === 'petal') addP('petal', 90); if (rc.fall === 'leaf') addP('leaf', 90); if (rc.fall === 'ash') addP('ash', 80); if (rc.fall === 'spore') addP('spore', 70); if (rc.extras.includes('fireflies')) addP('firefly', 40);
     /* 灯光 */
     const hemi = new T.HemisphereLight('#bfe3ff', '#8a7a60', .9), sun = new T.DirectionalLight('#fff4dc', 2), amb = new T.AmbientLight('#ffffff', .12);
     sun.position.set(1, 1.6, .6); sun.castShadow = true; sun.shadow.mapSize.set(hi ? 1024 : 512, hi ? 1024 : 512); Object.assign(sun.shadow.camera, { left: -1, right: 1, top: 1, bottom: -1, near: .1, far: 5 }); sun.shadow.bias = -.0006; sun.shadow.normalBias = .006; sun.shadow.radius = 2;
@@ -196,7 +198,7 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
     const fw = []; const fwGeo = new T.BufferGeometry(); fwGeo.setAttribute('position', new T.BufferAttribute(new Float32Array(600 * 3), 3)); fwGeo.setAttribute('color', new T.BufferAttribute(new Float32Array(600 * 3), 3)); const fwP = new T.Points(fwGeo, new T.PointsMaterial({ size: .012, vertexColors: true, transparent: true, blending: T.AdditiveBlending, depthWrite: false, map: dotTex })); fwP.frustumCulled = false; fwP.visible = false; group.add(fwP);
     const bolt = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]), new T.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0 })); group.add(bolt);
 
-    let W = WEATHER.sunset, flash = 0, nextBolt = 2;
+    let W = WEATHER.sunset, flash = 0, nextBolt = 2, snowT = 0;
     const U = M.U, wv = new T.Vector3(), wt = new T.Vector3();
     // 环境光照：按天气从天空颜色烤一张小环境图给岛上的 PBR 材质（不用球外那个亮房间，否则夜里也亮得像白天）
     const BK = bakerFor(renderer), envU = BK?.u; let envTex = null; const pm = BK?.pm;
@@ -206,17 +208,17 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
         W = WEATHER[scene] || WEATHER.sunset; const u = skyM.userData.u;
         u.top.value.set(W.top); u.hor.value.set(W.hor); u.sun.value.set(...W.sun[2]); u.sunc.value.set(W.sun[1]); u.sunk.value = W.night ? 0 : scene === 'fog' ? .3 : 1; u.cloud.value = W.cloud ?? .4; u.stars.value = W.stars ? 1 : 0; u.night.value = W.night ? 1 : 0;
         sun.color.set(W.sun[1]); sun.intensity = W.sun[0]; sun.position.set(...W.sun[2]).multiplyScalar(2); hemi.intensity = W.hemi[0]; hemi.color.set(W.hemi[1]); hemi.groundColor.set(W.hemi[2]); amb.intensity = W.night ? .06 : .12;
-        U.uSunCol.value.set(W.sun[1]).multiplyScalar(Math.min(1.2, W.sun[0] * .6)); U.uWet.value = W.wet ? 1 : 0; U.uWind.value = W.wind ? 1 : W.rain ? .5 : .2; U.uSnow.value = rc.snowy ? 1 : 0;
-        au.children.forEach(a => a.userData.u.o.value = W.aurora ? 1 : 0); moon.visible = !!W.moon; sunGlow.visible = !W.night && scene !== 'fog' && scene !== 'rain'; sunGlow.position.set(...W.sun[2]).normalize().multiplyScalar(.82); sunGlow.material.color.set(scene === 'sunset' ? '#ffb070' : '#fff1b0'); sunGlow.scale.setScalar(scene === 'sunset' ? 1.2 : .9);
+        U.uSunCol.value.set(W.sun[1]).multiplyScalar(Math.min(1.2, W.sun[0] * .6)); U.uWet.value = W.wet ? 1 : 0; U.uWind.value = W.wind ?? .2; snowT = rc.snowy ? 1 : W.snow ? .85 : 0; if (rc.snowy) U.uSnow.value = 1; else if (!W.snow) U.uSnow.value = 0; /* 下雪的天气：积雪慢慢盖上来 */
+        au.children.forEach(a => a.userData.u.o.value = W.aurora ? 1 : 0); moon.visible = !!W.moon; sunGlow.visible = !W.night && scene !== 'fog' && scene !== 'rain' && !W.snow; sunGlow.position.set(...W.sun[2]).normalize().multiplyScalar(.82); sunGlow.material.color.set(scene === 'sunset' ? '#ffb070' : '#fff1b0'); sunGlow.scale.setScalar(scene === 'sunset' ? .7 : .5);
         const lit = W.night || scene === 'rain' || scene === 'fog'; U.uLit.value = lit ? 1 : 0; lampLight.intensity = lit ? .8 : 0; halos.forEach(h => h.visible = lit || h.userData.always);
-        for (const k in parts) parts[k].visible = false; if (W.rain) parts.rain.visible = true; if (rc.snowy) parts.snow.visible = true; if (rc.fall && parts[rc.fall] && !W.rain) parts[rc.fall].visible = true; if (parts.firefly) parts.firefly.visible = !!W.night && !W.rain;
+        for (const k in parts) parts[k].visible = false; if (W.rain) parts.rain.visible = true; if (rc.snowy || W.snow) parts.snow.visible = true; if (rc.fall && parts[rc.fall] && !W.rain) parts[rc.fall].visible = true; if (parts.firefly) parts.firefly.visible = !!W.night && !W.rain;
         if (parts.rain) parts.rain.userData.u.v.value = W.rain === 2 ? 2.6 : 1.6;
-        waters.forEach(w => { w.material.uniforms.sky.value.set(W.hor).lerp(col(W.top), .5); w.material.uniforms.night.value = W.night ? 1 : 0; });
+        waters.forEach(w => { w.material.uniforms.sky.value.set(W.hor).lerp(col(W.top), .5); w.material.uniforms.night.value = W.night ? 1 : 0; w.material.uniforms.amp.value = w.userData.amp0 * (W.waves || 1); });
         group.userData.fogDensity = W.fog; fwP.visible = !!W.fireworks; group.userData.night = !!W.night; bakeEnv();
     }
     let px = 2; const setPixel = v => { px = v; for (const k in parts) parts[k].userData.u.px.value = v; };
     function update(t, dt) {
-        U.uTime.value = t;
+        U.uTime.value = t; if (Math.abs(U.uSnow.value - snowT) > .001) U.uSnow.value += Math.sign(snowT - U.uSnow.value) * Math.min(Math.abs(snowT - U.uSnow.value), dt / 18);
         // 太阳在世界坐标里的方向（整座岛会跟着球转）
         sun.getWorldPosition(wv); sun.target.getWorldPosition(wt); U.uSunDir.value.copy(wv.sub(wt).normalize());
         for (const o of movers) {
@@ -234,10 +236,10 @@ export function buildWorld(THREE, rc, { quality = 'high', reduced = false, rende
         au.children.forEach(a => a.userData.u.t.value = t); for (const k in parts) parts[k].userData.u.t.value = t;
         if (W.fireworks) { if (fw.length < 540 && Math.random() < .04) { const a = Math.random() * TAU, o = [Math.cos(a) * .45, .35 + Math.random() * .3, Math.sin(a) * .35], c = col(`hsl(${Math.random() * 360 | 0},90%,70%)`); for (let i = 0; i < 30; i++) { const th = Math.random() * TAU, ph = Math.acos(2 * Math.random() - 1), v = .25 + Math.random() * .15; fw.push({ p: [...o], v: [Math.sin(ph) * Math.cos(th) * v, Math.cos(ph) * v, Math.sin(ph) * Math.sin(th) * v], l: 1.2, c }); } }
             const pa = fwGeo.attributes.position.array, ca = fwGeo.attributes.color.array; let k = 0; for (let i = fw.length - 1; i >= 0; i--) { const f = fw[i]; f.l -= dt; if (f.l <= 0) { fw.splice(i, 1); continue; } f.v[1] -= dt * .25; f.p[0] += f.v[0] * dt; f.p[1] += f.v[1] * dt; f.p[2] += f.v[2] * dt; pa.set(f.p, k * 3); ca.set([f.c.r * f.l, f.c.g * f.l, f.c.b * f.l], k * 3); k++; } fwGeo.setDrawRange(0, k); fwGeo.attributes.position.needsUpdate = true; fwGeo.attributes.color.needsUpdate = true; }
-        if (W.lightning) { nextBolt -= dt; if (nextBolt <= 0) { nextBolt = 2 + Math.random() * 4; flash = 1; const pts = [new T.Vector3((Math.random() - .5) * .8, .9, -.3)]; for (let i = 1; i < 6; i++) pts.push(new T.Vector3(pts[i - 1].x + (Math.random() - .5) * .15, .9 - i * .17, -.3)); bolt.geometry.setFromPoints(pts); } if (flash > 0) { flash -= dt * 5; bolt.material.opacity = Math.max(0, flash); hemi.intensity = W.hemi[0] + Math.max(0, flash) * 1.2; } }
+        if (W.lightning) { nextBolt -= dt; if (nextBolt <= 0) { nextBolt = 2 + Math.random() * 4; flash = 1; const pts = [new T.Vector3((Math.random() - .5) * .8, .9, -.3)]; for (let i = 1; i < 6; i++) pts.push(new T.Vector3(pts[i - 1].x + (Math.random() - .5) * .15, .9 - i * .17, -.3)); bolt.geometry.setFromPoints(pts); } if (flash > 0) { flash -= dt * 4; const f = Math.max(0, flash); bolt.material.opacity = f; hemi.intensity = W.hemi[0] + f * 2.2; skyM.userData.u.top.value.set(W.top).lerp(col('#c8d4ff'), f * .7); skyM.userData.u.hor.value.set(W.hor).lerp(col('#eef2ff'), f * .7); } }
         else if (bolt.material.opacity) { bolt.material.opacity = 0; }
     }
     setWeather(weather);
     const stats = () => ({ tris: acc.tris, leaves: lv.count, meshes: solid.children.length + leaves.children.length, mats: M.allCached().length });
-    return { group, update, setWeather, setPixel, stats, get fog() { return W.fog; }, get night() { return !!W.night; }, dispose: () => { group.traverse(o => { o.geometry?.dispose?.(); if (o.material && !o.material.userData?.u && o.material !== beamMat) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose?.()); }); ao.tex.dispose(); envTex?.dispose(); } }; // 共用的材质留着（着色器不用重编），环境贴图留到下一座岛换掉
+    return { group, skyMat: skyM.material, update, setWeather, setPixel, stats, get fog() { return W.fog; }, get night() { return !!W.night; }, dispose: () => { group.traverse(o => { o.geometry?.dispose?.(); if (o.material && !o.material.userData?.u && o.material !== beamMat) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose?.()); }); ao.tex.dispose(); envTex?.dispose(); skyM.material.dispose(); } }; // 共用的材质留着（着色器不用重编），环境贴图留到下一座岛换掉
 }

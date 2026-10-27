@@ -9,8 +9,8 @@ import { S, D, $, esc, save, saveD, on, emit, page, menu, toast, reg, top, llm, 
 import { makeRecipe, hintOf, recipeName, eraOf } from './gen.js';
 import { jelly, warm } from './jelly.js';
 
-export const SCENES = { sun: '晴', sunset: '落日', rain: '细雨', storm: '风暴', aurora: '极光', night: '星夜', fog: '薄雾', fireworks: '烟花' };
-const MOOD2 = [[/开心|高兴|快乐|愉快|满足|轻松/, 'sun'], [/兴奋|激动|期待|雀跃|狂喜/, 'fireworks'], [/平静|安心|放松|惬意|温暖|幸福/, 'sunset'], [/难过|伤心|委屈|失落|低落|孤独|想哭/, 'rain'], [/生气|愤怒|烦躁|恼火|不爽|暴躁/, 'storm'], [/想念|思念|温柔|心动|眷恋|喜欢/, 'aurora'], [/累|疲惫|困|倦|无力/, 'night'], [/迷茫|焦虑|不安|纠结|犹豫|茫然/, 'fog']];
+export const SCENES = { sun: '晴', sunset: '落日', rain: '细雨', storm: '雷暴', snow: '飘雪', aurora: '极光', night: '星夜', fog: '薄雾', fireworks: '烟花' };
+const MOOD2 = [[/开心|高兴|快乐|愉快|满足|轻松/, 'sun'], [/兴奋|激动|期待|雀跃|狂喜/, 'fireworks'], [/平静|安心|放松|惬意|温暖|幸福/, 'sunset'], [/孤独|寂寞|冷淡|冷漠|疏离|麻木|空虚|心寒/, 'snow'], [/难过|伤心|委屈|失落|低落|想哭/, 'rain'], [/生气|愤怒|烦躁|恼火|不爽|暴躁/, 'storm'], [/想念|思念|温柔|心动|眷恋|喜欢/, 'aurora'], [/累|疲惫|困|倦|无力/, 'night'], [/迷茫|焦虑|不安|纠结|犹豫|茫然/, 'fog']];
 export const sceneOf = mood => MOOD2.find(([r]) => r.test(mood || ''))?.[1] || 'sunset';
 const ISL = () => (D().isle ||= { by: {} });
 const people = () => D().chats.filter(c => c.type == 'p' && c.fr !== 0);
@@ -20,7 +20,7 @@ const rec = id => { const r = (ISL().by[id] ||= { mood: '', scene: '', say: '', 
 /** 没有风景词时看角色卡是现代还是古风，随机也偏向那个时代（本地扫关键词，不花 API） */
 const eraHint = () => { try { const c = SillyTavern.getContext(), ch = c.characters?.[c.characterId]; return eraOf([ch?.description, ch?.first_mes, ch?.scenario, c.chat?.slice(-3).map(m => m.mes).join(' ')].join(' ')); } catch { return ''; } };
 const recent = []; // 最近抽到的风景名：随机时尽量不重样（剧情点名的除外）
-const reroll = (r, hint = '', persist = true) => { const want = hintOf(hint); if (!want.era && !want.mark) { const e = eraHint(); if (e) want.era = e; } let rc; for (let i = 0; i < 12; i++) { rc = makeRecipe(Math.random() * 1e9 | 0, want); if (want.climate && want.mark) break; const nm = recipeName(rc); if ((want.climate || rc.climate !== r.world?.climate) && !recent.includes(nm)) break; } recent.unshift(recipeName(rc)); recent.length > 8 && (recent.length = 8); delete r.biome; delete r.seed; r.world = rc; persist && saveD(); };
+const reroll = (r, hint = '', persist = true) => { const want = hintOf(hint); if (!want.era && !want.mark) { const e = eraHint(); if (e) want.era = e; } let rc; for (let i = 0; i < 12; i++) { rc = makeRecipe(Math.random() * 1e9 | 0, want); if (want.climate && want.mark) break; const nm = recipeName(rc); if ((want.climate || rc.climate !== r.world?.climate) && !recent.includes(nm)) break; } recent.unshift(recipeName(rc)); recent.length > 8 && (recent.length = 8); if (!r.mood) r.wx = ['sun', 'sunset', 'rain', 'storm', 'snow', 'aurora', 'night', 'fog', 'fireworks'][Math.random() * 9 | 0]; /* 还没读过心情：天气也随机，不总是落日 */ delete r.biome; delete r.seed; r.world = rc; persist && saveD(); };
 const setMood = (id, m) => { const r = rec(id); if (!m.mood) return; Object.assign(r, { mood: m.mood, scene: SCENES[m.scene] ? m.scene : sceneOf(m.mood), say: m.say || '', sea: Math.max(0, Math.min(1, +m.sea || .4)), ts: now() }); reroll(r, m.world || '', false); r.hist.unshift({ mood: r.mood, scene: r.scene, say: r.say, ts: r.ts, world: recipeName(r.world) }); r.hist.length > 60 && (r.hist.length = 60); saveD(); emit('isle'); };
 
 /* ---------- 页面 ---------- */
@@ -40,10 +40,10 @@ const body = () => { const id = curId(), c = byId(id), r = id ? rec(id) : null, 
 
 let mountN = 0;
 const mount = el => { pt?.stop(); pt = null; el.querySelectorAll('.is-who [role=button]').forEach(b => b.addEventListener('keydown', e => { if (e.key == 'Enter' || e.key == ' ') { e.preventDefault(); b.click(); } })); const cv = $('.is-cv', el); if (!cv) return; const id = curId(), n = ++mountN;
-  jelly(cv, () => { const r = id ? rec(id) : null; return { scene: r?.scene || 'sunset', recipe: r?.world || makeRecipe(1) }; }, { quality: S.isle?.q, onQuality: qv => { S.isle ||= {}; S.isle.q = qv; save(); } })
+  jelly(cv, () => { const r = id ? rec(id) : null; return { scene: r?.scene || r?.wx || 'sunset', recipe: r?.world || makeRecipe(1) }; }, { quality: S.isle?.q, onQuality: qv => { S.isle ||= {}; S.isle.q = qv; save(); } })
     .then(j => { if (n !== mountN) return j.stop(); pt = j; }) /* 占位画布已被换成常驻画布，所以只看是不是最新一次挂载 */.catch(e => { console.error('[心屿]', e); toast('这台设备画不出 3D 的岛：' + (e.message || e)); }); };
 const look = () => { const id = curId(), c = byId(id); if (!c) return; return task(`读 ${nm(c)} 的心情`, async sg => {
-  const r = json(await llm(await sysCtx({ n: 10, rc: 3500, wi: 0, desc: 1000 }), `根据最近的剧情，判断${rn(c)}此刻的心情。只输出 JSON：{"mood":"两到四个字的心情词","scene":"sun|sunset|rain|storm|aurora|night|fog|fireworks 里选一个最贴切的","say":"${rn(c)}此刻没说出口的一句话，30字以内，第一人称","sea":0到1的数字表示情绪起伏大小,"world":"此刻该出现在${rn(c)}心里那座岛上的风景，四到八个词：先写时代（现代 / 古风），再写剧情此刻所在的地方（如 古寺求签、深夜便利店、医院走廊、海边灯塔、学校操场、小酒馆），再加天气时间和两三样具体物件，要和故事的世界观一致，例：古寺 求签 枫叶 香炉 钟声 / 现代 深夜便利店 路灯 雨 自动贩卖机"}`, '读心情', sg, { aux: 1 }));
+  const r = json(await llm(await sysCtx({ n: 10, rc: 3500, wi: 0, desc: 1000 }), `根据最近的剧情，判断${rn(c)}此刻的心情。只输出 JSON：{"mood":"两到四个字的心情词","scene":"sun|sunset|rain|storm|snow|aurora|night|fog|fireworks 里选一个最贴切的（storm 雷暴，snow 飘雪）","say":"${rn(c)}此刻没说出口的一句话，30字以内，第一人称","sea":0到1的数字表示情绪起伏大小,"world":"此刻该出现在${rn(c)}心里那座岛上的风景，四到八个词：先写时代（现代 / 古风），再写剧情此刻所在的地方（如 古寺求签、深夜便利店、医院走廊、海边灯塔、学校操场、小酒馆），再加天气时间和两三样具体物件，要和故事的世界观一致，例：古寺 求签 枫叶 香炉 钟声 / 现代 深夜便利店 路灯 雨 自动贩卖机"}`, '读心情', sg, { aux: 1 }));
   if (!r?.mood) throw Error('没读出来，再试一次'); setMood(id, r); pt?.hop(); return `${nm(c)}：${r.mood}`; }); };
 reg({
   id: 'isle', name: '心屿', icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="#fff" opacity=".35"/><circle cx="12" cy="12" r="8" fill="none" stroke="#fff" stroke-width="1.4"/><ellipse cx="12" cy="14.2" rx="4.6" ry="1.7" fill="#fff"/><path d="M12 7.5v6.3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M12 8.3c1.2 0 2.2-.8 2.6-1.3M12 8.3c-1.2 0-2.2-.8-2.6-1.3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/><circle cx="8.3" cy="9.3" r=".9" fill="#fff"/></svg>',

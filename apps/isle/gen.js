@@ -85,7 +85,7 @@ export function makeRecipe(seed, want = {}) {
     let mark = MARKS[want.mark] ? want.mark : '';
     if (!mark) { let ms = C.marks; if (era) { const es = ms.filter(m => ERA[era].includes(m)); if (es.length) ms = es; } mark = pick(r, ms); }
     const pal = palette(r, C, climate);
-    const sea = terrain === 'sea' || terrain === 'atoll', big = BIG[mark] || 0, R = sea ? .34 + big * .5 : terrain === 'twin' ? .42 : .66 + big * .4; // 岛的半径（球半径 = 1）
+    const sea = terrain === 'sea' || terrain === 'atoll', big = BIG[mark] || 0, R = sea ? .34 + big * .4 : terrain === 'twin' ? .42 : Math.min(.74, .66 + big * .25); // 岛的半径（球半径 = 1），留出玻璃被拉扁时的余量
     const { items, put } = place(r, R);
     put(mark, big || .17, { minR: 0, maxR: big ? .05 : .2, s: 1, rot: big ? (r() - .5) * .6 : undefined });
     // 树：按气候，数量随地形；大套件旁边少放点

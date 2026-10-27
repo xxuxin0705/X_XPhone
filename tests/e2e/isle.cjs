@@ -27,8 +27,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 读剧情（模拟一次 API）
   await E(`SillyTavern.getContext().generateRaw = async () => '{"mood":"烦躁","scene":"storm","say":"别再问我了。","sea":0.9}'`);
   await E(`document.querySelector('[data-a=islook]').click()`); await W(600);
-  ok(await E(`core.D().isle.by[_a.id].mood == '烦躁' && core.D().isle.by[_a.id].scene == 'storm' && core.D().isle.by[_a.id].hist.length == 1`), '看看 TA 现在：读出「烦躁」→ 风暴');
-  ok(/烦躁[\s\S]*风暴[\s\S]*别再问我了/.test(await E(`document.querySelector('.is-card').textContent`)), '卡片显示心情、天气、那句话');
+  ok(await E(`core.D().isle.by[_a.id].mood == '烦躁' && core.D().isle.by[_a.id].scene == 'storm' && core.D().isle.by[_a.id].hist.length == 1`), '看看 TA 现在：读出「烦躁」→ 雷暴');
+  ok(/烦躁[\s\S]*雷暴[\s\S]*别再问我了/.test(await E(`document.querySelector('.is-card').textContent`)), '卡片显示心情、天气、那句话');
   // 正文里的心情
   await E(`(() => { const c = SillyTavern.getContext(); c.chat.push({ mes: '他看着窗外笑了。\\n<手机>\\n心情|夏油杰|温柔|今天的风很好。\\n</手机>', is_user: false }); c.eventSource.emit('mr', c.chat.length - 1, 'normal'); })()`); await W(300);
   ok(await E(`core.D().isle.by[_b.id].mood == '温柔' && core.D().isle.by[_b.id].scene == 'aurora'`), '正文 <手机> 块里「心情|谁|心情|一句话」：夏油杰 → 温柔 → 极光');
@@ -53,9 +53,13 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 戳：按住不动就在那里凹进去，松手弹回来
   const r = await p.locator('.isle canvas').boundingBox(), cx = r.x + r.width / 2, cy = r.y + r.height * .5;
   await p.mouse.move(cx + 40, cy - 10); await p.mouse.down(); await E('J().advance(.5)');
-  ok((await G()).dents.some(d => d.hold && d.a < -.1), '按住不动：按的地方凹进去');
-  await p.mouse.up(); await E('J().advance(1.5)');
-  ok(!(await G()).dents.some(d => Math.abs(d.a) > .05), '松手：弹回来');
+  ok((await G()).poke < .92, `按住不动：按的地方凹进去（离球心 ${(await G()).poke?.toFixed(2)}）`);
+  await p.mouse.up(); await E('J().advance(2)');
+  ok((await G()).dev < .05 && Math.abs((await G()).vol - 1) < .02, '松手：弹回圆的，体积没变');
+  // 拉：抓住右边往外拉，球被拉长（果冻那样），松手晃回去
+  await p.mouse.move(cx + r.width * .3, cy); await p.mouse.down(); for (let k = 1; k <= 6; k++) await p.mouse.move(cx + r.width * .3 + k * 20, cy); await E('J().advance(.6)');
+  const stretched = (await G()).dev; await p.mouse.up(); await E('J().advance(.1)'); const wob = (await G()).dev; await E('J().advance(3)');
+  ok(stretched > .15 && wob > .03 && (await G()).dev < .05, `拉：球被拉长（偏离 ${stretched.toFixed(2)}），松手先晃（${wob.toFixed(2)}）再回圆`);
   // 拖着转：往下拖到底，岛整个翻过来（岛的上方朝下）
   await p.mouse.move(cx, cy - 90); await p.mouse.down(); for (let k = 1; k <= 12; k++) await p.mouse.move(cx, cy - 90 + k * 35);
   ok((await G()).up[1] < 0, '拖着转：能把岛翻到朝下');
@@ -70,7 +74,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok((await G()).zoom < z0 - .3, `滚轮：拉近（${z0.toFixed(2)} → ${(await G()).zoom.toFixed(2)}）`);
   await E(`(() => { const cv = document.querySelector('.isle canvas'), r = cv.getBoundingClientRect(), ev = (type, id, x, y) => cv.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: 'touch', isPrimary: id == 1, clientX: r.left + x, clientY: r.top + y, bubbles: true }));
     ev('pointerdown', 1, r.width / 2 - 30, r.height / 2); ev('pointerdown', 2, r.width / 2 + 30, r.height / 2); for (let i = 1; i <= 6; i++) { ev('pointermove', 1, r.width / 2 - 30 + i * 4, r.height / 2); ev('pointermove', 2, r.width / 2 + 30 - i * 4, r.height / 2); } ev('pointerup', 1, 0, 0); ev('pointerup', 2, 0, 0); })()`); await E('J().advance(1)');
-  ok((await G()).zoom > z0 - .3 + .2 && !(await G()).dents.some(d => d.hold), '双指捏合：拉远，而且第二根手指按下时不会当成戳');
+  ok((await G()).zoom > z0 - .3 + .2 && (await G()).poke == null, '双指捏合：拉远，而且第二根手指按下时不会当成戳');
   // 拍一下：像篮球一样弹起来乱蹦
   await E(`window.localCalls = 0; SillyTavern.getContext().generateRaw = async () => { localCalls++; throw Error('互动不应调用模型'); }`);
   await p.click('[data-a=isshake]'); await E('J().advance(.15)');

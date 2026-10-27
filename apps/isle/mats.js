@@ -152,7 +152,7 @@ export const setAO = ao => { for (const k of ['ground', 'sandG', 'snowG']) { con
 export function leaf(map, color) {
     const k = 'leaf|' + map.uuid + '|' + color; let m = cache.get(k); if (m) return m;
     m = patch(new T.MeshStandardMaterial({ map, alphaTest: .5, side: T.DoubleSide, roughness: .8, color }), {
-        vert: `float ph=dot(vIns,vec3(12.9,7.3,5.1));float sw=uWind*(.6+.4*sin(uTime*1.7+ph));transformed.x+=sin(uTime*2.3+ph+transformed.y*3.)*.012*sw;transformed.z+=cos(uTime*1.9+ph)*.01*sw;`,
+        vert: `float ph=dot(vIns,vec3(12.9,7.3,5.1));float sw=uWind*(.6+.4*sin(uTime*1.7+ph));float gust=.6+.4*sin(uTime*.7+vIns.x*3.);transformed.x+=(sin(uTime*(2.3+uWind*4.)+ph+transformed.y*3.)*.012+uWind*gust*.03)*sw*(1.+uWind*2.);transformed.z+=cos(uTime*(1.9+uWind*3.)+ph)*.01*sw*(1.+uWind*2.);`,
         color: `float v=n_h13(vIns*31.);diffuseColor.rgb*=.85+.3*v;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.93,.95,1.),uSnow*smoothstep(.2,.8,vLNrm.y)*.6);`,
         light: `vec3 sd=normalize((viewMatrix*vec4(uSunDir,0.)).xyz);float tr=max(0.,dot(-normal,sd))*max(0.,dot(normalize(vViewPosition),sd)*.5+.5);reflectedLight.directDiffuse+=diffuseColor.rgb*uSunCol*tr*.35;`,
     }); cache.set(k, m); return m;
@@ -162,7 +162,7 @@ export function grass(c1, c2) {
     const k = 'grass|' + c1 + '|' + c2; let m = cache.get(k); if (m) return m;
     m = patch(new T.MeshStandardMaterial({ color: '#ffffff', side: T.DoubleSide, roughness: .9 }), {
         uniforms: { uC1: { value: new T.Color(c1) }, uC2: { value: new T.Color(c2) } },
-        vert: `float ph=dot(vIns,vec3(9.1,3.3,7.7));float sw=uWind*(.5+.5*sin(uTime*2.+ph));transformed.x+=transformed.y*transformed.y*sin(uTime*2.6+ph)*.9*sw;transformed.z+=transformed.y*transformed.y*cos(uTime*2.2+ph)*.6*sw;`,
+        vert: `float ph=dot(vIns,vec3(9.1,3.3,7.7));float sw=uWind*(.5+.5*sin(uTime*2.+ph));transformed.x+=transformed.y*transformed.y*(sin(uTime*(2.6+uWind*5.)+ph)*.9+uWind*1.6)*sw;transformed.z+=transformed.y*transformed.y*cos(uTime*2.2+ph)*.6*sw;`,
         color: `float v=n_h13(vIns*17.);float h=clamp(vLPos.y*60.,0.,1.);diffuseColor.rgb=mix(uC1,uC2,h)*(.8+.4*v);diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.93,.95,1.),uSnow*.85);`,
         light: `vec3 sd=normalize((viewMatrix*vec4(uSunDir,0.)).xyz);reflectedLight.directDiffuse+=diffuseColor.rgb*uSunCol*max(0.,dot(-normal,sd))*.25;`,
     }); cache.set(k, m); return m;
