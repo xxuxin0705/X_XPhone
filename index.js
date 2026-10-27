@@ -9,6 +9,7 @@ import { openChat, syncStory, inlineSync } from './apps/chat/chat.js';
 import './apps/settings/settings.js';
 import { initMusic } from './apps/music/music.js';
 import './apps/isle/isle.js';
+import './apps/street/street.js';
 import { applyTheme } from './apps/theme/theme.js';
 
 const SB = `<b class="sb-t"></b><span class="isl"></span><span class="sb-r"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" width="3" height="11" rx="1"/></svg>5G<i class="bat"></i><b class="off" data-a="off" title="关机"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v8M6.6 6.6a8 8 0 1 0 10.8 0"/></svg></b></span>`;

@@ -1279,6 +1279,7 @@
 .isl:not(.mu){transition:width .35s ease,margin .35s ease}
 /* ===== 心屿 · 海边收藏 ===== */
 .a-isle{background:linear-gradient(145deg,#a3c8b5,#527c70)}
+.a-street{background:linear-gradient(150deg,#ffb3a7,#e8584e)}
 .isle{--is-ink:#334e47;--is-muted:#7e8879;--is-paper:#f6f3e9;--is-line:#dcded0;color:var(--is-ink)}
 .isle .pg-h{background:var(--is-paper);color:var(--is-ink);border-bottom:0}
 .isle .pg-b{background:radial-gradient(ellipse at 80% 25%,#e4e9dc 0,transparent 55%),var(--is-paper);padding:6px 20px 24px;color:var(--is-ink)}
