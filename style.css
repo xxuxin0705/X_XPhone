@@ -3,7 +3,10 @@
   background:linear-gradient(145deg,#34343a,#0c0c0e 60%);box-shadow:inset 0 0 0 1.5px #44444a,inset 0 0 0 4px #111,0 30px 80px rgba(0,0,0,.45);
   transform:scale(var(--sc)) translateY(40px);transform-origin:top left;opacity:0;pointer-events:none;transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.15);
   font:calc(14px*var(--fz,1))/1.45 -apple-system,"SF Pro Text","PingFang SC","HarmonyOS Sans SC","MiSans","Roboto","Microsoft YaHei",sans-serif!important;color:var(--pt);-webkit-font-smoothing:antialiased;user-select:none;text-align:left}
+#stp:not(.on){visibility:hidden;transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.15),visibility 0s .45s}
 #stp.on{opacity:1;pointer-events:auto;transform:scale(var(--sc))}
+/* 锁着的时候锁屏底下的桌面 / 应用不画（液态玻璃很费），手指按上锁屏才画出来 */
+.stp-scr.locked:not(.peek)>.desk,.stp-scr.locked:not(.peek)>.stack{visibility:hidden}
 #stp *{box-sizing:border-box}#stp,#stp :where(:not(i):not(.clk-t):not(.clk-d):not(pre):not(code)){font-family:inherit}
 #stp svg:not(:where(.mz-app *,.mz-overlay *,.mz-float *)){display:block}
 #stp img{max-width:none;margin:0}
@@ -270,10 +273,10 @@
 /* 微信底栏：[✦让对方回] [输入框] [表情] [＋]；有字时 ＋ 换成绿色“发送”，发完变回来 */
 .ib .wsend{display:none!important}
 .st-wx .ib .go{order:-1;width:34px;height:36px;background:none;color:var(--t1);animation:none}
-.s-wv{display:none}
+#stp .s-wv{display:none}
 .st-wx .ib .go{position:relative}
-#stp .st-wx .go .s-send,#stp .st-wx .go .s-reply{display:none!important}#stp .st-wx .go:not(.wait) .s-wv{display:block}#stp .st-wx .go.wait .s-stop{display:block;width:16px;height:16px;padding:5.5px;border:1.5px solid currentColor;border-radius:50%}
-.st-wx .ib .go.wait{color:var(--sac)}
+#stp .st-wx .go .s-send,#stp .st-wx .go .s-reply{display:none!important}#stp .st-wx .go:not(.wait) .s-wv{display:block}#stp .st-wx .go.wait .s-stop{display:block;width:29px;height:29px;padding:6.5px;box-sizing:border-box;border:1.5px solid currentColor;border-radius:50%}
+.st-wx .ib .go.wait{color:#191919;animation:none!important;box-shadow:none!important;background:none!important}.st-wx.dark .ib .go.wait{color:#e6e6e6} /* 点了变成「圈里一个方块」，再点一下停止 */
 .st-wx .ib [data-x=stk]{order:1}.st-wx .ib [data-x=more]{order:2}
 .st-wx .ib.has [data-x=more]{display:none}
 .st-wx .ib.has .wsend{display:grid!important;order:3;width:auto;height:32px;margin:0 2px 2px 2px;padding:0 12px;border-radius:4px;background:var(--sac);color:#fff;font-size:calc(14px*var(--fz,1));animation:wsin .16s ease-out}
@@ -471,8 +474,8 @@
 
 /* ---------- 聊天交互：翻译折叠 / 表情回应 / 引用 / 正在输入 / 拍一拍抖动 / 表情面板 ---------- */
 .tp{display:block;font-size:calc(11px*var(--fz,1));opacity:.6;margin-top:3px}
-.stk0{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 16px;border-radius:16px;background:rgba(127,127,127,.1)}
-.stk0 b{font:500 calc(17px*var(--fz,1))/1.3 sans-serif}.stk0 small{font-size:calc(11px*var(--fz,1));opacity:.6}
+.stk0{display:flex;padding:9px 12px;border-radius:var(--br,8px);background:var(--b1);color:var(--t1);font-size:calc(15px*var(--fz,1));line-height:22px;min-height:40px;box-sizing:border-box}
+.me .stk0{background:var(--b2);color:var(--t2)}
 .rx{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .me .rx{justify-content:flex-end}
 .rp{display:inline-flex;align-items:center;gap:3px;padding:2px 8px 2px 6px;border-radius:12px;background:var(--cd,#fff);box-shadow:0 1px 4px rgba(0,0,0,.1);font-size:calc(13px*var(--fz,1));cursor:pointer}
@@ -826,7 +829,7 @@
 .lk-fp.nudge{animation:fpnudge .5s}
 @keyframes fpnudge{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
 /* 表情包：搜索表情（仿微信） */
-.stk0.ld b{animation:skld 1s ease-in-out infinite alternate}@keyframes skld{to{opacity:.35}}
+.stk0.ld{animation:skld 1s ease-in-out infinite alternate}@keyframes skld{to{opacity:.35}}
 .skspg .pg-b{padding:4px 14px 30px}
 .sks-bar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;margin:0 -14px;padding:6px 14px 10px;background:var(--pg)}
 .sks-bar svg{position:absolute;left:25px;width:16px;height:16px;opacity:.45;pointer-events:none}

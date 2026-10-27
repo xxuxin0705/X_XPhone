@@ -130,8 +130,8 @@ export const tT = ts => { const d = new Date(ts); return (d.toDateString() == no
 const avH = (c, ch, id) => { const fr = S.assets.frame.find(a => a.id == ch.cfg.frame)?.img; return `<div class="avw" data-a="avc" data-x="${id}"><img class="av" src="${esc(avOf(c))}">${fr ? `<img class="frm" src="${esc(fr)}">` : ''}</div>`; };
 // 表情包消息没有图（AI 发的、库里没有）：先在免费表情库里找，找不到再上网搜一张补上；每条只找一次
 const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !S.stk.auto || !m.c) return; stkTry.add(m); stkFind(m.c).then(r => { stkDone.add(m); r ? Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }) : r === '' && (m.sk = 1); saveD(); emit('chat'); }); };
-const KAO = ['(｡•ᴗ•｡)', '(๑•̀ㅂ•́)و', '(っ˘ω˘ς)', '( ˘•ω•˘ )', '(ﾉ´ヮ`)ﾉ'];
-const stk0 = (m, ld) => `<div class="stk0 ${ld ? 'ld' : ''}"><b>${KAO[m.c.length % 5]}</b><small>${esc(m.c)}</small></div>`;
+// 表情包图找不到 / 加载失败：像普通文字消息一样显示「[关键词]」，不再单独占一大块
+const stk0 = (m, ld) => `<div class="stk0 ${ld ? 'ld' : ''}">[${esc(m.c)}]</div>`;
 // 翻译：正文后面一个小「文」字按钮，点开在下面多一行译文 / 原文（两边样式一样，最多两行内容；不重画整个聊天，不会跳到最下面）
 const fold = (i, txt, lab, open) => `<b class="tzb ${open ? 'on' : ''}" data-a="tz" data-x="${i}" title="${lab}">文</b><p class="tzp" ${open ? '' : 'hidden'}>${esc(txt)}</p>`;
 // 音乐：分享卡片（白底，歌词摘录 + 歌曲行）/ 一起听卡片（封面铺底、唱片、两个人的头像）。会话数据在 apps/music/music-share.js
@@ -182,7 +182,7 @@ function msgs(ch, sel) {
     }
     p = m;
   });
-  busy == ch.id && (o += `<div class="msg typing">${g ? `<div class="avw"><img class="av" src="${defAv('…')}"></div>` : avH(ch, ch, ch.id)}<div class="mc"><div class="bub"><i></i><i></i><i></i></div></div></div>`);
+  busy == ch.id && !(sty(ch) == 'wx' && !g) && (o += `<div class="msg typing">${g ? `<div class="avw"><img class="av" src="${defAv('…')}"></div>` : avH(ch, ch, ch.id)}<div class="mc"><div class="bub"><i></i><i></i><i></i></div></div></div>`);
   return `${bub ? `<style>${bub.css}</style>` : ''}<div class="cv ${sel ? 'msel' : ''}">${o || '<div class="sys">还没有消息，打个招呼吧 ✧</div>'}</div>`;
 }
 
@@ -232,7 +232,7 @@ export function openChat(id) {
   const tool = async f => { $('.pan', pg.el).classList.remove('on'); await f(); };
   const pg = page({
     chat: id, live: 1, model: () => ch, cls: cls(), pan: (k, keep) => pan(k, keep), pkC, onClose: () => setTimeout(() => emit('chat')),
-    title: () => sel ? `<b class="txt msel-x" data-a="selx">取消</b><b>已选择 ${sel.size} 条消息</b>` : `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}${mzB.getMusicListening(ch.id) ? '<i class="mzl" title="正在一起听歌" data-a="mzopen"><i></i><i></i><i></i></i>' : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
+    title: () => sel ? `<b class="txt msel-x" data-a="selx">取消</b><b>已选择 ${sel.size} 条消息</b>` : busy == id && sty(ch) == 'wx' && ch.type == 'p' ? '<b>对方正在输入...</b>' : `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}${mzB.getMusicListening(ch.id) ? '<i class="mzl" title="正在一起听歌" data-a="mzopen"><i></i><i></i><i></i></i>' : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
     right: () => sel ? `<b class="txt" data-a="selall">${sel.size && sel.size >= selable().length ? '全不选' : '全选'}</b>` : `<b data-a="cset">${I.more}</b>`, body: () => msgs(ch, sel),
     foot: () => sel ? `<div class="selto" data-a="selto">↑ 选择到这里</div><nav class="mbar2">${[['sfwd', '转发', MI.fwd], ['sinj', '注入正文', MI.inj], ['sdel', '删除', MI.del]].map(([a, l, ic]) => `<button data-a="${a}" class="${sel.size ? '' : 'dis'}">${ic}<span>${l}</span></button>`).join('')}</nav>` : `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${sty(ch) == 'wx' ? WXB.smile : I.smile}</button><textarea class="ip" rows="1" placeholder="${{ kk: 'Enter a message', line: 'Aa' }[sty(ch)] || '发消息…'}"></textarea><button data-a="pan" data-x="more">${sty(ch) == 'wx' ? WXB.plus : I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg>${WXB.wave}<svg class="s-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5c.6 4.6 3 7 7.6 7.6-4.6.6-7 3-7.6 7.6-.6-4.6-3-7-7.6-7.6 4.6-.6 7-3 7.6-7.6Z"/><path d="M18.5 14.5c.3 2.1 1.3 3.1 3.4 3.4-2.1.3-3.1 1.3-3.4 3.4-.3-2.1-1.3-3.1-3.4-3.4 2.1-.3 3.1-1.3 3.4-3.4Z"/></svg></button><button class="wsend" data-a="send">发送</button></div><div class="pan"></div>`,
     after: el => {

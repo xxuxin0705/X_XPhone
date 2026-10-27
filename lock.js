@@ -117,7 +117,7 @@ function inkFrom(u, isVid) {
 export function lock(preview) {
   preview && S.lock.rand && randLock(); // 随机锁屏开着时预览：每次从勾选的里面随机一张
   el ||= ui.lock; if (!el) return; lockMig();
-  locked = true; el.hidden = false; el.style.transition = el.style.transform = ''; el.className = 'lock' + (preview ? ' pv' : '') + (fpOn() ? ' fp' : ''); ui.scr.classList.add('locked');
+  locked = true; el.hidden = false; el.style.transition = el.style.transform = ''; el.className = 'lock' + (preview ? ' pv' : '') + (fpOn() ? ' fp' : ''); ui.scr.classList.add('locked'); ui.scr.classList.remove('peek');
   el.innerHTML = `<div class="lk-bg"></div><div class="lk-ui"><i class="lk-ic">${LOCK}</i><div class="lk-clock">${clkHtml(lockClk(), now()).replace('class="clk-d"', 'class="clk-d lk-date"').replace('class="clk-t"', 'class="clk-t lk-time"')}${S.lock.text ? `<p class="lk-text">${esc(S.lock.text)}</p>` : ''}</div>
 <div class="lk-note" hidden><i>💬</i><div><small>消息 · 现在</small><b></b></div></div>${fpOn() ? `<b class="lk-fp">${fpSvg()}</b>` : ''}<div class="lk-hint"><span>${hintText(preview)}</span></div></div><div class="lk-auth" hidden></div>`;
   wallpaper(); clock(); clearInterval(iv); iv = setInterval(() => locked && visible() && clock(), 1e3);
@@ -144,6 +144,7 @@ function swipe(preview) {
   let mode = '', x0 = 0;
   u.addEventListener('pointerdown', e => {
     if (e.target.closest('.lk-auth,.lk-fp,.lk-note') || el.classList.contains('authing')) return;
+    ui.scr.classList.add('peek'); // 手指按下才把锁屏底下的桌面画出来（锁着的时候不画，打开手机更快）
     const r = el.getBoundingClientRect(), bottom = e.clientY > r.bottom - r.height * .12;
     mode = !bottom && fx?.interactive ? (fx.input('down', e.clientX, e.clientY) ? 'fx' : 'both') : 'swipe'; x0 = e.clientX;
     clearTimeout(lpT); !bottom && $('.lk-bg video.live', el) && (lpT = setTimeout(playLive, 420)); // 长按实况照片：再动一次
@@ -163,6 +164,7 @@ function swipe(preview) {
     if (pass && (preview || !S.lock.pw)) { el.style.transform = ''; unlock(); } else { el.style.transform = ''; pass && go(); }
     mode = '';
   };
+  const unpeek = () => setTimeout(() => locked && ui.scr.classList.remove('peek'), 400); u.addEventListener('pointerup', unpeek); u.addEventListener('pointercancel', unpeek);
   u.addEventListener('pointerup', up); u.addEventListener('pointercancel', up);
   $('.lk-hint', el).addEventListener('click', e => { e.stopPropagation(); go(); });
   el.onkeydown = e => { if (/^\d$/.test(e.key)) el._pad?.key?.(e.key); else if (e.key == 'Backspace') el._pad?.key?.('del'); else if (e.key == 'Enter' && !el.classList.contains('authing')) go(); };

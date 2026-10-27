@@ -125,7 +125,7 @@ reg({
 on('isle', () => { const t = top(); t?.el?.classList.contains('isle') && t.re(); });
 // 打开手机后趁空闲预热 3D（加载 three.js、编译着色器），点进心屿时不用等；只做一次
 let warmed = false;
-on('phone-open', () => { if (warmed || !people().length) return; warmed = true; const go = () => warm(makeRecipe(Math.random() * 1e9 | 0, { era: eraHint() || undefined }), S.isle?.q).catch(e => { warmed = false; console.warn('[心屿] 预热失败', e); }); (window.requestIdleCallback || (f => setTimeout(f, 600)))(go, { timeout: 2500 }); });
+on('phone-open', () => { if (warmed || !people().length) return; warmed = true; const go = () => warm(makeRecipe(Math.random() * 1e9 | 0, { era: eraHint() || undefined }), S.isle?.q).catch(e => { warmed = false; console.warn('[心屿] 预热失败', e); }); setTimeout(() => (window.requestIdleCallback || (f => setTimeout(f, 600)))(go, { timeout: 6000 }), 1500); /* 晚一点再预热，不跟打开手机的动画抢 */ });
 // 正文里带的心情：心情|谁|心情词|一句话
 on('isle-mood', list => { for (const m of list) { const c = people().find(p => rn(p) == m.who || nm(p) == m.who || p.nick == m.who); if (!c) continue; setMood(c.id, { mood: m.mood, say: m.say, world: m.world, voices: m.voices }); toast(`${nm(c)}的岛：${m.mood}`); } });
 
