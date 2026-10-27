@@ -5,7 +5,7 @@
 // AI 导演：「看看 TA 现在」和正文心情行里带几个风景词，本地翻成配方（不额外调 API）
 // 球和手势在 jelly.js（three.js，按需加载），球里的世界在 build.js
 // D().isle = { cur: 角色id, by: { id: { mood, scene, say, sea, ts, world: 配方, hist: [...] } } }；S.isle = { auto, q: 画质 }
-import { S, D, $, esc, save, saveD, on, emit, page, menu, toast, reg, top, llm, json, sysCtx, task, now, nm, rn, byId, avOf, syncInject, I } from '../../core.js';
+import { S, D, $, esc, save, saveD, on, emit, page, menu, form, ok, toast, reg, top, llm, json, sysCtx, task, now, nm, rn, byId, avOf, syncInject, I } from '../../core.js';
 import { makeRecipe, hintOf, recipeName, eraOf, seasonOf, SEASONS } from './gen.js';
 import { jelly, warm } from './jelly.js';
 
@@ -23,7 +23,7 @@ const recent = []; // 最近抽到的风景名：随机时尽量不重样（剧�
 /** 剧情现在是什么季节：看最近几条正文（本地认关键词，不花 API） */
 const seasonHint = () => { try { const c = SillyTavern.getContext(); return seasonOf((c.chat || []).slice(-6).map(m => m.mes).join(' ')); } catch { return ''; } };
 const reroll = (r, hint = '', persist = true) => { const want = hintOf(hint); if (!want.era && !want.mark) { const e = eraHint(); if (e) want.era = e; } if (!want.season) { const s = seasonHint(); if (s) { want.season = s; if (s === 'winter' && !want.climate && !want.mark && Math.random() < .6) want.climate = 'snow'; } } let rc; for (let i = 0; i < 12; i++) { rc = makeRecipe(Math.random() * 1e9 | 0, want); if (want.climate && want.mark) break; const nm = recipeName(rc); if ((want.climate || rc.climate !== r.world?.climate) && !recent.includes(nm)) break; } recent.unshift(recipeName(rc)); recent.length > 8 && (recent.length = 8); if (!r.mood) r.wx = ['sun', 'sunset', 'rain', 'storm', 'snow', 'aurora', 'night', 'fog', 'fireworks'][Math.random() * 9 | 0]; /* 还没读过心情：天气也随机，不总是落日 */ delete r.biome; delete r.seed; r.world = rc; persist && saveD(); };
-const setMood = (id, m) => { const r = rec(id); if (!m.mood) return; Object.assign(r, { mood: m.mood, scene: SCENES[m.scene] ? m.scene : sceneOf(m.mood), say: m.say || '', voices: (Array.isArray(m.voices) ? m.voices : []).map(v => String(v).trim().slice(0, 40)).filter(Boolean).slice(0, 8), vi: 0, sea: Math.max(0, Math.min(1, +m.sea || .4)), ts: now() }); reroll(r, m.world || '', false); r.hist.unshift({ mood: r.mood, scene: r.scene, say: r.say, ts: r.ts, world: recipeName(r.world) }); r.hist.length > 60 && (r.hist.length = 60); saveD(); emit('isle'); };
+const setMood = (id, m) => { const r = rec(id); if (!m.mood) return; Object.assign(r, { mood: m.mood, scene: SCENES[m.scene] ? m.scene : sceneOf(m.mood), say: m.say || '', voices: (Array.isArray(m.voices) ? m.voices : []).map(v => String(v).trim().slice(0, 40)).filter(Boolean).slice(0, 8), vi: 0, sea: Math.max(0, Math.min(1, +m.sea || .4)), ts: now() }); reroll(r, m.world || '', false); r.hist.unshift({ mood: r.mood, scene: r.scene, say: r.say, voices: r.voices, ts: r.ts, world: recipeName(r.world) }); r.hist.length > 60 && (r.hist.length = 60); saveD(); emit('isle'); };
 
 /* ---------- 页面 ---------- */
 let pt;
@@ -34,11 +34,40 @@ const body = () => { const id = curId(), c = byId(id), r = id ? rec(id) : null, 
   const scene = r?.scene || 'sunset';
   const wave = `<svg viewBox="0 0 160 26" fill="none" aria-hidden="true"><path d="M0 13 Q10 2 20 13 T40 13 T60 13 T80 13 T100 13 T120 13 T140 13 T160 13" stroke="currentColor" stroke-width="1"/><path d="M0 20 Q10 9 20 20 T40 20 T60 20 T80 20 T100 20 T120 20 T140 20 T160 20" stroke="currentColor" stroke-width=".6" opacity=".4"/></svg>`;
   return `<div class="is-who" aria-label="选择角色">${ps.map(p => `<b class="${p.id == id ? 'on' : ''}" data-a="iswho" data-x="${esc(p.id)}" role="button" tabindex="0" aria-label="${esc(nm(p))}" aria-pressed="${p.id == id}"><img src="${esc(avOf(p))}" alt=""><span>${esc(nm(p))}</span></b>`).join('')}</div>
-  <div class="is-stage" data-scene="${scene}" data-world="${esc(r?.world?.climate || '')}"><div class="is-caption"><span>${esc(nm(c))}的岛</span><span>${r?.world?.season ? SEASONS[r.world.season] + ' · ' : ''}${esc(recipeName(r?.world))}${r?.scene ? ' · ' + SCENES[scene] : ''}</span></div><canvas class="is-cv phone-gesture-control" aria-label="${esc(nm(c))}的心情小岛"></canvas><div class="is-playbar"><button type="button" data-a="isshake">摇一摇</button></div><div class="is-sealine">${wave}<span>一 岛 一 心 事</span>${wave}</div></div>
+  <div class="is-stage" data-scene="${scene}" data-world="${esc(r?.world?.climate || '')}"><div class="is-caption"><span>${esc(nm(c))}的岛</span><span>${r?.world?.season ? SEASONS[r.world.season] + ' · ' : ''}${esc(recipeName(r?.world))}${r?.scene ? ' · ' + SCENES[scene] : ''}</span></div><canvas class="is-cv phone-gesture-control" aria-label="${esc(nm(c))}的心情小岛"></canvas><div class="is-btns"><button class="btn pri" data-a="islook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 3v5m0 8v5M3 12h5m8 0h5M6 6l3 3m6 6 3 3M6 18l3-3m6-6 3-3"/><circle cx="12" cy="12" r="3"/></svg>看看 TA 现在</button><button class="btn" data-a="isshake"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="12" cy="10" r="6"/><path d="M5 20c2-1.2 4.4-1.8 7-1.8s5 .6 7 1.8M3 8c-.6 1.2-.6 2.8 0 4M21 8c.6 1.2.6 2.8 0 4"/></svg>摇一摇</button><button class="btn" data-a="ishist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 9c2 0 2-2 4.5-2S10 9 12 9s2-2 4.5-2S19 9 21 9M3 15c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2"/></svg>潮汐记录</button></div><div class="is-sealine">${wave}<span>一 岛 一 心 事</span>${wave}</div></div>
   <div class="is-card"><div class="is-mood"><div><b>${esc(r?.mood || '还不知道')}</b><small>${r?.scene ? SCENES[scene] + ' · ' : ''}${esc(nm(c))}的岛${r?.ts ? ' · ' + ago(r.ts) : ''}</small></div><i class="is-weather sc-${scene}" aria-hidden="true"></i></div>
   ${r?.say ? `<p class="is-say">${esc(r.say)}</p>` : ''}
   ${r?.ts ? `<div class="is-tide"><span>情绪潮位</span><div class="is-tide-track" role="meter" aria-label="情绪潮位" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(r.sea * 100)}"><i style="width:${Math.round(r.sea * 100)}%"></i></div><span>${r.sea < .35 ? '微澜' : r.sea < .7 ? '起伏' : '汹涌'}</span></div>` : ''}
-  <div class="is-btns"><button class="btn pri" data-a="islook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 3v5m0 8v5M3 12h5m8 0h5M6 6l3 3m6 6 3 3M6 18l3-3m6-6 3-3"/><circle cx="12" cy="12" r="3"/></svg>看看 TA 现在</button><button class="btn" data-a="ishist">潮汐记录<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M6 18 18 6M6 6h12v12"/></svg></button></div></div>`; };
+  </div>`; };
+
+/* ---------- 潮汐记录：点一条 → 编辑 / 之前的版本 / 删除；长按进多选，批量删除 ---------- */
+// 每次编辑或恢复前，把原来的样子存进这条的 vers（最近 10 个）；改的是「现在这条」时，岛上的心情也跟着改
+let hsel = null;
+const when = ts => new Date(ts).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+const snap = h => ({ mood: h.mood, scene: h.scene, say: h.say, voices: h.voices || [], at: Date.now() });
+const syncCur = (r, h) => { if (h.ts === r.ts) { Object.assign(r, { mood: h.mood, scene: h.scene, say: h.say, voices: h.voices || [] }); } };
+function openHist() {
+  const id = curId(), c = byId(id), r = rec(id); hsel = null;
+  const row = (h, i) => `<div class="is-h ${hsel ? 'msel' : ''} ${hsel?.has(i) ? 'on' : ''}" data-a="${hsel ? 'hsel' : 'hact'}" data-x="${i}" data-lp="hlp" role="button" tabindex="0">${hsel ? '<i class="ck" aria-hidden="true"></i>' : ''}<i class="sc-${h.scene}"></i><div><b>${esc(h.mood)}</b><small>${SCENES[h.scene] || ''}${h.world ? ' · ' + esc(h.world) : ''} · ${when(h.ts)}${h.vers?.length ? ` · 改过 ${h.vers.length} 次` : ''}</small>${h.say ? `<p>「${esc(h.say)}」</p>` : ''}</div></div>`;
+  const pg = page({ title: `${nm(c)}的潮汐记录`, cls: 'isle isle-history', live: 1,
+    right: () => hsel ? `<b data-a="hall">${hsel.size >= r.hist.length ? '全不选' : '全选'}</b>` : '',
+    body: () => r.hist.length ? `<div class="is-hist">${r.hist.map(row).join('')}</div>` : '<div class="is-empty"><p>还没有记录</p></div>',
+    foot: () => hsel ? `<nav class="mbar"><button data-a="hdel" class="danger ${hsel.size ? '' : 'off'}">删除${hsel.size ? `(${hsel.size})` : ''}</button></nav>` : '',
+    onBack: () => { if (!hsel) return false; hsel = null; pg.re(); return true; },
+    acts: {
+      hlp: x => { if (hsel) { hsel.has(+x) ? hsel.delete(+x) : hsel.add(+x); return pg.re(); } navigator.vibrate?.(12); hsel = new Set([+x]); pg.re(); },
+      hsel: x => { hsel.has(+x) ? hsel.delete(+x) : hsel.add(+x); pg.re(); },
+      hall: () => { hsel = hsel.size >= r.hist.length ? new Set() : new Set(r.hist.map((_, i) => i)); pg.re(); },
+      hdel: async () => { if (!hsel?.size || !await ok(`删除 ${hsel.size} 条记录`)) return; r.hist = r.hist.filter((_, i) => !hsel.has(i)); hsel = null; saveD(); emit('isle'); pg.re(); },
+      hact: async x => { const h = r.hist[+x]; if (!h) return;
+        const k = await menu([['edit', '编辑'], ...(h.vers?.length ? [['vers', `之前的版本（${h.vers.length}）`]] : []), ['del', '删除', 'danger']], `${h.mood} · ${when(h.ts)}`); if (!k) return;
+        if (k == 'del') { if (!await ok('删除这条记录')) return; r.hist.splice(+x, 1); saveD(); emit('isle'); return pg.re(); }
+        if (k == 'edit') { const v = await form('编辑这条记录', [['mood', '心情'], ['scene', '天气', 'sel', Object.entries(SCENES)], ['say', '没说出口的话', 'area'], ['vs', '心声（一行一句）', 'area']], { mood: h.mood, scene: h.scene, say: h.say || '', vs: (h.voices || []).join('\n') }); if (!v || !v.mood?.trim()) return;
+          (h.vers ||= []).unshift(snap(h)); h.vers.length > 10 && (h.vers.length = 10); Object.assign(h, { mood: v.mood.trim(), scene: SCENES[v.scene] ? v.scene : h.scene, say: v.say.trim(), voices: v.vs.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8) }); syncCur(r, h); saveD(); emit('isle'); return pg.re(); }
+        if (k == 'vers') { const j = await menu(h.vers.map((o, i) => [String(i), `${o.mood} · ${SCENES[o.scene] || ''}${o.say ? ' ·「' + o.say.slice(0, 14) + (o.say.length > 14 ? '…' : '') + '」' : ''} · 改于 ${when(o.at)}`]), '点一个版本恢复'); if (j == null) return;
+          const o = h.vers[+j]; if (!o || !await ok(`恢复成「${o.mood}」这个版本`)) return; const cur = snap(h); h.vers.splice(+j, 1); h.vers.unshift(cur); Object.assign(h, { mood: o.mood, scene: o.scene, say: o.say, voices: o.voices || [] }); syncCur(r, h); saveD(); emit('isle'); pg.re(); }
+      } } });
+}
 
 let mountN = 0;
 const mount = el => { pt?.stop(); pt = null; el.querySelectorAll('.is-who [role=button]').forEach(b => b.addEventListener('keydown', e => { if (e.key == 'Enter' || e.key == ' ') { e.preventDefault(); b.click(); } })); const cv = $('.is-cv', el); if (!cv) return; const id = curId(), n = ++mountN;
@@ -81,7 +110,7 @@ reg({
       iswho: (x, t, e, pg) => { if (ISL().cur == x && curId() == x) return; ISL().cur = x; reroll(rec(x), ''); pg.re(); },
       isshake: () => pt?.bounce(),
       islook: look,
-      ishist: () => { const id = curId(), c = byId(id), r = rec(id); page({ title: `${nm(c)}的潮汐记录`, cls: 'isle isle-history', body: () => r.hist.length ? `<div class="is-hist">${r.hist.map(h => `<div class="is-h"><i class="sc-${h.scene}"></i><div><b>${esc(h.mood)}</b><small>${SCENES[h.scene] || ''}${h.world ? ' · ' + esc(h.world) : ''} · ${new Date(h.ts).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small>${h.say ? `<p>「${esc(h.say)}」</p>` : ''}</div></div>`).join('')}</div>` : '<div class="is-empty"><p>还没有记录</p></div>' }); },
+      ishist: () => openHist(),
     } }); },
 });
 on('isle', () => { const t = top(); t?.el?.classList.contains('isle') && t.re(); });

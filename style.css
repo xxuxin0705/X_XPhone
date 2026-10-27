@@ -79,7 +79,7 @@
 /* ---------- 页面 / 通用组件 ---------- */
 .stack{position:absolute;inset:0;z-index:20;pointer-events:none}
 .pg,.pg-b{touch-action:pan-y}
-.pg{isolation:isolate;position:absolute;inset:0;padding-top:0;display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s var(--ease-drawer);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
+.pg{isolation:isolate;position:absolute;inset:0;padding-top:calc(var(--sbh) * .68);display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s var(--ease-drawer);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
 .pg.in{transform:none}
 .pg-h{flex:none;display:flex;align-items:center;gap:6px;height:42px;padding:0 12px}
 .pg-back,.pg-r>b{display:grid;place-items:center;min-width:30px;height:32px;color:var(--ac);cursor:pointer;font-weight:500}
@@ -1102,8 +1102,8 @@
 .is-say:before{content:'“';position:absolute;left:0;top:-8px;font-family:Georgia,serif;font-size:calc(27px*var(--fz,1));color:#a1ad98}
 .is-tide{display:flex;align-items:center;gap:12px;margin:18px 0 22px;color:var(--is-muted);font-size:calc(10px*var(--fz,1));letter-spacing:.06em}
 .is-tide-track{height:3px;flex:1;background:#dfe3d6;border-radius:4px;overflow:hidden}.is-tide-track i{display:block;height:100%;border-radius:4px;background:#8fa790}
-.is-btns{display:flex;gap:12px;margin-top:22px}.is-btns .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;flex:1;margin:0;padding:11px 8px;border-radius:16px;font-size:calc(12px*var(--fz,1));letter-spacing:.03em;box-shadow:none;border:0}
-.is-btns svg{width:17px;height:17px;flex:none}.is-btns .btn span{margin-left:6px;font-size:calc(16px*var(--fz,1))}
+.is-btns{display:flex;gap:8px;margin:16px 14px 18px}.is-btns .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;flex:1;margin:0;padding:11px 8px;border-radius:16px;font-size:calc(12px*var(--fz,1));letter-spacing:.03em;box-shadow:none;border:0}
+.is-btns svg{width:16px;height:16px;flex:none}.is-btns .btn{white-space:nowrap;gap:5px;padding:11px 4px}.is-btns .btn span{margin-left:6px;font-size:calc(16px*var(--fz,1))}
 .isle .btn.pri{background:#456b5e;color:#fffaf0;box-shadow:0 7px 16px -10px #355a49aa}.isle .btn:not(.pri){background:#e8ebdf;color:var(--is-ink)}
 .is-empty{text-align:center;color:var(--is-muted);padding:80px 20px;font-family:Georgia,'Songti SC',serif}
 .is-hist{position:relative;padding:8px 0}.is-h{position:relative;display:flex;gap:18px;padding:18px 0 24px;border:0}.is-h:not(:last-child):before{content:'';position:absolute;left:17px;top:55px;bottom:-12px;width:1px;background:var(--is-line)}
@@ -1115,6 +1115,9 @@
 @media(prefers-reduced-motion:reduce){.is-who b{transition:none}}
 
 /* 心屿：本地互动气泡与景观选择 */
+.is-h[role=button]{cursor:pointer;-webkit-tap-highlight-color:transparent}.is-h.msel{align-items:flex-start}.is-h.msel.on{background:color-mix(in srgb,var(--ac) 7%,transparent);border-radius:14px}
+.is-h .ck{flex:none;width:22px;height:22px;margin-top:6px;border-radius:50%;border:1.6px solid #c4c4c7;box-shadow:none;display:grid;place-items:center;transition:background-color .15s,border-color .15s}.is-h.on .ck{background:var(--ac);border-color:var(--ac)}.is-h.on .ck::after{content:'\2713';color:#fff;font-size:calc(13px*var(--fz,1));font-weight:700}
+.isle-history .is-h.msel:before{display:none}
 .is-voice{position:absolute;z-index:3;width:0;height:0;pointer-events:none}
 .is-vb{position:absolute;left:0;bottom:0;width:max-content;max-width:210px;padding:10px 16px 11px;border-radius:22px;translate:-50% 0;color:#21352f;font-size:calc(13px*var(--fz,1));line-height:1.5;text-align:center;opacity:0;will-change:transform,opacity;
   background:radial-gradient(120% 100% at 50% 55%,#ffffffb8 0 45%,#ffffff70 75%,#ffffff2e 100%);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);
@@ -1130,5 +1133,5 @@
 .is-playbar button:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.is-playbar button:active{transform:none}}
 
-/* 应用使用完整高度，桌面与锁屏保留状态栏。 */
-.stp-scr.app-open:not(.locked) > .sb{display:none}
+/* 应用里状态栏还在（右上角能直接关手机），只是矮一点、字小一点，少占地方。 */
+.stp-scr.app-open:not(.locked) > .sb{height:calc(var(--sbh) * .68);padding-top:0;font-size:12px}

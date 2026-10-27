@@ -59,7 +59,7 @@ export function softBall(o = {}) {
     const AqqInv = Aqq.map((v, k) => (k % 4 === 0 ? 1 / v : 0)); // 球面点：对角阵
 
     const S = {
-        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? 2, smooth: o.smooth ?? .12, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 3e-7, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
+        n, nS, X, R0, F, firm: o.firm ?? .3, damp: o.damp ?? 2, smooth: o.smooth ?? .25, kE: o.kE || [1e-3, 8e-4, 1e-3], kT: o.kT ?? 1e-4, gravity: 0, tether: 1, anchor: [0, 0, 0], floor: -1.02, walls: null,
         grab: null, q: [0, 0, 0, 1], A: [1, 0, 0, 0, 1, 0, 0, 0, 1], c: [0, 0, 0], ke: 0,
     };
     /** 抓住：p 是抓的那一点（世界坐标），r 抓的范围 */
@@ -107,7 +107,10 @@ export function softBall(o = {}) {
             // 抓着的点跟着手指
             if (g) for (let k = 0; k < g.ids.length; k++) { const i = g.ids[k], wk = g.w[k], f = wk / (wk + aG / h2); for (let a = 0; a < 3; a++) X[i * 3 + a] -= (X[i * 3 + a] - g.target[a] - g.off[k][a]) * f; }
             // 中心拴在原位（软弹簧）
-            if (S.tether > 0) { const k = W[C] / (W[C] + aT / S.tether / h2); for (let a = 0; a < 3; a++) X[C * 3 + a] -= (X[C * 3 + a] - S.anchor[a]) * k; }
+            if (S.tether > 0) { // 拴住整个球的重心（不是只拴中心那一个点，否则外壳会绕着它整个滑走，拉不长）
+                const k = 1 / (1 + aT / S.tether / h2); let gx = 0, gy = 0, gz = 0; for (let i = 0; i < n; i++) { gx += X[i * 3]; gy += X[i * 3 + 1]; gz += X[i * 3 + 2]; }
+                const dx = (S.anchor[0] - gx / n) * k, dy = (S.anchor[1] - gy / n) * k, dz = (S.anchor[2] - gz / n) * k; for (let i = 0; i < n; i++) { X[i * 3] += dx; X[i * 3 + 1] += dy; X[i * 3 + 2] += dz; }
+            }
             // 整体形状（形状匹配）：每个表面点轻轻拉向「整个球被均匀拉伸 / 转动后它该在的位置」——拉出来是光滑的椭圆，不会鼓出一个个包
             if (S.smooth > 0) {
                 let cx = 0, cy = 0, cz = 0; for (let i = 0; i < nS; i++) { cx += X[i * 3]; cy += X[i * 3 + 1]; cz += X[i * 3 + 2]; } cx /= nS; cy /= nS; cz /= nS;
