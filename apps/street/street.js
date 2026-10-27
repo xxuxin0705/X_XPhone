@@ -3,34 +3,34 @@
 // 现在只做样子：点店会晃一下门口的小牌子；功能之后接
 import { S, $, page, reg, toast } from '../../core.js';
 
-const CSS = new URL('./street.css?v=3', import.meta.url).href;
+const CSS = new URL('./street.css?v=4', import.meta.url).href;
 const css = () => { if (document.querySelector('link[data-street]')) return; document.head.insertAdjacentHTML('beforeend', `<link rel="stylesheet" data-street href="${CSS}"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+KuaiLe&display=swap">`); };
 const ST = () => (S.street ||= { coin: 1250, heart: 12 });
 
 /* ---------- 配色 ---------- */
-const INK = '#7a6488', LIL = '#c9b3ec', LIL2 = '#a98fd6', PNK = '#f7c6d9', PNK2 = '#ee9dbd', MNT = '#b7e6d6', MNT2 = '#86ccb6', BUT = '#fde9a9', BUT2 = '#f6d27a', SKY = '#bcdcf6', SKY2 = '#8ec0ea', PCH = '#fbd3bf', CRM = '#fff8f1', GLASS1 = '#eef6ff', GLASS2 = '#cfe3f7';
+const INK = '#6b4235', LIL = '#f4bdb6', LIL2 = '#d9483f', PNK = '#f8d6d0', PNK2 = '#f39aa0', MNT = '#9fd0c1', MNT2 = '#4f9483', BUT = '#fbe3a0', BUT2 = '#f4cf63', SKY = '#cfe6e4', SKY2 = '#5fa595', PCH = '#f2c9a5', CRM = '#fbf1e1', GLASS1 = '#eaf5f3', GLASS2 = '#bfdcd8'; // 奶油米白 + 草莓红 + 柔黄 + 薄荷绿（上一版的配色）
 const W = 1600, H = 470, GY = 384; // GY = 人行道上沿
 
 /* ---------- 画布元件 ---------- */
 const defs = `<defs>
-<linearGradient id="st-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#efe6fb"/><stop offset=".55" stop-color="#fbeef6"/><stop offset="1" stop-color="#fff5ef"/></linearGradient>
+<linearGradient id="st-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbeee4"/><stop offset=".6" stop-color="#fcf3e8"/><stop offset="1" stop-color="#f7ead8"/></linearGradient>
 <linearGradient id="st-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${GLASS1}"/><stop offset="1" stop-color="${GLASS2}"/></linearGradient>
-<linearGradient id="st-hood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#efe6ff"/></linearGradient>
-<linearGradient id="st-scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b3f6b"/><stop offset="1" stop-color="#2f2849"/></linearGradient>
-<linearGradient id="st-wall-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6d9fb"/><stop offset="1" stop-color="#d7c4f5"/></linearGradient>
-<linearGradient id="st-wall-m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6f3e8"/><stop offset="1" stop-color="#bfe9da"/></linearGradient>
-<linearGradient id="st-wall-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ddeefc"/><stop offset="1" stop-color="#c8e2f8"/></linearGradient>
-<linearGradient id="st-wall-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde3ec"/><stop offset="1" stop-color="#f9d0df"/></linearGradient>
+<linearGradient id="st-hood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fdeee6"/></linearGradient>
+<linearGradient id="st-scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3a36"/><stop offset="1" stop-color="#2e2422"/></linearGradient>
+<linearGradient id="st-wall-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf1e1"/><stop offset="1" stop-color="#f2e2c8"/></linearGradient>
+<linearGradient id="st-wall-m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf1e1"/><stop offset="1" stop-color="#f1e0c4"/></linearGradient>
+<linearGradient id="st-wall-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9efe7"/><stop offset="1" stop-color="#bfe2d5"/></linearGradient>
+<linearGradient id="st-wall-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8cdc6"/><stop offset="1" stop-color="#f2b7ae"/></linearGradient>
 <radialGradient id="st-glow"><stop offset="0" stop-color="#fff6d6" stop-opacity=".95"/><stop offset="1" stop-color="#fff6d6" stop-opacity="0"/></radialGradient>
-<radialGradient id="st-glow2"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#f2e8ff" stop-opacity="0"/></radialGradient>
-<pattern id="st-stp-l" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${LIL}"/></pattern>
-<pattern id="st-stp-m" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${MNT2}"/></pattern>
-<pattern id="st-stp-c" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${PCH}"/></pattern>
+<radialGradient id="st-glow2"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#fff3e0" stop-opacity="0"/></radialGradient>
+<pattern id="st-stp-l" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${LIL2}"/></pattern>
+<pattern id="st-stp-m" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${BUT2}"/></pattern>
+<pattern id="st-stp-c" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${MNT2}"/></pattern>
 <pattern id="st-stp-p" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${PNK2}"/></pattern>
 <pattern id="st-dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="1.6" fill="#fff" opacity=".75"/></pattern>
 <pattern id="st-star" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M11 6l1.4 3.4 3.6.3-2.8 2.3.9 3.5L11 13.6 7.9 15.5l.9-3.5L6 9.7l3.6-.3z" fill="#fff" opacity=".7"/></pattern>
-<pattern id="st-tile" width="36" height="18" patternUnits="userSpaceOnUse"><rect width="36" height="18" fill="#f6eef7"/><path d="M0 17.5h36M18 0v18" stroke="#e8dcef" stroke-width="1.4"/></pattern>
-<filter id="st-soft" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#9a7fb8" flood-opacity=".18"/></filter>
+<pattern id="st-tile" width="36" height="18" patternUnits="userSpaceOnUse"><rect width="36" height="18" fill="#efe1c9"/><path d="M0 17.5h36M18 0v18" stroke="#dcc8a8" stroke-width="1.4"/></pattern>
+<filter id="st-soft" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#a8795c" flood-opacity=".18"/></filter>
 </defs>`;
 const SW = 1.8;
 const r = (x, y, w, h, f, rx = 0, s = INK, sw = SW) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${f}" ${s ? `stroke="${s}" stroke-width="${sw}"` : ''}/>`;
@@ -48,7 +48,7 @@ const win = (x, y, w, h, kind, frame) => {
   return shape + (kind == 'round' ? ln(`M${x + w / 2} ${y + 2}V${y + w - 2}M${x + 2} ${y + w / 2}H${x + w - 2}`, frame, 2) : ln(`M${x + w / 2} ${y + (kind == 'arch' ? 3 : 0)}V${y + h}`, frame, 2)) + shine;
 };
 const pots = (x, y, w, c) => { let f = r(x, y, w, 10, c, 5); for (let i = 0; i < w / 10; i++) { const cx = x + 6 + i * 10; f += `<circle cx="${cx}" cy="${y - 2}" r="4.6" fill="${MNT2}"/><circle cx="${cx + 1}" cy="${y - 5}" r="2.8" fill="${[PNK2, '#fff', BUT2, LIL2][i % 4]}"/>`; } return f; };
-const tree = (x, s = 1, a = MNT, b = '#cdeee2') => `<g transform="translate(${x} ${GY}) scale(${s})"><path d="M-3 0V-62h6V0z" fill="#d9b9a3" stroke="${INK}" stroke-width="${SW}"/><circle cx="0" cy="-96" r="40" fill="${a}" stroke="${INK}" stroke-width="${SW}"/><circle cx="-12" cy="-108" r="16" fill="${b}"/><circle cx="16" cy="-84" r="5" fill="#fff" opacity=".8"/>${heart(-20, -92, .7, '#fff')}${spark(18, -116, .8)}</g>`;
+const tree = (x, s = 1, a = '#8fbf6c', b = '#b6da92') => `<g transform="translate(${x} ${GY}) scale(${s})"><path d="M-3 0V-62h6V0z" fill="#d9b9a3" stroke="${INK}" stroke-width="${SW}"/><circle cx="0" cy="-96" r="40" fill="${a}" stroke="${INK}" stroke-width="${SW}"/><circle cx="-12" cy="-108" r="16" fill="${b}"/><circle cx="16" cy="-84" r="5" fill="#fff" opacity=".8"/>${heart(-20, -92, .7, '#fff')}${spark(18, -116, .8)}</g>`;
 const lamp = (x, c = LIL2) => `<g transform="translate(${x} ${GY})"><circle cx="0" cy="-150" r="36" fill="url(#st-glow)"/><path d="M-3 0V-136h6V0z" fill="${c}" stroke="${INK}" stroke-width="${SW}"/>${r(-10, -6, 20, 6, c, 3)}<circle cx="0" cy="-150" r="15" fill="#fff8de" stroke="${INK}" stroke-width="${SW}"/>${r(-10, -138, 20, 6, c, 3)}<path d="M-6 -165q6-8 12 0" fill="${c}" stroke="${INK}" stroke-width="${SW}"/><circle cx="-4" cy="-154" r="3" fill="#fff"/></g>`;
 const bench = x => `<g transform="translate(${x} ${GY})">${r(-32, -28, 64, 8, PCH, 4)}${r(-32, -17, 64, 7, PCH, 3.5)}${ln('M-24 -10V0M24 -10V0', INK, 2.4)}</g>`;
 const bunting = (x1, x2, y, sag = 24) => { let s = ln(`M${x1} ${y}Q${(x1 + x2) / 2} ${y + sag * 2} ${x2} ${y}`, INK, 1.2); const n = Math.round((x2 - x1) / 30); for (let i = 1; i < n; i++) { const t = i / n, px = x1 + (x2 - x1) * t, py = y + sag * 2 * 2 * t * (1 - t); s += `<path d="M${px - 7} ${py - 1}h14l-7 13z" fill="${[PNK, LIL, MNT, BUT, SKY][i % 5]}" stroke="${INK}" stroke-width="1.1" stroke-linejoin="round"/>`; } return s; };
@@ -90,11 +90,11 @@ function ichibanShop(x) { // 一番赏：薄荷 + 奶油黄，屋顶一只系蝴
   const w = 280, top = 98;
   return `<g class="st-shop" data-a="stshop" data-x="ichiban" filter="url(#st-soft)">
 ${r(x + 6, top, w - 12, GY - top, 'url(#st-wall-m)', 0)}<rect x="${x + 6}" y="${top}" width="${w - 12}" height="${GY - top}" fill="url(#st-dots)"/>
-${r(x - 6, top - 14, w + 12, 18, BUT, 9)}${frost(x - 6, top + 4, w + 12, BUT)}
+${r(x - 6, top - 14, w + 12, 18, MNT, 9)}${frost(x - 6, top + 4, w + 12, '#fff')}
 <g transform="translate(${x + w / 2} ${top - 18})">${r(-40, -50, 80, 50, PNK, 6)}${r(-46, -62, 92, 16, PNK2, 6)}${r(-8, -62, 16, 62, LIL, 0)}<path d="M0 -62c-10-18-30-16-26-4 2 6 14 6 26 4zM0 -62c10-18 30-16 26-4-2 6-14 6-26 4z" fill="${LIL}" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/>${spark(-28, -30, .8)}${spark(30, -20, .6)}</g>
 ${win(x + 30, top + 22, 50, 62, 'box', MNT2)}${win(x + w / 2 - 25, top + 22, 50, 62, 'arch', MNT2)}${win(x + w - 80, top + 22, 50, 62, 'box', MNT2)}
 ${r(x + 40, top + 100, w - 80, 40, '#fff', 20, INK, SW)}<text x="${x + w / 2}" y="${top + 129}" text-anchor="middle" class="st-hand" font-size="27" fill="${MNT2}">一番賞</text>${spark(x + 58, top + 120, .9, BUT2)}${spark(x + w - 58, top + 120, .9, PNK2)}
-${r(x, GY - 132, w, 132, '#fff9e3', 0)}${r(x, GY - 22, w, 22, BUT2, 0)}
+${r(x, GY - 132, w, 132, '#e2625a', 0)}${r(x, GY - 22, w, 22, '#b8372f', 0)}
 ${r(x + 16, GY - 112, 160, 92, 'url(#st-glass)', 10, MNT2, 4)}${[0, 1].map(rw => [0, 1, 2, 3].map(c => { const bx = x + 26 + c * 37, by = GY - 104 + rw * 42, col = [PNK, LIL, MNT, SKY][(c + rw) % 4]; return r(bx, by + 6, 30, 30, col, 6, INK, 1.4) + `<text x="${bx + 15}" y="${by + 27}" text-anchor="middle" font-size="13" fill="#fff" class="st-hand">${'ABCDEFGH'[rw * 4 + c]}</text>`; }).join('')).join('')}${ln(`M${x + 18} ${GY - 64}h156`, MNT2, 2.4)}
 ${r(x + 192, GY - 116, 70, 116, MNT, 14, INK, SW)}${r(x + 202, GY - 104, 50, 44, 'url(#st-glass)', 10, MNT2, 2)}<circle cx="${x + 250}" cy="${GY - 52}" r="3.4" fill="${BUT2}" stroke="${INK}" stroke-width="1.2"/>
 ${awning(x - 6, GY - 150, w + 12, 'st-stp-m', '#fff')}${plate(x + 227, GY - 42, MNT2)}</g>`;
@@ -121,17 +121,17 @@ ${r(x + 14, GY - 104, 82, 84, 'url(#st-glass)', 10, PNK2, 4)}${r(x + 110, GY - 1
 ${cloud(x + 30, top + 6, w - 60, '花房', '#fff', PNK2, 21)}${awning(x - 6, GY - 126, w + 12, 'st-stp-p', '#fff')}
 ${[0, 1, 2, 3].map(i => `<g transform="translate(${x + 24 + i * 22} ${GY - 1})"><path d="M-8 0l2-15h12l2 15z" fill="${[SKY, LIL, MNT, BUT][i]}" stroke="${INK}" stroke-width="1.3"/>${[-5, 0, 5].map((d, j) => `<circle cx="${d}" cy="${-21 - (j % 2) * 4}" r="5" fill="${[PNK2, BUT2, LIL2, '#fff'][(i + j) % 4]}" stroke="${INK}" stroke-width="1"/>`).join('')}</g>`).join('')}${plate(x + 137, GY - 42, PNK2)}</g>`;
 }
-const emptyShop = x => `<g filter="url(#st-soft)" opacity=".85">${r(x, 236, 220, GY - 236, '#f6eefc', 0)}${r(x - 6, 224, 232, 16, LIL, 8)}${frost(x - 6, 240, 232)}${win(x + 30, 256, 46, 54, 'arch', LIL)}${win(x + 144, 256, 46, 54, 'arch', LIL)}${r(x + 24, GY - 82, 172, 82, '#fff', 12)}<text x="${x + 110}" y="${GY - 36}" text-anchor="middle" class="st-hand" font-size="19" fill="${LIL2}">敬请期待</text>${spark(x + 46, GY - 54, .8, BUT2)}${spark(x + 176, GY - 50, .7, PNK2)}</g>`;
+const emptyShop = x => `<g filter="url(#st-soft)" opacity=".85">${r(x, 236, 220, GY - 236, '#f6e3d6', 0)}${r(x - 6, 224, 232, 16, LIL, 8)}${frost(x - 6, 240, 232)}${win(x + 30, 256, 46, 54, 'arch', LIL)}${win(x + 144, 256, 46, 54, 'arch', LIL)}${r(x + 24, GY - 82, 172, 82, '#fff', 12)}<text x="${x + 110}" y="${GY - 36}" text-anchor="middle" class="st-hand" font-size="19" fill="${LIL2}">敬请期待</text>${spark(x + 46, GY - 54, .8, BUT2)}${spark(x + 176, GY - 50, .7, PNK2)}</g>`;
 
 /* ---------- 整条街 ---------- */
-const far = () => { let f = ''; [0, 110, 230, 350, 470, 600, 730, 860, 990, 1120, 1250, 1380, 1500].forEach((x, i) => { const h = 150 + (i * 53 % 90), w = 86 + (i * 37 % 50), top = GY - h - 60; f += `<path d="M${x} ${GY}V${top + 16}q0-16 16-16h${w - 32}q16 0 16 16V${GY}z" fill="${['#efe5fa', '#f8e8f1', '#e7f3f0', '#eef0fb'][i % 4]}"/>${[...Array(Math.floor(h / 42))].map((_, k) => `<rect x="${x + 14}" y="${top + 24 + k * 42}" width="14" height="18" rx="7" fill="#fff" opacity=".7"/><rect x="${x + w - 28}" y="${top + 24 + k * 42}" width="14" height="18" rx="7" fill="#fff" opacity=".7"/>`).join('')}`; }); return f; };
+const far = () => { let f = ''; [0, 110, 230, 350, 470, 600, 730, 860, 990, 1120, 1250, 1380, 1500].forEach((x, i) => { const h = 150 + (i * 53 % 90), w = 86 + (i * 37 % 50), top = GY - h - 60; f += `<path d="M${x} ${GY}V${top + 16}q0-16 16-16h${w - 32}q16 0 16 16V${GY}z" fill="${['#f1dfd3', '#eadfcf', '#ece2d8', '#f3e3dc'][i % 4]}"/>${[...Array(Math.floor(h / 42))].map((_, k) => `<rect x="${x + 14}" y="${top + 24 + k * 42}" width="14" height="18" rx="7" fill="#fff" opacity=".7"/><rect x="${x + w - 28}" y="${top + 24 + k * 42}" width="14" height="18" rx="7" fill="#fff" opacity=".7"/>`).join('')}`; }); return f; };
 const clouds = () => [[160, 66, 1], [640, 42, .8], [1080, 78, 1.1], [1440, 40, .75]].map(([x, y, s]) => `<g transform="translate(${x} ${y}) scale(${s})"><ellipse cx="0" cy="0" rx="46" ry="15" fill="#fff"/><ellipse cx="20" cy="-10" rx="25" ry="16" fill="#fff"/><ellipse cx="-18" cy="-6" rx="19" ry="12" fill="#fff"/></g>`).join('');
 const sparks = () => [[80, 120], [300, 40], [520, 150], [760, 60], [980, 120], [1200, 30], [1350, 140], [1560, 90]].map(([x, y], i) => spark(x, y, .7 + (i % 3) * .2, i % 2 ? '#fff' : BUT)).join('');
 export function scene() {
   return `<svg class="st-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${defs}
 <rect width="${W}" height="${H}" fill="url(#st-sky)"/>${sparks()}${clouds()}<g opacity=".9">${far()}</g>
-<rect x="0" y="${GY}" width="${W}" height="42" fill="url(#st-tile)"/><path d="M0 ${GY}H${W}" stroke="#e1d2ea" stroke-width="2"/><rect x="0" y="${GY + 42}" width="${W}" height="10" fill="#efe4f5"/><rect x="0" y="${GY + 52}" width="${W}" height="${H - GY - 52}" fill="#e6dcef"/>${[...Array(16)].map((_, i) => `<rect x="${30 + i * 100}" y="${GY + 64}" width="44" height="5" rx="2.5" fill="#fff" opacity=".85"/>`).join('')}
-${tree(46, .85)}${photoShop(96)}${lamp(386)}${bunting(96, 390, 210)}${ichibanShop(420)}${tree(728, .95, LIL, '#e4d8f8')}${bench(730)}${sweetShop(776)}${lamp(1028, SKY2)}${flowerShop(1056)}${tree(1260, .8, PNK, '#fde6ef')}${bunting(1270, 1560, 252, 18)}${emptyShop(1310)}
+<rect x="0" y="${GY}" width="${W}" height="42" fill="url(#st-tile)"/><path d="M0 ${GY}H${W}" stroke="#d2bb98" stroke-width="2"/><rect x="0" y="${GY + 42}" width="${W}" height="10" fill="#e3cfae"/><rect x="0" y="${GY + 52}" width="${W}" height="${H - GY - 52}" fill="#d9c8b0"/>${[...Array(16)].map((_, i) => `<rect x="${30 + i * 100}" y="${GY + 64}" width="44" height="5" rx="2.5" fill="#fff" opacity=".85"/>`).join('')}
+${tree(46, .85)}${photoShop(96)}${lamp(386)}${bunting(96, 390, 210)}${ichibanShop(420)}${tree(728, .95, '#a9d283', '#c9e4ad')}${bench(730)}${sweetShop(776)}${lamp(1028, SKY2)}${flowerShop(1056)}${tree(1260, .8, '#9fca78', '#c3e0a5')}${bunting(1270, 1560, 252, 18)}${emptyShop(1310)}
 </svg>`;
 }
 
