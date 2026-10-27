@@ -58,7 +58,7 @@ export const say = m => { if (/^(song|listen|minv)$/.test(m.t)) return mzSay(m);
 
 /* ---------- 时间：跟随剧情 / 现实 ---------- */
 export const hm = d => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-export function now() { const p = D().plot; return S.time == 'story' && p ? new Date(p.t + Math.min(Date.now() - p.at, 108e5)) : new Date(); }
+export function now(source = S.time) { const p = D().plot; return source == 'story' && p ? new Date(p.t + Math.min(Date.now() - p.at, 108e5)) : new Date(); }
 export function scanTime(s) {
   const t = [...String(s).matchAll(/(\d{1,2})[:：](\d{2})/g)].filter(m => m[1] < 24 && m[2] < 60).pop(), d = [...String(s).matchAll(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})[日号]/g)].pop();
   if (!t && !d) return; const b = now(); d && (d[1] && b.setFullYear(+d[1]), b.setMonth(d[2] - 1, +d[3])); t && b.setHours(+t[1], +t[2]);
@@ -90,9 +90,9 @@ function mk(o, cls, box) {
   o.re(); box.append(el); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in'))); return o;
 }
 const close = o => { o.el.classList.remove('in'); o.onClose?.(); setTimeout(() => o.el.remove(), 330); };
-export const page = o => (stack.push(o), mk(o, 'pg', ui.stack));
+export const page = o => (stack.push(o), ui.scr?.classList.add('app-open'), mk(o, 'pg', ui.stack));
 export const top = () => stack.at(-1);
-export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
+export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); ui.scr?.classList.toggle('app-open', stack.length > 0); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
 export const home = () => { while (stack.length) back(true); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };
