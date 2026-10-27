@@ -42,11 +42,33 @@ const body = () => { const id = curId(), c = byId(id), r = id ? rec(id) : null, 
 
 let mountN = 0;
 const mount = el => { pt?.stop(); pt = null; el.querySelectorAll('.is-who [role=button]').forEach(b => b.addEventListener('keydown', e => { if (e.key == 'Enter' || e.key == ' ') { e.preventDefault(); b.click(); } })); const cv = $('.is-cv', el); if (!cv) return; const id = curId(), n = ++mountN;
-  /** 点一下球：从点的位置冒出一句心声（水玻璃气泡），慢慢淡掉；按顺序轮着说，不调模型 */
+  /** 点一下球：从点的位置冒出一句心声——像肥皂泡一样轻轻飘起来，停一会儿「砰」地破掉，溅出几颗水珠。按顺序轮着说，不调模型
+   *  看得清：泡泡中间是一块磨砂玻璃（背后糊成一片），白天奶白配深字、夜里 / 雷暴烟灰配浅字；边缘透明带彩虹薄膜 */
   const voice = (x, y) => { const r = id ? rec(id) : null, vs = r?.voices?.length ? r.voices : r?.say ? [r.say] : []; if (!vs.length) return; const st = $('.is-stage', el); if (!st) return;
-    const t = vs[(r.vi = ((r.vi | 0) + 1) % vs.length)]; st.querySelector('.is-voice')?.remove(); const b = document.createElement('div'); b.className = 'is-voice'; b.setAttribute('role', 'status'); b.textContent = t;
-    const sr = st.getBoundingClientRect(); b.style.left = Math.max(70, Math.min(sr.width - 70, x - sr.left)) + 'px'; b.style.top = Math.max(60, y - sr.top - 14) + 'px'; st.append(b);
-    requestAnimationFrame(() => requestAnimationFrame(() => b.classList.add('on'))); setTimeout(() => { b.classList.replace('on', 'off'); setTimeout(() => b.remove(), 1000); }, 2200 + t.length * 60); };
+    const t = vs[(r.vi = ((r.vi | 0) + 1) % vs.length)], dark = /night|storm|aurora|fireworks/.test(r.scene || r.wx || ''), calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    st.querySelectorAll('.is-voice').forEach(o => o.remove());
+    const w = document.createElement('div'); w.className = 'is-voice' + (dark ? ' dk' : ''); w.setAttribute('role', 'status'); const b = document.createElement('div'); b.className = 'is-vb'; b.textContent = t; w.append(b); st.append(w);
+    const sr = st.getBoundingClientRect(), bw = b.offsetWidth, bh = b.offsetHeight, px = Math.max(bw / 2 + 10, Math.min(sr.width - bw / 2 - 10, x - sr.left)), py = Math.max(bh + 16, y - sr.top - 18);
+    w.style.left = px + 'px'; w.style.top = py + 'px'; // 先量好泡泡多大，再夹在舞台里：贴边点也不会被挤成窄条
+    const ox = x - sr.left - px, sway = (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 5), life = 1700 + t.length * 70;
+    if (calm) { b.animate([{ opacity: 0 }, { opacity: 1, offset: .12 }, { opacity: 1, offset: .88 }, { opacity: 0 }], { duration: life + 600, easing: 'linear' }).onfinish = () => w.remove(); return; }
+    // 冒出来：从点的位置小小地鼓出来，往上飘、轻轻左右晃、像在呼吸
+    const rise = b.animate([
+      { transform: `translate(${ox}px,22px) scale(.25)`, opacity: 0 },
+      { transform: `translate(${ox * .3}px,0) scale(1.04)`, opacity: 1, offset: .14 },
+      { transform: `translate(${sway * .6}px,-14px) scale(.99)`, opacity: 1, offset: .45 },
+      { transform: `translate(${-sway * .4}px,-28px) scale(1.02)`, opacity: 1, offset: .75 },
+      { transform: `translate(${sway * .3}px,-40px) scale(1)`, opacity: 1 }], { duration: life, easing: 'cubic-bezier(.23,1,.32,1)', fill: 'forwards' });
+    // 破掉：一下子胀开变透明，同时溅出水珠
+    rise.onfinish = () => {
+      const end = `translate(${sway * .3}px,-40px)`; b.animate([{ transform: end + ' scale(1)', opacity: 1 }, { transform: end + ' scale(1.16)', opacity: 0 }], { duration: 140, easing: 'cubic-bezier(.23,1,.32,1)', fill: 'forwards' });
+      const cx = sway * .3, cy = -40 - bh / 2, n = 10;
+      for (let i = 0; i < n; i++) { const d = document.createElement('i'); d.className = 'is-drop'; w.append(d); const a = i / n * Math.PI * 2 + Math.random() * .4, rx = bw / 2 + 4, ry = bh / 2 + 4, sx = cx + Math.cos(a) * rx * .9, sy = cy + Math.sin(a) * ry * .9, dist = 14 + Math.random() * 16, sz = .6 + Math.random() * .8;
+        d.animate([{ transform: `translate(${sx}px,${sy}px) scale(${sz})`, opacity: 1 }, { transform: `translate(${sx + Math.cos(a) * dist}px,${sy + Math.sin(a) * dist + 6}px) scale(${sz * .3})`, opacity: 0 }], { duration: 360 + Math.random() * 160, easing: 'cubic-bezier(.23,1,.32,1)', fill: 'forwards' }); }
+      const ring = document.createElement('i'); ring.className = 'is-pop'; ring.style.width = bw + 'px'; ring.style.height = bh + 'px'; w.append(ring);
+      ring.animate([{ transform: `translate(calc(-50% + ${cx}px),calc(-50% + ${cy}px)) scale(1)`, opacity: .7 }, { transform: `translate(calc(-50% + ${cx}px),calc(-50% + ${cy}px)) scale(1.35)`, opacity: 0 }], { duration: 260, easing: 'cubic-bezier(.23,1,.32,1)', fill: 'forwards' });
+      setTimeout(() => w.remove(), 600);
+    }; };
   jelly(cv, () => { const r = id ? rec(id) : null; return { scene: r?.scene || r?.wx || 'sunset', recipe: r?.world || makeRecipe(1) }; }, { quality: S.isle?.q, onTap: voice, onQuality: qv => { S.isle ||= {}; S.isle.q = qv; save(); } })
     .then(j => { if (n !== mountN) return j.stop(); pt = j; }) /* 占位画布已被换成常驻画布，所以只看是不是最新一次挂载 */.catch(e => { console.error('[心屿]', e); toast('这台设备画不出 3D 的岛：' + (e.message || e)); }); };
 const look = () => { const id = curId(), c = byId(id); if (!c) return; return task(`读 ${nm(c)} 的心情`, async sg => {
