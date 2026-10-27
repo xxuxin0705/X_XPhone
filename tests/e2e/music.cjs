@@ -85,11 +85,15 @@ const songs = n => Array.from({ length: n }, (_, i) => ({ id: String(1000 + i), 
   await act('create-pl'); await W(300); await E(`document.querySelector('.mz-overlay [data-ask]').value = '雨天'; document.querySelector('.mz-overlay [data-ask-ok]').click()`); await W(400);
   ok(await E(`D().getUserPlaylists().some(p => p.name == '雨天')`), '新建歌单');
 
-  // 心动模式：喜欢的 + 相似的；一首喜欢的都没有也能用
-  hits.length = 0; await act('heart-mode'); await W(2500);
-  ok(await E(`D().queue.length > D().getLiked().length`) && hits.some(h => /word=%E6%AD%8C%E6%89%8B/.test(h)), '心动模式：喜欢的歌 + 按常听歌手找的相似歌');
-  await E(`D().getLiked().slice().forEach(s => D().toggleLike(s))`); await act('heart-mode'); await W(2500);
-  ok(await E(`D().queue.length >= 5`), '心动模式：没有喜欢的歌也能放');
+  // 心动模式（仿网易云）：点了马上打开播放页、唱片上「正在打开心动模式...」，先放喜欢的；相似歌后台找到再接到后面；没有喜欢的歌就提示为空
+  hits.length = 0; await act('heart-mode'); await W(300);
+  ok(await E(`!!document.querySelector('.phone-view-current .mz-player .mz-heart-ov') && D().queue.length >= D().getLiked().length && D().getLiked().some(l => D().sameSong(l, D().getCurrentSong()))`), '心动模式：马上打开播放页、唱片上显示「正在打开心动模式...」，先放喜欢的歌');
+  await W(2500);
+  ok(await E(`D().queue.length > D().getLiked().length`) && hits.some(h => /word=%E6%AD%8C%E6%89%8B/.test(h)), '心动模式：按常听歌手找的相似歌随后接到队列后面');
+  await act('back'); await W(500);
+  const q0 = await E(`D().queue.length`); await E(`D().getLiked().slice().forEach(s => D().toggleLike(s))`); await act('heart-mode'); await W(400);
+  ok(await E(`document.querySelector('.mz-pill-toast')?.textContent`) == '我喜欢的歌曲为空' && await E(`D().queue.length`) == q0, '心动模式：没有喜欢的歌就提示「我喜欢的歌曲为空」');
+  ok(!(await E(`!!document.querySelector('.mz-status-pill')`)), '我的页面上没有「状态」');
 
   // 分享到聊天
   await act('open-player'); await W(800); await act('p-share'); await W(600);

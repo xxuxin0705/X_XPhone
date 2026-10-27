@@ -203,6 +203,20 @@ export class MusicView {
         return true;
     }
 
+    // 顶上一条白色小胶囊提示（仿网易云「我喜欢的歌曲为空」）
+    pillToast(message) {
+        const screen = this._screen(); if (!screen) return this.toast(message);
+        const el = document.createElement('div'); el.className = 'mz-pill-toast'; el.textContent = message; screen.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show')); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 1800);
+    }
+
+    _heartOverlay(on) {
+        const face = this._screen()?.querySelector('.mz-player .mz-disc-face'); if (!face) return;
+        let el = face.querySelector('.mz-heart-ov');
+        if (on && !el) { el = document.createElement('div'); el.className = 'mz-heart-ov'; el.innerHTML = `<i>${ic('heartFill', 26)}</i><span>正在打开心动模式...</span>`; face.appendChild(el); requestAnimationFrame(() => el.classList.add('show')); }
+        else if (!on && el) { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }
+    }
+
     toast(message) {
         const text = String(message || '').trim();
         if (!text) return;
@@ -330,7 +344,7 @@ export class MusicView {
                     <div class="mz-hero-bg" ${avatar ? `style="background-image:url('${avatar}')"` : ''}></div>
                     <div class="mz-hero-top">
                         <button type="button" class="mz-icon-btn" data-act="settings" aria-label="设置">${ic('menu', 24)}</button>
-                        <button type="button" class="mz-status-pill" data-act="edit-status">${acc.status ? esc(acc.status) : '+ 添加状态'}</button>
+                        <span></span>
                         <button type="button" class="mz-icon-btn" data-tab="search" aria-label="搜索">${ic('search', 24)}</button>
                     </div>
                     <button type="button" class="mz-hero-avatar" data-act="edit-profile">
@@ -1956,15 +1970,16 @@ export class MusicView {
                 break;
             case 'pl-more': this._plMoreSheet(el.dataset.kind, el.dataset.id); break;
             case 'heart-mode': {
+                // 仿网易云：点了马上打开播放页，唱片上浮一层「正在打开心动模式...」，先随机放喜欢的歌；相似的歌在后台找到了再接到队列后面
+                const liked = d.getLiked();
+                if (!liked.length) { this.pillToast('我喜欢的歌曲为空'); break; }
                 if (this._heartBusy) break;
                 this._heartBusy = true;
-                this.toast('心动模式：正在按你的口味挑歌…');
-                try {
-                    const songs = await d.heartModeSongs();
-                    if (!songs.length) { this.toast('没找到能放的歌，检查一下音源'); break; }
-                    d.playList(songs, 0, { shuffle: true });
-                    this.toast(`心动模式：${songs.length} 首，喜欢的和相似的混着放`);
-                } finally { this._heartBusy = false; }
+                d.playList(liked, 0, { shuffle: true });
+                this.openPlayer({ face: 'disc' });
+                this._heartOverlay(true);
+                setTimeout(() => this._heartOverlay(false), 1800);
+                d.heartModeExtra().then(extra => d.appendQueue(extra)).catch(() => {}).finally(() => { this._heartBusy = false; });
                 break;
             }
             case 'create-pl': {

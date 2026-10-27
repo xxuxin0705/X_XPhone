@@ -225,7 +225,7 @@ class MusicApp {
         const d = this.musicData, s = d.getCurrentSong(), live = !!s && (d.isPlaying || d.isLoading);
         isl.classList.toggle('mu', live);
         isl.dataset.a = live ? 'mfull' : '';
-        const want = live ? `${s.pic ? `<img src="${String(s.pic).replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer">` : ''}<i class="eq ${d.isPlaying ? 'on' : ''}"><b></b><b></b><b></b></i>` : '';
+        const want = live ? `${s.pic ? `<img src="${String(s.pic).replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer">` : ''}<i class="eq ${d.isPlaying ? 'on' : ''}"><b></b><b></b><b></b><b></b><b></b></i>` : '';
         if (isl._mz !== want) { isl._mz = want; isl.innerHTML = want; }
     }
 }

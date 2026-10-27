@@ -417,9 +417,9 @@
 .mz-stage { position: relative; flex: 1 1 auto; min-height: 0; cursor: pointer; }
 .mz-disc-face, .mz-lyrics { position: absolute; inset: 0; transition: opacity 0.25s ease; }
 .mz-app[data-face="disc"] .mz-lyrics, .mz-app[data-face="lyrics"] .mz-disc-face { opacity: 0; pointer-events: none; }
-.mz-disc-face { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.mz-disc-face { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 86px; } /* 唱针在标题下面留出空，针头搭在唱片上（像网易云），不再顶到标题 */
 .mz-needle {
-    position: absolute; top: 0; left: 50%; width: 92px; height: 132px; margin-left: -12px; z-index: 2;
+    position: absolute; top: 16px; left: 50%; width: 92px; height: 132px; margin-left: -12px; z-index: 2;
     background:
         radial-gradient(circle at 12px 12px, #fff 0 9px, transparent 10px),
         linear-gradient(60deg, transparent 48%, #e9e9ee 48% 53%, transparent 53%) 0 0 / 100% 100% no-repeat;
@@ -734,3 +734,10 @@
 .mz-diag-row time { flex: 0 0 auto; color: var(--mz-sub); font-variant-numeric: tabular-nums; }
 .mz-diag-row span { min-width: 0; word-break: break-all; }
 .mz-diag-row small { display: block; color: var(--mz-sub); font-size: 11px; }
+
+/* 心动模式：唱片上的「正在打开心动模式...」+ 顶上白色胶囊提示 */
+.mz-heart-ov { position: absolute; left: 50%; top: calc(86px + min(34vw, 125px)); z-index: 5; width: 46%; padding: 18px 10px 14px; border-radius: 10px; background: rgba(20, 20, 24, 0.72); color: #fff; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 14px; opacity: 0; transform: translate(-50%, -18%) scale(.96); transition: opacity .25s, transform .25s; pointer-events: none; }
+.mz-heart-ov.show { opacity: 1; transform: translate(-50%, -18%) scale(1); }
+.mz-heart-ov i { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: #fff; color: #fc3d49; box-shadow: 0 0 0 6px rgba(252, 61, 73, .25); }
+.mz-pill-toast { position: absolute; left: 50%; top: 54px; z-index: 1001; padding: 9px 18px; border-radius: 20px; background: #fff; color: #222; font-size: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.12); opacity: 0; transform: translate(-50%, -8px); transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
+.mz-pill-toast.show { opacity: 1; transform: translate(-50%, 0); }

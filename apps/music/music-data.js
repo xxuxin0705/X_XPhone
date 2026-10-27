@@ -288,6 +288,25 @@ export class MusicData {
         return out;
     }
 
+    /** 心动模式要接在后面的相似歌：几位常听歌手同时搜（每个最多等 6 秒），不一首一首排队等 */
+    async heartModeExtra() {
+        const seeds = [...this.getLiked(), ...this.getHistory()].slice(0, 30);
+        const seen = new Set(seeds.map(x => this.songKey(x)));
+        const artists = [...new Set(seeds.map(x => String(x.artist || '').split(/\s*[\/、&,，]\s*/)[0]).filter(a => a && a !== '未知歌手'))].slice(0, 6);
+        const cap = p => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))]);
+        const res = await Promise.allSettled(artists.map(a => cap(this.api.searchSongs(a, 1))));
+        const out = [];
+        res.forEach(r => (r.value?.songs || []).filter(x => !seen.has(this.songKey(x))).slice(0, 5).forEach(x => { seen.add(this.songKey(x)); out.push(x); }));
+        return out;
+    }
+
+    /** 把歌接到播放队列最后（已经在队列里的跳过） */
+    appendQueue(songs = []) {
+        const add = songs.map(s => this.normalizeSong(s)).filter(s => s.name && !this.queue.some(q => this.sameSong(q, s)));
+        if (!add.length) return;
+        this.queue.push(...add); this._shuffleBag = []; this._saveQueue(); this._notify();
+    }
+
     // 旧接口兼容（聊天里的一起听会读取）
     getFavorites() {
         return this.getLiked();
