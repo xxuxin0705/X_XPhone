@@ -57,7 +57,10 @@ apps/music/      音乐 App（界面从 yuzuki-phonetest 里作者自己的那�
   music-api.js     音源：vkeys 搜索 + Meting 播放 / 歌词 / 歌单 + 备用音源脚本
   music-share.js   和聊天联动：分享卡片、一起听会话
   music.css        音乐 App 自己的样式（打开时加载）
-apps/isle/       心屿：每个角色一座果冻球小岛，天气 = 心情（isle.js 画面和数据，play.js 互动）
+apps/isle/       心屿：每个角色一座果冻球小岛，天气 = 心情，风景随机换
+  isle.js          数据和页面（心情、风景什么时候换）
+  globe.js         果冻球：软体外形、戳、拖着转（能翻过来）、拍一下乱弹
+  world.js         球里的 3D 世界：七种风景、心情天气（正交投影，按真实三维位置画）
 apps/theme/      主题：壁纸、图标、气泡、小组件（时钟 clock、CCD 相机、吧唧 badge、画图相框）
 apps/settings/   设置：API、联动模式、时间、世界书、显示、日志、数据
 tests/           测试（见第五节）

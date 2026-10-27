@@ -1,4 +1,4 @@
-// 心屿：每个角色一座果冻球里的小岛，天气 = 心情；读剧情 / 正文「心情|谁|心情|一句话」；捏一捏、转一转；潮汐记录；果冻颜色
+// 心屿：每个角色一座果冻球里的小岛，天气 = 心情，风景随机换；读剧情 / 正文「心情|谁|心情|一句话」；戳、拖着转（能翻过来）、拍一下乱弹；潮汐记录
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.woff': 'font/woff', '.html': 'text/html' };
@@ -28,28 +28,42 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelectorAll('.is-who b')[1].click()`); await W(700);
   ok(/温柔[\s\S]*极光[\s\S]*夏油杰的岛/.test(await E(`document.querySelector('.is-card').textContent`)), '切到夏油杰：极光');
   await shot('isle_aurora.png');
-  // 捏一捏、转一转
-  const r = await p.locator('.isle canvas').boundingBox();
-  await p.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await p.mouse.down(); await p.mouse.move(r.x + r.width / 2 + 60, r.y + r.height / 2, { steps: 5 }); await W(100); await shot('isle_squish.png'); await p.mouse.up(); await W(500);
-  ok(errs.length == 0, '按住果冻拖一拖没有报错');
-  // 本地互动不产生模型请求，摇晃气泡有冷却，景观持久保存。
+  // 风景：每座岛都有一处风景，切换角色 / 重新打开 / 心情变化都会随机换，不和上次一样
+  const bio = id => E(`core.D().isle.by[${id}].biome`);
+  ok(['city', 'sakura', 'ocean', 'snow', 'meadow', 'autumn', 'desert'].includes(await bio('_b.id')) && !!(await E(`document.querySelector('.is-stage').dataset.biome`)), '每座岛都有一处风景');
+  let changed = 0; for (let i = 0; i < 4; i++) { const was = await bio('_b.id'); await E(`core.home(); core.openApp('isle')`); await W(250); changed += (await bio('_b.id')) != was; }
+  ok(changed == 4, '每次打开心屿都换一处风景，不和上次一样');
+  const seen = new Set(); for (let i = 0; i < 30; i++) seen.add(await E(`(async () => (await import('/apps/isle/world.js')).pickBiome('${i % 2 ? 'city' : 'snow'}'))()`));
+  ok(seen.size >= 6, '随机能抽到各种风景（城市、樱花林、大海、雪原、草原、枫林、沙漠）');
+  ok(!(await E(`document.querySelector('.isle').textContent`)).match(/听风竹林|体感|花眠花园|果冻/) && !(await E(`!!document.querySelector('.is-bubble, .is-dot, [data-a=ismotion], [data-a=islandscape]')`)), '没有果冻颜色、风景选择、体感按钮和冒字气泡');
+  // 戳：按住不动就在那里凹进去，松手弹回来
+  const r = await p.locator('.isle canvas').boundingBox(), cx = r.x + r.width / 2, cy = r.y + r.height * .62;
+  await p.mouse.move(cx + 50, cy - 10); await p.mouse.down(); await W(400);
+  ok(await E(`(async () => (await import('/apps/isle/isle.js'))._globe().state.dim.d > .15)()`), '按住不动：按的地方凹进去');
+  await shot('isle_poke.png'); await p.mouse.up(); await W(900);
+  ok(await E(`(async () => Math.abs((await import('/apps/isle/isle.js'))._globe().state.dim.d) < .05)()`), '松手：弹回来');
+  // 拖着转：往下拖到底，岛整个翻过来（世界的上方朝下）
+  await p.mouse.move(cx, cy - 90); await p.mouse.down(); for (let k = 1; k <= 12; k++) await p.mouse.move(cx, cy - 90 + k * 35);
+  ok(await E(`(async () => (await import('/apps/isle/isle.js'))._globe().state.M[4] < 0)()`), '拖着转：能把岛翻到朝下');
+  await p.mouse.up(); await W(200);
+  const M0 = await E(`(async () => (await import('/apps/isle/isle.js'))._globe().state.M[0])()`);
+  await p.mouse.move(cx - 80, cy); await p.mouse.down(); for (let k = 1; k <= 10; k++) await p.mouse.move(cx - 80 + k * 18, cy);
+  ok(await E(`core.top()?.cls == 'isle'`) && Math.abs(await E(`(async () => (await import('/apps/isle/isle.js'))._globe().state.M[0])()`) - M0) > .3, '横着拖：只转球，不会触发右滑返回把页面关掉');
+  await shot('isle_flip.png'); await p.mouse.up();
+  await W(4500);
+  ok(await E(`(async () => (await import('/apps/isle/isle.js'))._globe().state.M[4] > .8)()`), '放着不动：像不倒翁一样慢慢立回来');
+  // 拍一下：像篮球一样弹起来乱蹦
   await E(`window.localCalls = 0; SillyTavern.getContext().generateRaw = async () => { localCalls++; throw Error('互动不应调用模型'); }`);
-  await p.click('[data-is-shake]'); await W(100);
-  ok(await E(`document.querySelector('.is-bubble').dataset.kind === 'shake' && document.querySelector('.is-bubble').classList.contains('on')`), '摇一摇出现本地头晕气泡');
-  const line = await p.locator('.is-bubble').textContent();
-  await p.click('[data-is-shake]');
-  ok(await p.locator('.is-bubble').textContent() === line, '连续摇晃不会刷屏');
-  await p.click('[data-a=islandscape]'); await W(150); await p.click('.sheet.mnu [data-x=bamboo]'); await W(300);
-  ok(await E(`core.S.isle.landscape === 'bamboo'`) && await p.locator('[data-a=islandscape]').textContent() === '听风竹林', '景观切换为竹林并保存');
-  await p.click('[data-is-shake]'); await W(100); await shot('isle_bamboo_play.png');
-  ok(await E(`localCalls === 0`), '互动和景观切换均不调用模型');
+  await p.click('[data-a=isshake]'); await W(150);
+  ok(await E(`(async () => { const s = (await import('/apps/isle/isle.js'))._globe().state; return s.body.air && s.body.y < 0; })()`), '摇一摇：球弹起来');
+  await shot('isle_bounce.png');
+  await W(5000);
+  ok(await E(`(async () => !(await import('/apps/isle/isle.js'))._globe().state.body.air)()`), '弹几下之后落回原地');
+  ok(await E(`localCalls === 0`) && errs.length == 0, '戳、转、拍都不调用模型，也没有报错');
   // 跟着剧情变：开关 → 提示词
   ok(!(await E(`ep.at(-1) || ''`)).includes('心情|'), '默认提示词里没有心情格式');
   await E(`document.querySelector('.isle [data-a=isset]').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=auto]').click()`); await W(400);
   ok(await E(`core.S.isle.auto === true`) && (await E(`ep.at(-1)`)).includes('心情|谁|心情词'), '打开「跟着剧情变」：提示词里加上心情格式');
-  await E(`document.querySelector('.isle [data-a=isset]').click()`); await W(300); await E(`document.querySelector('.sheet.mnu [data-x=peach]').click()`); await W(500);
-  ok(await E(`core.S.isle.jelly == 'peach'`), '换成蜜桃色果冻');
-  await shot('isle_peach.png');
   // 潮汐记录
   await E(`document.querySelector('[data-a=ishist]').click()`); await W(400);
   ok(await E(`document.querySelectorAll('.is-h').length`) == 1 && /温柔/.test(await E(`document.querySelector('.is-hist').textContent`)), '潮汐记录：一条');

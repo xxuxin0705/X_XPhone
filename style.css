@@ -1081,7 +1081,6 @@
 .isle .pg-h{background:var(--is-paper);color:var(--is-ink);border-bottom:0}
 .isle .pg-b{background:radial-gradient(ellipse at 80% 25%,#e4e9dc 0,transparent 55%),var(--is-paper);padding:6px 20px 24px;color:var(--is-ink)}
 .isle .pg-t{font-family:Georgia,'Songti SC',serif;font-weight:600;letter-spacing:.16em}
-.is-dot{display:block;width:18px;height:18px;border-radius:50%;box-shadow:inset -3px -3px 6px #32594e40,inset 2px 2px 4px #fffc;outline:1px solid #608e792e;outline-offset:3px}
 .is-who{display:flex;gap:16px;overflow-x:auto;scrollbar-width:none;padding:8px 2px 14px;border-bottom:1px solid var(--is-line)}
 .is-who b{display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 48px;min-width:0;cursor:pointer;opacity:.52;font-weight:400;transition:opacity 150ms}
 .is-who b.on{opacity:1}.is-who img{width:40px;height:40px;border-radius:50%;object-fit:cover;border:3px solid var(--is-paper);outline:1px solid transparent}
@@ -1091,7 +1090,7 @@
 .is-caption{display:flex;justify-content:space-between;align-items:center;margin:0 12px;font-size:calc(11px*var(--fz,1));letter-spacing:.08em;color:var(--is-muted)}
 .is-caption span:first-child{max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .is-caption span:last-child{display:flex;align-items:center;gap:5px}.is-caption span:last-child:before{content:'';width:4px;height:4px;background:#97aa88;border-radius:50%}
-.is-cv{display:block;width:100%;aspect-ratio:1.08;touch-action:none;cursor:grab}.is-cv:active{cursor:grabbing}
+.is-cv{display:block;width:100%;aspect-ratio:.92;touch-action:none;cursor:grab}.is-cv:active{cursor:grabbing}
 .is-sealine{display:flex;align-items:center;gap:14px;justify-content:center;margin:0 26px 8px;color:#9ba795}
 .is-sealine svg{width:58px;height:16px}.is-sealine span{font-family:Georgia,'Songti SC',serif;white-space:nowrap;font-size:calc(10px*var(--fz,1));letter-spacing:.16em}
 .is-card{position:relative;margin:8px 0 0;padding:22px 0 0;border-top:1px solid #cdd5c5}
@@ -1116,10 +1115,8 @@
 @media(prefers-reduced-motion:reduce){.is-who b{transition:none}}
 
 /* 心屿：本地互动气泡与景观选择 */
-.is-bubble{position:absolute;z-index:2;top:58px;left:50%;width:max-content;max-width:78%;box-sizing:border-box;transform:translate(-50%,4px);opacity:0;pointer-events:none;padding:11px 16px;border-radius:16px;background:var(--cd,#fffaf0);color:var(--pt,#456b5e);font-size:calc(12px*var(--fz,1));line-height:1.6;box-shadow:0 8px 24px -12px #34463b66;transition:opacity 180ms,transform 180ms}
-.is-bubble.on{opacity:1;transform:translate(-50%,0)}
 .is-playbar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 12px 18px}
 .is-playbar button{border:1px solid var(--is-line,#cdd5c5);background:transparent;color:var(--is-ink,#456b5e);border-radius:14px;padding:9px 13px;min-height:44px;font:inherit;font-size:calc(12px*var(--fz,1));cursor:pointer}
 .is-playbar button:active{transform:scale(.97)}
 .is-playbar button:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
-@media(prefers-reduced-motion:reduce){.is-bubble{transition:opacity 180ms;transform:translateX(-50%)}.is-bubble.on{transform:translateX(-50%)}.is-playbar button:active{transform:none}}
+@media(prefers-reduced-motion:reduce){.is-playbar button:active{transform:none}}
