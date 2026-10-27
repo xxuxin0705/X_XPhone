@@ -106,9 +106,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('[data-a=edDone]').click()`); await W(300);
   await p.locator('#stp .desk').screenshot({ path: path.join(OUT, 'clk_desk.png') });
   await E(`core.openApp('settings')`); await W(400);
-  ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display === 'none' && getComputedStyle(document.querySelector('.stack .pg')).paddingTop === '0px'`), '应用隐藏状态栏且不留顶部空隙');
+  ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display !== 'none' && parseFloat(getComputedStyle(document.querySelector('#stp .sb')).height) < parseFloat(getComputedStyle(document.querySelector('#stp')).getPropertyValue('--sbh')) && parseFloat(getComputedStyle(document.querySelector('.stack .pg')).paddingTop) > 0`), '应用里状态栏还在（能直接关手机），只是矮一点');
   await E(`core.page({title:'测试子页',body:()=>''}); core.back()`); await W(400);
-  ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display === 'none'`), '子页返回应用仍隐藏状态栏');
+  ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display !== 'none'`), '子页返回应用状态栏还在');
   await E(`core.home()`); await W(400);
   ok(await E(`getComputedStyle(document.querySelector('#stp .sb')).display !== 'none'`), '回到桌面恢复状态栏');
   console.log('errors:', errs.length ? errs : 'none', `\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); })();

@@ -5,11 +5,12 @@ import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang } from './data.js';
 import { openFeed } from './chat.js';
+import { payPage, hbOpen } from './pay.js';
 import { bridge as mzB } from '../music/music-share.js';
 
 const EMO = '❤️ 👍 😂 🥺 😮 😡 🥳 🙏'.split(' ');
 // 长按菜单的图标（仿微信深色气泡菜单）
-const MI = {copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', fwd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l7 6-7 6"/><path d="M21 11H11a7 7 0 0 0-7 7v1"/></svg>', add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M8.5 9.5h.01M13.5 9.5h.01M8.5 13.5c1.4 1.4 3.6 1.4 5 0"/><path d="M19 15v6M16 18h6"/></svg>', q: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17c-2 0-3-1.6-3-3.6C4 9.8 6.2 7.3 9 6.5"/><path d="M16 17c-2 0-3-1.6-3-3.6 0-3.6 2.2-6.1 5-6.9"/><circle cx="7" cy="14" r="2.6"/><circle cx="16" cy="14" r="2.6"/></svg>', tr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M8.5 3v2M6 5c.8 3.5 3 6 6 7.5M11 5c-.6 3.6-3 6.6-6.5 8"/><path d="M13 20l4-9 4 9M14.5 17h5"/></svg>', tts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9v6h4l5 4V5L9 9H5z"/><path d="M17.5 8.5a5 5 0 0 1 0 7"/></svg>', multi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M15 17l2.5 2.5L22 15"/></svg>', inj: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>', rc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>', regen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>', del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'};
+const MI = {edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>', copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', fwd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l7 6-7 6"/><path d="M21 11H11a7 7 0 0 0-7 7v1"/></svg>', add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M8.5 9.5h.01M13.5 9.5h.01M8.5 13.5c1.4 1.4 3.6 1.4 5 0"/><path d="M19 15v6M16 18h6"/></svg>', q: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17c-2 0-3-1.6-3-3.6C4 9.8 6.2 7.3 9 6.5"/><path d="M16 17c-2 0-3-1.6-3-3.6 0-3.6 2.2-6.1 5-6.9"/><circle cx="7" cy="14" r="2.6"/><circle cx="16" cy="14" r="2.6"/></svg>', tr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M8.5 3v2M6 5c.8 3.5 3 6 6 7.5M11 5c-.6 3.6-3 6.6-6.5 8"/><path d="M13 20l4-9 4 9M14.5 17h5"/></svg>', tts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9v6h4l5 4V5L9 9H5z"/><path d="M17.5 8.5a5 5 0 0 1 0 7"/></svg>', multi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M15 17l2.5 2.5L22 15"/></svg>', inj: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>', rc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>', regen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>', del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'};
 // 长按消息：在消息旁边弹出深色菜单（上面一排表情回应，下面图标按钮），点空白处关闭；返回选中的 key
 const pop = (anchor, items, emo = true) => new Promise(res => {
   const scr = ui.scr, R = scr.getBoundingClientRect(), A = anchor.getBoundingClientRect(), z = (parseFloat(getComputedStyle(ui.root).getPropertyValue('--sc')) || 1);
@@ -30,7 +31,7 @@ function recPage(m) {
 const EMOJI = [...'😀😁😂🤣😊😇🙂😉😍🥰😘😚😋😛😜🤪😎🤓🥳😏😒😞😔😟😕🙁😣😖😫😩🥺😢😭😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🤗🤔🤭🤫🙄😬😴🤤😪😵🤐🥴🤢🤧😷🤒🤕🤑🤠😈👻💀👽🤖💩🙈🙉🙊💋💌💘💝💖💗💓💞💕💔❤🧡💛💚💙💜🤍🖤💯💢💥💫💦💨🕳💬👋🤚✋👌✌🤞🤟🤘🤙👈👉👆👇👍👎✊👊👏🙌👐🤲🙏💪🌹🌸🌙⭐🔥🎉🎁☕🍰🍓'];
 
 /* ---------- 回复协议：一行一条消息「名字: 内容」，功能用方括号标签（比 JSON 短、生成更快、不怕格式错） ---------- */
-const TAGS = '表情包|语音|图片|转账|收款|表情回应|引用|撤回|拍一拍|翻译|音乐';
+const TAGS = '表情包|语音|图片|转账|收款|表情回应|引用|撤回|拍一拍|翻译|音乐|补译|红包|领红包';
 export function parseReply(raw, ch) {
   raw = String(raw ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/【/g, '[').replace(/】/g, ']').replace(/\[(表情|贴纸|sticker)(?=[:：])/gi, '[表情包'); // 模型偶尔写成 [表情:xx]
   if (/^\s*[[{]/.test(raw) && /"(msgs|from)"/.test(raw)) { const d = json(raw), a = d?.msgs || (Array.isArray(d) && d); if (a) return a; } // 兼容模型仍输出 JSON
@@ -52,14 +53,18 @@ export function parseReply(raw, ch) {
     if ('语音' in tg) out.push({ ...b, type: 'voice', text: tg.语音 || l }), tg.语音 || (l = '');
     if ('音乐' in tg) { const [n, a = ''] = (tg.音乐 || l.replace(/^[（(]|[)）]$/g, '')).split(/\s*[|，,]\s*/); n && out.push({ ...b, type: 'minv', text: n.replace(/^[《「“"']+|[》」”"']+$/g, '').trim(), artist: a.trim(), tr: '' }); tg.音乐 || (l = ''); } // 角色邀请一起听
     if ('转账' in tg) { const [a, n] = tg.转账.split('|'); out.push({ ...b, type: 'transfer', amount: parseFloat(a) || 0, text: n || '', tr: '' }); }
+    if ('红包' in tg) { const [a, n] = tg.红包.split('|'); out.push({ ...b, type: 'hb', amount: Math.min(200, parseFloat(a) || 0), text: n || '', tr: '' }); }
+    if ('领红包' in tg) out.push({ ...b, type: 'hbopen' });
+    if ('补译' in tg) { const [k, f, z] = tg.补译.split('|'); f?.trim() && out.push({ type: 'bt', k: parseInt(String(k).replace(/\D/g, '')), text: f.trim(), tr: (z || '').trim() }); continue; }
+    if (/^[\s[\]()（）「」]*$/.test(l)) { l = ''; b.tr && !Object.keys(tg).some(k => k != '翻译') && out.at(-1) && !out.at(-1).tr && /text|voice/.test(out.at(-1).type) && (out.at(-1).tr = b.tr); } // 标签拆完只剩个「]」之类的碎片：丢掉；单独一行的 [翻译] 补给上一条
     l && out.push({ ...b, type: 'text', text: l, quote: tg.引用 });
   }
   return out;
 }
 function replyP(ch, patNow) {
   const g = ch.type == 'g', me = meObj().nick, sk = [...new Set([...S.assets.sticker.map(s => s.name), ...S.stk.mine.flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
-  const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${m.q.c}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
-  const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg, tA = cf.trAuto !== false;
+  const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${m.q.c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
+  const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg;
   const rn0 = Math.max(1, +cf.rmin || 1), rn1 = Math.max(rn0, +cf.rmax || 5), vn0 = Math.max(0, +cf.vmin || 0), vn1 = Math.max(vn0, cf.vmax == null ? 1 : +cf.vmax);
   const ls = mzB.getMusicListening(ch.id), snap = ls && G.mzSnapshot?.(), mt2 = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const lsP = ls ? ['【一起听歌】', g ? `${me}在群里发起了一起听歌，群成员现在可以一起听。` : `${me}和${rn(ch)}正在一起听歌。`, `正在放：《${snap?.songName || ls.songName}》 - ${snap?.artist || ls.artist}${snap ? `，放到 ${mt2(snap.currentTime || 0)}${snap.duration ? ' / ' + mt2(snap.duration) : ''}` : ''}`,
@@ -72,13 +77,12 @@ function replyP(ch, patNow) {
 【输出格式】每条消息单独一行：${g ? '「真实姓名: 内容」' : '直接写内容'}。不要写${me}的话，不要任何解释。按人设此刻会“已读不回”就什么都不输出。
 【可用标签】（单独一行，前面同样写名字）
 [表情包:关键词] 发表情包${S.stk.auto ? '，关键词写 2~6 个字，像在微信里搜表情那样（如：摸摸头、无语、开心到转圈、晚安）' : ''}${sk ? `（优先用：${sk}）` : ''}
-[语音:要说的话]　[图片:画面描述]　[转账:金额|备注]　[收款]（收下${me}的转账）
-[表情回应:emoji] 给${me}刚才的消息贴表情，表情要符合此刻的真实态度；也可 [表情回应:emoji|消息片段] 指定哪条
-[引用:消息片段] 正文　引用某条消息来回复
+[语音:要说的话]　[图片:画面描述]　[转账:金额|备注]　[收款]（收下${me}的转账）　[红包:金额|祝福语]（单个最多200）　[领红包]（领${me}发的红包）
+${sty(ch) == 'wx' ? '' : `[表情回应:emoji] 给${me}刚才的消息贴表情，表情要符合此刻的真实态度；也可 [表情回应:emoji|消息片段] 指定哪条\n`}[引用:消息片段] 正文　引用某条消息来回复
 [音乐:歌名|歌手] 想邀请${me}一起听一首歌时发（歌要真实存在，单独一行，不要每轮都发）
 [撤回] 撤回自己上一条（说漏嘴、发错时用）
 ${ch.cfg.pat ? `[拍一拍] 拍一拍${me}（就是微信的拍一拍，只会显示「谁拍了拍谁」，不用写动作${g ? '；群里想拍别的成员就写 [拍一拍:成员名]' : ''}）${patNow ? `\n本轮请${g ? '挑一位成员' : ''}用一次 [拍一拍]。` : '，剧情合适时再用。'}` : ''}
-${tl.length ? `【语言】${tl.join('；')}：这些人的每一条文字和语音都直接用该语言写（一条都不能写成中文）${tA ? '，每一条的同一行末尾都附 [翻译:简体中文译文]，不能有的有有的没有' : '，不要附翻译'}。译文要沉浸式、完全贴合说话人的人设与此刻语气（傲娇就傲娇、撒娇就撒娇），口语自然，只翻原意、不加戏不漏内容；其他人照常说中文。表情包等标签不翻译。` : ''}`;
+${tl.length ? `【语言】${tl.join('；')}：这些人的每一条文字和语音都直接用该语言写（一条都不能写成中文），每一条的同一行末尾都附 [翻译:简体中文译文]，不能有的有有的没有。译文要沉浸式、完全贴合说话人的人设与此刻语气（傲娇就傲娇、撒娇就撒娇），口语自然，只翻原意、不加戏不漏内容；其他人照常说中文。表情包等标签不翻译。` : ''}`;
 }
 
 /* ---------- 生成 ---------- */
@@ -87,20 +91,22 @@ let busy = 0, CTL = null; const PEND = new Map();
 const goSync = () => { const t = top(); t?.chat && $('.go', t.el)?.classList.toggle('wait', busy == t.chat || PEND.has(t.chat)); };
 export const later = (ch, ms = 1500) => { clearTimeout(PEND.get(ch.id)); PEND.set(ch.id, setTimeout(() => { PEND.delete(ch.id); busy ? (ch._again = 1) : gen(ch); }, ms)); goSync(); };
 export const stopGen = ch => { clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id); ch._again = 0; busy == ch.id && CTL?.abort(); goSync(); };
-// 翻译补漏：模型偶尔漏写 [翻译]，或者直接写了中文。用酒馆自带的免费机翻补上（不调用聊天模型）：
-//  外语没译文 → 补中文译文；本该说外语却写成中文 → 翻成对方的语言，中文当译文。这样每一条都一样
+// 翻译：设了角色语言就让模型每条都写「外语 + [翻译:中文]」，一次生成里就带着，不另外调用任何接口。
+//  开着「自动翻译」显示外语、下面一行中文；关着就直接显示中文。开关随时切换都是现成的，不用等。
+//  以前只有中文（或模型漏写译文）的消息：下一轮回复时顺便让模型补上另一半（[补译]），也不额外调用
 const SCR = { ko: /[가-힯]/, ja: /[぀-ヿ]/, ru: /[Ѐ-ӿ]/, th: /[฀-๿]/ }, LAT = /^(en|fr|de|es|vi)$/;
 const inLang = (t, l) => SCR[l] ? SCR[l].test(t) : LAT.test(l) ? /[A-Za-z]/.test(t) && !/[一-鿿]/.test(t) : true;
-async function fixTr(ch, x) {
-  if (!x || !/text|voice/.test(x.t) || x.f == 'me' || ch.cfg.trAuto === false || !/[\p{L}]/u.test(x.c || '')) return;
-  const lang = langFor(ch, x.f); if (!lang || lang == 'zh-TW' || (x.tr && inLang(x.c, lang))) return;
-  x.tp = 1; emit('chat');
-  try {
-    if (inLang(x.c, lang)) { const z = await mt(x.c, 'zh-CN'); z != x.c && (x.tr = z); }
-    else if (/[一-鿿]/.test(x.c)) { const f = await mt(x.c, lang); f != x.c && (x.tr ||= x.c, x.c = f); }
-  } catch { } // 机翻不可用就保持原样，不报错
-  x.tp = 0; saveD(); emit('chat');
+const need = (ch, m) => { const l = langFor(ch, m.f); return l && l != 'zh-TW' && /text|voice/.test(m.t) && m.f != 'me' && !m.orig && !m.tp && /[\p{L}]/u.test(m.c || '') && !(m.tr && inLang(m.c, l)) && l; };
+// 没跟回复一起带上译文的（模型漏写），或者后来改了语言：用免费机翻马上补 / 换（不调用聊天模型）
+export async function retrans(ch) {
+  for (const m of ch.msgs.filter(m => need(ch, m))) {
+    const l = need(ch, m); if (!l) continue; m.tp = 1; emit('chat');
+    try { const zh = m.tr || (/[一-鿿]/.test(m.c) && !inLang(m.c, l) ? m.c : await mt(m.c, 'zh-CN')), f = await mt(zh, l); f && f != zh && Object.assign(m, { c: f, tr: zh }); } catch { }
+    m.tp = 0; saveD(); emit('chat');
+  }
 }
+const zhOnly = (m, ch) => ch.cfg.trAuto === false && m.tr && m.f != 'me' && !m.orig; // 关着自动翻译：直接说中文
+const said = (m, ch) => zhOnly(m, ch) ? m.tr : m.c;
 export async function gen(ch) {
   clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id);
   if (busy) { busy == ch.id ? (ch._again = 1) : toast('上一轮回复还在生成中…'); return; }
@@ -110,9 +116,9 @@ export async function gen(ch) {
     const lastR = ch.msgs.findLastIndex(m => m.f != 'me' && !/sys|pat/.test(m.t)), see = S.stk.see !== false ? ch.msgs.slice(lastR + 1).filter(m => m.f == 'me' && m.t == 'sticker' && m.img).slice(-3) : [];
     const P = replyP(ch, ch.cfg.pat && Math.random() < .3) + (see.length ? `\n\n【表情包图片】附上了${meObj().nick}刚发的 ${see.length} 个表情包的图片，按顺序对应上面最后 ${see.length} 个「[表情包：…]」。先看图弄懂${meObj().nick}想表达的情绪和意思，再自然地回应。` : '');
     const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img) }), ch);
-    for (const m of ms) { if (ac.signal.aborted) break; const x = addMsg(ch, m); fixTr(ch, x); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
+    for (const m of ms.filter(m => m.type != 'bt')) { if (ac.signal.aborted) break; const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
   } catch (e) { ac.signal.aborted ? toast('已停止回复') : fail(`${nm(ch)} · 回复失败：${e.message}`); }
-  finally { busy = 0; CTL = null; emit('chat'); goSync(); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
+  finally { busy = 0; CTL = null; emit('chat'); goSync(); retrans(ch); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
 }
 const push = (ch, m) => {
   const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); // 不自动回复：想发几条发几条，发完点右下角 ✦ 让对方回
@@ -127,10 +133,8 @@ export const tT = ts => { const d = new Date(ts); return (d.toDateString() == no
 const avH = (c, ch, id) => { const fr = S.assets.frame.find(a => a.id == ch.cfg.frame)?.img; return `<div class="avw" data-a="avc" data-x="${id}"><img class="av" src="${esc(avOf(c))}">${fr ? `<img class="frm" src="${esc(fr)}">` : ''}</div>`; };
 // 表情包消息没有图（AI 发的、库里没有）：先在免费表情库里找，找不到再上网搜一张补上；每条只找一次
 const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !S.stk.auto || !m.c) return; stkTry.add(m); stkFind(m.c).then(r => { stkDone.add(m); r ? Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }) : r === '' && (m.sk = 1); saveD(); emit('chat'); }); };
-const KAO = ['(｡•ᴗ•｡)', '(๑•̀ㅂ•́)و', '(っ˘ω˘ς)', '( ˘•ω•˘ )', '(ﾉ´ヮ`)ﾉ'];
-const stk0 = (m, ld) => `<div class="stk0 ${ld ? 'ld' : ''}"><b>${KAO[m.c.length % 5]}</b><small>${esc(m.c)}</small></div>`;
-// 关了「自动翻译」：外语消息后面也有「文」，点了才用免费机翻翻成中文
-const trq = (m, i, cf, ch) => { if (cf.trAuto !== false || !ch || m.f == 'me' || m.tp) return ''; const l = langFor(ch, m.f); return l && inLang(m.c, l) ? `<b class="tzb" data-a="trq" data-x="${i}" title="翻译">文</b>` : ''; };
+// 表情包图找不到 / 加载失败：像普通文字消息一样显示「[关键词]」，不再单独占一大块
+const stk0 = (m, ld) => `<div class="stk0 ${ld ? 'ld' : ''}">[${esc(m.c)}]</div>`;
 // 翻译：正文后面一个小「文」字按钮，点开在下面多一行译文 / 原文（两边样式一样，最多两行内容；不重画整个聊天，不会跳到最下面）
 const fold = (i, txt, lab, open) => `<b class="tzb ${open ? 'on' : ''}" data-a="tz" data-x="${i}" title="${lab}">文</b><p class="tzp" ${open ? '' : 'hidden'}>${esc(txt)}</p>`;
 // 音乐：分享卡片（白底，歌词摘录 + 歌曲行）/ 一起听卡片（封面铺底、唱片、两个人的头像）。会话数据在 apps/music/music-share.js
@@ -155,14 +159,15 @@ function body(m, i, cf, ch) {
     case 'song': return mzSong(m, i);
     case 'listen': case 'minv': return mzCard(m, i, ch);
     case 'img': return m.url ? `<img class="pic" src="${esc(m.url)}">` : `<div class="picd">🖼 ${esc(m.c)}</div>`;
-    case 'voice': return `<div class="vc" data-a="play" data-x="${i}">${I.wave}${Math.max(1, Math.ceil(m.c.length / 4))}″</div>${m.open ? `<div class="vt">${esc(m.c)}</div>` : ''}${m.tr && m.open ? fold(i, m.tr, '翻译', tzo) : ''}`;
+    case 'voice': return `<div class="vc" data-a="play" data-x="${i}">${I.wave}${Math.max(1, Math.ceil(said(m, ch).length / 4))}″</div>${m.open ? `<div class="vt">${esc(said(m, ch))}</div>` : ''}${m.tr && m.open && !zhOnly(m, ch) ? fold(i, m.tr, '翻译', tzo) : ''}`;
+    case 'hb': return `<div class="tf hbk ${m.st ? 'done' : ''}" data-a="hbo" data-x="${i}"><b>${esc(m.c || '恭喜发财，大吉大利')}</b><small>${m.st ? (m.f == 'me' ? '已被领取' : '已领取') : ''}</small><i>红包</i></div>`;
     case 'transfer': return `<div class="tf ${m.st ? 'done' : ''}" data-a="tf" data-x="${i}"><b>¥${(+m.amt).toFixed(2)}</b><small>${esc(m.st || m.c || (m.f == 'me' ? '待对方收款' : '请收款'))}</small><i>转账</i></div>`;
-    default: return esc(m.c).replace(/\n/g, '<br>') + (m.tp ? '<small class="tp">翻译中…</small>' : '') + (m.orig ? fold(i, m.orig, '原文', tzo) : m.tr ? fold(i, m.tr, '翻译', tzo) : trq(m, i, cf, ch));
+    default: return zhOnly(m, ch) ? esc(m.tr).replace(/\n/g, '<br>') : esc(m.c).replace(/\n/g, '<br>') + (m.tp ? '<small class="tp">翻译中…</small>' : '') + (m.orig ? fold(i, m.orig, '原文', tzo) : m.tr ? fold(i, m.tr, '翻译', tzo) : '');
   }
 }
 const rxH = (m, i) => { const g = {}; nre(m.re).forEach(r => (g[r.e] ||= []).push(r.by)); return Object.keys(g).length ? `<div class="rx">${Object.entries(g).map(([e, bs]) => `<span class="rp ${bs.includes('me') ? 'mine' : ''}" data-a="rpx" data-x="${i}|${e}">${e}<small>${esc(bs.map(b => b == 'me' ? '我' : nm(get(b))).slice(0, 2).join('、'))}${bs.length > 2 ? `等${bs.length}人` : ''}</small></span>`).join('')}</div>` : ''; };
 // 已读回执：微信/QQ 文字，Kakao 未读显示黄色数字，LINE 显示 Read
-const rd = (m, ch) => { const st = sty(ch), g = ch.type == 'g', n = g ? ch.members.length : 1; return m.rd ? (st == 'kk' ? '' : `<em class="rd">${st == 'line' ? (g ? 'Read ' + n : 'Read') : g ? n + '人已读' : '已读'}</em>`) : `<em class="rd un">${st == 'kk' ? n : st == 'line' ? '' : '未读'}</em>`; };
+const rd = (m, ch) => { const st = sty(ch), g = ch.type == 'g', n = g ? ch.members.length : 1; if (st == 'wx') return ''; return m.rd ? (st == 'kk' ? '' : `<em class="rd">${st == 'line' ? (g ? 'Read ' + n : 'Read') : g ? n + '人已读' : '已读'}</em>`) : `<em class="rd un">${st == 'kk' ? n : st == 'line' ? '' : '未读'}</em>`; };
 // 旧版存的拍一拍统一显示成「“X” 拍了拍你」/「你拍了拍 “X”」，后缀只用「我」里设置的
 const patShow = c => { const ps = (D().me.ps || '').trim(); c = String(c);
   if (/^(“我”\s*|我)拍了拍/.test(c)) return c.replace(/^(“我”\s*|我)拍了拍/, '你拍了拍');
@@ -176,11 +181,11 @@ function msgs(ch, sel) {
     else {
       const mine = m.f == 'me', c = mine ? me : get(m.f) || { nick: '已删除' }, same = !gap && p?.f == m.f && !/sys|pat/.test(p.t);
       const tag = g && !mine ? (ch.owner == m.f ? '<em class="own">群主</em>' : ch.admins.includes(m.f) ? '<em class="adm">管理员</em>' : '') + (ch.titles[m.f] ? `<em>${esc(ch.titles[m.f])}</em>` : '') : '';
-      o += `<div class="msg ${mine ? 'me' : ''} ${same ? 'same' : ''} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="mlp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${avH(c, ch, m.f)}<div class="mc">${!mine && !(same && cf.cont) ? `<div class="mn">${tag}${esc(nm(c))}</div>` : ''}<div class="mr"><div class="bub b-${m.t}">${body(m, i, cf, ch)}</div><span class="mt">${m.inj ? '<i class="ij">↪</i>' : ''}${mine && cf.read ? rd(m, ch) : ''}<time>${hm(new Date(m.ts))}</time></span></div>${m.q ? `<div class="qt">${esc(m.q.w)}：${esc(m.q.c)}</div>` : ''}${rxH(m, i)}</div></div>`;
+      o += `<div class="msg ${mine ? 'me' : ''} ${same ? 'same' : ''} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="mlp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${avH(c, ch, m.f)}<div class="mc">${!mine && !(same && cf.cont) ? `<div class="mn">${tag}${esc(nm(c))}</div>` : ''}<div class="mr"><div class="bub b-${m.t}">${body(m, i, cf, ch)}</div><span class="mt">${m.inj ? '<i class="ij">↪</i>' : ''}${mine && cf.read ? rd(m, ch) : ''}<time>${hm(new Date(m.ts))}</time></span></div>${m.q ? `<div class="qt">${esc(m.q.w)}：${esc(m.q.c)}</div>` : ''}${sty(ch) == 'wx' ? '' : rxH(m, i)}</div></div>`;
     }
     p = m;
   });
-  busy == ch.id && (o += `<div class="msg typing">${g ? `<div class="avw"><img class="av" src="${defAv('…')}"></div>` : avH(ch, ch, ch.id)}<div class="mc"><div class="bub"><i></i><i></i><i></i></div></div></div>`);
+  busy == ch.id && !(sty(ch) == 'wx' && !g) && (o += `<div class="msg typing">${g ? `<div class="avw"><img class="av" src="${defAv('…')}"></div>` : avH(ch, ch, ch.id)}<div class="mc"><div class="bub"><i></i><i></i><i></i></div></div></div>`);
   return `${bub ? `<style>${bub.css}</style>` : ''}<div class="cv ${sel ? 'msel' : ''}">${o || '<div class="sys">还没有消息，打个招呼吧 ✧</div>'}</div>`;
 }
 
@@ -215,17 +220,24 @@ export function openChat(id) {
     if (!pk) { const id = ptab; pack(id).then(p => { pkC[id] = p || { items: [] }; ptab == id && $('.pan.on', pg.el) && pan('stk', 1); }, () => { pkC[id] = { items: [] }; }); return `<div class="ph"><b>${esc(m?.name || '')}</b></div><div class="sks-st sm"><i class="spin"></i></div>`; }
     return `<div class="ph"><b>${esc(m?.name || '')}</b><span data-a="pinfo" data-x="${ptab}">详情 ›</span></div>${pk.items.length ? `<div class="pgrid ${pk.sm ? 'sm' : ''}">${pk.items.map((x, i) => `<div class="sk" data-a="psk" data-lp="pklp" data-x="${i}">${imgH(x)}${x.l ? `<small>${esc(x.l)}</small>` : ''}</div>`).join('')}</div>` : '<div class="sks-st sm">表情库暂时连不上，稍后再试</div>'}`;
   };
+  // 微信底栏的三个圆圈图标：左边「让对方回」用语音键那个声波圈，右边笑脸、加号
+  const wsv = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const WXB = { wave: '<svg class="s-wv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10.25"/><path d="m8 12 1.7-1.5v3z" fill="currentColor" stroke-linejoin="round"/><path d="M11.6 9.3a3.8 3.8 0 0 1 0 5.4M14.1 7.1a7 7 0 0 1 0 9.8"/></svg>',
+    smile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><circle cx="12" cy="12" r="10.25"/><circle cx="8.7" cy="9.4" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.3" cy="9.4" r="1.15" fill="currentColor" stroke="none"/><path d="M7.4 12.9h9.2a4.6 4.6 0 0 1-9.2 0Z"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10.25"/><path d="M12 7v10M7 12h10"/></svg>' };
+  const WXI = { ptf: wsv('<path d="M5 9.5h13l-4-4M19 14.5H6l4 4"/>'), phb: wsv('<rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M5 8.5c2.2 2 4.5 3 7 3s4.8-1 7-3"/><circle cx="12" cy="11.5" r="2" fill="currentColor"/>') };
   const panHtml = k => k == 'stk' ? pbar() + `<div class="pbody">${pgrid()}</div>`
-    : `<div class="pgrid tools">${[['pimg', '相册', '🖼'], ['pai', 'AI生图', '🎨'], ['ptf', '转账', '¥'], ['ppat', '拍一拍', '👋'], ['pvo', '语音', '🎙'], ['pgen', '让TA回复', '✨']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${i}</i>${l}</div>`).join('')}</div>`;
+    : `<div class="pgrid tools">${[['ptf', '转账', '¥'], ['phb', '红包', '🧧']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${sty(ch) == 'wx' ? WXI[a] : i}</i>${l}</div>`).join('')}</div>`;
+  // 微信风格的“更多”面板用线条图标（白底方块里一个黑色小图标），跟原生一致
   const pan = (k, keep) => { const p = $('.pan', pg.el), on = keep || p.dataset.k != k || !p.classList.contains('on'); p.dataset.k = k; p.classList.toggle('on', on); const sc = $('.pbar', p)?.scrollLeft; p.innerHTML = panHtml(k); sc && ($('.pbar', p).scrollLeft = sc); };
   const qbar = () => { const b = $('.qbar', pg.el), m = q != null && ch.msgs[q]; b.innerHTML = m ? `<span>${esc(who(ch, m.f))}：${esc(brief(m)).slice(0, 40)}</span><b data-a="qx">×</b>` : ''; b.classList.toggle('on', !!m); };
   const pat = t => { push(ch, { t: 'pat', c: t == 'me' ? `你拍了拍自己${D().me.ps || ''}` : `你拍了拍 “${nm(get(t))}”${get(t).ps || ''}` }); shake(); };
   const tool = async f => { $('.pan', pg.el).classList.remove('on'); await f(); };
   const pg = page({
     chat: id, live: 1, model: () => ch, cls: cls(), pan: (k, keep) => pan(k, keep), pkC, onClose: () => setTimeout(() => emit('chat')),
-    title: () => sel ? `<b class="txt msel-x" data-a="selx">取消</b><b>已选择 ${sel.size} 条消息</b>` : `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}${mzB.getMusicListening(ch.id) ? '<i class="mzl" title="正在一起听歌" data-a="mzopen"><i></i><i></i><i></i></i>' : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
+    title: () => sel ? `<b class="txt msel-x" data-a="selx">取消</b><b>已选择 ${sel.size} 条消息</b>` : busy == id && sty(ch) == 'wx' && ch.type == 'p' ? '<b>对方正在输入...</b>' : `<b>${esc(nm(ch))}${ch.type == 'g' ? ` (${gsz(ch)})` : ''}${mzB.getMusicListening(ch.id) ? '<i class="mzl" title="正在一起听歌" data-a="mzopen"><i></i><i></i><i></i></i>' : ''}</b>${busy == id ? `<small class="typ">${ch.type == 'g' ? '群成员' : '对方'}正在输入<i>.</i><i>.</i><i>.</i></small>` : ''}`,
     right: () => sel ? `<b class="txt" data-a="selall">${sel.size && sel.size >= selable().length ? '全不选' : '全选'}</b>` : `<b data-a="cset">${I.more}</b>`, body: () => msgs(ch, sel),
-    foot: () => sel ? `<div class="selto" data-a="selto">↑ 选择到这里</div><nav class="mbar2">${[['sfwd', '转发', MI.fwd], ['sinj', '注入正文', MI.inj], ['sdel', '删除', MI.del]].map(([a, l, ic]) => `<button data-a="${a}" class="${sel.size ? '' : 'dis'}">${ic}<span>${l}</span></button>`).join('')}</nav>` : `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${I.smile}</button><textarea class="ip" rows="1" placeholder="${{ kk: 'Enter a message', line: 'Aa' }[sty(ch)] || '发消息…'}"></textarea><button data-a="pan" data-x="more">${I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg><svg class="s-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5c.6 4.6 3 7 7.6 7.6-4.6.6-7 3-7.6 7.6-.6-4.6-3-7-7.6-7.6 4.6-.6 7-3 7.6-7.6Z"/><path d="M18.5 14.5c.3 2.1 1.3 3.1 3.4 3.4-2.1.3-3.1 1.3-3.4 3.4-.3-2.1-1.3-3.1-3.4-3.4 2.1-.3 3.1-1.3 3.4-3.4Z"/></svg></button></div><div class="pan"></div>`,
+    foot: () => sel ? `<div class="selto" data-a="selto">↑ 选择到这里</div><nav class="mbar2">${[['sfwd', '转发', MI.fwd], ...(ch.cfg.inj ? [] : [['sinj', '注入正文', MI.inj]]), ['sdel', '删除', MI.del]].map(([a, l, ic]) => `<button data-a="${a}" class="${sel.size ? '' : 'dis'}">${ic}<span>${l}</span></button>`).join('')}</nav>` : `<div class="qbar"></div><div class="ib"><button data-a="pan" data-x="stk">${sty(ch) == 'wx' ? WXB.smile : I.smile}</button><textarea class="ip" rows="1" placeholder="${{ kk: 'Enter a message', line: 'Aa' }[sty(ch)] || '发消息…'}"></textarea><button data-a="pan" data-x="more">${sty(ch) == 'wx' ? WXB.plus : I.plus}</button><button class="go ${busy == id || PEND.has(id) ? 'wait' : ''}" data-a="send">${I.send.replace('<svg', '<svg class="s-send"')}<svg class="s-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/></svg>${WXB.wave}<svg class="s-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2.5c.6 4.6 3 7 7.6 7.6-4.6.6-7 3-7.6 7.6-.6-4.6-3-7-7.6-7.6 4.6-.6 7-3 7.6-7.6Z"/><path d="M18.5 14.5c.3 2.1 1.3 3.1 3.4 3.4-2.1.3-3.1 1.3-3.4 3.4-.3-2.1-1.3-3.1-3.4-3.4 2.1-.3 3.1-1.3 3.4-3.4Z"/></svg></button><button class="wsend" data-a="send">发送</button></div><div class="pan"></div>`,
     after: el => {
       const keep = el.classList.contains('in'); el.className = `pg ${cls()}${keep ? ' in' : ''}`;
       const b = $('.pg-b', el), ip = $('.ip', el), go = $('.go', el); b.style.background = cf.bg ? `url("${cf.bg}") center/cover` : '';
@@ -235,7 +247,7 @@ export function openChat(id) {
       // 点聊天内容：收起表情 / 更多面板和键盘
       b.onpointerdown = () => { const pn = $('.pan.on', el); pn && pn.classList.remove('on'); document.activeElement == ip && ip.blur(); };
       if (!ip) return; // 多选时底下是操作栏，没有输入框
-      ip.oninput = () => { go.classList.toggle('has', !!ip.value.trim()); ip.style.height = 'auto'; ip.style.height = Math.min(100, ip.scrollHeight) + 'px'; };
+      ip.oninput = () => { const h = !!ip.value.trim(); go.classList.toggle('has', h); go.parentNode.classList.toggle('has', h); ip.style.height = 'auto'; ip.style.height = Math.min(100, ip.scrollHeight) + 'px'; };
       ip.onkeydown = e => e.key == 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), pg.acts.send());
     },
     acts: {
@@ -258,25 +270,24 @@ export function openChat(id) {
       stks: () => stkPage(m => push(ch, m)),
       sk: i => { const s = S.assets.sticker[i]; push(ch, { t: 'sticker', c: s.name, img: s.img }); },
       skadd: async () => { const r = await form('添加表情包', [['name', '描述（AI 按描述发送）'], ['img', '图片', 'img']]); if (!r?.img) return; S.assets.sticker.push({ id: uid(), name: r.name || '表情', img: r.img }); C().saveSettingsDebounced(); pan('stk', 1); },
-      pimg: () => tool(async () => { const u = await pickImg(800); u && push(ch, { t: 'img', c: '图片', url: u }); }),
-      pai: () => tool(async () => { const r = await form('AI生图并发送', [['d', '画面描述', 'area']]); if (!r?.d) return; const x = push(ch, { t: 'img', c: r.d }); try { x.url = await genImg(r.d, undefined, 'chat'); saveD(); emit('chat'); } catch (e) { fail('生图失败：' + e.message); } }),
-      ptf: () => tool(async () => { const r = await form('转账', [['amt', '金额', 'number'], ['c', '备注']]); if (!(+r?.amt > 0)) return; D().me.wallet -= +r.amt; push(ch, { t: 'transfer', amt: +r.amt, c: r.c }); }),
-      ppat: () => tool(async () => { if (ch.type == 'p') return pat(ch.id); const k = await menu(ch.members.map(i => [i, esc(nm(get(i)))]), '拍一拍谁'); k && pat(k); }),
-      pvo: () => tool(async () => { const r = await form('发送语音', [['c', '要说的话', 'area']]); r?.c && push(ch, { t: 'voice', c: r.c }); }),
-      pgen: () => tool(() => gen(ch)),
+      // 转账 / 发红包：整页（仿微信）；群里先选给谁
+      ptf: () => tool(async () => { const to = ch.type == 'p' ? ch : get(await menu(ch.members.map(i => [i, esc(nm(get(i)))]), '转账给谁')); to && payPage(to, 'tf', r => { D().me.wallet -= r.amt; push(ch, { t: 'transfer', amt: r.amt, c: r.c, ...(ch.type == 'g' && { to: to.id }) }); }); }),
+      phb: () => tool(async () => payPage(ch, 'hb', r => { D().me.wallet -= r.amt; push(ch, { t: 'hb', amt: r.amt, c: r.c || '恭喜发财，大吉大利' }); })),
+      hbo: i => { const m = ch.msgs[i]; if (!m) return; if (m.f == 'me') return toast(m.st ? '红包已被领取' : '红包未被领取'); const from = get(m.f) || ch; if (m.st) return toast('你已领取过这个红包');
+        hbOpen(m, from, () => { m.st = '已领取'; D().me.wallet = +D().me.wallet + m.amt; ch.msgs.push({ f: 'sys', t: 'sys', c: `你领取了${nm(from)}的红包`, ts: +now() }); saveD(); }); },
       avc: x => { clearTimeout(avT); if (avL == x) { avL = 0; return pat(x); } avL = x; avT = setTimeout(() => { avL = 0; x != 'sys' && openFeed(x); }, 280); },
       tz: (i, t) => { const m = ch.msgs[i]; m.tz = !m.tz; saveD(); const o = !!cf.trOpen != !!m.tz, p = t.nextElementSibling; t.classList.toggle('on', o); p && (p.hidden = !o); },
       rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; saveD(); emit('chat'); },
       redit: i => { const m = ch.msgs[i], ip = $('.ip', pg.el); ip.value = m.old; ip.oninput(); ip.focus(); },
       tf: async i => { const m = ch.msgs[i]; if (m.f == 'me' || m.st || !await ok(`收下 ¥${m.amt}？`)) return; m.st = '已收款'; D().me.wallet = +D().me.wallet + m.amt; saveD(); emit('chat'); },
-      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? meVoice() : get(m.f); m.open = 1; saveD(); emit('chat'); tts(m.c, '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p' }).catch(e => fail('语音失败：' + e.message)); },
+      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? meVoice() : get(m.f); m.open = 1; saveD(); emit('chat'); tts(said(m, ch), '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p' }).catch(e => fail('语音失败：' + e.message)); },
       mlp: async (i, t) => {
         const m = ch.msgs[i]; if (!m || /sys|pat/.test(m.t)) return; const mine = m.f == 'me', stk = m.t == 'sticker', text = /text|voice/.test(m.t);
         const has = stk && S.assets.sticker.some(x => x.img == m.img);
         const k = await pop(t.closest('.msg')?.querySelector('.bub') || t, [
           ...(stk && !has ? [['add', '添加']] : []), ...(text ? [['copy', '复制']] : []), ['fwd', '转发'], ['q', '引用'],
           ...(m.t == 'text' ? [['edit', '编辑']] : []), ['multi', '多选'],
-          ['inj', m.inj ? '取消注入' : '注入正文'], ...(mine ? [['rc', '撤回']] : []), ['regen', '重新生成'], ['del', '删除']], m.t != 'rec'); if (!k) return;
+          ...(mine ? [['rc', '撤回']] : ch.msgs.slice(+i + 1).every(x => x.f != 'me') ? [['regen', '重新生成']] : []), /* 只有最新一轮回复能重新生成 */ ['del', '删除']], m.t != 'rec' && sty(ch) != 'wx'); if (!k) return; // 注入正文只在多选里（整个聊天开了注入就不用）；微信没有贴表情
         if (k[0] == '~') return pg.acts.rpx(i + '|' + k.slice(1)); // 表情回应
         if (k == 'q') { q = i; qbar(); return $('.ip', pg.el).focus(); }
         if (k == 'add') { S.assets.sticker.unshift({ id: uid(), name: m.c && m.c != '表情' ? m.c : '表情', img: m.img }); C().saveSettingsDebounced(); return toast('已添加到「我的表情」'); }
@@ -292,7 +303,7 @@ export function openChat(id) {
           else { m.tp = 1; emit('chat'); try { const t = await mt(m.c, ch.cfg.lang); if (t != m.c) { m.orig = m.c; m.c = t; m.tz = !ch.cfg.trOpen; } else toast('这句不用翻译'); } catch (e) { toast('机翻暂时不可用，稍后再试'); } m.tp = 0; }
         }
         k == 'inj' && (m.inj = !m.inj); k == 'tts' && tts(m.c, get(m.f)?.voice, get(m.f)?.sex).catch(e => fail('朗读失败：' + e.message)); k == 'copy' && navigator.clipboard?.writeText(m.c).then(() => toast('已复制'), () => {});
-        k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && drop(ch.msgs.splice(i, 1)); k == 'regen' && (drop(ch.msgs.splice(+i + (mine ? 1 : 0))), gen(ch));
+        k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && drop(ch.msgs.splice(i, 1)); k == 'regen' && (drop(ch.msgs.splice(ch.msgs.findLastIndex(x => x.f == 'me') + 1)), gen(ch)); // 整轮回复重来
         saveD(); emit('chat');
       },
       // 多选（仿微信）：点消息勾选；「选择到这里」从第一条选中的一直选到屏幕上看到的最后一条；全选；转发 / 注入正文 / 删除
@@ -334,8 +345,8 @@ function trSec(ch, f, g) {
 export function cset(ch) {
   const f = fx(ch), g = ch.type == 'g', mem = () => ch.members.map(i => [i, nm(get(i))]);
   page({
-    title: g ? '群聊信息' : '聊天信息', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
-    onChange: k => /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; }),
+    title: g ? '群聊设置' : '聊天设置', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
+    onChange: k => (/^cfg\.(lang|trFollow|trAuto)$/.test(k) && D().chats.forEach(retrans), /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; })),
     body: () => sec('cset', [
       ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
         : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])],
@@ -344,7 +355,7 @@ export function cset(ch) {
       ['tr', '翻译', trSec(ch, f, g)],
       ['reply', '回复设置', `<div class="row rng"><span>回复条数</span><i>最少</i><input type="number" min="1" data-k="cfg.rmin" value="${esc(ch.cfg.rmin ?? 1)}"><i>最多</i><input type="number" min="1" data-k="cfg.rmax" value="${esc(ch.cfg.rmax ?? 5)}"></div>
 <div class="row rng"><span>语音条数</span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
-      ['rd', '互动', f.tog('cfg.read', '显示已读 / 未读') + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
+      ['rd', '互动', (sty(ch) == 'wx' ? '' : f.tog('cfg.read', '显示已读 / 未读')) + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
       ['look', '美化', f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],

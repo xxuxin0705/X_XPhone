@@ -11,7 +11,7 @@ const weighted = (r, obj) => { const ks = Object.keys(obj), tot = ks.reduce((a, 
 export const CLIMATES = {
     tropical: { name: '热带海岛', ground: [95, .45, .55], cliff: [30, .3, .4], trees: ['palm'], marks: ['lighthouse', 'cabin', 'tent', 'cafe'], animals: ['whale', 'birds'], fall: '' },
     temperate: { name: '青草坡', ground: [105, .5, .5], cliff: [28, .28, .38], trees: ['broad', 'pine'], marks: ['windmill', 'cabin', 'tower', 'castle', 'tent', 'cafe', 'temple', 'school', 'house'], animals: ['sheep', 'birds', 'fox'], fall: '' },
-    snow: { name: '雪原', ground: [210, .25, .93], cliff: [215, .15, .55], trees: ['pine'], marks: ['cabin', 'castle', 'observatory', 'tent', 'lighthouse', 'temple', 'izakaya'], animals: ['fox', 'birds'], fall: 'snow', snowy: true },
+    snow: { name: '雪原', ground: [210, .25, .93], cliff: [215, .15, .55], trees: ['pine', 'broad'], marks: ['cabin', 'castle', 'observatory', 'tent', 'lighthouse', 'temple', 'izakaya'], animals: ['fox', 'birds'], fall: 'snow', snowy: true },
     autumn: { name: '枫林', ground: [38, .5, .5], cliff: [24, .3, .35], trees: ['maple', 'broad'], marks: ['cabin', 'shrine', 'temple', 'tent', 'tower', 'cafe', 'izakaya', 'pagoda'], animals: ['fox', 'birds'], fall: 'leaf' },
     sakura: { name: '樱花林', ground: [100, .45, .55], cliff: [25, .3, .38], trees: ['sakura'], marks: ['shrine', 'temple', 'pagoda', 'cafe', 'school', 'station'], animals: ['birds'], fall: 'petal' },
     desert: { name: '沙漠绿洲', ground: [40, .55, .72], cliff: [32, .45, .5], trees: ['cactus', 'palm'], marks: ['pyramid', 'tent', 'tower'], animals: ['birds'], fall: '', oasis: true },
@@ -22,6 +22,9 @@ export const CLIMATES = {
     volcano: { name: '火山岛', ground: [15, .3, .28], cliff: [10, .35, .2], trees: ['pine', 'palm'], marks: ['observatory', 'tent', 'lighthouse'], animals: ['birds'], fall: 'ash', lava: true },
     moor: { name: '雾中荒原', ground: [80, .2, .45], cliff: [200, .1, .35], trees: ['pine', 'cypress'], marks: ['castle', 'tower', 'lighthouse', 'shrine'], animals: ['sheep', 'birds'], fall: '' },
 };
+export const SEASONS = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
+// 气候默认的季节（剧情没说的时候）；温带这类随便哪季都行
+const SEASON_OF = { snow: 'winter', autumn: 'autumn', sakura: 'spring', lavender: 'summer', tropical: 'summer', desert: 'summer', volcano: 'summer' };
 export const TERRAINS = { floating: '浮岛', sea: '海中孤岛', plateau: '高原', twin: '双子岛', lake: '湖心', atoll: '环礁' };
 export const MARKS = { temple: '古寺', shrine: '神社', pagoda: '宝塔', street: '街角', school: '学校', hospital: '医院', cafe: '咖啡馆', izakaya: '小酒馆', station: '小车站', lighthouse: '灯塔', windmill: '风车', castle: '小城堡', tower: '钟楼', observatory: '天文台', tent: '营地', cabin: '木屋', house: '小院', pyramid: '金字塔', ferris: '摩天轮' };
 /** 地标属于哪个时代（随机时按角色卡的时代偏向） */
@@ -41,14 +44,17 @@ const BIG = { temple: .36, street: .4, school: .34, hospital: .3, shrine: .3, pa
 /* ---------- 配色：以气候的色相为中心轻微抖动，所以同气候的岛也不一样 ---------- */
 const hsl = (h, s, l) => { h = ((h % 360) + 360) % 360; s = Math.max(0, Math.min(1, s)); l = Math.max(0, Math.min(1, l)); const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)); return '#' + [f(0), f(8), f(4)].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join(''); };
 const jitter = (r, [h, s, l], dh = 8, ds = .06, dl = .05) => [h + (r() - .5) * 2 * dh, s + (r() - .5) * 2 * ds, l + (r() - .5) * 2 * dl];
-function palette(r, C, climate) {
+function palette(r, C, climate, season) {
     const g = jitter(r, C.ground), c = jitter(r, C.cliff, 6);
     const FOL = { autumn: [[22, .8, .5], [35, .85, .52], [8, .75, .45]], sakura: [[340, .8, .82], [345, .75, .76], [335, .7, .88]], lavender: [[100, .4, .42], [110, .35, .36], [95, .45, .48]], snow: [[150, .35, .22], [140, .3, .28], [160, .4, .18]], desert: [[95, .45, .4], [85, .4, .45], [100, .5, .34]], city: [[105, .45, .38], [115, .4, .44], [95, .45, .32]], volcano: [[130, .35, .25], [120, .3, .3], [140, .4, .2]], moor: [[120, .22, .32], [110, .2, .38], [130, .25, .26]], mushroom: [[150, .45, .32], [140, .4, .4], [165, .5, .26]], bamboo: [[95, .5, .4], [85, .45, .48], [105, .55, .34]], tropical: [[110, .5, .38], [100, .45, .46], [120, .55, .32]] };
-    const fol = (FOL[climate] || [[g[0] + (r() - .5) * 20, Math.min(.85, g[1] + .15), g[2] - .18], [g[0] + 12, Math.min(.8, g[1] + .1), g[2] - .1], [g[0] - 10, g[1], g[2] - .25]]).map(f => jitter(r, f, 6, .05, .04));
+    // 季节盖过气候：秋天的阔叶树变红黄，春天嫩绿，夏天深绿（樱花、薰衣草、竹子这类保持自己的颜色）
+    const SFOL = { autumn: FOL.autumn, spring: [[95, .55, .5], [85, .6, .58], [105, .5, .44]], summer: [[115, .5, .32], [105, .45, .38], [125, .55, .27]] };
+    const keep = ['sakura', 'lavender', 'bamboo', 'mushroom', 'desert', 'tropical'].includes(climate) && season !== 'autumn';
+    const fol = ((!keep && SFOL[season]) || FOL[climate] || [[g[0] + (r() - .5) * 20, Math.min(.85, g[1] + .15), g[2] - .18], [g[0] + 12, Math.min(.8, g[1] + .1), g[2] - .1], [g[0] - 10, g[1], g[2] - .25]]).map(f => jitter(r, f, 6, .05, .04));
     return {
-        ground: hsl(...g), groundDark: hsl(g[0], g[1], g[2] - .12), cliff: hsl(...c), cliffDark: hsl(c[0], c[1], c[2] - .15),
+        ground: season === 'winter' && climate !== 'snow' ? hsl(40, .2, .55) : hsl(...g), groundDark: hsl(g[0], g[1], g[2] - .12), cliff: hsl(...c), cliffDark: hsl(c[0], c[1], c[2] - .15),
         sand: hsl(42 + (r() - .5) * 10, .45, .78), water: hsl(195 + (r() - .5) * 20, .6, .5), waterDeep: hsl(205, .6, .3),
-        foliage: fol.map(f => hsl(...f)), grass: [hsl(fol[2][0], fol[2][1], fol[2][2] - .08), hsl(fol[1][0], fol[1][1], fol[1][2] + .08)],
+        foliage: fol.map(f => hsl(...f)), grass: season === 'winter' ? ['#6e6046', '#b3a37c'] : season === 'autumn' ? ['#6b6a32', '#b9a35a'] : [hsl(fol[2][0], fol[2][1], fol[2][2] - .08), hsl(fol[1][0], fol[1][1], fol[1][2] + .08)], // 冬天枯草、秋天黄草
         accent: hsl(pick(r, [0, 12, 350, 28, 200, 320]), .7, .5), wood: hsl(25, .35, .35), roof: hsl(pick(r, [8, 350, 20, 200, 160, 220]), .45, .4), wall: hsl(40, .35, .9),
     };
 }
@@ -84,8 +90,10 @@ export function makeRecipe(seed, want = {}) {
     const terrain = TERRAINS[want.terrain] ? want.terrain : weighted(r, TERRAIN_W[climate]);
     let mark = MARKS[want.mark] ? want.mark : '';
     if (!mark) { let ms = C.marks; if (era) { const es = ms.filter(m => ERA[era].includes(m)); if (es.length) ms = es; } mark = pick(r, ms); }
-    const pal = palette(r, C, climate);
-    const sea = terrain === 'sea' || terrain === 'atoll', big = BIG[mark] || 0, R = sea ? .34 + big * .5 : terrain === 'twin' ? .42 : .66 + big * .4; // 岛的半径（球半径 = 1）
+    // 季节：剧情给的优先，否则按气候，温带这类在春夏秋里随机
+    const season = SEASONS[want.season] ? want.season : SEASON_OF[climate] || pick(r, ['spring', 'summer', 'summer', 'autumn']);
+    const pal = palette(r, C, climate, season);
+    const sea = terrain === 'sea' || terrain === 'atoll', big = BIG[mark] || 0, R = sea ? .34 + big * .4 : terrain === 'twin' ? .42 : Math.min(.74, .66 + big * .25); // 岛的半径（球半径 = 1），留出玻璃被拉扁时的余量
     const { items, put } = place(r, R);
     put(mark, big || .17, { minR: 0, maxR: big ? .05 : .2, s: 1, rot: big ? (r() - .5) * .6 : undefined });
     // 树：按气候，数量随地形；大套件旁边少放点
@@ -106,7 +114,7 @@ export function makeRecipe(seed, want = {}) {
     if (extras.has('fireflies') || (C.glow) || ((climate === 'temperate' || climate === 'bamboo' || climate === 'autumn') && r() < .4)) extras.add('fireflies');
     if (!sea && (extras.has('path') || r() < .6)) extras.add('path');
     if (!sea && (extras.has('river') || r() < .25)) extras.add('river');
-    if (!sea && !C.urban && (extras.has('flowers') || r() < .55)) extras.add('flowers');
+    if (!sea && !C.urban && season !== 'winter' && (extras.has('flowers') || r() < (season === 'autumn' ? .2 : .55))) extras.add('flowers');
     if (sea || terrain === 'lake' || extras.has('boat')) extras.add('boat');
     for (let i = 0; i < 3 + (r() * 4 | 0); i++) put('rock', .05, { minR: .45, maxR: .97, s: .6 + r() * .8 });
     // 动物
@@ -115,7 +123,7 @@ export function makeRecipe(seed, want = {}) {
     if (animals.has('sheep')) for (let i = 0; i < 3 + (r() * 3 | 0); i++) put('sheep', .05, { minR: .4, maxR: .9, s: .9 });
     if (animals.has('fox')) put('fox', .06, { minR: .4, maxR: .85 });
     if (C.lava) put('crater', .25, { minR: 0, maxR: .1, s: 1, tries: 1 });
-    return { seed, era: era || (ERA.modern.includes(mark) && !ERA.ancient.includes(mark) ? 'modern' : ERA.ancient.includes(mark) ? 'ancient' : 'nature'), climate, terrain, mark, pal, R, items, extras: [...extras], animals: [...animals], tree: tree[0], fall: C.fall, snowy: !!C.snowy, urban: !!C.urban || mark === 'street', glow: !!C.glow, lava: !!C.lava };
+    return { seed, era: era || (ERA.modern.includes(mark) && !ERA.ancient.includes(mark) ? 'modern' : ERA.ancient.includes(mark) ? 'ancient' : 'nature'), climate, terrain, mark, pal, R, items, extras: [...extras], animals: [...animals], tree: tree[0], season, fall: season === 'winter' ? 'snow' : season === 'autumn' && !C.fall ? 'leaf' : C.fall, snowy: !!C.snowy, frost: season === 'winter' && !C.snowy, urban: !!C.urban || mark === 'street', glow: !!C.glow, lava: !!C.lava };
 }
 
 /** 风景名：「樱花林 · 古寺」 */
@@ -125,6 +133,7 @@ export const recipeName = rc => rc ? `${CLIMATES[rc.climate]?.name || ''} · ${M
 const KW = {
     era: [[/现代|都市|手机|地铁|公司|写字楼|便利店|公寓|霓虹|高楼|汽车|网吧|学校|医院|咖啡|酒吧|车站|商场|天台/, 'modern'], [/古|寺|庙|神社|宫|殿|宝塔|佛塔|城堡|江湖|朝|王府|客栈|驿站|书院|求签|香火|鸟居|庭院|长安|京都/, 'ancient']],
     climate: [[/雪|冰|冬|严寒|滑雪/, 'snow'], [/樱|花见|花瓣/, 'sakura'], [/沙漠|绿洲|骆驼|金字塔|沙丘/, 'desert'], [/城市|都市|街|高楼|地铁|霓虹|天台|商场|写字楼|公寓|便利店|红绿灯|马路|医院|学校|校园/, 'city'], [/枫|秋|红叶|落叶/, 'autumn'], [/竹/, 'bamboo'], [/薰衣草|紫色花田|花田/, 'lavender'], [/蘑菇|菌|精灵|童话/, 'mushroom'], [/火山|熔岩|岩浆/, 'volcano'], [/雾|荒原|沼泽|阴/, 'moor'], [/海|沙滩|椰|浪|潮|海岛|渔/, 'tropical'], [/草原|草坡|牧场|田野|乡/, 'temperate'], [/森林|树林|林|山/, 'temperate']],
+    season: [[/冬|雪|寒|腊月|圣诞|春节|年夜|除夕|结冰|围巾|暖炉|跨年/, 'winter'], [/秋|枫|落叶|中秋|银杏|重阳|桂花/, 'autumn'], [/春(?!节)|樱|三月|四月|踏青|清明|桃花|发芽/, 'spring'], [/夏|蝉|暑|七月|八月|西瓜|烈日|海水浴|游泳/, 'summer']],
     terrain: [[/环礁|珊瑚/, 'atoll'], [/海|孤岛|岛/, 'sea'], [/湖|池|水边/, 'lake'], [/高原|山顶|崖|悬崖/, 'plateau'], [/双|两座|并排/, 'twin'], [/浮|空中|飘/, 'floating']],
     mark: [[/求签|寺|庙|佛|香火|禅|钟声/, 'temple'], [/神社|鸟居|绘马|巫女|参拜/, 'shrine'], [/学校|教室|校园|操场|课|自习/, 'school'], [/医院|病房|急诊|病床|输液/, 'hospital'], [/居酒屋|酒馆|酒吧|小酒|烧烤|夜宵|拉面/, 'izakaya'], [/咖啡|茶馆|餐厅|甜品|书店|面包/, 'cafe'], [/车站|站台|火车|列车|地铁|月台/, 'station'], [/灯塔/, 'lighthouse'], [/钟楼|塔楼|高塔/, 'tower'], [/金字塔/, 'pyramid'], [/宝塔|佛塔|古塔|(?<![灯钟高字])塔/, 'pagoda'], [/街|马路|便利店|公寓|红绿灯|写字楼|霓虹|天台|巷|路口|商场|公交/, 'street'], [/风车/, 'windmill'], [/摩天轮|游乐/, 'ferris'], [/城堡|宫|王府|殿/, 'castle'], [/天文|望远镜|观星/, 'observatory'], [/帐篷|露营|营地/, 'tent'], [/木屋|小屋|小木|木楼/, 'cabin'], [/小院|庭院|家|房子|老宅/, 'house']],
     extras: [[/灯笼|提灯/, 'lanterns'], [/萤火|萤/, 'fireflies'], [/温泉/, 'hotspring'], [/桥/, 'bridge'], [/小路|石板路|路灯/, 'path'], [/溪|河|流水/, 'river'], [/花/, 'flowers'], [/船|舟/, 'boat'], [/篝火|营火|火堆|炉火|壁炉/, 'bonfire'], [/长椅|椅/, 'bench'], [/路灯/, 'lamp'], [/秋千/, 'swing'], [/池塘|荷/, 'pond']],
@@ -141,10 +150,18 @@ export function hintOf(text) {
     for (const [re, k] of KW.mark) if (re.test(t)) { out.mark = k; break; }
     for (const [re, k] of KW.climate) if (re.test(t)) { out.climate = k; break; }
     if (out.climate && out.mark && !CLIMATES[out.climate].marks.includes(out.mark)) delete out.climate; // 地标优先：「雪 便利店」→ 有便利店的气候里挑
+    for (const [re, k] of KW.season) if (re.test(t)) { out.season = k; break; }
+    if (out.season === 'winter' && !out.climate && (!out.mark || CLIMATES.snow.marks.includes(out.mark))) out.climate = 'snow'; // 冬天没说别的：下雪的岛
     for (const [re, k] of KW.terrain) if (re.test(t)) { out.terrain = k; break; }
     for (const [re, k] of KW.extras) if (re.test(t)) out.extras.push(k);
     for (const [re, k] of KW.animals) if (re.test(t)) out.animals.push(k);
     return out;
+}
+/** 没有 AI 时从最近的剧情里认季节：哪个季节的词多就是哪个；都没有返回 '' */
+export function seasonOf(text) {
+    const t = String(text || ''); if (!t) return '';
+    let best = '', n = 0; for (const [re, k] of KW.season) { const c = (t.match(new RegExp(re.source, 'g')) || []).length; if (c > n) { n = c; best = k; } }
+    return best;
 }
 /** 没有 AI 时看角色卡 / 开场白是现代还是古风：数关键词，多的那边赢；都不明显返回 '' */
 export function eraOf(text) {

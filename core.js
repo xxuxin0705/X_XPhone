@@ -46,7 +46,7 @@ export const defAv = n => { n = String(n || '?'); return 'data:image/svg+xml,' +
 export const meObj = () => { const d = D().me; return { ...d, id: 'me', nick: d.nick || C().name1, real: d.real || C().name1 }; }; // nick＝网名，real＝真实姓名（默认酒馆里的名字）
 export const byId = id => D().chats.find(c => c.id == id);
 export function avOf(c) { if (!c) return defAv('?'); if (c.av) return c.av; const x = C(), ch = x.characters?.[x.characterId]; return (ch && c.real && c.real == x.name2 && x.getThumbnailUrl?.('avatar', ch.avatar)) || defAv(nm(c)); }
-export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : m.t == 'song' ? `[分享音乐]《${m.song?.name || ''}》` : m.t == 'listen' ? '[一起听歌]' : m.t == 'minv' ? `[音乐邀请]《${m.song?.name || ''}》` : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]` }[m.t] || '') + (m.c || '');
+export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : m.t == 'song' ? `[分享音乐]《${m.song?.name || ''}》` : m.t == 'listen' ? '[一起听歌]' : m.t == 'minv' ? `[音乐邀请]《${m.song?.name || ''}》` : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]`, hb: `[红包¥${m.amt}]` }[m.t] || '') + (m.c || '');
 // 给模型看的：表情包要写清楚是什么意思（名字 + 说明 + 哪一组），不然对方看不懂你发了个啥
 const mzSay = m => { const s = m.song || {}, t = `《${s.name || '未知歌曲'}》${s.artist ? ' - ' + s.artist : ''}`;
   if (m.t == 'song') return `[分享音乐] 分享了歌曲${t}${m.ex?.length ? `，摘录的歌词：「${m.ex.map(l => l.txt).join(' / ')}」` : ''}${m.note ? `，附言：${m.note}` : ''}`;
@@ -278,9 +278,9 @@ Object.assign(G, {
   img: async (k, t, e, pg) => { const v = await pickImg(k.includes('bg') || k.includes('wall') || k.includes('cover') ? 1080 : 400); if (v != null) { set(pg, k, v); pg.re(); } },
   fold: (k, t) => { t.closest('.sec').classList.toggle('fold'); S.ui.fold[k] = !S.ui.fold[k]; save(); },
   secDrag: (x, t) => {
-    const s = t.closest('.sec'), box = s.parentElement; s.classList.add('drg');
+    const s = t.closest('.sec'), box = s.parentElement; s.classList.add('drg'); const nt = e => e.cancelable && e.preventDefault(); addEventListener('touchmove', nt, { passive: false }); // 拖动排序时不让页面跟着滚
     const mv = e => box.insertBefore(s, [...box.children].find(c => { const r = c.getBoundingClientRect(); return c != s && e.clientY < r.top + r.height / 2; }) || null);
-    addEventListener('pointermove', mv); addEventListener('pointerup', () => { removeEventListener('pointermove', mv); s.classList.remove('drg'); S.ui.order[box.dataset.secs] = [...box.children].map(c => c.dataset.sec); save(); }, { once: true });
+    addEventListener('pointermove', mv); addEventListener('pointerup', () => { removeEventListener('pointermove', mv); removeEventListener('touchmove', nt); s.classList.remove('drg'); S.ui.order[box.dataset.secs] = [...box.children].map(c => c.dataset.sec); save(); }, { once: true });
   },
 });
 
@@ -708,7 +708,7 @@ export const INJ = []; // App 注册的注入片段：() => 文本
 export function syncInject() {
   const c = C(); let t = '';
   if (S.mode == 'linked') t = D().chats.map(ch => { const ms = ch.msgs.filter(m => m.inj || ch.cfg?.inj).slice(-15); return ms.length ? `[${ch.type == 'g' ? '群聊「' + ch.name + '」' : '与' + rn(ch) + '的私聊'}]\n` + ms.map(m => `${m.f == 'me' ? meObj().nick : rn(byId(m.f))}: ${say(m)}`).join('\n') : ''; }).filter(Boolean).join('\n');
-  const u = c.name1, inl = S.inline ? `<手机同步格式>\n剧情里有人用手机（发消息、发朋友圈、加好友、拉群、转账、拍一拍）时，在本条回复最后附一个 <手机>…</手机> 块，一行一件事，只写${u}的手机上能看到的：\n私聊|发送者|接收者|内容（发表情包就写 [表情包:关键词]）\n群聊|群名|发送者|内容\n朋友圈|作者|内容\n加好友|真实姓名|网名|TA说的语言（说中文就不写）\n拉群|群名|成员1,成员2\n转账|发送者|接收者|金额|备注\n拍一拍|谁|动作\n${S.isle?.auto ? `心情|谁|心情词|没说出口的一句话|TA心里那座岛此刻的风景（四到八个词：时代（现代 / 古风）、剧情此刻所在的地方（如 古寺求签、深夜便利店、医院走廊、海边灯塔、学校操场），再加天气时间和两三样具体物件，要和故事的世界观一致，例：古寺 求签 枫叶 香炉 / 现代 深夜便利店 路灯 雨）（主要角色的心情有明显变化时写）\n` : ''}人名都写真实姓名，${u}就写「${u}」。没有手机上的事就不要写这个块。这个块会自动收进手机，不会显示在正文里。\n</手机同步格式>` : '';
+  const u = c.name1, inl = S.inline ? `<手机同步格式>\n剧情里有人用手机（发消息、发朋友圈、加好友、拉群、转账、拍一拍）时，在本条回复最后附一个 <手机>…</手机> 块，一行一件事，只写${u}的手机上能看到的：\n私聊|发送者|接收者|内容（发表情包就写 [表情包:关键词]）\n群聊|群名|发送者|内容\n朋友圈|作者|内容\n加好友|真实姓名|网名|TA说的语言（说中文就不写）\n拉群|群名|成员1,成员2\n转账|发送者|接收者|金额|备注\n拍一拍|谁|动作\n心情|谁|心情词|没说出口的一句话|TA心里那座岛此刻的风景|三到五句心声，用／隔开（心声是 TA 此刻脑子里一闪而过的念头，每句 15 字以内，口吻贴人设，彼此不重复）（风景写四到八个词：时代（现代 / 古风）、季节（春 / 夏 / 秋 / 冬）、剧情此刻所在的地方（如 古寺求签、深夜便利店、医院走廊、海边灯塔、学校操场），再加天气时间和两三样具体物件，要和故事的世界观一致，例：古风 秋 古寺 求签 枫叶 香炉 / 现代 冬 深夜便利店 路灯 雪）（主要角色的心情有明显变化时写）\n人名都写真实姓名，${u}就写「${u}」。没有手机上的事就不要写这个块。这个块会自动收进手机，不会显示在正文里。\n</手机同步格式>` : '';
   const ext = INJ.map(f => { try { return f(c) || ''; } catch { return ''; } }).filter(Boolean).join('\n'); // 各 App 自己要带进正文的格式（比如音乐卡）
   c.setExtensionPrompt?.('st_phone', [ext, t && `<手机聊天记录>\n以下是${u}手机里的聊天，相关角色知道这些内容：\n${t}\n</手机聊天记录>`, inl].filter(Boolean).join('\n'), 1, 2, false, 0); // 跟着正文一起输出，不额外调 API
 }

@@ -31,7 +31,11 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   await lp('.chat .msg[data-x="1"] .bub'); ok(!/添加/.test(await popItems()), '已经添加过的表情：菜单里不再有「添加」'); await E(`document.querySelector('.mpop-m').click()`); await W(250);
   ok(!(await E(`!!document.querySelector('.mpop-m')`)), '点空白处关闭菜单');
   // 文字消息：表情回应 + 复制
+  const st0 = await E(`_g.cfg.style || ''`); await E(`_g.cfg.style = 'wx'; core.emit('chat')`); await W(150);
+  await lp('.chat .msg[data-x="0"] .bub'); ok(!(await E(`!!document.querySelector('.mpop .mp-e')`)) && !/注入正文/.test(await popItems()), '微信风格：长按没有贴表情，也没有「注入正文」'); await E(`document.querySelector('.mpop-m').click()`); await W(250);
+  await E(`_g.cfg.style = 'qq'; core.emit('chat')`); await W(150);
   await lp('.chat .msg[data-x="0"] .bub'); ok(/^复制,转发,引用/.test(await popItems()) && await E(`document.querySelectorAll('.mpop .mp-e b').length`) == 8, '文字消息：上面一排表情回应，下面复制 / 转发 / 引用…');
+  await E(`_g.cfg.style = '${st0}'; core.emit('chat')`); await W(150);
   await pk('~❤️'); ok(await E(`JSON.stringify(_g.msgs[0].re)`) == '[{"e":"❤️","by":"me"}]', '点表情回应：贴上 ❤️');
   // 3. 多选
   await lp('.chat .msg[data-x="2"] .bub'); await pk('multi'); await W(200);
@@ -91,7 +95,13 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   await ctx.route(/relay\.test/, r => r.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ['姜照临: 뭐야? [翻译:什么？]', '姜照临: 뭐야', '姜照临: 别装死啊'].map(l => `data: ${JSON.stringify({ choices: [{ delta: { content: l + '\n' } }] })}\n\n`).join('') + 'data: [DONE]\n\n' }));
   await E(`talk.gen(_k)`); await W(3500);
   const kk = await E(`JSON.stringify(_k.msgs.map(m => [m.c, m.tr]))`);
-  ok(kk == '[["뭐야?","什么？"],["뭐야","什么呀"],["뭐야","别装死啊"]]', '每一条都有译文：漏写的补上，写成中文的翻成韩语 ' + kk);
+  ok(kk == '[["뭐야?","什么？"],["뭐야","什么呀"],["뭐야","别装死啊"]]', '模型漏写译文 / 写成中文：马上用免费机翻补上（不调用聊天模型） ' + kk);
+  await E(`_k.cfg.lang = 'ja'; talk.retrans(_k)`); await W(800);
+  ok(await E(`_k.msgs.every(m => m.tr)`) && await E(`_k.msgs[0].tr`) == '什么？', '改了角色语言：原文马上换成新语言，中文译文保持 ' + await E(`JSON.stringify(_k.msgs.map(m => [m.c, m.tr]))`));
+  await E(`_k.cfg.lang = 'ko'`);
+  await E(`_k.cfg.trAuto = false; core.emit('chat')`); await W(200);
+  ok(!/뭐야/.test(await E(`document.querySelector('.chat .cv').textContent`)) && /别装死啊/.test(await E(`document.querySelector('.chat .cv').textContent`)), '关掉自动翻译：直接显示中文');
+  await E(`_k.cfg.trAuto = true; core.emit('chat')`); await W(200);
   // 10. 拍一拍格式（跟微信一样）
   await E(`(() => { [['的肩膀'], ['拍了拍你的脑袋'], ['揉了揉你的头发'], ['']].forEach(([t]) => dt.addMsg(_k, { from: '姜照临', type: 'pat', text: t })); _k.msgs.push({ f: _k.id, t: 'pat', c: '“姜照临” 的肩膀', ts: Date.now() }); core.emit('chat'); })()`); await W(300);
   const pats = await E(`[...document.querySelectorAll('.chat .sys.pat')].map(e => e.textContent).join('|')`);
@@ -99,7 +109,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAHElEQVR
   // 11. Kakao：Enter a message、输入栏样式、未读 1 紧贴气泡
   await E(`core.S.style = 'kk'; talk.openChat(_k.id)`); await W(600);
   ok(await E(`document.querySelector('.chat .ip').placeholder`) == 'Enter a message', 'Kakao 风格：输入框写 Enter a message');
-  const ord = await E(`[...document.querySelectorAll('.chat .ib > *')].map(e => [e.dataset.x || e.className.split(' ')[0], getComputedStyle(e).order]).sort((a, b) => a[1] - b[1]).map(x => x[0]).join()`);
+  const ord = await E(`[...document.querySelectorAll('.chat .ib > *')].filter(e => getComputedStyle(e).display != 'none').map(e => [e.dataset.x || e.className.split(' ')[0], getComputedStyle(e).order]).sort((a, b) => a[1] - b[1]).map(x => x[0]).join()`);
   ok(ord == 'more,ip,stk,go' && await E(`getComputedStyle(document.querySelector('.chat .ib .ip')).borderRadius`) == '20px', 'Kakao 输入栏：左边 ＋，中间圆角输入框（表情按钮在框里），右边圆按钮 ' + ord);
   await E(`_k.msgs.push({ f: 'me', t: 'text', c: '?', ts: Date.now() }); core.emit('chat')`); await W(300);
   const gap = await E(`(() => { const m = [...document.querySelectorAll('.chat .msg.me')].at(-1), r = m.querySelector('.rd.un').getBoundingClientRect(), b = m.querySelector('.bub').getBoundingClientRect(); return Math.round(b.left - r.right); })()`);

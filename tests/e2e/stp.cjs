@@ -44,7 +44,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // status bar + font size
   const sb = await E(`JSON.stringify([document.querySelector('.sb').offsetHeight, getComputedStyle(document.querySelector('.sb')).fontSize, getComputedStyle(document.querySelector('.pg:last-child .pg-t')).fontSize, document.querySelector('.pg:last-child .pg-h').offsetHeight])`);
   console.log('  status/title metrics', sb);
-  const [h, f1, f2, ph] = JSON.parse(sb); ok(h == 0 && f1 == '13.5px' && parseFloat(f2) < 16 && ph == 42, '应用内状态栏隐藏，页面标题保持原尺寸');
+  const [h, f1, f2, ph] = JSON.parse(sb); ok(h > 0 && h < 28 && parseFloat(f2) < 16 && ph == 42, '应用内状态栏变矮但还在，页面标题保持原尺寸');
   await E(`core.S.fzp = 110; core.emit('cfg', 'fzp')`); await p.waitForTimeout(200);
   ok(parseFloat(await E(`getComputedStyle(document.querySelector('.pg:last-child .pg-t')).fontSize`)) > parseFloat(f2) * 1.06, '字体大小 setting changes text size live');
   await E(`core.S.fzp = 100; core.emit('cfg', 'fzp')`);

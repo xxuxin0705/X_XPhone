@@ -46,9 +46,10 @@ export function addMsg(ch, m) {
   const t = m.type || 'text', f = isMe(m.from) ? 'me' : ch.type == 'p' ? ch.id : member(ch, m.from), name = who(ch, f);
   const near = frag => (frag && ch.msgs.findLast(x => !/sys|pat/.test(x.t) && (String(x.c) + (x.orig || '')).includes(frag))) || null;
   if (t == 'react') { const x = near(m.frag) || ch.msgs.findLast(x => x.f == 'me' && !/sys|pat/.test(x.t)); x && (x.re = [...nre(x.re), { e: m.text || '❤️', by: f }]); return null; }
+  if (t == 'hbopen') { const x = ch.msgs.findLast(x => x.t == 'hb' && x.f == 'me' && !x.st); x && (x.st = '已被领取', ch.msgs.push({ f: 'sys', t: 'sys', c: `${name}领取了你的红包`, ts: +now() })); return null; }
   if (t == 'accept') { const x = ch.msgs.findLast(x => x.t == 'transfer' && x.f == 'me' && !x.st); x && (x.st = '已收款'); return null; }
   if (t == 'recall') { const x = ch.msgs.findLast(x => x.f == f && !/sys|pat/.test(x.t)); x && Object.assign(x, { t: 'sys', c: `“${name}” 撤回了一条消息`, re: [] }); return null; }
-  const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : String(m.text ?? ''), tr: m.tr || '', amt: +m.amount || 0, ts: +now() };
+  const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : t == 'hb' ? String(m.text || '恭喜发财，大吉大利') : String(m.text ?? ''), tr: m.tr || '', amt: t == 'hb' ? Math.min(200, +m.amount || 0) : +m.amount || 0, ts: +now() };
   const q = near(m.quote); q && (x.q = { w: who(ch, q.f), c: String(q.c).slice(0, 40) });
   t == 'minv' && Object.assign(x, { song: { name: x.c, artist: String(m.artist || '').trim(), pic: '' }, st: 'pending', c: `[音乐]《${x.c}》${m.artist ? ' - ' + m.artist : ''}` }); // 角色邀请一起听
   t == 'sticker' && (x.img = stk(x.c)); ch.msgs.push(x); t == 'pat' && shake();
@@ -67,7 +68,8 @@ export function applyDelta(d, cur) {
   });
   d.msgs?.forEach(m => { const ch = cur || find(m.chat) || upsert({ real: isMe(m.from) ? m.chat : m.from }), x = ch && addMsg(ch, m); x && out.push([ch, x]); });
   d.posts?.forEach(p => {
-    const po = { id: uid(), a: isMe(p.author) ? 'me' : upsert({ real: p.author }).id, c: p.text || '', imgd: p.img || '', ts: +now() - Math.random() * 18e6, likes: p.likes || [], cm: (p.comments || []).map(c => ({ f: c.from, c: c.text })) };
+    const sp = t => { const m = String(t || '').match(/^([\s\S]*?)\s*[\[【]翻译[:：]([^\]】]*)[\]】]\s*$/); return m ? [m[1].trim(), m[2].trim()] : [String(t || '').trim(), '']; }; // 正文里夹着 [翻译:…] 也拆开
+    const [pc, ptr] = sp(p.text), po = { id: uid(), a: isMe(p.author) ? 'me' : upsert({ real: p.author }).id, c: pc, tr: p.tr || ptr, imgd: p.img || '', ts: +now() - Math.random() * 18e6, likes: (p.likes || []).filter(Boolean), lx: Math.random() < .6 ? Math.random() * 120 | 0 : 0, cm: (p.comments || []).map(c => { const [cc, ct] = sp(c.text); return { f: c.from, c: cc, tr: c.tr || ct, ...(c.to && { to: c.to }) }; }) };
     D().posts.unshift(po); po.imgd && S.api.img.auto && genImg(po.imgd, undefined, 'chat').then(u => { po.url = u; saveD(); emit('chat'); }).catch(e => fail('动态配图失败：' + e.message));
   });
   saveD(); emit('chat'); return out;

@@ -7,7 +7,11 @@ let box, seq = 0;
 export const lgOk = (() => { try { return typeof CSS != 'undefined' && CSS.supports('backdrop-filter', 'url(#a)') && !/Firefox|^((?!Chrome|Android).)*Safari/i.test(navigator.userAgent); } catch { return false; } })();
 // 位移图（红 = 左右推多少，绿 = 上下推多少，128 不动）：整块都在折射，不只边缘——
 // 从中心到边缘连续变强（radialBoundary），离边 edge 像素以内再加一段更陡的弯曲；再叠一层很轻的低频波纹（interiorWave），中心轻、边缘明显
+const MC = new Map(); // 同尺寸的位移图只算一次（打开手机时不再重算一遍）
 function map(w, h, r, edge) {
+  const k = [w, h, r, edge].join(); if (MC.has(k)) return MC.get(k); const u = map0(w, h, r, edge); MC.size > 40 && MC.clear(); MC.set(k, u); return u;
+}
+function map0(w, h, r, edge) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'), im = x.createImageData(w, h), d = im.data;
   r = Math.min(r, w / 2, h / 2); const half = Math.min(w, h) / 2;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
