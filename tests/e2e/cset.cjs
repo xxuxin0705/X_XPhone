@@ -1,4 +1,4 @@
-// 聊天信息：专属音色（服务商 / 朗读语言 / 各服务商音色 / 名字读音）、翻译（私聊 / 群聊跟随或统一）、回复设置（条数 / 语音条数）、拍一拍格式、语音设置的渠道模式
+// 聊天设置：专属音色（服务商 / 朗读语言 / 各服务商音色 / 名字读音）、翻译（私聊 / 群聊跟随或统一）、回复设置（条数 / 语音条数）、拍一拍格式、语音设置的渠道模式
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.html': 'text/html' };

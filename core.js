@@ -278,9 +278,9 @@ Object.assign(G, {
   img: async (k, t, e, pg) => { const v = await pickImg(k.includes('bg') || k.includes('wall') || k.includes('cover') ? 1080 : 400); if (v != null) { set(pg, k, v); pg.re(); } },
   fold: (k, t) => { t.closest('.sec').classList.toggle('fold'); S.ui.fold[k] = !S.ui.fold[k]; save(); },
   secDrag: (x, t) => {
-    const s = t.closest('.sec'), box = s.parentElement; s.classList.add('drg');
+    const s = t.closest('.sec'), box = s.parentElement; s.classList.add('drg'); const nt = e => e.cancelable && e.preventDefault(); addEventListener('touchmove', nt, { passive: false }); // 拖动排序时不让页面跟着滚
     const mv = e => box.insertBefore(s, [...box.children].find(c => { const r = c.getBoundingClientRect(); return c != s && e.clientY < r.top + r.height / 2; }) || null);
-    addEventListener('pointermove', mv); addEventListener('pointerup', () => { removeEventListener('pointermove', mv); s.classList.remove('drg'); S.ui.order[box.dataset.secs] = [...box.children].map(c => c.dataset.sec); save(); }, { once: true });
+    addEventListener('pointermove', mv); addEventListener('pointerup', () => { removeEventListener('pointermove', mv); removeEventListener('touchmove', nt); s.classList.remove('drg'); S.ui.order[box.dataset.secs] = [...box.children].map(c => c.dataset.sec); save(); }, { once: true });
   },
 });
 

@@ -123,7 +123,7 @@
 #stp .chip input{display:none}
 .chip:has(input:checked){background:var(--ac);color:#fff}
 .secs .sec{background:var(--cd);border-radius:18px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.03);transition:box-shadow .2s,transform .2s}
-.sec-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;touch-action:none}
+.sec-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;touch-action:pan-y} /* 从标题上开始滑也能上下滚；长按拖动排序时再拦住滚动 */
 .sec-h b{font-weight:600}
 .sec-h svg{width:17px;height:17px;opacity:.45;transition:.25s}
 .sec.fold .sec-b{display:none}
