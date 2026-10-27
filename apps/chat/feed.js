@@ -1,28 +1,28 @@
+import { FEED_ICONS } from './feed-icons.js';
 import { MOMENTS_PROMPT, normalizeMoments } from './feed-generation.js';
 // 聊天 · 动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）+ 个人相册 + 生成动态弹窗
 // 角色的动态和评论在同一次生成里带上 [翻译]（tr），点「查看翻译」展开；不额外调用
 import { S, D, saveD, esc, uid, page, sheet, menu, form, toast, nm, rn, avOf, meObj, now, llm, json, sysCtx, task, emit, drop, pickImg, ok, genImg } from '../../core.js';
 import { get, find, isMe, sty, FS, FN, lname } from './data.js';
 
-const sv = (d, f) => `<svg viewBox="0 0 24 24" ${f ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'}>${d}</svg>`;
 export const FI = {
-  wand: sv('<path d="m4 20 10.5-10.5M13 6l5 5"/><path d="M18.5 2.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6zM21 9l.4.9.9.4-.9.4-.4.9-.4-.9-.9-.4.9-.4zM9.5 3l.4.9.9.4-.9.4-.4.9-.4-.9-.9-.4.9-.4z"/>'),
-  cam: sv('<path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2.3l1.6-2.2h7.2L17.2 7h2.3A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" fill="currentColor" stroke="none"/><circle cx="12" cy="12.6" r="3.4" fill="none" stroke="#fff" stroke-width="1.8"/>'),
-  heart: sv('<path d="M12 20s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20Z"/>'),
-  heartF: sv('<path d="M12 20s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20Z"/>', 1),
-  cmt: sv('<path d="M12 4c4.7 0 8.5 3.2 8.5 7.2S16.7 18.4 12 18.4c-1 0-2-.1-2.9-.4L5 20l1-3.5C4.4 15.2 3.5 13.3 3.5 11.2 3.5 7.2 7.3 4 12 4Z"/>'),
-  ring: sv('<circle cx="12" cy="11.5" r="8"/><path d="m17.6 17.2 2.9 2.9"/>'),
-  thumb: sv('<path d="M7 10v10H4.5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM7 10l4-6.5a2 2 0 0 1 3.6 1.4L14 9h5a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 17.6 20H7"/>'),
-  share: sv('<path d="M14 5l7 6.5-7 6.5v-4C8.5 14 5.5 16 3 20c.8-5.6 3.8-10 11-11z"/>'),
-  send: sv('<path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/>'),
-  edit: sv('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'),
-  del: sv('<path d="M4 7h16M9 7V4.5h6V7M6 7l1 13h10l1-13M10 11v6M14 11v6"/>'),
-  more: sv('<circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/>', 1),
-  eye: sv('<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>'),
-  img: sv('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5.5-5 4 3.5 2.5-2 4.5 4"/>'),
-  say: sv('<rect x="3.5" y="4.5" width="17" height="13" rx="2"/><path d="M8 21l3-3.5M8 11h.01M12 11h.01M16 11h.01"/>'),
-  book: sv('<path d="M6 3.5h12v17H6zM10 3.5v7l2-1.5 2 1.5v-7"/>'),
-  list: sv('<path d="M4 7h16M4 12h16M4 17h16"/>'),
+  wand: FEED_ICONS['wand-magic-sparkles'],
+  cam: FEED_ICONS.camera,
+  heart: FEED_ICONS.heart,
+  heartF: FEED_ICONS.heartF,
+  cmt: FEED_ICONS.cmt,
+  ring: FEED_ICONS.ring,
+  thumb: FEED_ICONS.thumb,
+  share: FEED_ICONS.share,
+  send: FEED_ICONS.send,
+  edit: FEED_ICONS.edit,
+  del: FEED_ICONS.del,
+  more: FEED_ICONS.more,
+  eye: FEED_ICONS.eye,
+  img: FEED_ICONS.img,
+  say: FEED_ICONS.say,
+  book: FEED_ICONS.book,
+  list: FEED_ICONS.list,
 };
 
 /* ---------- 小工具 ---------- */
@@ -86,7 +86,7 @@ function album(u, aid, ps, cov) {
 ${days.map(g => `<div class="al-d"><div class="al-t"><b>${g.d[0]}</b>${g.d[1] ? `<small>${g.d[1]}</small>` : ''}</div><div class="al-l">${g.ps.map(it).join('')}</div></div>`).join('') || `<p class="al-e">${aid == 'me' ? '你' : 'TA'} 还没有发过朋友圈</p>`}</div>`;
 }
 // 顶栏右边：生成（魔法棒）+ 发动态（相机）
-export const feedRight = () => `<b data-a="fgen">${FI.wand}</b><b data-a="post">${FI.cam}</b>`;
+export const feedRight = () => `<button type="button" class="feed-header-btn" data-a="fgen" aria-label="生成朋友圈">${FI.wand}</button><button type="button" class="feed-header-btn" data-a="fpost" aria-label="发朋友圈">${FI.cam}</button>`;
 
 /* ---------- 生成动态：选条数、必定出现的人、只让选中的人发 ---------- */
 const friends = () => D().chats.filter(c => c.type == 'p' && c.fr !== 0);
@@ -143,7 +143,15 @@ function genCmt(p, why) {
 
 /* ---------- 操作 ---------- */
 const share = async p => { const to = await menu(D().chats.filter(c => c.fr !== 0 || c.type == 'g').map(c => [c.id, esc(nm(c))]), '分享到…'); const T = to && get(to); if (!T) return; const n = nm(auOf(p)); T.msgs.push({ f: 'me', t: 'rec', c: `${n}的${FN[S.style]}`, rec: [{ n, c: p.c + (p.tr ? `（${p.tr}）` : '') }], ts: +now() }); saveD(); emit('chat'); toast(`已分享给 ${nm(T)}`); };
+export function mountFeed(el) {
+  const area=el.querySelector('.pg-b'), head=el.querySelector('.pg-h');
+  if(!area || !head)return;
+  if(el.querySelector('.feed.mz-wx') && !el.classList.contains('alpg')) { const title=head.querySelector('.pg-t');if(title)title.textContent='朋友圈'; }
+  const update=()=>head.classList.toggle('feed-header-solid',area.scrollTop>150);
+  area.onscroll=update;update();
+}
 export const FA = {
+  fpost: async () => {const k=await menu([['text','文字'],['image','图片']],'发朋友圈');if(k)FA.post(k==='image'?'img':'');},
   fphoto: async value => { const [id,index]=value.split('|'), p=P(id), image=p && postImages(p)[+index];if(!image)return;
     if(image.url)return page({title:'图片',cls:'feed-image',body:()=>`<img class="feed-full-image" src="${esc(image.url)}" alt="动态配图">`});
     const choice=await menu([['description','查看图片描述'],['generate','生成图片']]);
@@ -157,7 +165,13 @@ export const FA = {
   like: id => { const p = P(id), me = nm(meObj()); if (!p) return; p.likes = p.likes.includes(me) ? p.likes.filter(x => x != me) : [...p.likes, me]; saveD(); emit('chat'); },
   cmt: async id => { const p = P(id); if (!p) return; const r = await form('评论', [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c }); saveD(); emit('chat'); p.a != 'me' && genCmt(p, `请生成${rn(auOf(p))}（以及可能路过的联系人）对${meObj().nick}这条评论的回复 1-2 条。`); },
   crep: async x => { const [id, i] = x.split('|'), p = P(id), c = p?.cm[+i]; if (!c) return; const r = await form(`回复 ${nm(who(c.f))}`, [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c, to: c.f }); saveD(); emit('chat'); isMe(c.f) || genCmt(p, `${meObj().nick}回复了${nm(who(c.f))}，请生成${nm(who(c.f))}（以及可能的其他人）的回应 1-2 条。`); },
-  pmore: async id => { const p = P(id); if (!p) return; const k = await menu([...(FS[S.style] == 'wx' ? [['like', liked(p) ? '取消赞' : '赞'], ['cmt', '评论']] : []), ['pshare', '分享'], ['pgc', '生成评论'], ['pedit', '编辑'], ['pdel', '删除', 'danger']]); k && FA[k](id); },
+  pmore: (id,t) => {const p=P(id);if(!p)return;const existing=t?.querySelector('.feed-action-popup');document.querySelectorAll('.feed-action-popup').forEach(n=>n.remove());if(existing || !t)return;
+    const popup=document.createElement('span');popup.className='feed-action-popup';
+    const actions=[['like',liked(p)?'取消赞':'赞',liked(p)?FI.heartF:FI.heart],['cmt','评论',FI.cmt],['pshare','分享',FI.share],['pgc','好友互动',FI.wand],['pedit','编辑',FI.edit],['pdel','删除',FI.del]];
+    popup.innerHTML=actions.map(([key,label,icon])=>`<button type="button" aria-label="${label}" title="${label}" data-feed-act="${key}">${icon}</button>`).join('');
+    popup.onclick=e=>{e.stopPropagation();const action=e.target.closest('[data-feed-act]');if(action){popup.remove();FA[action.dataset.feedAct](id);}};t.append(popup);
+    const dismiss=e=>{if(!popup.contains(e.target)&&!t.contains(e.target))popup.remove();};setTimeout(()=>document.addEventListener('click',dismiss,{once:true}),0);
+  },
   pshare: id => { const p = P(id); p && share(p); },
   pgc: id => { const p = P(id); p && genCmt(p, '请让联系人们按人设给这条动态点赞、评论，评论之间可以互相回复，2-4 条。'); },
   pedit: async id => { const p = P(id); if (!p) return; const r = await form('编辑动态', [['c', '正文', 'area'], ...(p.tr ? [['tr', '中文译文', 'area']] : [])], { c: p.c, tr: p.tr }); if (!r) return; p.c = r.c || ''; p.tr != null && (p.tr = r.tr || ''); saveD(); emit('chat'); },
@@ -170,5 +184,5 @@ export const FA = {
 };
 export function openFeed(aid) {
   const st = aid && aid != 'me' ? sty(get(aid)) : S.style, fs = FS[st], al = fs == 'wx';
-  page({ title: '', aid, live: 1, cls: `feedpg st-${st} fs-${fs}${al ? ' alpg' : ''}`, right: () => al ? `<b data-a="amore">${FI.more}</b>` : feedRight(), body: () => feed(aid, st), acts: FA });
+  page({ title: '', aid, live: 1, cls: `feedpg st-${st} fs-${fs}${al ? ' alpg' : ''}`, after: mountFeed, right: () => al ? `<b data-a="amore">${FI.more}</b>` : feedRight(), body: () => feed(aid, st), acts: FA });
 }

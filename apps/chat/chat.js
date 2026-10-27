@@ -2,7 +2,7 @@
 import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
 import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
-import { feed, FA, openFeed, feedRight } from './feed.js';
+import { feed, FA, openFeed, feedRight, mountFeed } from './feed.js';
 export { openFeed };
 export { openChat, applyDelta };
 
@@ -384,7 +384,7 @@ reg({
     cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; },
     title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],
     right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? feedRight() : '',
-    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + tab); ctBind(el); },
+    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + tab); ctBind(el); if (tab == 'feed') mountFeed(el); },
     onChange: k => k == '$style' && emit('chat'),
     acts: {
       ...FA, ...CTA, aiInit, tab: (x, t, e, pg) => { tab = x; msel = null; ctS = 0; pg.re(); }, ...MS, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
