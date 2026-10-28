@@ -386,7 +386,10 @@ const CSI = {
   kk: '<span class="csi cs-kk"><svg viewBox="0 0 24 24"><path fill="#3a2a22" d="M6.5 4h11A3.5 3.5 0 0 1 21 7.5v6a3.5 3.5 0 0 1-3.5 3.5H11l-4.6 3.3.7-3.3h-.6A3.5 3.5 0 0 1 3 13.5v-6A3.5 3.5 0 0 1 6.5 4z"/><circle cx="8" cy="10.5" r="1.3" fill="#fee500"/><circle cx="12" cy="10.5" r="1.3" fill="#fee500"/><circle cx="16" cy="10.5" r="1.3" fill="#fee500"/></svg></span>',
   line: '<span class="csi cs-line"><svg viewBox="0 0 24 24"><path fill="#fff" d="M7 3.5h10a4 4 0 0 1 4 4v6.5a4 4 0 0 1-4 4h-4.2L8 21v-3H7a4 4 0 0 1-4-4V7.5a4 4 0 0 1 4-4z"/><path fill="#06c755" d="M12 14.6s-3.4-2-3.4-4.2c0-1.1.8-1.9 1.8-1.9.7 0 1.3.4 1.6.9.3-.5.9-.9 1.6-.9 1 0 1.8.8 1.8 1.9 0 2.2-3.4 4.2-3.4 4.2z"/></svg></span>',
 };
-export const chatIcon = (st = S.style || 'wx') => S.icons['chat.' + st] ? `<img src="${esc(S.icons['chat.' + st])}">` : CSI[st] || CSI.wx;
+// 仓库里放了 assets/icons/chat-<样式>.png（或 .webp）就自动用它；优先级：自己上传 > 仓库图片 > 默认气泡
+const REPO = {}; let probed;
+const probe = () => { if (probed) return; probed = 1; Object.keys(CSN).forEach(st => { const go = ([e, ...rest]) => { if (!e) return; const u = new URL(`../../assets/icons/chat-${st}.${e}`, import.meta.url).href, i = new Image(); i.onload = () => { REPO[st] = u; emit('cfg', 'style'); }; i.onerror = () => go(rest); i.src = u; }; go(['png', 'webp']); }); };
+export const chatIcon = (st = S.style || 'wx') => { probe(); const u = S.icons['chat.' + st] || REPO[st]; return u ? `<img src="${esc(u)}">` : CSI[st] || CSI.wx; };
 reg({
   id: 'chat', skin: 1, get name() { return CSN[S.style] || CSN.wx; }, get icon() { return chatIcon(); },
   open: () => page({
