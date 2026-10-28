@@ -6,7 +6,7 @@ import { liquid } from './glass.js';
 import { pageLayout, placeItem, moveItem, fitPages, removeMoodNote, DESK_COLS } from './desk-layout.js';
 import { paintFrameHtml, mountPaintPhotos, fitPaintZoom } from './apps/theme/paint-frame.js';
 import { badgeHtml, badgeFields, BADGE_DEFAULT } from './apps/theme/badge.js';
-import { clkHtml, clkFonts, clkStyle, CLK_DEF } from './apps/theme/clock.js';
+import { clkHtml, clkFonts, clkStyle, CLK_DEF, timeHtml, dateText } from './apps/theme/clock.js';
 
 const W = (k, w, h, p = {}) => ({ id: uid(), t: 'w', k, w, h, p }), A = app => ({ id: uid(), t: 'app', app });
 // 尺寸：只能按原比例放大缩小（2×2 → 1×1 / 3×3 / 4×4；2×1 → 4×2），最大 4 格
@@ -51,6 +51,12 @@ export function renderDesk() {
   liquid($('.dock', el)); liquid($('.dots', el), { bezel: 10, scale: 18 }); // 底部：液态玻璃
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
+}
+// 到点只改时间：时间组件里的几个字、带 {{time}} 的自定义组件；不再整个桌面重画
+export function tickDesk() {
+  $$('.it[data-it]', ui.desk).forEach(n => { const [l, i] = find(n.dataset.it), it = l[i]; if (!it || it.t != 'w') return;
+    if (it.k == 'clock') { const p = { ...WK.clock.d, ...it.p }, d = now(p.source || S.time), t = $('.clk-t', n), dt = $('.clk-d', n); t && (t.innerHTML = timeHtml(p, d)); dt && (dt.textContent = dateText(d, p.lang)); }
+    else if (it.k == 'custom' && /\{\{/.test(it.p?.html || '')) n.innerHTML = x(it.id) + tpl(WK.custom.r(it.p || {}, it)); });
 }
 const find = id => { for (const l of [...S.desk.pages, S.desk.dock]) { const i = l.findIndex(x => x.id == id); if (i > -1) return [l, i]; } return [[], -1]; };
 function clean() {
