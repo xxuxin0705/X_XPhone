@@ -142,20 +142,23 @@ export function wallPage(kind) {
     body: () => `<div class="card wps">${L ? lockSec() : wallSec()}</div>`, acts: WA, onChange: wpChange });
 }
 
+let themeScope = 'global';
 reg({
   id: 'theme', name: '主题', icon: '<svg viewBox="0 0 24 24"><path fill="#fff" d="M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.7-1.3-.7-2.1 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><g fill="#c7a6f5"><circle cx="7.5" cy="11" r="1.5"/><circle cx="10" cy="7" r="1.5"/></g><g fill="#ff9ec4"><circle cx="14.5" cy="7" r="1.5"/><circle cx="17" cy="10.5" r="1.4"/></g></svg>',
   open: () => page({
     title: '主题美化', cls: 'thm',
     after: el => mountPv(el, top()), onClose: () => (pv.forEach(h => h.stop()), pv = []),
-    body: () => { const f = fx(S); return `<div class="thm-g">${Object.entries(THEMES).map(([k, t]) => `<div class="tc ${S.theme == k ? 'on' : ''}" data-a="th" data-x="${k}"><div class="tc-p" style="background:${t.v['--wp']}"><i style="background:${t.v['--ac']}"></i><i></i><i></i><i></i><b style="background:${t.v['--gl'] || BASE['--gl']}"></b></div><span>${t.n}</span></div>`).join('')}</div>` + sec('thm', [
+    body: () => { const f = fx(S), categories = `<div class="thm-categories" role="tablist" aria-label="美化分类">${[['global','全局美化'],['apps','应用美化']].map(([key,label])=>`<button type="button" role="tab" aria-selected="${themeScope === key}" class="${themeScope === key ? 'on' : ''}" data-a="themeScope" data-x="${key}">${label}</button>`).join('')}</div>`;
+      if (themeScope === 'apps') return categories + sec('thm-apps', [['apps', '应用美化', Object.entries(AST).map(([k, a]) => `<div class="row go" data-a="astopen" data-x="${k}"><span><i class="ico mini a-${k}">${icon(k)}</i>${esc(a.n)}</span><small>${esc(astName(k))}</small></div>`).join('')]]);
+      return categories + `<div class="thm-g">${Object.entries(THEMES).map(([k, t]) => `<div class="tc ${S.theme == k ? 'on' : ''}" data-a="th" data-x="${k}"><div class="tc-p" style="background:${t.v['--wp']}"><i style="background:${t.v['--ac']}"></i><i></i><i></i><i></i><b style="background:${t.v['--gl'] || BASE['--gl']}"></b></div><span>${t.n}</span></div>`).join('')}</div>` + sec('thm', [
       ['ball', '悬浮窗图标', ballGrid()],
       ['lk', '锁屏壁纸 · 动态', lockSec()],
       ['lkc', '锁屏时间', clkSec()],
       ['wp', '壁纸', wallSec()],
-      ['apps', '应用', Object.entries(AST).map(([k, a]) => `<div class="row go" data-a="astopen" data-x="${k}"><span><i class="ico mini a-${k}">${icon(k)}</i>${esc(a.n)}</span><small>${esc(astName(k))}</small></div>`).join('')],
       ['widget', `小组件 · ${S.assets.widget.length}`, `<div class="ag">${S.assets.widget.map(x => `<div class="ai" data-a="ae" data-x="widget:${x.id}" data-lp="ad"><b>${esc(x.name.slice(0, 2))}</b><small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="widget">＋</div></div>${btn('af', '导入文件', 'widget')}`],
     ]); },
     acts: {
+      themeScope: (key, t, e, pg) => { if (!['global','apps'].includes(key)) return; themeScope = key; pg.re(); },
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
       ...WA,
       // 安卓的文件选择器认不出 .otf / .ttf 的类型，会把字体变成灰的选不了，所以不限类型，选完再看文件头是不是字体
