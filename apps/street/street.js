@@ -21,6 +21,7 @@ const defs = `<defs>
 <linearGradient id="st-wall-m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf1e1"/><stop offset="1" stop-color="#f1e0c4"/></linearGradient>
 <linearGradient id="st-wall-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9efe7"/><stop offset="1" stop-color="#bfe2d5"/></linearGradient>
 <linearGradient id="st-wall-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8cdc6"/><stop offset="1" stop-color="#f2b7ae"/></linearGradient>
+<radialGradient id="st-crois" cx=".5" cy=".38" r=".62"><stop offset="0" stop-color="#ffd58f"/><stop offset=".6" stop-color="#f0b060"/><stop offset="1" stop-color="#d4853c"/></radialGradient>
 <radialGradient id="st-glow"><stop offset="0" stop-color="#fff6d6" stop-opacity=".95"/><stop offset="1" stop-color="#fff6d6" stop-opacity="0"/></radialGradient>
 <radialGradient id="st-glow2"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#fff3e0" stop-opacity="0"/></radialGradient>
 <pattern id="st-stp-l" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${LIL2}"/></pattern>
@@ -111,7 +112,10 @@ ${awning(x - 6, GY - 150, w + 12, 'st-stp-m', '#fff')}${plate(x + 227, GY - 42, 
 function sweetShop(x) { // 烘焙店：婴儿蓝，屋顶摆着一条大吐司和一只牛角包，橱窗里一排刚出炉的面包，门口一张小圆桌
   const w = 230, top = 158, CR = '#f0b46a', CR2 = '#d98e45';
   const loaf = (cx, cy, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})"><path d="M-30 10V-6c0-14 10-20 30-20s30 6 30 20V10z" fill="${CR}" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/><path d="M-30 -6c0-14 10-20 30-20s30 6 30 20c-4 4-10 4-14 0-4 4-12 4-16 0-4 4-12 4-16 0-4 4-10 4-14 0z" fill="#fbe2b4" stroke="${INK}" stroke-width="1.4"/>${ln('M-14 -16l6 8M0 -18l6 8M14 -16l5 7', CR2, 2)}</g>`;
-  const crois = (cx, cy, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})">${[[-22, 4, 40], [-13, -4, 20], [0, -7, 0], [13, -4, -20], [22, 4, -40]].map(([dx, dy, a], k) => `<ellipse cx="${dx}" cy="${dy}" rx="${k == 2 ? 11 : 8}" ry="${k == 2 ? 10 : 7}" transform="rotate(${a} ${dx} ${dy})" fill="${k % 2 ? CR2 : CR}" stroke="${INK}" stroke-width="1.4"/>`).join('')}</g>`;
+  // 牛角包：两头尖、中间鼓的一整条，外面斜斜地一圈圈卷着金黄的酥皮，顶上一道亮光
+  const crois = (cx, cy, s = 1) => { const top = x => -13 * (1 - (x / 28) ** 2) + 3, bot = x => 12 * (1 - (x / 28) ** 2) + 3;
+    const band = x0 => `<path d="M${x0 + 3} ${top(x0 + 3) + .5}Q${x0 - 3} ${(top(x0) + bot(x0)) / 2} ${x0 - 4} ${bot(x0 - 4) - .5}" fill="none" stroke="#c97a33" stroke-width="1.7" stroke-linecap="round"/><path d="M${x0 + 5.5} ${top(x0 + 5.5) + 1}Q${x0} ${(top(x0) + bot(x0)) / 2} ${x0 - 1.5} ${bot(x0 - 1.5) - 1}" fill="none" stroke="#ffe2a8" stroke-width="1" stroke-linecap="round" opacity=".9"/>`;
+    return `<g transform="translate(${cx} ${cy}) rotate(-8) scale(${s})"><path d="M-29 4C-24 -4 -14 -11 0 -11S24 -4 29 4C26 8 22 9 19 9C12 13 6 15 0 15S-12 13 -19 9C-22 9 -26 8 -29 4z" fill="url(#st-crois)" stroke="${INK}" stroke-width="1.5" stroke-linejoin="round"/>${[-18, -9, 0, 9, 18].map(band).join('')}<path d="M-12 -6Q0 -10 10 -6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".55"/></g>`; };
   const bun = (cx, cy) => `<g transform="translate(${cx} ${cy})"><path d="M-12 4a12 11 0 0 1 24 0z" fill="${CR}" stroke="${INK}" stroke-width="1.3"/>${[-5, 0, 5].map(d => `<ellipse cx="${d}" cy="-3" rx="1" ry="1.6" fill="#fff"/>`).join('')}</g>`;
   return `<g class="st-shop" data-a="stshop" data-x="sweet" filter="url(#st-soft)">
 ${r(x + 6, top, w - 12, GY - top, 'url(#st-wall-b)', 0)}<rect x="${x + 6}" y="${top}" width="${w - 12}" height="${GY - top}" fill="url(#st-dots)"/>
