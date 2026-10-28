@@ -1538,3 +1538,44 @@
 
 /* 没有返回键的弹窗（菜单、表单）：右边空占位去掉，标题才居中 */
 .pg-h:not(:has(.pg-back)) .pg-r:empty{display:none}
+
+/* ===== 消息 · 微信样式外壳（照现在的微信：灰顶栏、白列表、绿色选中底栏） ===== */
+.chatapp.st-wx{--wxg:#07c160;background:#ededed}
+.chatapp.st-wx .pg-h{position:relative;height:46px;background:#ededed;color:#191919}
+.chatapp.st-wx .pg-t{position:absolute;left:84px;right:84px;font-weight:500;font-size:calc(17px*var(--fz,1))}
+.chatapp.st-wx .pg-r{margin-left:auto;display:flex;gap:10px}
+.chatapp.st-wx .pg-r>b{color:#191919}
+.chatapp.st-wx .pg-r svg{width:24px;height:24px}
+.chatapp.st-wx.tb-list .pg-b{background:#fff}
+.chatapp.st-wx.tb-me .pg-h{background:#fff}
+.chatapp.st-wx .tabs{background:#f7f7f7;border-top:.5px solid #e2e2e2;padding-top:6px}
+.chatapp.st-wx .tabs button{color:#191919;font-size:calc(11px*var(--fz,1));gap:1px}
+.chatapp.st-wx .tabs svg{width:28px;height:28px}
+.chatapp.st-wx .tabs .on{color:var(--wxg)}.chatapp.st-wx .tabs .on svg{fill:currentColor}
+.chatapp.st-wx .tabs .badge{top:-3px;right:calc(50% - 22px)}
+.wx-g{background:#fff;margin-top:8px}
+.wx-r{display:flex;align-items:center;gap:14px;min-height:56px;padding:0 14px 0 16px;position:relative;cursor:pointer;color:#191919}
+.wx-r+.wx-r::before,.wx-g>.row+.row::before{content:'';position:absolute;left:54px;right:0;top:0;border-top:.5px solid #e5e5e5}
+.wx-r>b{flex:1;font-weight:400;font-size:calc(16px*var(--fz,1))}
+.wx-r>span{display:flex;align-items:center;color:#7f7f7f;font-size:calc(15px*var(--fz,1))}
+.wx-r>span .av{width:34px;height:34px;border-radius:5px;object-fit:cover}
+.wx-i{display:grid;place-items:center;width:24px;height:24px}.wx-i svg{width:24px;height:24px}
+.wx-ch{width:16px;height:16px;color:#b2b2b2;flex:none}
+.wm-h{display:flex;align-items:flex-start;gap:16px;padding:22px 14px 34px 24px;background:#fff;cursor:pointer;color:#191919}
+.wm-h>.av{width:66px;height:66px;border-radius:9px;object-fit:cover;flex:none}
+.wm-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;padding-top:2px}
+.wm-t b{font-size:calc(21px*var(--fz,1));font-weight:600}
+.wm-t small{font-size:calc(14.5px*var(--fz,1));color:#7f7f7f}
+.wm-ps{display:flex;margin-top:6px}
+.wm-st{border:1px solid #d6d6d6;border-radius:15px;padding:3px 11px;font-size:calc(13.5px*var(--fz,1));color:#555;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wm-qr{width:18px;height:18px;color:#555;margin-top:34px}
+.wm-h>.wx-ch{margin-top:35px}
+.wxpg{background:#ededed}.wxpg .pg-h{background:#ededed}
+.wxpg .wx-g:first-child{margin-top:0}
+.wxpg .wx-g .row{position:relative;background:#fff;min-height:56px;padding:0 16px}
+.wsv{margin:8px;border-radius:8px;background:#07c160;display:flex;justify-content:flex-end;padding:30px 0}
+.wsv>div{width:50%;display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;cursor:pointer}
+.wsv svg{width:34px;height:34px}.wsv b{font-weight:400;font-size:calc(16px*var(--fz,1))}.wsv small{opacity:.75;font-size:calc(13px*var(--fz,1))}
+.chatapp.st-wx:is(.tb-disc,.tb-me) .pg-b,.wxpg .pg-b{padding:0;background:#ededed}
+.chatapp.st-wx.tb-ct .pg-h,.chatapp.st-wx .ct-wx{background:#ededed}
+.wsv{justify-content:center}.wxpg .pg-back{color:#191919}
