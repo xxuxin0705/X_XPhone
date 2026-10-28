@@ -1,7 +1,6 @@
 // 消息 · 微信样式的外壳：底栏（微信 / 通讯录 / 发现 / 我）、发现页、「我」页，照着现在的微信来
 import { S, D, saveD, esc, page, fx, form, toast, avOf, meObj, emit, C } from '../../core.js';
-import { get } from './data.js';
-import { feed, FA, feedRight, mountFeed, openFeed } from './feed.js';
+import { openFeed } from './feed.js';
 import { minePage } from './sticker.js';
 
 const O = d => `<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -21,7 +20,6 @@ export const WTN = { list: '微信', ct: '通讯录', feed: '发现', me: '我' 
 const CH = '<svg class="wx-ch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9.5 6l6 6-6 6"/></svg>';
 // 列表行左边的彩色小图标
 const IC = {
-  mo: '<svg viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 0 1 8.2 4.7L12 12z" fill="#f2c94c"/><path d="M20.2 7.2a9.5 9.5 0 0 1 0 9.6L12 12z" fill="#6fcf62"/><path d="M20.2 16.8A9.5 9.5 0 0 1 12 21.5V12z" fill="#38b8e8"/><path d="M12 21.5a9.5 9.5 0 0 1-8.2-4.7L12 12z" fill="#5b7be8"/><path d="M3.8 16.8a9.5 9.5 0 0 1 0-9.6L12 12z" fill="#e85b8a"/><path d="M3.8 7.2A9.5 9.5 0 0 1 12 2.5V12z" fill="#f2884b"/><circle cx="12" cy="12" r="3.3" fill="#fff"/></svg>',
   sv: '<svg viewBox="0 0 24 24" fill="none" stroke="#07c160" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c-5 0-9 3.4-9 7.6 0 2.2 1.1 4.2 2.9 5.6L5 20.3l3.8-1.8c1 .3 2.1.4 3.2.4 5 0 9-3.4 9-7.6s-4-7.8-9-7.8z"/><path d="M8.3 11.3l2.6 2.5 4.9-4.9"/></svg>',
   al: '<svg viewBox="0 0 24 24" fill="none" stroke="#2f7de1" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="1.5"/><path d="M3.5 17l5.2-5.4 4 4 2.6-2.6 5.2 5"/><circle cx="16" cy="9" r="1.4"/></svg>',
   em: '<svg viewBox="0 0 24 24" fill="none" stroke="#f2b632" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r=".6" fill="#f2b632"/><circle cx="15" cy="10" r=".6" fill="#f2b632"/><path d="M7.8 13.5c.9 2 2.4 3 4.2 3s3.3-1 4.2-3"/></svg>',
@@ -31,11 +29,6 @@ const IC = {
 const row = (a, ic, l, r = '') => `<div class="wx-r" data-a="${a}"><i class="wx-i">${ic}</i><b>${l}</b><span>${r}</span>${CH}</div>`;
 const wxid = m => m.wxid || (m.wxid = 'wxid_' + Math.random().toString(36).slice(2, 12), saveD(), m.wxid);
 
-// 发现：朋友圈一行，右边是最新发动态的人的头像
-export function disc() {
-  const p = D().posts.filter(x => x.a != 'me').sort((a, b) => b.ts - a.ts)[0], who = p && get(p.a);
-  return `<div class="wx-g">${row('wmo', IC.mo, '朋友圈', who ? `<img class="av" src="${esc(avOf(who))}">` : '')}</div>`;
-}
 // 我：头像、名字、微信号、二维码，下面一组组入口
 export function wxMe() {
   const m = meObj(), me = D().me;
@@ -44,7 +37,6 @@ export function wxMe() {
 }
 const sub = (title, body) => page({ title, cls: 'wxpg', model: () => D().me, body, acts: WXA });
 export const WXA = {
-  wmo: () => page({ title: '', live: 1, cls: 'feedpg st-wx fs-wx', after: mountFeed, right: feedRight, body: () => feed(), acts: FA }),
   myfeed: () => openFeed('me'),
   wst: async (x, t, e) => { e?.stopPropagation(); const r = await form('设置状态', [['sign', '状态']], { sign: D().me.sign || '' }); if (r) { D().me.sign = String(r.sign || '').trim(); saveD(); emit('chat'); } },
   wmi: () => sub('个人信息', () => { const f = fx(D().me), m = meObj(); return `<div class="wx-g"><div class="wx-r" data-a="img" data-x="av"><b>头像</b><span><img class="av" src="${esc(avOf(m))}"></span>${CH}</div>${f.inp('nick', '名字')}${f.inp('real', '真实姓名', 'text', C().name1 + '（默认酒馆里的名字）')}<div class="wx-r"><b>微信号</b><span>${esc(wxid(D().me))}</span></div></div><div class="wx-g">${f.inp('sign', '状态')}${f.inp('ps', '拍一拍', 'text', '如：的小脑袋')}</div>`; }),

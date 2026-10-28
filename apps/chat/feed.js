@@ -45,7 +45,7 @@ const cmBox = p => p.likes.length || p.cm.length ? `<div class="mo-ia">${p.likes
 function postWx(p) { // 微信朋友圈：白底列表，蓝名字，右下 ·· 按钮，灰底点赞评论区
   const au = auOf(p);
   return `<article class="mo wxm"><img class="av" src="${esc(avOf(au))}" data-a="pfeed" data-x="${p.a}"><div class="mo-m"><b class="mo-n" data-a="pfeed" data-x="${p.a}">${esc(nm(au))}</b>${p.c ? `<p class="mo-t">${tx(p.c, p.tr, p.id, au)}</p>` : ''}${imgs(p)}
-<div class="mo-f"><time>${ago(p.ts)}</time><b class="mo-ab" data-a="pmore" data-x="${p.id}">${FI.more}</b></div>${cmBox(p)}</div></article>`;
+<div class="mo-f"><time>${ago(p.ts)}</time><b class="mo-ab" data-a="pmore" data-x="${p.id}"><svg viewBox="0 0 24 24" fill="#576b95"><circle cx="8.3" cy="12" r="2.1"/><circle cx="15.7" cy="12" r="2.1"/></svg></b></div>${cmBox(p)}</div></article>`;
 }
 function postQq(p) { // QQ空间：圆头像 + 名字，正文，时间和 赞 / 评论 / 分享 同一行，下面“说点什么吧...”
   const au = auOf(p), me = meObj();

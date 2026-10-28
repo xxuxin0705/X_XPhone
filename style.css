@@ -1576,6 +1576,10 @@
 .wsv{margin:8px;border-radius:8px;background:#07c160;display:flex;justify-content:flex-end;padding:30px 0}
 .wsv>div{width:50%;display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;cursor:pointer}
 .wsv svg{width:34px;height:34px}.wsv b{font-weight:400;font-size:calc(16px*var(--fz,1))}.wsv small{opacity:.75;font-size:calc(13px*var(--fz,1))}
-.chatapp.st-wx:is(.tb-disc,.tb-me) .pg-b,.wxpg .pg-b{padding:0;background:#ededed}
+.chatapp.st-wx.tb-me .pg-b,.wxpg .pg-b{padding:0;background:#ededed}
 .chatapp.st-wx.tb-ct .pg-h,.chatapp.st-wx .ct-wx{background:#ededed}
 .wsv{justify-content:center}.wxpg .pg-back{color:#191919}
+/* 微信朋友圈：封面顶到最上面，状态栏压在封面上变白 */
+:is(.chatapp.tb-feed,.feedpg).st-wx:not(.alpg){padding-top:0}
+.stp-scr:has(.stack>.pg:last-child:is(.chatapp.tb-feed,.feedpg).st-wx:not(.alpg))>.sb{color:#fff}
+.feed.mz-wx .mo-ab{width:32px;height:21px}.feed.mz-wx .mo-ab svg{width:22px;height:22px}

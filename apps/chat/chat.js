@@ -3,7 +3,7 @@ import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, 
 import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 import { feed, FA, openFeed, feedRight, mountFeed } from './feed.js';
-import { WT, WTN, disc, wxMe, WXA, wxTitle } from './wx.js';
+import { WT, WTN, wxMe, WXA, wxTitle } from './wx.js';
 export { openFeed };
 export { openChat, applyDelta };
 
@@ -393,10 +393,10 @@ export const chatIcon = (st = S.style || 'wx') => { probe(); const u = S.icons['
 reg({
   id: 'chat', skin: 1, get name() { return CSN[S.style] || CSN.wx; }, get icon() { return chatIcon(); },
   open: () => page({
-    cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; }, get noBack() { return S.style == 'wx' && !msel; },
-    title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : S.style == 'wx' ? (tab == 'me' ? '' : wxTitle(tab)) : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],
-    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : S.style == 'wx' && tab == 'list' ? `<b data-a="lsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>` : S.style == 'wx' && tab != 'ct' ? '' : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? feedRight() : '',
-    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : S.style == 'wx' ? (tab == 'feed' ? disc() : wxMe()) : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + (S.style == 'wx' && tab == 'feed' ? 'disc' : tab)); ctBind(el); if (tab == 'feed' && S.style != 'wx') mountFeed(el); },
+    cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; }, get noBack() { return S.style == 'wx' && !msel && tab != 'feed'; },
+    title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : S.style == 'wx' ? (tab == 'me' || tab == 'feed' ? '' : wxTitle(tab)) : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],
+    right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : S.style == 'wx' && tab == 'list' ? `<b data-a="lsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>` : S.style == 'wx' && tab == 'me' ? '' : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? feedRight() : '',
+    body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : S.style == 'wx' ? wxMe() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + tab); ctBind(el); if (tab == 'feed') mountFeed(el); },
     acts: {
       ...FA, ...CTA, ...WXA, aiInit, lsrch: (x, t, e, pg) => { tab = 'ct'; ctS = 1; msel = null; pg.re(); setTimeout(() => $('[data-ctq]', pg.el)?.focus(), 30); }, tab: (x, t, e, pg) => { tab = x; msel = null; ctS = 0; pg.re(); }, ...MS, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
       jump: (x, t, e, pg) => { const b = $('.pg-b', pg.el), s = /[↑☆]/.test(x) ? (b.scrollTop = 0, null) : $(`[data-l="${x}"]`, b) || [...$$('[data-l]', b)].find(h => h.dataset.l > x); s && (b.scrollTop += (s.getBoundingClientRect().top - b.getBoundingClientRect().top) * b.offsetHeight / b.getBoundingClientRect().height); }, open: (id, t, e, pg) => msel ? MS.mtog(id, t, e, pg) : openChat(id),
