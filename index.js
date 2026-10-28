@@ -61,7 +61,7 @@ function init() {
   bind(ui.root); applyTheme(); initDesk(); show(); pos();
   drag(ui.root, $('#stp .sb'), 'win'); drag($('#stp-ball'), $('#stp-ball'), 'ball', () => toggle());
   ui.sheets.addEventListener('click', e => e.target == ui.sheets && ui.sheets.lastElementChild?._pg.close());
-  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz|perf)/.test(k) && show(); k == 'perf' && renderDesk(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(true); });
+  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz|perf)/.test(k) && show(); /^(perf|style)$/.test(k) && renderDesk(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(true); });
   on('open-chat', id => { toggle(true); openChat(id); });
   on('home', () => randWall());
   on('badge', () => ui.root.classList.contains('on') || $('#stp-ball').classList.add('dot'));

@@ -378,8 +378,17 @@ const ctBind = el => { if (el._ctq) return; el._ctq = 1; el.addEventListener('in
   $$('[data-sec]', b).forEach(s => { v && s.tagName == 'DETAILS' && (s.open = true); s.hidden = !!v && !s.querySelector('[data-q]:not([hidden])'); });
 }); };
 let tab = 'list';
+// 桌面上的名字和图标跟着聊天样式走（默认微信）；每种样式都能单独换成自己的图片
+const CSN = { wx: '微信', qq: 'QQ', kk: 'KakaoTalk', line: 'LINE' };
+const CSI = {
+  wx: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.5 4C5.4 4 2 6.8 2 10.2c0 1.9 1 3.6 2.7 4.7L4 17.5l3-1.6c.8.2 1.6.3 2.5.3 4.1 0 7.5-2.8 7.5-6.2S13.6 4 9.5 4z"/><path opacity=".8" d="M22 14.6c0-2.3-1.7-4.3-4.2-5.2l.1.9c0 4-3.7 7.2-8.4 7.4 1.1 1.4 3.1 2.3 5.3 2.3.6 0 1.2-.1 1.8-.2l2.4 1.2-.5-2c1.4-1 2.5-2.6 2.5-4.4z"/></svg>',
+  qq: '<span class="csi cs-qq"><svg viewBox="0 0 24 24"><path fill="#fff" d="M12 3.5c-5 0-9 3.3-9 7.5 0 2.4 1.3 4.5 3.4 5.9L5.8 20l3.6-2c.8.2 1.7.3 2.6.3 5 0 9-3.3 9-7.5S17 3.5 12 3.5z"/><path fill="#1e9bff" d="m12 7.2 1.1 2.4 2.6.3-1.9 1.8.5 2.6-2.3-1.3-2.3 1.3.5-2.6-1.9-1.8 2.6-.3z"/></svg></span>',
+  kk: '<span class="csi cs-kk"><svg viewBox="0 0 24 24"><path fill="#3a2a22" d="M6.5 4h11A3.5 3.5 0 0 1 21 7.5v6a3.5 3.5 0 0 1-3.5 3.5H11l-4.6 3.3.7-3.3h-.6A3.5 3.5 0 0 1 3 13.5v-6A3.5 3.5 0 0 1 6.5 4z"/><circle cx="8" cy="10.5" r="1.3" fill="#fee500"/><circle cx="12" cy="10.5" r="1.3" fill="#fee500"/><circle cx="16" cy="10.5" r="1.3" fill="#fee500"/></svg></span>',
+  line: '<span class="csi cs-line"><svg viewBox="0 0 24 24"><path fill="#fff" d="M7 3.5h10a4 4 0 0 1 4 4v6.5a4 4 0 0 1-4 4h-4.2L8 21v-3H7a4 4 0 0 1-4-4V7.5a4 4 0 0 1 4-4z"/><path fill="#06c755" d="M12 14.6s-3.4-2-3.4-4.2c0-1.1.8-1.9 1.8-1.9.7 0 1.3.4 1.6.9.3-.5.9-.9 1.6-.9 1 0 1.8.8 1.8 1.9 0 2.2-3.4 4.2-3.4 4.2z"/></svg></span>',
+};
+export const chatIcon = (st = S.style || 'wx') => S.icons['chat.' + st] ? `<img src="${esc(S.icons['chat.' + st])}">` : CSI[st] || CSI.wx;
 reg({
-  id: 'chat', name: '聊天', icon: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M9.5 4C5.4 4 2 6.8 2 10.2c0 1.9 1 3.6 2.7 4.7L4 17.5l3-1.6c.8.2 1.6.3 2.5.3 4.1 0 7.5-2.8 7.5-6.2S13.6 4 9.5 4z"/><path opacity=".8" d="M22 14.6c0-2.3-1.7-4.3-4.2-5.2l.1.9c0 4-3.7 7.2-8.4 7.4 1.1 1.4 3.1 2.3 5.3 2.3.6 0 1.2-.1 1.8-.2l2.4 1.2-.5-2c1.4-1 2.5-2.6 2.5-4.4z"/></svg>',
+  id: 'chat', skin: 1, get name() { return CSN[S.style] || CSN.wx; }, get icon() { return chatIcon(); },
   open: () => page({
     cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; },
     title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],

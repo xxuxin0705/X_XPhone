@@ -1522,3 +1522,10 @@
 .ast-mock i:nth-child(2){left:8%;top:30%;width:46%;height:17%}
 .ast-mock i:nth-child(3){right:8%;top:56%;width:40%;height:17%}
 .row>span>.ico.mini{display:inline-grid;vertical-align:middle;width:26px;height:26px;border-radius:7px;margin-right:9px;box-shadow:none}
+
+/* 消息图标跟着聊天样式换 */
+.ico>.csi{position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit}
+.ico>.csi svg{width:62%;height:62%}
+.cs-qq{background:linear-gradient(150deg,#7fd8ff,#1e9bff)}
+.cs-kk{background:linear-gradient(150deg,#ffef5c,#fbd800)}
+.cs-line{background:linear-gradient(150deg,#3ee07f,#05b74c)}

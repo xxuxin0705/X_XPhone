@@ -39,7 +39,7 @@ export const WK = {
 const def = () => ({ pages: [[W('clock', 4, 2, { ...WK.clock.d }), W('ccd', 2, 2, { ...WK.ccd.d }), A('isle'), A('street')]], dock: [A('chat'), A('music'), A('theme'), A('settings')] });
 
 let edit = 0, cur = 0, moved = 0;
-export const icon = id => S.icons[id] ? `<img src="${esc(S.icons[id])}">` : APPS[id]?.icon || '';
+export const icon = id => S.icons[id] && !APPS[id]?.skin ? `<img src="${esc(S.icons[id])}">` : APPS[id]?.icon || '';
 const x = id => `<b class="x" data-a="del" data-x="${id}">−</b>`;
 const item = (it, pos = '') => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h} k-${it.k} ${WK[it.k]?.cls || ''}"${pos} data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}${tpl(WK[it.k]?.r(it.p || {}, it))}</div>`
   : `<div class="it app"${pos} data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}<div class="ico ${it.t == 'folder' ? 'fdi' : 'a-' + it.app}">${it.t == 'folder' ? it.apps.map(a => `<i class="ico a-${a}">${icon(a)}</i>`).join('') : icon(it.app)}</div><span>${esc(it.t == 'folder' ? it.name : APPS[it.app]?.name)}</span></div>`;
