@@ -1,75 +1,132 @@
-/* 窥探之眼：夜里的书桌（CSS 3D 透视），暖黄台灯光、深胡桃木、一点红 */
-#stp .eye-pg { background: #0d0a09; color: #f3e4bf; padding-top: 0; }
+/* 窥探之眼：深夜客厅（assets/eye/room.webp 是整张底图，不另画东西）；电视屏 / 全息屏是前端叠上去的 */
+#stp .eye-pg { background: #06070c; color: #dfe8ff; padding-top: 0; }
 #stp .eye-pg .pg-h { display: none; }
-#stp .eye-pg .pg-b { padding: 0 !important; overflow: hidden; position: relative; background: #0d0a09; }
-.stp-scr:has(.stack > .pg:last-child.eye-pg) > .sb { color: #f3e4bf; }
+#stp .eye-pg .pg-b { padding: 0 !important; overflow: hidden; position: relative; background: #06070c; }
+.stp-scr:has(.stack > .pg:last-child.eye-pg) > .sb { color: #dfe8ff; }
 
-.eye-stage { position: absolute; inset: 0; overflow: hidden; perspective: 1000px; perspective-origin: 50% 36%; background: radial-gradient(ellipse 120% 70% at 50% 18%, #2b221d 0, #15100e 55%, #0a0807 100%); touch-action: none; user-select: none; -webkit-user-select: none; }
-.eye-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 80% 70% at 50% 45%, transparent 55%, rgba(0, 0, 0, .55) 100%); }
+.eye-stage { position: absolute; inset: 0; overflow: hidden; background: #06070c; touch-action: none; user-select: none; -webkit-user-select: none; perspective: 900px; }
+/* 聚光灯：手指在哪，哪里亮一点 */
+.eye-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3; background: radial-gradient(circle 150px at var(--mx) var(--my), rgba(170, 200, 255, .10), transparent 70%), radial-gradient(ellipse 85% 75% at 50% 45%, transparent 50%, rgba(0, 0, 0, .55) 100%); }
 
-/* 世界：先把桌子斜过来，再推近、平移到要看的东西 */
-.eye-world { position: absolute; left: 50%; top: 50%; width: 600px; height: 760px; margin: -300px 0 0 -300px; transform-style: preserve-3d; transform: translateY(var(--dy, 0px)) rotateX(var(--rx, 56deg)) scale(var(--s, 1)) translate(var(--tx, 0px), var(--ty, 0px)); transition: transform .95s cubic-bezier(.22, .82, .18, 1); will-change: transform; }
-.eye-desk { position: absolute; inset: 0; transform-style: preserve-3d; border-radius: 12px; background: linear-gradient(180deg, #4a3226 0%, #3a271d 55%, #2b1b14 100%); box-shadow: 0 40px 60px -20px rgba(0, 0, 0, .8), inset 0 0 0 2px rgba(255, 255, 255, .03); }
-.eye-grain { position: absolute; inset: 0; border-radius: inherit; background: repeating-linear-gradient(94deg, rgba(255, 230, 190, .035) 0 2px, transparent 2px 9px, rgba(0, 0, 0, .08) 9px 10px, transparent 10px 23px), repeating-linear-gradient(0deg, transparent 0 140px, rgba(0, 0, 0, .06) 140px 142px); pointer-events: none; }
-.eye-light { position: absolute; inset: -60px; pointer-events: none; background: radial-gradient(ellipse 360px 300px at 14% 16%, rgba(255, 214, 140, .34) 0, rgba(255, 200, 120, .12) 45%, transparent 72%), radial-gradient(ellipse 160px 140px at 83% 30%, rgba(255, 60, 60, .14) 0, transparent 70%); }
-.eye-sheet { position: absolute; left: var(--x); top: var(--y); width: 118px; height: 150px; background: #efe8d8; transform: translate(-50%, -50%) rotate(var(--r)); box-shadow: 0 6px 10px rgba(0, 0, 0, .35); opacity: .92; }
-.eye-sheet::before { content: ''; position: absolute; inset: 18px 14px; background: repeating-linear-gradient(0deg, transparent 0 12px, rgba(60, 50, 40, .12) 12px 13px); }
-.eye-sheet.s2 { width: 90px; height: 110px; background: #e6dcc6; }
+/* 房间：整张图；推镜 = 放大 + 以热区中心为原点 */
+.eye-room { position: absolute; inset: 0; transform-origin: 50% 50%; transform: translate(var(--tx), var(--ty)) scale(var(--s)); transition: transform 1s cubic-bezier(.22, .82, .18, 1); will-change: transform; }
+/* 底图按原比例铺满（cover）：fit 框保持 1024:1466，宽不够就按高撑，所有百分比热区都挂在 fit 上 */
+.eye-room .fit { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%); }
+.eye-room .fit > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 
-/* 桌上的东西 */
-.eo { position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h); transform: translate(-50%, -50%) rotate(var(--r, 0deg)); transform-style: preserve-3d; filter: drop-shadow(0 12px 10px rgba(0, 0, 0, .45)); transition: filter .5s, opacity .5s; }
-.eo svg { display: block; width: 100%; height: 100%; }
-.eo.stand { transform-origin: 50% 100%; transform: translate(-50%, -100%) rotateX(-90deg); filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .4)); }
-.eo.tap { cursor: pointer; }
-.eo.tap:active { filter: drop-shadow(0 12px 10px rgba(0, 0, 0, .45)) brightness(1.08); }
-.eo-eye { filter: drop-shadow(0 0 16px rgba(255, 42, 42, .5)) drop-shadow(0 6px 6px rgba(0, 0, 0, .5)); }
-.eye-pupil { transform-box: fill-box; transform-origin: center; animation: eye-pulse 3.2s ease-in-out infinite; }
-@keyframes eye-pulse { 0%, 100% { transform: scale(1); opacity: .85 } 50% { transform: scale(1.08); opacity: 1 } }
-.eye-steam { animation: eye-steam 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
-@keyframes eye-steam { 0%, 100% { opacity: .2; transform: translateY(2px) } 50% { opacity: .6; transform: translateY(-3px) } }
-/* 推近以后，别的东西退到后面去 */
-.eye-stage.zoom .eo:not(.on) { opacity: .45; }
-#stp:not(.lite) .eye-stage.zoom .eo:not(.on) { filter: drop-shadow(0 12px 10px rgba(0, 0, 0, .45)) blur(1.2px); }
-.eye-stage.zoom .eye-sheet { opacity: .5; }
+/* 热区：平时看不见；点中以后用一圈很淡的流光边框标出来 */
+.hz { position: absolute; display: block; cursor: pointer; border-radius: 6px; }
+.hz::before { content: ''; position: absolute; inset: -3px; border-radius: inherit; opacity: 0; transition: opacity .4s; background: conic-gradient(from var(--a, 0deg), transparent 0 70%, rgba(120, 200, 255, .9) 85%, transparent 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; padding: 1.5px; }
+.hz.on::before { opacity: 1; animation: hz-spin 2.4s linear infinite; }
+@property --a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes hz-spin { to { --a: 360deg } }
+.hz:active { background: rgba(120, 200, 255, .06); }
 
-/* 灯光里飘的灰尘 */
-.eye-dust { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #ffe6b4; opacity: 0; pointer-events: none; animation: eye-dust 9s linear infinite; }
-.eye-dust:nth-child(3n) { width: 2px; height: 2px; }
-@keyframes eye-dust { 0% { opacity: 0; transform: translate(0, 0) } 15% { opacity: .55 } 85% { opacity: .35 } 100% { opacity: 0; transform: translate(26px, -90px) } }
-#stp.lite .eye-dust { display: none; }
-#stp.lite .eo, #stp.lite .eo.stand, #stp.lite .eo-eye { filter: none; }
+/* 电视屏：底图上那块空白屏的位置（左 33.6% 上 14.9% 右 78.2% 下 32.5%） */
+.tv-scr { position: absolute; left: 33.6%; top: 14.9%; width: 44.6%; height: 17.6%; overflow: hidden; border-radius: 2px; pointer-events: none; background: #0b1424; }
+.tv-pic { position: absolute; inset: 0; background: linear-gradient(180deg, #4a4a9a 0%, #a66aa0 42%, #f3b27a 62%, #ffd9a0 100%); overflow: hidden; }
+.tv-pic.f-manga { background: linear-gradient(180deg, #f4f0e6, #ddd6c6); filter: grayscale(1) contrast(1.15); }
+.tv-pic.f-drama { background: linear-gradient(180deg, #1c2a44 0%, #3a4a66 50%, #6a7a90 100%); }
+.tv-pic.f-novel { background: linear-gradient(180deg, #2b2336, #6a4a4a 60%, #d9b27a); }
+.tv-pic.f-game { background: linear-gradient(180deg, #0a1a3a, #1a3a7a 55%, #ff5a9a); }
+.tv-sun { position: absolute; left: 60%; top: 42%; width: 14%; aspect-ratio: 1; border-radius: 50%; background: #fff3d0; box-shadow: 0 0 18px #ffe0a0; }
+.tv-hill { position: absolute; left: -5%; right: -5%; bottom: -4%; height: 42%; background: #2a2340; border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+.tv-hill.h2 { left: 30%; right: -20%; height: 30%; background: #1a1630; }
+.tv-rain { position: absolute; inset: 0; background: repeating-linear-gradient(105deg, transparent 0 14px, rgba(255, 255, 255, .13) 14px 15px); opacity: .55; animation: tv-rain 1.4s linear infinite; }
+@keyframes tv-rain { to { transform: translateY(26px) } }
+.f-anime .tv-rain, .f-game .tv-rain { display: none; }
+.tv-dm { position: absolute; inset: 0; overflow: hidden; }
+.tv-dm span { position: absolute; left: 100%; top: calc(8% + var(--i) * 11%); font-size: 7px; color: #fff; text-shadow: 0 0 3px #000; white-space: nowrap; animation: tv-dm 7s linear infinite; animation-delay: calc(var(--i) * -1.3s); }
+@keyframes tv-dm { to { transform: translateX(-260px) } }
+.tv-sub { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 8px; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); color: #fff; }
+.tv-sub b { display: block; font-size: 6px; opacity: .8; letter-spacing: .5px; }
+.tv-sub small { display: block; font-size: 7px; margin-top: 1px; }
+/* 打破第四面墙：电视变成一只盯着你的眼睛 */
+.tv-wall { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, #2a0a0a, #0a0303 70%); display: grid; place-items: center; animation: tv-flicker 3s steps(2) infinite; }
+.tv-eye { width: 34%; aspect-ratio: 2 / 1; border: 2px solid #ff2a2a; border-radius: 50% / 50%; position: relative; box-shadow: 0 0 14px #ff2a2a, inset 0 0 10px rgba(255, 42, 42, .4); animation: tv-blink 5s ease-in-out infinite; }
+.tv-eye i { position: absolute; left: 50%; top: 50%; width: 30%; aspect-ratio: 1; border-radius: 50%; margin: -15% 0 0 -15%; border: 2px solid #ff2a2a; }
+.tv-eye i::after { content: ''; position: absolute; inset: 30%; border-radius: 50%; background: #ff2a2a; }
+@keyframes tv-blink { 0%, 44%, 50%, 100% { transform: scaleY(1) } 47% { transform: scaleY(.08) } }
+@keyframes tv-flicker { 50% { filter: brightness(.9) } }
 
-/* 顶上：回到桌面 / 形态（预览用） */
-.eye-top { position: absolute; left: 12px; right: 12px; top: calc(var(--sbh) * .68 + 10px); display: flex; align-items: center; justify-content: space-between; gap: 8px; z-index: 6; }
-.eye-back { display: inline-flex; align-items: center; height: 32px; padding: 0 14px 0 10px; border-radius: 16px; background: rgba(20, 16, 14, .66); color: #f3e4bf; font-size: calc(13px * var(--fz, 1)); font-weight: 600; cursor: pointer; opacity: 0; pointer-events: none; transform: translateX(-8px); transition: opacity .3s, transform .3s; backdrop-filter: blur(10px); }
+/* 监控的红灯（底图上灯的位置） + 帷幕的光晕 + 窗的月光，全部是呼吸的 */
+.led { position: absolute; left: 76.4%; top: 5.9%; width: 1.4%; aspect-ratio: 1; border-radius: 50%; background: #ff3a3a; box-shadow: 0 0 6px 2px #ff2a2a, 0 0 18px 6px rgba(255, 42, 42, .35); animation: led 2.2s ease-in-out infinite; pointer-events: none; }
+.wall .led { animation-duration: .7s; box-shadow: 0 0 8px 3px #ff2a2a, 0 0 30px 12px rgba(255, 42, 42, .5); }
+@keyframes led { 50% { opacity: .35 } }
+.curtain-glow { position: absolute; left: 88%; top: 6%; width: 6%; height: 50%; background: radial-gradient(ellipse at 50% 50%, rgba(255, 170, 90, .28), transparent 70%); filter: blur(6px); animation: glow 4s ease-in-out infinite; pointer-events: none; }
+.moon-ray { position: absolute; left: 0; top: 0; width: 14%; height: 55%; background: linear-gradient(90deg, rgba(160, 190, 255, .10), transparent); animation: glow 6s ease-in-out infinite reverse; pointer-events: none; }
+@keyframes glow { 50% { opacity: .55 } }
+/* 推镜后，底图整体压暗一点，被点的那块靠聚光灯提亮 */
+.eye-stage.zoom .eye-room::after { content: ''; position: absolute; inset: 0; background: rgba(4, 6, 12, .35); pointer-events: none; }
+/* 推近电视时全息屏往下让一让，别挡着屏幕 */
+.eye-stage[data-focus="tv"] .holo { top: 62%; }
+
+/* 灰尘 */
+.eye-fx { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.dust { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #cfe0ff; opacity: 0; animation: dust 11s linear infinite; }
+.dust.d1 { left: 8%; top: 40%; } .dust.d2 { left: 5%; top: 28%; animation-delay: -3s; width: 2px; height: 2px } .dust.d3 { left: 12%; top: 48%; animation-delay: -6s } .dust.d4 { left: 10%; top: 20%; animation-delay: -8s; width: 2px; height: 2px } .dust.d5 { left: 3%; top: 44%; animation-delay: -1.5s } .dust.d6 { left: 14%; top: 34%; animation-delay: -5s; width: 2px; height: 2px }
+@keyframes dust { 0% { opacity: 0; transform: translate(0, 0) } 15% { opacity: .5 } 85% { opacity: .3 } 100% { opacity: 0; transform: translate(30px, -80px) } }
+#stp.lite .dust, #stp.lite .tv-rain { display: none; }
+
+/* 顶上 */
+.eye-top { position: absolute; left: 12px; right: 12px; top: calc(var(--sbh) * .68 + 10px); display: flex; align-items: center; justify-content: space-between; z-index: 6; }
+.eye-back { display: inline-flex; align-items: center; height: 32px; padding: 0 14px 0 10px; border-radius: 16px; background: rgba(10, 14, 24, .62); color: #dfe8ff; font-size: calc(13px * var(--fz, 1)); font-weight: 600; cursor: pointer; opacity: 0; pointer-events: none; transform: translateX(-8px); transition: opacity .3s, transform .3s; backdrop-filter: blur(10px); border: 1px solid rgba(120, 200, 255, .25); }
 .eye-back.show { opacity: 1; pointer-events: auto; transform: none; }
-.eye-forms { display: flex; gap: 4px; margin-left: auto; padding: 3px; border-radius: 18px; background: rgba(20, 16, 14, .62); backdrop-filter: blur(10px); }
-.eye-forms span { padding: 0 9px; height: 26px; line-height: 26px; border-radius: 13px; font-size: calc(11.5px * var(--fz, 1)); color: rgba(243, 228, 191, .72); cursor: pointer; white-space: nowrap; }
-.eye-forms span.on { background: #f3e4bf; color: #1b1614; font-weight: 600; }
-.eye-brand { position: absolute; left: 18px; bottom: 26px; display: flex; align-items: center; gap: 9px; z-index: 5; transition: opacity .3s; pointer-events: none; }
-.eye-stage.zoom .eye-brand { opacity: 0; }
-.eye-brand i { width: 26px; height: 16px; border: 2px solid #ff2a2a; border-radius: 50% / 50%; position: relative; box-shadow: 0 0 10px rgba(255, 42, 42, .5); }
-.eye-brand i::after { content: ''; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #ff2a2a; }
-.eye-brand span { font-size: calc(15px * var(--fz, 1)); font-weight: 700; letter-spacing: 3px; color: #f3e4bf; }
-.eye-brand small { font-size: calc(11px * var(--fz, 1)); color: rgba(243, 228, 191, .6); letter-spacing: 1px; }
+.eye-brand { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: calc(13px * var(--fz, 1)); font-weight: 700; letter-spacing: 2px; color: #dfe8ff; text-shadow: 0 1px 6px #000; }
+.eye-brand i { width: 20px; height: 12px; border: 2px solid #ff2a2a; border-radius: 50% / 50%; position: relative; box-shadow: 0 0 8px rgba(255, 42, 42, .6); }
+.eye-brand i::after { content: ''; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: #ff2a2a; }
+.eye-brand small { font-weight: 400; letter-spacing: .5px; opacity: .6; font-size: calc(10.5px * var(--fz, 1)); }
 
-/* 底下浮出来的玻璃卡 */
-.eye-card { position: absolute; left: 12px; right: 12px; bottom: 16px; z-index: 8; padding: 10px 18px 10px; border-radius: 22px; background: rgba(26, 20, 18, .74); backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%); color: #f3e4bf; box-shadow: 0 16px 36px -14px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .08); transform: translateY(115%); opacity: 0; transition: transform .6s cubic-bezier(.22, .82, .18, 1), opacity .35s; }
-.eye-card.in { transform: none; opacity: 1; }
-#stp.lite .eye-card { background: rgba(26, 20, 18, .95); }
-.eye-grab { display: block; width: 36px; height: 4px; margin: 0 auto 12px; border-radius: 2px; background: rgba(243, 228, 191, .3); }
-.eye-card > small { display: block; font-size: calc(10.5px * var(--fz, 1)); letter-spacing: 2.5px; color: rgba(243, 228, 191, .62); margin-bottom: 6px; }
-.eye-card > b { display: block; font-size: calc(21px * var(--fz, 1)); font-weight: 700; line-height: 1.25; letter-spacing: 1px; }
-.eye-card > em { display: block; font-style: normal; font-size: calc(12.5px * var(--fz, 1)); color: rgba(243, 228, 191, .68); margin-top: 5px; }
-.eye-card > p { margin: 10px 0 2px; font-size: calc(13.5px * var(--fz, 1)); line-height: 1.65; color: rgba(243, 228, 191, .9); }
-.eye-posts { margin: 10px 0 2px; display: flex; flex-direction: column; }
-.eye-posts > div { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 8px; padding: 7px 0; border-top: 1px solid rgba(243, 228, 191, .1); font-size: calc(13px * var(--fz, 1)); }
-.eye-posts > div:first-child { border-top: 0; }
-.eye-posts span { color: #ffb3a8; font-size: calc(11.5px * var(--fz, 1)); white-space: nowrap; }
-.eye-posts b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.eye-posts small { color: rgba(243, 228, 191, .5); font-size: calc(11px * var(--fz, 1)); }
-.eye-acts { margin-top: 10px; border-top: 1px solid rgba(243, 228, 191, .14); }
-.eye-acts button { all: unset; display: flex; align-items: center; justify-content: space-between; width: 100%; height: 42px; font-size: calc(14px * var(--fz, 1)); font-weight: 600; color: #f3e4bf; cursor: pointer; }
-.eye-acts button + button { border-top: 1px solid rgba(243, 228, 191, .08); }
-.eye-acts button i { font-style: normal; color: rgba(243, 228, 191, .5); font-size: 18px; }
-.eye-acts button:active { opacity: .7; }
+/* ===== 全息屏：浮在他面前，蓝色、玻璃、扫描线、流光边框 ===== */
+.holo { position: absolute; left: 50%; top: 44%; width: min(88%, 340px);  transform: translate(-50%, -56%) perspective(800px) rotateX(10deg) scale(.86); opacity: 0; transition: transform .7s cubic-bezier(.22, .82, .18, 1), opacity .4s; z-index: 5; display: flex; flex-direction: column;
+  border-radius: 10px; color: #d8ecff; background: linear-gradient(160deg, rgba(60, 150, 255, .20), rgba(10, 50, 130, .34) 60%, rgba(40, 120, 255, .18)); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: 0 0 0 1px rgba(140, 210, 255, .55), 0 0 26px rgba(80, 180, 255, .45), inset 0 0 40px rgba(90, 190, 255, .18), 0 30px 60px -20px rgba(0, 0, 0, .8); }
+.holo.in { transform: translate(-50%, -56%) perspective(800px) rotateX(6deg) scale(1); opacity: 1; }
+/* 全息屏下面一道光束连到手机 */
+.holo-beam { position: absolute; left: 50%; top: 52%; width: 120px; height: 120px; transform: translateX(-50%); z-index: 4; pointer-events: none; opacity: 0; transition: opacity .5s; background: linear-gradient(0deg, rgba(90, 190, 255, .22), transparent); clip-path: polygon(44% 100%, 56% 100%, 100% 0, 0 0); }
+.holo-beam.in { opacity: 1; }
+#stp.lite .holo { backdrop-filter: none; background: rgba(12, 40, 90, .9); }
+.holo::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(170, 225, 255, .08) 0 1px, transparent 1px 3px); }
+.holo::after { content: ''; position: absolute; left: 0; right: 0; height: 30%; top: -30%; pointer-events: none; background: linear-gradient(180deg, transparent, rgba(170, 225, 255, .18), transparent); animation: sweep 3.2s linear infinite; }
+@keyframes sweep { to { top: 110% } }
+.ho-c { position: absolute; width: 12px; height: 12px; border: 2px solid #9fe0ff; filter: drop-shadow(0 0 4px #5ad0ff); }
+.ho-c.c1 { left: -2px; top: -2px; border-right: 0; border-bottom: 0 } .ho-c.c2 { right: -2px; top: -2px; border-left: 0; border-bottom: 0 } .ho-c.c3 { left: -2px; bottom: -2px; border-right: 0; border-top: 0 } .ho-c.c4 { right: -2px; bottom: -2px; border-left: 0; border-top: 0 }
+.holo .ho-h { display: flex; align-items: center; gap: 8px; padding: 11px 14px 9px; border-bottom: 1px solid rgba(140, 210, 255, .35); font-size: calc(11px * var(--fz, 1)); letter-spacing: 2.5px; font-family: ui-monospace, Menlo, monospace; }
+.holo .ho-h i { width: 7px; height: 7px; border-radius: 50%; background: #ff4a5a; box-shadow: 0 0 8px #ff4a5a; animation: led 1.6s ease-in-out infinite; }
+.holo .ho-h small { margin-left: auto; font-size: 9px; opacity: .7; letter-spacing: 1px; }
+.holo .ho-b { padding: 10px 14px 8px; overflow: auto; scrollbar-width: none; flex: 0 1 auto; max-height: 44vh; }
+.holo .ho-t { display: block; font-size: calc(19px * var(--fz, 1)); line-height: 1.3; font-weight: 700; letter-spacing: 1px; color: #fff; text-shadow: 0 0 10px rgba(120, 200, 255, .6); }
+.holo .ho-m { display: block; font-style: normal; font-size: calc(11.5px * var(--fz, 1)); color: rgba(216, 236, 255, .7); margin-top: 4px; }
+.holo p { margin: 10px 0 4px; font-size: calc(13px * var(--fz, 1)); line-height: 1.65; color: rgba(230, 242, 255, .92); }
+.ho-list { list-style: none; margin: 10px 0 2px; padding: 0; }
+.ho-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; padding: 8px 0; border-top: 1px dashed rgba(140, 210, 255, .22); font-size: calc(12.5px * var(--fz, 1)); position: relative; overflow: hidden; }
+.ho-list li:first-child { border-top: 0; }
+.ho-list li[data-a] { cursor: pointer; }
+.ho-list b { color: #7fe0ff; font-weight: 500; white-space: nowrap; }
+.ho-list span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ho-list em { font-style: normal; font-size: 10.5px; color: #ffb0c0; }
+.ho-apps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 14px 0 6px; }
+.ho-apps b { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: calc(11px * var(--fz, 1)); font-weight: 500; cursor: pointer; position: relative; overflow: hidden; padding: 4px 0; border-radius: 10px; }
+.ho-apps b i { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(145deg, color-mix(in srgb, var(--c) 70%, #fff), var(--c)); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, .5); transition: transform .25s; }
+.ho-apps b:active i { transform: scale(.9); }
+.ho-forms { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 4px; }
+.ho-forms b { padding: 7px 12px; border-radius: 14px; border: 1px solid rgba(140, 210, 255, .35); font-size: calc(12px * var(--fz, 1)); cursor: pointer; position: relative; overflow: hidden; }
+.ho-forms b.on { background: rgba(120, 200, 255, .25); border-color: #9fe0ff; box-shadow: 0 0 10px rgba(120, 200, 255, .4); }
+.ho-bars { margin: 12px 0 4px; display: flex; flex-direction: column; gap: 7px; }
+.ho-bars div { display: grid; grid-template-columns: 58px 1fr 34px; gap: 8px; align-items: center; font-size: calc(12px * var(--fz, 1)); }
+.ho-bars i { height: 8px; border-radius: 4px; background: rgba(140, 210, 255, .15); position: relative; overflow: hidden; }
+.ho-bars i::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: var(--v); border-radius: 4px; background: linear-gradient(90deg, #5ad0ff, #9fe0ff); box-shadow: 0 0 8px #5ad0ff; animation: bar .9s cubic-bezier(.22, .82, .18, 1) both; }
+@keyframes bar { from { width: 0 } }
+.ho-bars em { font-style: normal; text-align: right; color: #7fe0ff; font-size: 11px; }
+.ho-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 4px; }
+.ho-grid b { aspect-ratio: 1; border-radius: 8px; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 80%, #fff), var(--c)); display: flex; align-items: flex-end; padding: 6px; font-size: calc(10.5px * var(--fz, 1)); font-weight: 500; color: #fff; text-shadow: 0 1px 3px #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15); }
+.ho-dm { position: relative; height: 54px; margin: 10px -14px 0; overflow: hidden; border-top: 1px dashed rgba(140, 210, 255, .22); }
+.ho-dm span { position: absolute; left: 100%; top: calc(6px + var(--i) * 9px); font-size: 11px; white-space: nowrap; color: #fff; text-shadow: 0 0 4px #5ad0ff; animation: tv-dm 6s linear infinite; animation-delay: calc(var(--i) * -1.1s); }
+.ho-acts { border-top: 1px solid rgba(140, 210, 255, .3); flex: none; }
+.ho-acts button { all: unset; display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; padding: 0 14px; height: 42px; font-size: calc(13.5px * var(--fz, 1)); font-weight: 600; color: #dfefff; cursor: pointer; position: relative; overflow: hidden; }
+.ho-acts button + button { border-top: 1px solid rgba(140, 210, 255, .15); }
+.ho-acts button i { font-style: normal; color: #7fe0ff; font-size: 18px; }
+.ho-acts button:active { background: rgba(120, 200, 255, .12); }
+/* 点击涟漪 */
+.rip { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: rgba(160, 220, 255, .45); pointer-events: none; animation: rip .7s ease-out forwards; }
+@keyframes rip { to { transform: scale(26); opacity: 0 } }
