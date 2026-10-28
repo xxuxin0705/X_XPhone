@@ -1,5 +1,5 @@
 // 小手机 · 主题：桌面主题 / 壁纸 / 小组件 / 气泡样式 / 头像框 / 表情包 / 图标 / 自定义CSS
-import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok } from '../../core.js';
+import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok, emit } from '../../core.js';
 import { renderDesk, icon, addDeskWidget } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
 import { lock, lockMig, custKind, lockClk } from '../../lock.js';
@@ -107,6 +107,23 @@ async function addWall() { const f = await pickFile(); if (!f) return; task('正
 export function randWall() { if (!S.wrand) return; const P = (S.wpool || []).filter(id => id == 'theme' || WALLS().some(w => w.id == id)); if (!P.length) return; const cur = curWall(), c = P.length > 1 ? P.filter(x => x != cur) : P, id = c[Math.random() * c.length | 0]; S.wall = id == 'theme' ? '' : WALLS().find(w => w.id == id).img; save(); applyTheme(); }
 async function edit(k, a) { const r = await form((a ? '编辑' : '新建') + AK[k].n, AK[k].f, a || {}); if (!r) return; a ? Object.assign(a, r) : S.assets[k].push({ id: uid(), ...r }); save(); rf(); }
 
+// 应用美化：每个应用自己选样式（以后可以从资源库导入自定义方案）。现在只有「消息」有好几种：微信 / QQ / KakaoTalk / LINE
+const AST = {
+  chat: { n: '消息', key: 'style', list: [['wx', '微信', ['#ededed', '#ededed', '#ffffff', '#95ec69']], ['qq', 'QQ', ['#f1f2f6', '#f1f2f6', '#ffffff', '#0099ff']], ['kk', 'KakaoTalk', ['#bacee0', '#bacee0', '#ffffff', '#fee500']], ['line', 'LINE', ['#7494c0', '#8cabd9', '#ffffff', '#85e249']]] },
+  music: { n: '音乐', list: [['', '默认', ['#f5f5f7', '#ffffff', '#f0f0f3', '#fc3d49']]] },
+  isle: { n: '心屿', list: [['', '默认', ['#f6f3e9', '#f6f3e9', '#e4e9dc', '#456b5e']]] },
+  street: { n: '商业街', list: [['', '默认', ['#fbf3e6', '#fbf3e6', '#fff7ec', '#d9483f']]] },
+};
+const mock = ([h, pg, inB, outB]) => `<span class="ast-mock" style="background:${pg}"><i style="background:${h}"></i><i style="background:${inB}"></i><i style="background:${outB}"></i></span>`;
+const astCur = k => { const a = AST[k]; return a.key ? S[a.key] || a.list[0][0] : ''; };
+const astName = k => AST[k].list.find(x => x[0] == astCur(k))?.[1] || AST[k].list[0][1];
+function appStyle(k) {
+  const a = AST[k], pg = page({ title: a.n, cls: 'thm', body: () => `<div class="card ast-g">${a.list.map(([v, n, c]) => `<div class="ast ${astCur(k) == v ? 'on' : ''}" data-a="astpick" data-x="${v}">${mock(c)}<em>${esc(n)}</em></div>`).join('')}</div>`
+    + (k == 'chat' ? sec('ast-chat', [['bubble', `气泡样式 · ${S.assets.bubble.length}`, `<div class="ag">${S.assets.bubble.map(x => `<div class="ai" data-a="ae" data-x="bubble:${x.id}" data-lp="ad"><b>${esc(x.name.slice(0, 2))}</b><small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="bubble">＋</div></div>${btn('af', '导入文件', 'bubble')}`]]) : ''),
+    acts: { astpick: v => { if (!a.key) return; S[a.key] = v; save(); emit('chat'); pg.re(); }, aa: k2 => edit(k2), ae: x => { const [k2, id] = x.split(':'); edit(k2, S.assets[k2].find(y => y.id == id)); },
+      ad: async x => { const [k2, id] = x.split(':'), l = S.assets[k2], it = l.find(y => y.id == id); if (await menu([['x', '删除', 'danger']], esc(it.name)) == 'x') { drop(l.splice(l.indexOf(it), 1)); save(); pg.re(); } },
+      af: async k2 => { const fl = await pickFile(AK[k2].file); if (!fl) return; S.assets[k2].push({ id: uid(), name: fl.name.replace(/\.\w+$/, ''), css: await fl.text() }); save(); pg.re(); } } });
+}
 // 壁纸页（设置 → 锁屏与密码 里点「锁屏壁纸」/「桌面壁纸」直接打开，不用跳到主题）
 const WA = {
   lw: k => pickLock(k), lwc: id => pickLock('c:' + id), lwadd: () => upVid(), lprev: () => lock(true),
@@ -134,9 +151,8 @@ reg({
       ['lk', '锁屏壁纸 · 动态', lockSec()],
       ['lkc', '锁屏时间', clkSec()],
       ['wp', '壁纸', wallSec()],
-      ...Object.entries(AK).map(([k, a]) => [k, `${a.n} · ${S.assets[k].length}`, `<div class="ag">${S.assets[k].map(x => `<div class="ai" data-a="ae" data-x="${k}:${x.id}" data-lp="ad">${x.img ? `<img src="${esc(x.img)}">` : `<b>${esc(x.name.slice(0, 2))}</b>`}<small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="${k}">＋</div></div>${a.file ? btn('af', '导入文件', k) : ''}${k == 'sticker' ? btn('ab', '批量导入链接') : ''}<p class="tip">点击编辑 · 长按删除${k == 'widget' ? ' / 添加到桌面' : ''}</p>`]),
-      ['ic', '应用图标', Object.values(APPS).map(a => `<div class="row" data-a="ic" data-x="${a.id}"><span>${a.name}</span><div class="ico mini a-${a.id}">${icon(a.id)}</div></div>`).join('')],
-      ['css', '自定义 CSS', f.area('css', '全局 CSS，作用于整个小手机（字体、颜色…）', '#stp{font-family:"LXGW WenKai"}')],
+      ['apps', '应用', Object.entries(AST).map(([k, a]) => `<div class="row go" data-a="astopen" data-x="${k}"><span><i class="ico mini a-${k}">${icon(k)}</i>${esc(a.n)}</span><small>${esc(astName(k))}</small></div>`).join('')],
+      ['widget', `小组件 · ${S.assets.widget.length}`, `<div class="ag">${S.assets.widget.map(x => `<div class="ai" data-a="ae" data-x="widget:${x.id}" data-lp="ad"><b>${esc(x.name.slice(0, 2))}</b><small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="widget">＋</div></div>${btn('af', '导入文件', 'widget')}`],
     ]); },
     acts: {
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
@@ -152,6 +168,7 @@ reg({
       clkfd: async k => { const id = k.slice(2), f = userFonts().find(x => x.id == id); if (!f || !await ok(`删除字体「${f.n}」？`)) return; userFonts().splice(userFonts().indexOf(f), 1); drop(f.src); lockClk().font == k && (S.lock.clk.font = 'nunito'); save(); reClk(); },
       clkset: (x, el) => { const k = el.dataset.k2; lockClk()[k] = k == 'h12' ? !!x : x; save(); reClk(); },
       clkf: k => { lockClk().font = k; S.lock.clk.wt = ''; save(); reClk(); }, clkp: k => { lockClk().pos = k; save(); reClk(); },
+      astopen: k => appStyle(k),
       th: (k, t, e, pg) => { S.theme = k; save(); applyTheme(); renderDesk(); pg.re(); },
       aa: k => edit(k), ae: x => { const [k, id] = x.split(':'); edit(k, S.assets[k].find(a => a.id == id)); },
       ad: async x => {

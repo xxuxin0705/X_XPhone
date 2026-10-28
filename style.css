@@ -1511,3 +1511,14 @@
 :is(.chatapp.tb-feed,.feedpg) .pg-r .feed-header-btn[data-a=fgen] svg{width:18px}
 :is(.chatapp.tb-feed,.feedpg).st-wx:not(.alpg) .pg-h:not(.feed-header-solid) .pg-t{opacity:0}
 :is(.chatapp.tb-feed,.feedpg).st-wx:not(.alpg) .pg-h.feed-header-solid .pg-t{opacity:1;color:#111;font-size:15px}
+
+/* 主题 → 应用：每个应用选样式（小预览：顶栏 + 对方气泡 + 我方气泡） */
+.ast-g{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:12px}
+.ast{display:flex;flex-direction:column;align-items:center;gap:7px;padding:6px 6px 8px;border-radius:14px;border:2px solid transparent;cursor:pointer}
+.ast.on{border-color:var(--ac)}.ast em{font-style:normal;font-size:calc(13px*var(--fz,1))}
+.ast-mock{position:relative;display:block;width:100%;aspect-ratio:1.5;border-radius:10px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.ast-mock i{position:absolute;display:block;border-radius:6px}
+.ast-mock i:nth-child(1){left:0;right:0;top:0;height:18%;border-radius:0}
+.ast-mock i:nth-child(2){left:8%;top:30%;width:46%;height:17%}
+.ast-mock i:nth-child(3){right:8%;top:56%;width:40%;height:17%}
+.row>span>.ico.mini{display:inline-grid;vertical-align:middle;width:26px;height:26px;border-radius:7px;margin-right:9px;box-shadow:none}
