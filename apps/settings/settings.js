@@ -3,6 +3,7 @@ import { C, S, D, G, $$, on, save, saveD, esc, uid, reg, page, top, fx, btn, sec
 import { syncStory } from '../chat/chat.js';
 import { drop, migrateMedia, MDIR, openApp } from '../../core.js';
 import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
+import { wallPage, wallName } from '../theme/theme.js';
 import { libList, voicePage, people } from '../chat/voice.js';
 import { ballPicker, ballUrl, ballName } from '../../ball.js';
 import { localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
@@ -255,21 +256,23 @@ function stkp() {
   });
 }
 function lockp() {
-  lockMig(); const need = () => { const L = S.lock, r = () => pg.re(); L.type == 'fp' ? L.fpSet || askFp(r) : L.pin || askPin(r); };
+  lockMig(); const need = () => { const L = S.lock, r = () => { (L.type == 'fp' ? L.fpSet : L.pin) || (L.pw = false, save()); pg.re(); }; L.type == 'fp' ? L.fpSet ? r() : askFp(r) : L.pin ? r() : askPin(r); }; // 没设成功（中途取消）就把「启用密码」关回去
+  // 打开「启用密码」：先选用数字密码还是指纹，再去设置那一种
+  const pick = async () => { const k = await menu([['pin', '数字密码'], ['fp', '指纹']], '解锁方式'); if (!k) { S.lock.pw = false; save(); return pg.re(); } S.lock.type = k; save(); need(); };
   const pg = page({
     title: '锁屏与密码', onClose: rf,
     onChange: k => { // 打开密码 / 换类型时，没设过就立刻让用户设置
-      (k == 'lock.pw' && S.lock.pw || k == 'lock.type') && need(); pg.re();
+      k == 'lock.pw' && S.lock.pw ? pick() : k == 'lock.type' && need(); pg.re();
     },
     body: () => { const f = fx(S), L = S.lock; return sec('lock', [
-      ['l', '锁屏', f.tog('lock.on', '启用锁屏') + (L.on ? f.inp('lock.text', '锁屏签名', 'text', '显示在时间下面，可留空') + `<div class="row go" data-a="lwp"><span>锁屏壁纸</span><small>${esc(wpName())}</small></div>` : '')
-        + `<p class="tip">开启后，每次收起或关掉小手机再打开，会先显示锁屏，从底部向上滑动解锁。锁屏壁纸在「主题」里切换。</p>` + btn('lprev', '预览锁屏')],
+      ['l', '锁屏', f.tog('lock.on', '启用锁屏') + (L.on ? f.inp('lock.text', '锁屏签名', 'text', '显示在时间下面，可留空') : '') + btn('lprev', '预览锁屏')],
+      ['w', '壁纸', `<div class="row go" data-a="lwp"><span>锁屏壁纸</span><small>${esc(wpName())}</small></div><div class="row go" data-a="dwp"><span>桌面壁纸</span><small>${esc(wallName())}</small></div>`],
       L.on && ['p', '密码', f.tog('lock.pw', '启用密码') + (L.pw ? f.seg('lock.type', [['pin', '数字密码'], ['fp', '指纹']])
         + (L.type == 'fp' ? `<div class="row go" data-a="sfp"><span>${L.fpSet ? '重新录入指纹' : '录入指纹'}</span><small>${L.fpSet ? '已录入' : '未录入'}</small></div><p class="tip">指纹是模拟效果：锁屏底部会出现指纹感应区，按住、纹路扫满就解锁（网页拿不到真实指纹，谁按都能开）。指纹模式下没有数字密码，只能按指纹解锁。</p>`
           : `<div class="row go" data-a="spin"><span>${L.pin ? '修改' : '设置'}数字密码</span><small>${L.pin ? '已设置' : '未设置'}</small></div>`) : '')
         + (L.pw && L.type == 'pin' ? '<p class="tip">🔑 备用密码 <b>0000</b>：不能修改，永远有效。忘记数字密码时在锁屏输入 0000 就能进入。</p>' : '')],
     ]); },
-    acts: { lprev: () => lock(true), lwp: () => openApp('theme'), spin: () => askPin(() => pg.re()), sfp: () => askFp(() => pg.re()) },
+    acts: { lprev: () => lock(true), lwp: () => wallPage('lock'), dwp: () => wallPage('desk'), spin: () => askPin(() => pg.re()), sfp: () => askFp(() => pg.re()) },
   });
 }
 

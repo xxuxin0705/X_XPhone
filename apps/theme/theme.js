@@ -37,7 +37,7 @@ const tile = it => `<div class="lw cu ${lon('c:' + it.id) ? 'on' : ''}" data-a="
 const lon = k => S.lock.rand ? (S.lock.pool || []).includes(k) : S.lock.wp == k;
 const lockSec = () => { lockMig(); const sc = SCENES.some(x => x[0] == S.lock.wp) ? S.lock.wp : /^c:/.test(String(S.lock.wp)) ? '' : SCENES[0][0];
   return fx(S).tog('lock.rand', '随机锁屏<small>每次打开手机随机换一张勾选的锁屏</small>') + `<div class="lwg">${SCENES.map(([k, n]) => `<div class="lw ${(S.lock.rand ? lon(k) : sc == k) ? 'on' : ''}" data-a="lw" data-x="${k}"><canvas data-fx="${k}"></canvas><span>${n}</span></div>`).join('')}${LIB().map(tile).join('')}<div class="lw vid" data-a="lwadd"><i>＋</i><span>自定义</span></div></div>`
-  + btn('lprev', '预览锁屏', '', 'pri') + (S.lock.on ? '' : '<p class="tip">还没有开启锁屏：设置 → 锁屏与密码</p>'); };
+  + btn('lprev', '预览锁屏', '', 'pri'); };
 // 锁屏时间：预览 + 字体（每个格子用那个字体写出时间）+ 日期在上 / 下 + 农历 + 粗细 + 颜色
 const clkSec = () => { const c = lockClk(), f = fx(S);
   return `<div class="clk-set"><div class="clk-pv">${clkHtml(c, new Date())}</div><div class="clk-fs">${clkFonts().map(([k, n]) => `<div class="clk-f ${c.font == k ? 'on' : ''}" data-a="clkf" data-x="${esc(k)}"${k.startsWith('u:') ? ` data-lp="clkfd"` : ''}><b style="font-family:${clkFam(k)};font-weight:${clkWt(k)}">06:39</b><span>${esc(n)}</span></div>`).join('')}<div class="clk-f add" data-a="clkup"><b>＋</b><span>上传字体</span></div></div>`
@@ -107,6 +107,23 @@ async function addWall() { const f = await pickFile(); if (!f) return; task('正
 export function randWall() { if (!S.wrand) return; const P = (S.wpool || []).filter(id => id == 'theme' || WALLS().some(w => w.id == id)); if (!P.length) return; const cur = curWall(), c = P.length > 1 ? P.filter(x => x != cur) : P, id = c[Math.random() * c.length | 0]; S.wall = id == 'theme' ? '' : WALLS().find(w => w.id == id).img; save(); applyTheme(); }
 async function edit(k, a) { const r = await form((a ? '编辑' : '新建') + AK[k].n, AK[k].f, a || {}); if (!r) return; a ? Object.assign(a, r) : S.assets[k].push({ id: uid(), ...r }); save(); rf(); }
 
+// 壁纸页（设置 → 锁屏与密码 里点「锁屏壁纸」/「桌面壁纸」直接打开，不用跳到主题）
+const WA = {
+  lw: k => pickLock(k), lwc: id => pickLock('c:' + id), lwadd: () => upVid(), lprev: () => lock(true),
+  lwcm: async id => { const it = LIB().find(x => x.id == id); if (!it) return; const n = custKind(it), k = await menu([['s', '保存到手机'], ['d', '删除这张' + n, 'danger']], '自定义 · ' + n);
+    if (k == 's') saveOut(it);
+    if (k == 'd' && await ok(`删除这张锁屏${n}？文件也会一起删除`)) { LIB().splice(LIB().indexOf(it), 1); drop([it.img, it.video]); S.lock.wp == 'c:' + id && (S.lock.wp = SCENES[0][0]); save(); rf(); } },
+  wsel: id => pickWall(id), wadd: () => addWall(),
+  wdel: async id => { const w = WALLS().find(x => x.id == id); if (!w || !await ok('删除这张壁纸？')) return; WALLS().splice(WALLS().indexOf(w), 1); S.wpool = (S.wpool || []).filter(x => x != id); S.wall == w.img && (S.wall = ''); drop(w.img); save(); applyTheme(); rf(); },
+};
+const wpChange = k => { /wall|css/.test(k) && applyTheme(); k == 'wrand' && (S.wrand && !S.wpool?.length && (S.wpool = [curWall()]), save(), rf()); k == 'lock.rand' && (S.lock.rand && !S.lock.pool?.length && (S.lock.pool = [S.lock.wp]), save(), rf()); };
+export const wallName = () => { wallMig(); const i = WALLS().findIndex(w => w.img == S.wall); return S.wrand ? '随机' : i < 0 ? '主题壁纸' : '自定义图片'; };
+export function wallPage(kind) {
+  const L = kind == 'lock';
+  return page({ title: L ? '锁屏壁纸' : '桌面壁纸', cls: 'thm wpp', after: el => mountPv(el, top()), onClose: () => (pv.forEach(h => h.stop()), pv = []),
+    body: () => `<div class="card wps">${L ? lockSec() : wallSec()}</div>`, acts: WA, onChange: wpChange });
+}
+
 reg({
   id: 'theme', name: '主题', icon: '<svg viewBox="0 0 24 24"><path fill="#fff" d="M12 3a9 9 0 0 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.7-1.3-.7-2.1 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><g fill="#c7a6f5"><circle cx="7.5" cy="11" r="1.5"/><circle cx="10" cy="7" r="1.5"/></g><g fill="#ff9ec4"><circle cx="14.5" cy="7" r="1.5"/><circle cx="17" cy="10.5" r="1.4"/></g></svg>',
   open: () => page({
@@ -123,7 +140,7 @@ reg({
     ]); },
     acts: {
       ball: (k, el) => { setBall(k); el.parentElement.querySelectorAll('.bt').forEach(x => x.classList.toggle('on', x == el)); }, // 只换勾选，不重画页面
-      lw: k => pickLock(k), lprev: () => lock(true),
+      ...WA,
       // 安卓的文件选择器认不出 .otf / .ttf 的类型，会把字体变成灰的选不了，所以不限类型，选完再看文件头是不是字体
       clkup: async () => { const fl = await pickFile('*/*'); if (!fl) return; if (fl.size > 30e6) return toast('字体文件太大了');
         const h = new Uint8Array(await fl.slice(0, 4).arrayBuffer()), sig = String.fromCharCode(...h);
@@ -135,13 +152,6 @@ reg({
       clkfd: async k => { const id = k.slice(2), f = userFonts().find(x => x.id == id); if (!f || !await ok(`删除字体「${f.n}」？`)) return; userFonts().splice(userFonts().indexOf(f), 1); drop(f.src); lockClk().font == k && (S.lock.clk.font = 'nunito'); save(); reClk(); },
       clkset: (x, el) => { const k = el.dataset.k2; lockClk()[k] = k == 'h12' ? !!x : x; save(); reClk(); },
       clkf: k => { lockClk().font = k; S.lock.clk.wt = ''; save(); reClk(); }, clkp: k => { lockClk().pos = k; save(); reClk(); },
-      lwc: id => pickLock('c:' + id),
-      wsel: id => pickWall(id), wadd: () => addWall(),
-      wdel: async id => { const w = WALLS().find(x => x.id == id); if (!w || !await ok('删除这张壁纸？')) return; WALLS().splice(WALLS().indexOf(w), 1); S.wpool = (S.wpool || []).filter(x => x != id); S.wall == w.img && (S.wall = ''); drop(w.img); save(); applyTheme(); rf(); },
-      lwadd: () => upVid(),
-      lwcm: async id => { const it = LIB().find(x => x.id == id); if (!it) return; const n = custKind(it), k = await menu([['s', '保存到手机'], ['d', '删除这张' + n, 'danger']], '自定义 · ' + n);
-        if (k == 's') saveOut(it);
-        if (k == 'd' && await ok(`删除这张锁屏${n}？文件也会一起删除`)) { LIB().splice(LIB().indexOf(it), 1); drop([it.img, it.video]); S.lock.wp == 'c:' + id && (S.lock.wp = SCENES[0][0]); save(); rf(); } },
       th: (k, t, e, pg) => { S.theme = k; save(); applyTheme(); renderDesk(); pg.re(); },
       aa: k => edit(k), ae: x => { const [k, id] = x.split(':'); edit(k, S.assets[k].find(a => a.id == id)); },
       ad: async x => {
@@ -154,7 +164,7 @@ reg({
       ab: async () => { const r = await form('批量导入表情包', [['t', '每行一个：描述 + 空格 + 图片链接', 'area', '开心 https://xx.com/a.png\n委屈 https://xx.com/b.gif']]); let n = 0; r?.t?.split('\n').forEach(l => { const m = l.trim().match(/^(.*?)[\s:：|,，]*(https?:\/\/\S+)$/); if (m) { n++; S.assets.sticker.push({ id: uid(), name: m[1] || '表情' + n, img: m[2] }); } }); save(); toast(`已导入 ${n} 个`); rf(); },
       ic: async id => { const v = await pickImg(256, 'icon'), old = S.icons[id]; if (v == null) return; v ? (S.icons[id] = v) : delete S.icons[id]; save(); drop(old); renderDesk(); rf(); },
     },
-    onChange: k => { /wall|css/.test(k) && applyTheme(); k.startsWith('lock.clk') && reClk(); k == 'wrand' && (S.wrand && !S.wpool?.length && (S.wpool = [curWall()]), save(), rf()); k == 'lock.rand' && (S.lock.rand && !S.lock.pool?.length && (S.lock.pool = [S.lock.wp]), save(), rf()); },
+    onChange: k => { wpChange(k); k.startsWith('lock.clk') && reClk(); false && k == 'wrand' && (S.wrand && !S.wpool?.length && (S.wpool = [curWall()]), save(), rf()); k == 'lock.rand' && (S.lock.rand && !S.lock.pool?.length && (S.lock.pool = [S.lock.wp]), save(), rf()); },
   }),
 });
 
