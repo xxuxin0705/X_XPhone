@@ -25,7 +25,19 @@ function drag(el, h, key, tap) {
 }
 const pos = () => [[ui.root, 'win'], [$('#stp-ball'), 'ball']].forEach(([el, k]) => { el.style.left = el.style.top = el.style.right = el.style.bottom = ''; S.pos[k] && place(el, ...S.pos[k]); });
 // 收起手机 = 熄屏：开了锁屏的话，下次打开先看到锁屏
-const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || (relock(), emit('phone-open')); $('#stp-ball').classList.remove('dot'); $('.sb-t', ui.root).textContent = hm(now()); setTimeout(() => { tick(); ui.scr.classList.add('peek'); }, 520); } /* 打开动画放完就把锁屏底下的桌面先画好，上滑时不用临时画 */ else was && setTimeout(() => { if (ui.root.classList.contains('on')) return; relock(true); randWall(); }, 320); }; // 打开时不在动画里重画桌面；随机壁纸在收起时就换好 // 等收起动画结束再把锁屏重置好、画好
+const toggle = v => { ui.root.classList.contains('warm') && ui.root.classList.remove('warm', 'on'); const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || (relock(), emit('phone-open')); $('#stp-ball').classList.remove('dot'); $('.sb-t', ui.root).textContent = hm(now()); setTimeout(() => { tick(); ui.scr.classList.add('peek'); }, 520); } /* 打开动画放完就把锁屏底下的桌面先画好，上滑时不用临时画 */ else was && setTimeout(() => { if (ui.root.classList.contains('on')) return; relock(true); randWall(); setTimeout(() => prewarm(false), 200); }, 320); }; // 打开时不在动画里重画桌面；随机壁纸在收起时就换好 // 等收起动画结束再把锁屏重置好、画好
+// 预热：把手机里要用的图片（壁纸、锁屏、图标、组件照片）提前解码好，再在看不见的状态下把手机整个画一遍，
+// 第一次点开时就不用现场解码大图、现场画桌面；心屿的 3D 也顺手预热。收起手机换了随机壁纸 / 锁屏后再解码一次新图
+const urlsIn = root => { const u = new Set(); root.querySelectorAll('img').forEach(i => i.currentSrc && u.add(i.currentSrc)); [root, ...root.querySelectorAll('.stp-scr,.lock,.lk-bg,.desk,.it,.ico,.ccd-bg')].forEach(n => String(getComputedStyle(n).backgroundImage).replace(/url\(["']?([^"')]+)["']?\)/g, (_, x) => u.add(x))); return [...u].filter(x => !x.startsWith('data:image/svg')); };
+async function prewarm(paint) {
+  try {
+    await Promise.all(urlsIn(ui.root).slice(0, 80).map(src => { const i = new Image(); i.decoding = 'async'; i.src = src; return i.decode().catch(() => { }); }));
+    if (!paint || ui.root.classList.contains('on')) return;
+    ui.root.classList.add('warm', 'on'); ui.scr.classList.add('peek'); tick(true); emit('phone-open');
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 60))));
+    if (ui.root.classList.contains('warm')) { ui.root.classList.remove('on'); requestAnimationFrame(() => ui.root.classList.remove('warm')); }
+  } catch (e) { console.warn('[小手机] 预热失败', e); }
+}
 let lastT = ''; // 分钟变了才动；平时只改时间组件上的字（tickDesk），换聊天 / 改设置时才整桌重画
 function tick(force) { const t = hm(now()); $('.sb-t', ui.root).textContent = t; if (!ui.root.classList.contains('on') || ui.desk.classList.contains('edit') || (t == lastT && force !== true)) return; lastT = t; force === true ? renderDesk() : tickDesk(); }
 function show() {
@@ -60,6 +72,7 @@ function init() {
   });
   S.lock.on && !/^[cb]:/.test(String(S.lock.wp)) && preloadScene(S.lock.wp); // 锁屏要用的图先下载好，打开时不会先黑一下
   setInterval(tick, 3e4); tick(); syncInject(); relock();
+  setTimeout(() => (window.requestIdleCallback || (f => setTimeout(f, 300)))(() => prewarm(true), { timeout: 3000 }), 1200); // 酒馆加载完就在后台把小手机预热好
   // 锁屏时钟字体（加载不到就用系统衬线体）
   document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&display=swap">');
 }
