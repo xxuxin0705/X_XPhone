@@ -3,7 +3,7 @@ import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, 
 import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 import { feed, FA, openFeed, feedRight, mountFeed } from './feed.js';
-import { WT, WTN, wxMe, WXA, wxTitle } from './wx.js';
+import { WT, WTN, wxProf, wxMe, WXA, wxTitle } from './wx.js';
 export { openFeed };
 export { openChat, applyDelta };
 
@@ -347,7 +347,7 @@ export function newFr() {
   } });
 }
 function prof(id) {
-  const c = get(id), g = c.type == 'g';
+  const c = get(id), g = c.type == 'g'; if (!g && sty(c) == 'wx') return wxProf(id);
   page({ title: '', cls: 'profpg', live: 1, body: () => `<div class="pf"><img class="av" src="${esc(avOf(c))}"><div><b>${esc(nm(c))}</b>${c.remark && c.nick ? `<small>昵称：${esc(c.nick)}</small>` : ''}${c.real && !g ? `<small>真实姓名：${esc(c.real)}</small>` : ''}<small>${g ? '群号：' + c.no : '账号：' + esc(c.nick || c.id)}</small></div></div>
 <div class="card">${c.sign || c.notice ? `<div class="row"><span>${g ? '群公告' : '个性签名'}</span><small>${esc(g ? c.notice : c.sign)}</small></div>` : ''}${g ? `<div class="row"><span>群成员</span><small>${gsz(c)} 人</small></div>` : `<div class="row"><span>性别</span><small>${esc(c.sex || '未知')}</small></div><div class="row"><span>分组</span><small>${esc(c.grp || '我的好友')}</small></div>`}</div>
 ${btn('pchat', g ? '进入群聊' : '发消息', '', 'pri')}${g ? '' : btn('pfd', '查看' + FN[sty(c)])}${btn('pset', '资料与聊天设置')}`,

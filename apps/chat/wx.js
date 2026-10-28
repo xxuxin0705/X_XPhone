@@ -1,6 +1,8 @@
 // 消息 · 微信样式的外壳：底栏（微信 / 通讯录 / 发现 / 我）、发现页、「我」页，照着现在的微信来
-import { S, D, saveD, esc, page, fx, form, toast, avOf, meObj, emit, C } from '../../core.js';
-import { openFeed } from './feed.js';
+import { S, D, saveD, esc, page, fx, form, toast, avOf, meObj, emit, C, nm, back } from '../../core.js';
+import { openFeed, FA, postImages } from './feed.js';
+import { get, sty } from './data.js';
+import { openChat, cset } from './talk.js';
 import { minePage } from './sticker.js';
 
 const O = d => `<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -46,3 +48,18 @@ export const WXA = {
   wset: () => sub('设置', () => { const f = fx(D().me); return `<div class="wx-g">${f.img('cover', '朋友圈封面')}${f.img('fbg', '朋友圈背景')}</div>`; }),
 };
 export const wxTitle = tab => { if (tab != 'list') return WTN[tab]; const u = D().chats.reduce((a, c) => a + (c.unread || 0), 0); return u ? `微信(${u > 99 ? '99+' : u})` : '微信'; };
+
+// 朋友的资料页（照微信）：头像名字微信号 → 朋友资料 → 朋友圈缩略图 → 发消息
+export function wxProf(id) {
+  const c = get(id); if (!c) return;
+  const sx = c.sex == '女' ? '<i class="wp-sx f">♀</i>' : c.sex == '男' ? '<i class="wp-sx m">♂</i>' : '';
+  const th = () => { const ps = D().posts.filter(p => p.a == id).sort((a, b) => b.ts - a.ts), L = ps.flatMap(p => postImages(p)).slice(0, 4);
+    return L.length ? L.map(v => v.url ? `<img src="${esc(v.url)}">` : '<i class="wp-ph"></i>').join('') : ps[0] ? `<em>${esc(ps[0].c || '')}</em>` : ''; };
+  page({ title: '', cls: 'wxprof', live: 1, body: () => `<div class="wp-h"><img class="av" src="${esc(avOf(c))}"><div><b>${esc(nm(c))}${sx}</b>${c.remark && c.nick ? `<small>昵称：${esc(c.nick)}</small>` : ''}<small>微信号：${esc(wxid(c))}</small></div></div>`
+    + `<div class="wx-g"><div class="wx-r wp-fr" data-a="wpset"><div><b>朋友资料</b><small>添加朋友的备注名、电话、标签、备忘、照片等，并设置朋友权限。</small></div>${CH}</div></div>`
+    + `<div class="wx-g"><div class="wx-r" data-a="wpfd"><b class="wp-l">朋友圈</b><span class="wp-th">${th()}</span>${CH}</div></div>`
+    + `<div class="wx-g wp-b"><div data-a="wpchat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4.5c-4.7 0-8.5 3.1-8.5 7 0 2 1 3.9 2.7 5.1l-.6 2.9 3.3-1.7c1 .3 2 .5 3.1.5 4.7 0 8.5-3.1 8.5-6.9s-3.8-6.9-8.5-6.9z"/></svg>发消息</div></div>`,
+    acts: { wpset: () => cset(c), wpfd: () => openFeed(id), wpchat: () => { back(); openChat(id); } } });
+}
+// 朋友圈里点头像 / 名字：微信样式先进资料页
+const pf0 = FA.pfeed; FA.pfeed = (id, ...r) => id && id != 'me' && get(id)?.type == 'p' && sty(get(id)) == 'wx' ? wxProf(id) : pf0(id, ...r);

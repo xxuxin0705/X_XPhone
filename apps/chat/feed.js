@@ -38,7 +38,7 @@ const liked = p => p.likes.includes(nm(meObj()));
 const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))} <a class="f-r" data-a="crep" data-x="${p.id}|${i}">回复</a> <a class="f-r" data-a="fcdel" data-x="${p.id}|${i}">删除</a></div>`).join('');
 
 /* ---------- 三种样式的一条动态 ---------- */
-const postImages = p => p.images?.length ? p.images : p.url ? [{url:p.url}] : p.imgd ? [{description:p.imgd}] : [];
+export const postImages = p => p.images?.length ? p.images : p.url ? [{url:p.url}] : p.imgd ? [{description:p.imgd}] : [];
 const imgs = p => { const list=postImages(p); return list.length ? `<div class="mo-images n${list.length}">${list.map((v,i)=>`<button type="button" class="mo-photo" data-a="fphoto" data-x="${p.id}|${i}">${v.url ? `<img src="${esc(v.url)}" loading="lazy" alt="${esc(v.description || '动态配图')}">` : `<span>${FI.img}<small>${esc(v.description || v.prompt)}</small></span>`}</button>`).join('')}</div>${p.location ? `<div class="mo-location">${esc(p.location)}</div>` : ''}` : p.location ? `<div class="mo-location">${esc(p.location)}</div>` : ''; };
 
 const cmBox = p => p.likes.length || p.cm.length ? `<div class="mo-ia">${p.likes.length ? `<div class="mo-lk">${FI.heart}<span>${p.likes.map(dn).join('，')}</span></div>` : ''}${p.cm.length ? `<div class="mo-cs">${cms(p)}</div>` : ''}</div>` : '';
