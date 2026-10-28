@@ -21,7 +21,9 @@ const defs = `<defs>
 <linearGradient id="st-wall-m" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf1e1"/><stop offset="1" stop-color="#f1e0c4"/></linearGradient>
 <linearGradient id="st-wall-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9efe7"/><stop offset="1" stop-color="#bfe2d5"/></linearGradient>
 <linearGradient id="st-wall-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8cdc6"/><stop offset="1" stop-color="#f2b7ae"/></linearGradient>
-<radialGradient id="st-crois" cx=".5" cy=".38" r=".62"><stop offset="0" stop-color="#ffd58f"/><stop offset=".6" stop-color="#f0b060"/><stop offset="1" stop-color="#d4853c"/></radialGradient>
+<linearGradient id="st-crust" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2924a"/><stop offset=".5" stop-color="#eaa65e"/><stop offset="1" stop-color="#d98a45"/></linearGradient>
+<linearGradient id="st-crumb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6e2"/><stop offset="1" stop-color="#fbe6c2"/></linearGradient>
+<pattern id="st-pore" width="16" height="13" patternUnits="userSpaceOnUse"><ellipse cx="4" cy="4" rx="1.6" ry="1" fill="#efd3a2"/><ellipse cx="12" cy="10" rx="1.2" ry=".8" fill="#efd3a2"/></pattern>
 <radialGradient id="st-glow"><stop offset="0" stop-color="#fff6d6" stop-opacity=".95"/><stop offset="1" stop-color="#fff6d6" stop-opacity="0"/></radialGradient>
 <radialGradient id="st-glow2"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#fff3e0" stop-opacity="0"/></radialGradient>
 <pattern id="st-stp-l" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#fff"/><rect x="10" width="10" height="10" fill="${LIL2}"/></pattern>
@@ -109,24 +111,29 @@ ${r(x + 16, GY - 112, 160, 92, 'url(#st-glass)', 10, MNT2, 4)}${[0, 1].map(rw =>
 ${r(x + 192, GY - 116, 70, 116, MNT, 14, INK, SW)}${r(x + 202, GY - 104, 50, 44, 'url(#st-glass)', 10, MNT2, 2)}<circle cx="${x + 250}" cy="${GY - 52}" r="3.4" fill="${BUT2}" stroke="${INK}" stroke-width="1.2"/>
 ${awning(x - 6, GY - 150, w + 12, 'st-stp-m', '#fff')}${plate(x + 227, GY - 42, MNT2)}</g>`;
 }
-function sweetShop(x) { // 烘焙店：婴儿蓝，屋顶摆着一条大吐司和一只牛角包，橱窗里一排刚出炉的面包，门口一张小圆桌
-  const w = 230, top = 158, CR = '#f0b46a', CR2 = '#d98e45';
-  const loaf = (cx, cy, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})"><path d="M-30 10V-6c0-14 10-20 30-20s30 6 30 20V10z" fill="${CR}" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/><path d="M-30 -6c0-14 10-20 30-20s30 6 30 20c-4 4-10 4-14 0-4 4-12 4-16 0-4 4-12 4-16 0-4 4-10 4-14 0z" fill="#fbe2b4" stroke="${INK}" stroke-width="1.4"/>${ln('M-14 -16l6 8M0 -18l6 8M14 -16l5 7', CR2, 2)}</g>`;
-  // 牛角包：两头尖、中间鼓的一整条，外面斜斜地一圈圈卷着金黄的酥皮，顶上一道亮光
-  const crois = (cx, cy, s = 1) => { const top = x => -13 * (1 - (x / 28) ** 2) + 3, bot = x => 12 * (1 - (x / 28) ** 2) + 3;
-    const band = x0 => `<path d="M${x0 + 3} ${top(x0 + 3) + .5}Q${x0 - 3} ${(top(x0) + bot(x0)) / 2} ${x0 - 4} ${bot(x0 - 4) - .5}" fill="none" stroke="#c97a33" stroke-width="1.7" stroke-linecap="round"/><path d="M${x0 + 5.5} ${top(x0 + 5.5) + 1}Q${x0} ${(top(x0) + bot(x0)) / 2} ${x0 - 1.5} ${bot(x0 - 1.5) - 1}" fill="none" stroke="#ffe2a8" stroke-width="1" stroke-linecap="round" opacity=".9"/>`;
-    return `<g transform="translate(${cx} ${cy}) rotate(-8) scale(${s})"><path d="M-29 4C-24 -4 -14 -11 0 -11S24 -4 29 4C26 8 22 9 19 9C12 13 6 15 0 15S-12 13 -19 9C-22 9 -26 8 -29 4z" fill="url(#st-crois)" stroke="${INK}" stroke-width="1.5" stroke-linejoin="round"/>${[-18, -9, 0, 9, 18].map(band).join('')}<path d="M-12 -6Q0 -10 10 -6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".55"/></g>`; };
-  const bun = (cx, cy) => `<g transform="translate(${cx} ${cy})"><path d="M-12 4a12 11 0 0 1 24 0z" fill="${CR}" stroke="${INK}" stroke-width="1.3"/>${[-5, 0, 5].map(d => `<ellipse cx="${d}" cy="-3" rx="1" ry="1.6" fill="#fff"/>`).join('')}</g>`;
+function sweetShop(x) { // 烘焙店：整栋房子是一片竖着的大吐司——金黄的面包边包着奶白的芯，顶上鼓成蘑菇头、搭着一小块化开的黄油；
+  // 芯里挖出一个拱形店面：薄荷条纹棚、木架上摆满面包、玻璃柜台；门口一篮法棍、一张小圆桌
+  const w = 236, top = 118, sh = top + 96, CR = '#eaa65e', CR2 = '#c97a33', WD = '#d9a777';
+  const toast = d => `M${x} ${GY}V${sh}C${x - 16 + d} ${sh - 4} ${x - 24 + d} ${top + 50} ${x + 14} ${top + 22 + d}C${x + 54} ${top - 6 + d} ${x + w - 54} ${top - 6 + d} ${x + w - 14} ${top + 22 + d}C${x + w + 24 - d} ${top + 50} ${x + w + 16 - d} ${sh - 4} ${x + w} ${sh}V${GY}z`;
+  const inset = (() => { const d = 12, X = x + d, Wd = w - 2 * d, T = top + d, S = sh + 2; return `M${X} ${GY}V${S}C${X - 12} ${S - 4} ${X - 18} ${T + 46} ${X + 12} ${T + 20}C${X + 48} ${T - 4} ${X + Wd - 48} ${T - 4} ${X + Wd - 12} ${T + 20}C${X + Wd + 18} ${T + 46} ${X + Wd + 12} ${S - 4} ${X + Wd} ${S}V${GY}z`; })();
+  const bun = (cx, cy, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})"><path d="M-11 3a11 10 0 0 1 22 0z" fill="${CR}" stroke="${INK}" stroke-width="1.3"/><path d="M-6 -3q6-4 12 0" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></g>`;
+  const loaf = (cx, cy, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})"><path d="M-15 6V-3q0-9 15-9t15 9v9z" fill="${CR}" stroke="${INK}" stroke-width="1.4"/>${ln('M-8 -6l3 4M-1 -8l3 4M6 -6l3 4', CR2, 1.4)}</g>`;
+  const bag = (cx, cy, a) => `<g transform="translate(${cx} ${cy}) rotate(${a})"><rect x="-4.5" y="-30" width="9" height="40" rx="4.5" fill="${CR}" stroke="${INK}" stroke-width="1.3"/>${ln('M-2 -22l4 -3M-2 -12l4 -3M-2 -2l4 -3', CR2, 1.3)}</g>`;
+  const ax = x + 30, aw = w - 60, at = GY - 150;
   return `<g class="st-shop" data-a="stshop" data-x="sweet" filter="url(#st-soft)">
-${r(x + 6, top, w - 12, GY - top, 'url(#st-wall-b)', 0)}<rect x="${x + 6}" y="${top}" width="${w - 12}" height="${GY - top}" fill="url(#st-dots)"/>
-${r(x - 6, top - 14, w + 12, 18, '#fff', 9)}${frost(x - 6, top + 4, w + 12, PCH)}
-${loaf(x + w / 2 - 18, top - 24)}${crois(x + w / 2 + 40, top - 20, .8)}${spark(x + w / 2 + 64, top - 50, .9, BUT2)}${spark(x + w / 2 - 56, top - 44, .7, '#fff')}
-${win(x + 30, top + 22, 50, 56, 'arch', SKY2)}${win(x + w - 80, top + 22, 50, 56, 'arch', SKY2)}
-${r(x, GY - 116, w, 116, CRM, 0)}${r(x, GY - 20, w, 20, SKY2, 0)}${r(x + 14, GY - 100, 110, 78, 'url(#st-glass)', 10, SKY2, 4)}
-${ln(`M${x + 20} ${GY - 62}h98M${x + 20} ${GY - 32}h98`, SKY2, 2.4)}${loaf(x + 44, GY - 74, .5)}${crois(x + 90, GY - 70, .55)}${bun(x + 36, GY - 36)}${bun(x + 64, GY - 36)}${crois(x + 100, GY - 40, .45)}
-${r(x + 140, GY - 104, 64, 104, PCH, 14, INK, SW)}${r(x + 150, GY - 94, 44, 38, 'url(#st-glass)', 10, '#e7a98c', 2)}
-${cloud(x + 40, GY - 172, w - 80, '烘焙店', '#fff', SKY2, 21)}${awning(x - 6, GY - 128, w + 12, 'st-stp-c', '#fff')}
-<g transform="translate(${x + 72} ${GY + 2})">${r(-24, -32, 48, 6, '#fff', 3)}${ln('M0 -26V0M-12 0h24', INK, 2)}<path d="M-6 -44h12v10h-12z" fill="#fff" stroke="${INK}" stroke-width="1.2"/>${heart(0, -50, .45)}</g>${plate(x + 172, GY - 40, SKY2)}</g>`;
+<path d="${toast(0)}" fill="url(#st-crust)" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/>
+<path d="${inset}" fill="url(#st-crumb)" stroke="${CR2}" stroke-width="1.4" stroke-linejoin="round"/><path d="${inset}" fill="url(#st-pore)"/>
+${ln(`M${x + 40} ${top + 12}q30 -10 60 -6`, '#fff', 3)}
+<g transform="translate(${x + w - 74} ${top + 4}) rotate(7)"><path d="M-6 4v8q0 6 4 6t4-6v-8z" fill="#ffeb8a" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>${r(-18, -10, 36, 15, '#fff3b0', 4, INK, 1.5)}<path d="M-18 1h36" stroke="#f5dc7a" stroke-width="3"/>${ln('M-11 -5h12', '#fff', 2)}</g>
+<g transform="translate(${x + w / 2} ${top + 60})">${r(-58, -17, 116, 34, '#fff', 17, SKY2, 2.4)}<text y="8" text-anchor="middle" class="st-hand" font-size="22" fill="${SKY2}">烘焙店</text>${spark(-68, -12, .8, BUT2)}${heart(64, -18, .6)}</g>
+<path d="M${ax} ${GY}V${at + aw / 2}a${aw / 2} ${aw / 2} 0 0 1 ${aw} 0V${GY}z" fill="#f6dcc0" stroke="${INK}" stroke-width="${SW}"/>
+${r(ax + 12, at + 58, aw - 24, 6, WD, 3, INK, 1.2)}${r(ax + 12, at + 88, aw - 24, 6, WD, 3, INK, 1.2)}
+${loaf(ax + 30, at + 52, .8)}${bun(ax + 56, at + 54)}${bun(ax + 78, at + 54)}${loaf(ax + 104, at + 52, .8)}${bun(ax + 130, at + 54, .9)}
+${bun(ax + 26, at + 84, .9)}${loaf(ax + 52, at + 82, .75)}${bun(ax + 80, at + 84)}${bun(ax + 102, at + 84, .9)}${loaf(ax + 128, at + 82, .75)}
+${r(ax + 8, GY - 46, aw - 16, 46, WD, 4, INK, SW)}${r(ax + 14, GY - 62, aw - 28, 18, 'url(#st-glass)', 4, INK, 1.4)}${bun(ax + 40, GY - 50, .7)}${loaf(ax + aw / 2, GY - 50, .6)}${bun(ax + aw - 40, GY - 50, .7)}${ln(`M${ax + 20} ${GY - 22}h${aw - 40}`, '#c08955', 1.4)}
+${awning(ax - 10, at + 8, aw + 20, 'st-stp-c', '#fff')}
+<g transform="translate(${x + w - 6} ${GY})">${bag(-8, -12, -12)}${bag(0, -14, -2)}${bag(8, -12, 10)}<path d="M-16 -18h32l-4 18h-24z" fill="#e8c38f" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/>${ln('M-14 -12h28M-13 -6h26', '#c99a62', 1.2)}</g>
+<g transform="translate(${x + 6} ${GY + 2})">${r(-22, -30, 44, 6, '#fff', 3)}${ln('M0 -24V0M-11 0h22', INK, 2)}<path d="M-5 -42h10v10h-10z" fill="#fff" stroke="${INK}" stroke-width="1.2"/>${heart(0, -48, .45)}</g>${plate(ax + aw - 14, at + aw / 2 + 4, SKY2)}</g>`;
 }
 function clawShop(x) { // 娃娃机：一整台大娃娃机立在街边——顶上一圈小灯泡的招牌，大玻璃箱里吊着三爪钩、底下堆满玩偶，前面操作台有摇杆和按钮，下面出货口
   const w = 172, t = 86, gy = t + 52, gb = gy + 138, cp = gb + 24;
