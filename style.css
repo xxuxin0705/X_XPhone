@@ -5,7 +5,7 @@
   font:calc(14px*var(--fz,1))/1.45 -apple-system,"SF Pro Text","PingFang SC","HarmonyOS Sans SC","MiSans","Roboto","Microsoft YaHei",sans-serif!important;color:var(--pt);-webkit-font-smoothing:antialiased;user-select:none;text-align:left}
 #stp:not(.on){visibility:hidden;transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.15),visibility 0s .45s}
 #stp.on{opacity:1;pointer-events:auto;transform:scale(var(--sc))}
-#stp{will-change:transform,opacity}.lock{will-change:transform}
+#stp{will-change:transform,opacity}.lock{will-change:transform}.lk-ui{will-change:opacity}
 /* 锁着的时候锁屏底下的桌面 / 应用不画（液态玻璃很费），手指按上锁屏才画出来 */
 .stp-scr.locked:not(.peek)>.desk,.stp-scr.locked:not(.peek)>.stack{visibility:hidden}
 #stp *{box-sizing:border-box}#stp,#stp :where(:not(i):not(.clk-t):not(.clk-d):not(pre):not(code)){font-family:inherit}

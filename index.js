@@ -25,7 +25,7 @@ function drag(el, h, key, tap) {
 }
 const pos = () => [[ui.root, 'win'], [$('#stp-ball'), 'ball']].forEach(([el, k]) => { el.style.left = el.style.top = el.style.right = el.style.bottom = ''; S.pos[k] && place(el, ...S.pos[k]); });
 // 收起手机 = 熄屏：开了锁屏的话，下次打开先看到锁屏
-const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || (relock(), emit('phone-open')); $('#stp-ball').classList.remove('dot'); $('.sb-t', ui.root).textContent = hm(now()); setTimeout(tick, 480); } else was && setTimeout(() => { if (ui.root.classList.contains('on')) return; relock(true); randWall(); }, 320); }; // 打开时不在动画里重画桌面；随机壁纸在收起时就换好 // 等收起动画结束再把锁屏重置好、画好
+const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || (relock(), emit('phone-open')); $('#stp-ball').classList.remove('dot'); $('.sb-t', ui.root).textContent = hm(now()); setTimeout(() => { tick(); ui.scr.classList.add('peek'); }, 520); } /* 打开动画放完就把锁屏底下的桌面先画好，上滑时不用临时画 */ else was && setTimeout(() => { if (ui.root.classList.contains('on')) return; relock(true); randWall(); }, 320); }; // 打开时不在动画里重画桌面；随机壁纸在收起时就换好 // 等收起动画结束再把锁屏重置好、画好
 let lastT = ''; // 分钟变了才动；平时只改时间组件上的字（tickDesk），换聊天 / 改设置时才整桌重画
 function tick(force) { const t = hm(now()); $('.sb-t', ui.root).textContent = t; if (!ui.root.classList.contains('on') || ui.desk.classList.contains('edit') || (t == lastT && force !== true)) return; lastT = t; force === true ? renderDesk() : tickDesk(); }
 function show() {

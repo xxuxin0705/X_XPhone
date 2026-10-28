@@ -138,7 +138,7 @@ const tip = preview => { if (!fx?.interactive) return; const h = $('.lk-hint spa
 const hintText = preview => preview ? '预览 · 从底部上滑退出' : fpOn() ? '按住指纹解锁' : '从底部向上滑动解锁';
 // 动态锁屏可以互动（雪地写字、点圣诞树…）：从屏幕底部上滑才是解锁；其他地方的触摸交给场景
 function swipe(preview) {
-  const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0, lpT;
+  const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0, lpT, hist = [];
   // 指纹模式只能按指纹，上滑只是提示一下，不会出现数字密码
   const go = () => preview || !S.lock.pw ? unlock() : fpOn() ? fpNudge() : auth();
   let mode = '', x0 = 0;
@@ -149,22 +149,25 @@ function swipe(preview) {
     mode = !bottom && fx?.interactive ? (fx.input('down', e.clientX, e.clientY) ? 'fx' : 'both') : 'swipe'; x0 = e.clientX;
     clearTimeout(lpT); !bottom && $('.lk-bg video.live', el) && (lpT = setTimeout(playLive, 420)); // 长按实况照片：再动一次
     if (mode == 'fx') { u.setPointerCapture?.(e.pointerId); return; }
-    y0 = e.clientY; t0 = Date.now(); dy = 0; el.style.transition = u.style.transition = 'none';
+    y0 = e.clientY; t0 = Date.now(); dy = 0; hist = [[t0, 0]]; el.style.transition = u.style.transition = 'none'; try { u.setPointerCapture(e.pointerId); } catch { }
   });
   u.addEventListener('pointermove', e => {
     if (mode == 'fx' || mode == 'both') fx?.input('move', e.clientX, e.clientY); if (mode == 'fx' || y0 == null) return;
-    dy = Math.min(0, e.clientY - y0); Math.abs(e.clientY - y0) + Math.abs(e.clientX - x0) > 10 && clearTimeout(lpT); if (mode == 'both' && dy > -30) return; el.style.transform = `translateY(${dy}px)`; u.style.opacity = Math.max(0, 1 + dy / 320); // 整张锁屏（图 + 字）1:1 跟着手指走，下面的桌面跟着露出来
+    const ry = e.clientY - y0, rx = e.clientX - x0; Math.abs(ry) + Math.abs(rx) > 10 && clearTimeout(lpT);
+    if (mode == 'both') { const t = Date.now(); hist.push([t, ry]); while (hist.length > 2 && t - hist[0][0] > 90) hist.shift(); const v = (ry - hist[0][1]) / Math.max(16, t - hist[0][0]);
+      if (ry < -12 && -ry > Math.abs(rx) * 1.5 && v < -.5) { mode = 'swipe'; fx?.input('cancel', e.clientX, e.clientY); } else return; } // 锁屏特效能玩（雪地写字）：慢慢拖是在玩；一看出是快速往上甩就马上改成解锁
+    dy = Math.min(0, ry); const t = Date.now(); hist.push([t, dy]); while (hist.length > 2 && t - hist[0][0] > 90) hist.shift();
+    el.style.transform = `translate3d(0,${dy}px,0)`; u.style.opacity = Math.max(0, 1 + dy / 320); // 整张锁屏（图 + 字）1:1 跟着手指走，下面的桌面跟着露出来
   });
   const up = e => { clearTimeout(lpT);
     if (mode == 'fx' || mode == 'both') fx?.input(e?.type == 'pointercancel' ? 'cancel' : 'up', e?.clientX ?? x0, e?.clientY ?? y0); if (mode == 'fx') { mode = ''; return; }
     if (y0 == null) return; y0 = null;
-    const fast = dy / Math.max(1, Date.now() - t0), pass = mode == 'swipe' ? dy < -70 || fast < -.5 : dy < -160 && fast < -.6;
+    const [ta, ya] = hist[0] || [t0, 0], fast = (dy - ya) / Math.max(16, Date.now() - ta), pass = mode == 'swipe' && (dy < -90 || fast < -.35 && dy < -20); // 速度看最后一小段，轻轻一甩就能上去
     // 松手：从现在的位置接着走——够了就继续往上滑走，不够就弹回去（都用开头快的曲线，跟手）
     el.style.transition = 'transform .32s cubic-bezier(.23,1,.32,1),opacity .32s cubic-bezier(.23,1,.32,1)'; u.style.transition = u.style.opacity = '';
     if (pass && (preview || !S.lock.pw)) { el.style.transform = ''; unlock(); } else { el.style.transform = ''; pass && go(); }
     mode = '';
   };
-  const unpeek = () => setTimeout(() => locked && ui.scr.classList.remove('peek'), 400); u.addEventListener('pointerup', unpeek); u.addEventListener('pointercancel', unpeek);
   u.addEventListener('pointerup', up); u.addEventListener('pointercancel', up);
   $('.lk-hint', el).addEventListener('click', e => { e.stopPropagation(); go(); });
   el.onkeydown = e => { if (/^\d$/.test(e.key)) el._pad?.key?.(e.key); else if (e.key == 'Backspace') el._pad?.key?.('del'); else if (e.key == 'Enter' && !el.classList.contains('authing')) go(); };
