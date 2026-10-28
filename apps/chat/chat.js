@@ -1,6 +1,6 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
 import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
-import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, STY, TN, CN, FS, FN, LANGS, lname } from './data.js';
+import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 import { feed, FA, openFeed, feedRight, mountFeed } from './feed.js';
 export { openFeed };
@@ -165,7 +165,6 @@ const meP = () => {
   return `<div class="me-c" data-a="img" data-x="av"><img class="av" src="${esc(avOf(m))}"><div><b>${esc(m.nick)}</b><small>真实姓名：${esc(m.real)}</small><small>${esc(m.sign || '点击头像更换 · 下方编辑签名')}</small></div></div>${sec('me', [
     ['p', '个人资料', f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名', 'text', C().name1 + '（默认酒馆里的名字）') + f.inp('sign', '签名') + f.inp('ps', '我的拍一拍后缀', 'text', '如：的小脑袋') + f.img('cover', '动态封面') + f.img('fbg', '动态背景')],
     ['w', '钱包', `<div class="wal"><small>余额</small><b>¥${(+D().me.wallet || 0).toFixed(2)}</b></div>` + f.inp('wallet', '修改余额', 'number')],
-    ['s', '默认风格', f.seg('$style', STY) + '<p class="tip">决定新聊天样式与动态页：微信→朋友圈 / QQ→空间 / Kakao·LINE→推特式动态。单个聊天可在聊天设置里单独改。</p>'],
     ['d', '我的动态', btn('myfeed', '查看我的' + FN[S.style])]])}`;
 };
 const tabs = tab => { const u = D().chats.reduce((a, c) => a + (c.unread || 0), 0); return `<nav class="tabs">${[['list', TN[S.style], I.chat], ['ct', CN[S.style], I.book], ['feed', FN[S.style], I.star], ['me', '我', I.user]].map(([k, l, i]) => `<button data-a="tab" data-x="${k}" class="${tab == k ? 'on' : ''}">${i}<span>${l}</span>${k == 'list' && u ? `<i class="badge">${u}</i>` : ''}</button>`).join('')}</nav>`; };
@@ -397,7 +396,6 @@ reg({
     title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],
     right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? feedRight() : '',
     body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + tab); ctBind(el); if (tab == 'feed') mountFeed(el); },
-    onChange: k => k == '$style' && emit('chat'),
     acts: {
       ...FA, ...CTA, aiInit, tab: (x, t, e, pg) => { tab = x; msel = null; ctS = 0; pg.re(); }, ...MS, prof, ctab: (x, t, e, pg) => { ctab = x; pg.reb(); },
       jump: (x, t, e, pg) => { const b = $('.pg-b', pg.el), s = /[↑☆]/.test(x) ? (b.scrollTop = 0, null) : $(`[data-l="${x}"]`, b) || [...$$('[data-l]', b)].find(h => h.dataset.l > x); s && (b.scrollTop += (s.getBoundingClientRect().top - b.getBoundingClientRect().top) * b.offsetHeight / b.getBoundingClientRect().height); }, open: (id, t, e, pg) => msel ? MS.mtog(id, t, e, pg) : openChat(id),
