@@ -116,9 +116,9 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   mirrorDown = true; await E(`dt.addMsg(_c, { from: 'me', type: 'sticker', text: 'x' }); Object.assign(_c.msgs.at(-1), sk.msgOf({ l: '哭', img: 'https://registry.npmmirror.com/@waline/emojis/1.4.0/files/tieba/tieba_cry.png?down', alt: ['https://unpkg.com/@waline/emojis@1.4.0/tieba/tieba_cry.png'] })); core.emit('chat')`); await W(800);
   ok(await E(`/unpkg\\.com/.test([...document.querySelectorAll('.chat img.stk')].at(-1).src)`), '国内镜像打不开时自动换 unpkg 线路'); mirrorDown = false;
   await p.screenshot({ path: path.join(OUT, 'stk_e.png') });
-  // 7. 设置里没有「网络表情」了
-  await E(`(async () => { core.home(); core.APPS.settings.open(); await new Promise(r => setTimeout(r, 300)); document.querySelector('[data-a=stkp]').click(); })()`); await W(500);
-  ok(!/网络表情|搜狗|百度表情|GIPHY|apihz/.test(await E(`document.querySelector('.pg.in:last-child .pg-b').textContent`)), '表情包设置：网络表情那一整块去掉了');
+  // 7. 设置里不再有「表情包」
+  await E(`(async () => { core.home(); core.APPS.settings.open(); await new Promise(r => setTimeout(r, 300)); })()`); await W(500);
+  ok(!(await E(`!!document.querySelector('[data-a=stkp]')`)), '设置里没有「表情包」了');
   await E(`core.home(); talk.openChat(_c.id)`); await W(500);
   // 8. 翻译：点「文」不跳到底；两边一样
   await E(`(() => { for (let i = 0; i < 14; i++) _c.msgs.push({ f: _c.id, t: 'text', c: '안녕 ' + i, tr: '你好 ' + i, ts: Date.now() }); _c.msgs.push({ f: 'me', t: 'text', c: '하하하', orig: '哈哈哈', ts: Date.now() }); core.emit('chat'); })()`); await W(500);
@@ -138,12 +138,5 @@ const reqs = []; let sogouDown = false, mirrorDown = false;
   ok(await E(`(() => { const r = [...document.querySelectorAll('.chat .msg.me')].at(-1).querySelector('.rd.un'); return r && r.textContent == '1' && getComputedStyle(r).display != 'none'; })()`), 'Kakao 风格：对方还没读的消息旁边有黄色「1」');
   ok(await E(`!(document.querySelectorAll('.chat .msg.me')[0].querySelector('.rd.un'))`), '已经被读过的消息没有「1」');
   await E(`document.querySelector('.chat .pg-b').scrollTop = 1e5`); await p.screenshot({ path: path.join(OUT, 'stk_g.png') }); await E(`core.S.style = 'wx'`);
-  // 10. 设置页
-  await E(`core.home(); core.APPS.settings.open()`); await W(500);
-  ok(/9 组/.test(await E(`document.querySelector('[data-a=stkp]').textContent`)), '设置首页「表情包」显示已添加组数');
-  await E(`document.querySelector('[data-a=stkp]').click()`); await W(500);
-  ok(/熊猫头/.test(await E(`document.querySelector('.pg.in:last-child').textContent`)), '设置页：我的表情包组列表');
-  await p.screenshot({ path: path.join(OUT, 'stk_h.png') });
-  await E(`document.querySelector('[data-a=prm][data-x=b015]').click()`); await W(300); ok(await E(`!core.S.stk.packs.includes('b015')`), '可以移除表情包组');
   console.log('errors:', errs.join(' | ') || 'none'); console.log(`${pass} passed, ${fail} failed`); await b.close(); srv.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

@@ -49,6 +49,7 @@ export function renderDesk() {
   el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dbar"><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar"><b class="tool" data-a="wAdd">＋ 组件</b><b class="tool" data-a="pAdd">＋ 页面</b><b class="tool" data-a="edTheme">🎨 美化/主题</b><b class="tool done" data-a="edDone">完成</b></div></div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
   mountWideVideos(el); mountPaintPhotos(el);
   liquid($('.dock', el)); liquid($('.dots', el), { bezel: 10, scale: 18 }); // 底部：液态玻璃
+  const pi = $('.page>.it.app .ico', el); pi?.offsetHeight && el.style.setProperty('--dk-ico', pi.offsetHeight + 'px'); // Dock 图标和桌面上的一样大
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
 }
@@ -69,6 +70,20 @@ const goPage = i => { cur = Math.max(0, Math.min(i, S.desk.pages.length - 1)); c
 
 // 根节点捕获指针，重画桌面和跨页时仍能继续拖；取消手势恢复原布局。
 let dragging = false;
+// 拖动时不整桌重画：只把现有图标 / 组件挪到新格子（换页就把节点移过去），其他图标用 FLIP 平滑滑到新位置
+function relayout() {
+  const pages = $$('.page', ui.desk), dock = $('.dock', ui.desk); if (!dock || pages.length != S.desk.pages.length) return renderDesk(), false;
+  const node = id => $(`[data-it="${id}"]`, ui.desk);
+  for (const [i, p] of S.desk.pages.entries()) for (const { it, row, col, w, h } of pageLayout(p).placed) { const n = node(it.id); if (!n) return renderDesk(), false; n.parentElement !== pages[i] && pages[i].append(n); n.style.gridColumn = `${col + 1}/span ${w}`; n.style.gridRow = `${row + 1}/span ${h}`; }
+  for (const it of S.desk.dock) { const n = node(it.id); if (!n) return renderDesk(), false; n.style.gridColumn = n.style.gridRow = ''; dock.append(n); }
+  dock.classList.toggle('empty', !S.desk.dock.length); return true;
+}
+const rects = () => new Map($$('.it[data-it]', ui.desk).map(n => [n.dataset.it, n.getBoundingClientRect()]));
+function glide(before, skip) {
+  const sc = ui.root.getBoundingClientRect().width / ui.root.offsetWidth || 1;
+  $$('.it[data-it]', ui.desk).forEach(n => { const a = before.get(n.dataset.it); if (!a || n.dataset.it == skip) return; const b = n.getBoundingClientRect(), dx = (a.left - b.left) / sc, dy = (a.top - b.top) / sc;
+    if (Math.abs(dx) + Math.abs(dy) < 1 || Math.abs(dx) > b.width * 4 / sc + 400) return; n.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' }); });
+}
 function drag(e, id, longPress = false) {
   const el = $(`[data-it="${id}"]`, ui.desk), [source, at] = find(id), it = source[at];
   if (!el || !it || dragging || e.button > 0 || e.isPrimary === false) return;
@@ -80,7 +95,7 @@ function drag(e, id, longPress = false) {
   Object.assign(gh.style,{position:'absolute',left:0,top:0,width:r0.width/sc+'px',height:r0.height/sc+'px',margin:0});
   gh.classList.add('ghost');gh.removeAttribute('data-it');gh.removeAttribute('data-a');gh.removeAttribute('data-lp');R.append(gh);
   const hold = () => $(`[data-it="${id}"]`,ui.desk)?.classList.add('desk-placeholder');
-  const place = ev => { const b=R.getBoundingClientRect();gh.style.transform=`translate(${(ev.clientX-b.left-ox)/sc}px,${(ev.clientY-b.top-oy)/sc}px) scale(1.06)`; };
+  let raf=0;const place = ev => { last=ev;if(raf)return;raf=requestAnimationFrame(()=>{raf=0;const b=R.getBoundingClientRect();gh.style.transform=`translate3d(${(last.clientX-b.left-ox)/sc}px,${(last.clientY-b.top-oy)/sc}px,0)`;}); }; // 每帧只挪一次，跟手不抖
   const hit = ev => document.elementFromPoint(ev.clientX,ev.clientY);
   const preview = ev => {
     const target=hit(ev), box=target?.closest('[data-box]');folderTarget=null;
@@ -101,13 +116,13 @@ function drag(e, id, longPress = false) {
     const left=(box.clientWidth-DESK_COLS*cw-(DESK_COLS-1)*gapX)/2;
     const col=Math.round(((ev.clientX-r.left-ox)/sx-left)/(cw+gapX)), row=Math.round(((ev.clientY-r.top-oy)/sy-top)/(ch+gapY));
     const key=box.dataset.box+':'+row+':'+col;if(key===lastCell)return;
-    if(moveItem(S.desk.pages,it,+box.dataset.box,row,col,S.desk.dock)) { lastCell=key;renderDesk();hold(); }
+    const before=rects();if(moveItem(S.desk.pages,it,+box.dataset.box,row,col,S.desk.dock)) { lastCell=key;relayout()&&glide(before,id);hold(); }
   };
   const flip = edge => {
     et=0;const n=cur+edge;if(n<0)return;
     if(n>=S.desk.pages.length)S.desk.pages.push([]);
     // 翻页只切换视野；项目随手指落到新页的格子，满页不会凭空跳去第三页。
-    cur=n;renderDesk();hold();lock=1;lastCell='';folderTarget=null;navigator.vibrate?.(8);
+    const grow=$$('.page',ui.desk).length!==S.desk.pages.length;cur=n;grow?renderDesk():goPage(n);hold();lock=1;lastCell='';folderTarget=null;navigator.vibrate?.(8); // 平滑滑到下一页
   };
   const arm = () => {
     const r=ui.desk.getBoundingClientRect(),edge=last.clientX<r.left+36*sc?-1:last.clientX>r.right-36*sc?1:0;
@@ -122,7 +137,7 @@ function drag(e, id, longPress = false) {
   const finish = ev => {
     if(ev.pointerId!==pointer)return;
     R.removeEventListener('pointermove',mv);R.removeEventListener('pointerup',finish);R.removeEventListener('pointercancel',finish);R.removeEventListener('lostpointercapture',finish);
-    clearTimeout(et);gh.remove();dragging=false;
+    clearTimeout(et);cancelAnimationFrame(raf);const gr=gh.getBoundingClientRect();gh.remove();dragging=false;
     if(R.hasPointerCapture?.(pointer))R.releasePointerCapture(pointer);
     if(dist>6)moved=Date.now();
     if(ev.type!=='pointerup') { S.desk=snapshot;cur=startPage;renderDesk();return; }
@@ -136,8 +151,9 @@ function drag(e, id, longPress = false) {
       if(sl===tl || tl.length<4){sl.splice(si,1);const to=target.closest('[data-it]'),i=tl.findIndex(x=>x.id===to?.dataset.it);tl.splice(i<0?tl.length:i,0,it);delete it.row;delete it.col;}
     } else if(box) { lastCell='';preview(ev); }
     clean();
+    const n=$(`[data-it="${id}"]`,ui.desk); if(n){const r=n.getBoundingClientRect();n.animate([{transform:`translate(${(gr.left-r.left)/sc}px,${(gr.top-r.top)/sc}px) scale(1.08)`},{transform:'none'}],{duration:240,easing:'cubic-bezier(.2,.8,.2,1)'});} // 松手：从手指的位置滑进格子里
   };
-  place(e);hold();R.setPointerCapture?.(pointer);
+  place(e);hold();gh.style.scale='1.08';gh.animate([{scale:'1'},{scale:'1.08'}],{duration:160,easing:'ease-out'});R.setPointerCapture?.(pointer);
   R.addEventListener('pointermove',mv);R.addEventListener('pointerup',finish);R.addEventListener('pointercancel',finish);R.addEventListener('lostpointercapture',finish);
 }
 // 平时：手指左右滑翻页（一次一页，跟手）；竖着滑、点、长按都照常
