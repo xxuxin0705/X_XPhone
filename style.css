@@ -4,6 +4,10 @@
   transform:scale(var(--sc)) translateY(40px);transform-origin:top left;opacity:0;pointer-events:none;transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.15);
   font:calc(14px*var(--fz,1))/1.45 -apple-system,"SF Pro Text","PingFang SC","HarmonyOS Sans SC","MiSans","Roboto","Microsoft YaHei",sans-serif!important;color:var(--pt);-webkit-font-smoothing:antialiased;user-select:none;text-align:left}
 #stp.warm{opacity:.01!important;pointer-events:none!important;transition:none!important}
+/* 流畅模式：去掉所有毛玻璃 / 液态玻璃和大阴影，玻璃换成半透明白底 */
+#stp.lite,#stp.lite *,#stp.lite *::before,#stp.lite *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+#stp.lite{box-shadow:inset 0 0 0 1.5px #44444a,inset 0 0 0 4px #111}
+#stp.lite .lg{background:rgba(255,255,255,.26)!important}#stp.lite .lg::after,#stp.lite .lg::before{display:none}
 #stp.on{opacity:1;pointer-events:auto;transform:scale(var(--sc))}
 #stp{will-change:transform,opacity}.lock{will-change:transform}.lk-ui{will-change:opacity}
 /* 锁着的时候锁屏底下的桌面 / 应用不画（液态玻璃很费），手指按上锁屏才画出来 */

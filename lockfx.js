@@ -399,7 +399,8 @@ export const preloadScene = () => loadImgs();
 // 返回的 input(type, clientX, clientY) 把手指交给场景（返回 true 表示场景用掉了这次触摸）
 export function mountScene(cv, key, opts = {}) {
   const S = FX[sceneKey(key)], ctx = cv.getContext('2d'); let W = 0, H = 0, st, raf, last = 0, acc = 0, dead = 0, t = opts.t || 0;
-  const dpr = Math.min(opts.dpr || globalThis.devicePixelRatio || 1, S.dpr || 2), step = 1 / Math.min(opts.fps || 60, S.fps || 60);
+  const lite = document.getElementById('stp')?.classList.contains('lite'); // 流畅模式：锁屏特效画得粗一点、帧数低一点
+  const dpr = Math.min(opts.dpr || globalThis.devicePixelRatio || 1, S.dpr || (lite ? 1.25 : 2)), step = 1 / Math.min(opts.fps || 60, S.fps || (lite ? 40 : 60));
   const size = () => { const w = cv.clientWidth || cv.width, h = cv.clientHeight || cv.height; if (w == W && h == H && st) return; st && S.stop?.(st); W = w; H = h; cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); st = S.init(W, H, dpr); };
   const frame = dt => { size(); t += dt; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); S.draw(ctx, t, dt, W, H, st); };
   let shown = 0; // 上一帧是否在屏幕上；刚变可见时立刻画，不等节流

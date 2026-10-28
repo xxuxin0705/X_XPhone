@@ -40,7 +40,12 @@ async function prewarm(paint) {
 }
 let lastT = ''; // 分钟变了才动；平时只改时间组件上的字（tickDesk），换聊天 / 改设置时才整桌重画
 function tick(force) { const t = hm(now()); $('.sb-t', ui.root).textContent = t; if (!ui.root.classList.contains('on') || ui.desk.classList.contains('edit') || (t == lastT && force !== true)) return; lastT = t; force === true ? renderDesk() : tickDesk(); }
+// 流畅模式：安卓 WebView（TauriTavern 这类 App 里）显卡弱，毛玻璃 / 液态玻璃每一帧都要重算，最卡。
+// 自动识别到就关掉这些效果（换成半透明白底），设置 → 显示方式里也能手动选
+const WEAK = /; wv\)|Tauri/i.test(navigator.userAgent) || !!(window.__TAURI__ || window.__TAURI_INTERNALS__);
+const lite = () => S.perf == 'lite' || (S.perf != 'full' && WEAK);
 function show() {
+  ui.root.classList.toggle('lite', lite());
   $('#stp-ball').hidden = S.show != 'float'; applyBall(); $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', 1); ui.root.style.setProperty('--fz', .92 * (S.fzp ?? 100) / 100); // 字体：100% = 原来的默认大小
   if (S.show != 'wand') return;
   $('#extensionsMenu')?.insertAdjacentHTML('beforeend', '<div id="stp-wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0"><div class="fa-solid fa-mobile-screen-button extensionsMenuExtensionButton"></div><span>小手机</span></div>');
@@ -56,7 +61,7 @@ function init() {
   bind(ui.root); applyTheme(); initDesk(); show(); pos();
   drag(ui.root, $('#stp .sb'), 'win'); drag($('#stp-ball'), $('#stp-ball'), 'ball', () => toggle());
   ui.sheets.addEventListener('click', e => e.target == ui.sheets && ui.sheets.lastElementChild?._pg.close());
-  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz)/.test(k) && show(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(true); });
+  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz|perf)/.test(k) && show(); k == 'perf' && renderDesk(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(true); });
   on('open-chat', id => { toggle(true); openChat(id); });
   on('home', () => randWall());
   on('badge', () => ui.root.classList.contains('on') || $('#stp-ball').classList.add('dot'));

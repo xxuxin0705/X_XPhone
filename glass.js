@@ -27,7 +27,7 @@ function map0(w, h, r, edge) {
 }
 // 给一个元素套上液态玻璃；尺寸变了自动重画位移图
 export function liquid(el, { bezel = 25, scale = 52, sat = 1.12 } = {}) { // 参数照那篇：refract 26、edge 25、tint 0、blur 0
-  if (!el) return; el.classList.add('lg'); if (!lgOk) return;
+  if (!el) return; el.classList.add('lg'); if (!lgOk || document.getElementById('stp')?.classList.contains('lite')) return; // 流畅模式不用液态玻璃
   box ||= Object.assign(document.body.appendChild(document.createElementNS(NS, 'svg')), {}); box.setAttribute('width', 0); box.setAttribute('height', 0); box.style.position = 'absolute';
   const id = el._lg ||= 'xp-lg' + seq++;
   const draw = () => { const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight); if (!w || !h || el._lgSz == w + 'x' + h) return; el._lgSz = w + 'x' + h;

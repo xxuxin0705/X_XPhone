@@ -210,6 +210,7 @@ function disp() {
     title: '显示方式', onClose: rf,
     body: () => { const f = fx(S); return sec('disp', [
       ['s', '入口', f.seg('show', [['float', '悬浮窗'], ['wand', '魔法棒菜单']]) + (S.show == 'float' ? `<div class="row bcur" data-a="ballpick"><span>悬浮窗图标</span><img src="${esc(ballUrl())}" alt=""><small>${esc(ballName())}</small><i class="chev">›</i></div>` : '') + '<p class="tip">悬浮窗：可拖动的小图标。魔法棒：在输入框左侧的扩展菜单里打开。</p>'],
+      ['p', '流畅度', f.seg('perf', [['', '自动'], ['lite', '流畅优先'], ['full', '效果优先']])],
       ['z', '字体', `<label class="row fzr"><span>字体大小</span><input type="range" min="80" max="120" step="5" data-k="fzp" value="${S.fzp ?? 100}"><b class="fzv">${S.fzp ?? 100}%</b></label>` + btn('rpos', '重置手机与悬浮窗位置')]]); },
     after: el => { const r = el.querySelector('[data-k=fzp]'), v = el.querySelector('.fzv'); r && (r.oninput = () => v.textContent = r.value + '%'); }, // 拖的时候数字跟着变
     acts: { rpos: () => { S.pos = {}; save(); emit('cfg', 'pos'); toast('已重置'); }, ballpick: (x, t, e, pg) => ballPicker(() => pg.re()) },
