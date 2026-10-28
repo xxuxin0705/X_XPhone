@@ -1,5 +1,5 @@
 // 小手机 · 商业街：横着滑的一条马卡龙色小街（粉紫、薄荷、奶油黄、婴儿蓝、蜜桃），线条干净圆润
-// 街上的店：大头贴屋（之后做：按剧情生成照片 / 选风格 / 情侣头像）、一番赏（之后做：抽赏）、甜品屋、娃娃机；最右边留一间空铺
+// 街上的店：大头贴屋（之后做：按剧情生成照片 / 选风格 / 情侣头像）、一番赏（之后做：抽赏）、烘焙店、娃娃机；最右边留一间空铺
 // 现在只做样子：点店会晃一下门口的小牌子；功能之后接
 import { S, $, page, reg, toast } from '../../core.js';
 
@@ -52,7 +52,7 @@ const tree = (x, s = 1, a = '#8fbf6c', b = '#b6da92') => `<g transform="translat
 const lamp = (x, c = LIL2) => `<g transform="translate(${x} ${GY})"><circle cx="0" cy="-150" r="36" fill="url(#st-glow)"/><path d="M-3 0V-136h6V0z" fill="${c}" stroke="${INK}" stroke-width="${SW}"/>${r(-10, -6, 20, 6, c, 3)}<circle cx="0" cy="-150" r="15" fill="#fff8de" stroke="${INK}" stroke-width="${SW}"/>${r(-10, -138, 20, 6, c, 3)}<path d="M-6 -165q6-8 12 0" fill="${c}" stroke="${INK}" stroke-width="${SW}"/><circle cx="-4" cy="-154" r="3" fill="#fff"/></g>`;
 const bench = x => `<g transform="translate(${x} ${GY})">${r(-32, -28, 64, 8, PCH, 4)}${r(-32, -17, 64, 7, PCH, 3.5)}${ln('M-24 -10V0M24 -10V0', INK, 2.4)}</g>`;
 const bunting = (x1, x2, y, sag = 24) => { let s = ln(`M${x1} ${y}Q${(x1 + x2) / 2} ${y + sag * 2} ${x2} ${y}`, INK, 1.2); const n = Math.round((x2 - x1) / 30); for (let i = 1; i < n; i++) { const t = i / n, px = x1 + (x2 - x1) * t, py = y + sag * 2 * 2 * t * (1 - t); s += `<path d="M${px - 7} ${py - 1}h14l-7 13z" fill="${[PNK, LIL, MNT, BUT, SKY][i % 5]}" stroke="${INK}" stroke-width="1.1" stroke-linejoin="round"/>`; } return s; };
-const plate = (x, y, c = LIL2) => `<g class="st-plate" transform="translate(${x} ${y})">${ln('M-9 0l9-11 9 11', INK, 1.4)}<circle cx="0" cy="-11" r="2" fill="${c}"/>${r(-19, 0, 38, 16, '#fff', 8, INK, 1.5)}<text x="0" y="12" text-anchor="middle" class="st-hand" font-size="10.5" fill="${c}">準備中</text></g>`;
+const plate = (x, y, c = LIL2) => `<g class="st-plate" transform="translate(${x} ${y})">${ln('M-9 0l9-11 9 11', INK, 1.4)}<circle cx="0" cy="-11" r="2" fill="${c}"/>${r(-19, 0, 38, 16, '#fff', 8, INK, 1.5)}<text x="0" y="12" text-anchor="middle" class="st-hand" font-size="10.5" fill="${c}">准备中</text></g>`;
 const cloud = (x, y, w, txt, fill, fg, fs) => `<g filter="url(#st-soft)"><path d="M${x + 20} ${y + 44}H${x + w - 20}A15 15 0 0 0 ${x + w - 8} ${y + 20}A17 17 0 0 0 ${x + w - 44} ${y + 6}A${w / 3} ${w / 4} 0 0 0 ${x + 44} ${y + 6}A17 17 0 0 0 ${x + 8} ${y + 20}A15 15 0 0 0 ${x + 20} ${y + 44}z" fill="${fill}" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/><text x="${x + w / 2}" y="${y + 36}" text-anchor="middle" class="st-hand" font-size="${fs}" fill="${fg}">${txt}</text></g>`;
 
 /* ---------- 大头贴机（自己画的：发光灯罩、屏幕、两侧灯条、像素小爱心、出片口，旁边一道星星帘子） ---------- */
@@ -72,19 +72,28 @@ ${r(34, 146, 44, 8, '#4b3f6b', 4, INK, 1.4)}<path d="M44 150h24v10H44z" fill="#f
 }
 
 /* ---------- 五间铺子 ---------- */
-function photoShop(x) { // 大头贴屋：粉紫两层，屋顶一朵云招牌，底楼整面敞开的拱形门洞里放着大头贴机
-  const w = 270, top = 132;
+function photoShop(x) { // 大头贴机：一整台立在街边——顶上带小灯泡的招牌，左边拍照间挂着帘子（帘子底下露出两只脚），右边涂鸦台：样片、触摸屏和笔、出片口
+  const w = 266, t = 118, sb = t + 50, bot = GY - 10, cx0 = x + 12, cw = 146;
+  const foot = fx => `<g transform="translate(${fx} ${bot - 2})"><path d="M-7 0v-8h6v5h6a3 3 0 0 1 0 6h-12z" fill="#fff" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>${r(-7, -11, 6, 4, PNK2, 1, null)}</g>`;
+  const folds = [...Array(7)].map((_, i) => ln(`M${cx0 + 10 + i * 21} ${sb + 22}q4 ${(bot - sb - 40) / 2} 0 ${bot - sb - 42}`, '#fff', 1.4)).join('');
+  let hem = `M${cx0} ${bot - 18}`; for (let i = 0; i < 9; i++) hem += ` q${cw / 18} 8 ${cw / 9} 0`;
   return `<g class="st-shop" data-a="stshop" data-x="photo" filter="url(#st-soft)">
-${r(x + 6, top, w - 12, GY - top, 'url(#st-wall-l)', 0)}<rect x="${x + 6}" y="${top}" width="${w - 12}" height="${GY - top}" fill="url(#st-dots)"/>
-<path d="M${x - 6} ${top}q0-22 22-22h${w - 32}q22 0 22 22z" fill="${PNK}" stroke="${INK}" stroke-width="${SW}"/>${frost(x - 6, top + 6, w + 12)}
-${cloud(x + 50, top - 76, w - 100, '大頭貼', '#fff', LIL2, 30)}${spark(x + 44, top - 70, 1, BUT2)}${spark(x + w - 40, top - 56, .8, PNK2)}${heart(x + w - 60, top - 82, .9)}
-${win(x + 30, top + 20, 52, 58, 'arch', LIL2)}${pots(x + 26, top + 80, 60, PCH)}${win(x + w / 2 - 22, top + 22, 44, 44, 'round', PNK2)}${win(x + w - 82, top + 20, 52, 58, 'arch', LIL2)}${pots(x + w - 86, top + 80, 60, PCH)}
-${r(x, GY - 150, w, 150, 'url(#st-wall-p)', 0)}${r(x, GY - 22, w, 22, PNK2, 0)}
-<path d="M${x + 16} ${GY}V${GY - 100}a60 40 0 0 1 120 0V${GY}z" fill="#fff4fa" stroke="${INK}" stroke-width="${SW}"/>
-${booth(x + 28, GY - 150, .82)}
-${r(x + 160, GY - 120, 94, 70, 'url(#st-glass)', 10, LIL2, 4)}${[0, 1, 2].map(i => `<g transform="rotate(${[-8, 4, -3][i]} ${x + 178 + i * 28} ${GY - 92})">${r(x + 168 + i * 28, GY - 108, 22, 28, '#fff', 2, INK, 1.2)}${r(x + 171 + i * 28, GY - 105, 16, 15, [PNK, MNT, BUT][i], 1, null)}</g>`).join('')}${ln(`M${x + 162} ${GY - 112}q46 10 90 0`, INK, 1)}
-${r(x + 172, GY - 40, 70, 40, 'url(#st-glass)', 6, LIL2, 3)}
-${awning(x - 6, GY - 168, w + 12, 'st-stp-l', '#fff')}${plate(x + 207, GY - 34)}</g>`;
+<circle cx="${x + w / 2}" cy="${t + 20}" r="110" fill="url(#st-glow2)"/>
+${r(x, sb, w, bot - sb, '#fff4fa', 10)}${r(x - 4, bot - 4, w + 8, 14, LIL2, 6)}<rect x="${x - 4}" y="${bot - 2}" width="${w + 8}" height="8" fill="url(#st-stp-l)" opacity=".9"/>
+<path d="M${x - 8} ${sb}V${t + 20}q0-20 20-20h${w - 24}q20 0 20 20V${sb}z" fill="${PNK}" stroke="${INK}" stroke-width="${SW}"/>
+${[...Array(12)].map((_, i) => `<circle cx="${x + 12 + i * (w - 24) / 11}" cy="${t + 8}" r="3.4" fill="${i % 2 ? '#fff' : BUT2}" stroke="${INK}" stroke-width="1"/>`).join('')}
+${r(x + 54, t + 16, w - 108, 30, '#fff', 15, INK, 1.6)}<text x="${x + w / 2}" y="${t + 40}" text-anchor="middle" class="st-hand" font-size="24" fill="${LIL2}">大头贴</text>${heart(x + 30, t + 22, .9)}${spark(x + w - 30, t + 32, .9, BUT2)}
+<g transform="translate(${x + w / 2} ${t - 12})">${r(-18, -12, 36, 24, '#fff', 6, INK, 1.6)}<circle r="7" fill="${SKY}" stroke="${INK}" stroke-width="1.4"/><circle cx="-2" cy="-2" r="2" fill="#fff"/>${r(-14, -16, 10, 5, '#fff', 2, INK, 1.2)}</g>
+${r(cx0, sb + 10, cw, 6, '#e9e1dc', 3, INK, 1.2)}
+<path d="M${cx0} ${sb + 14}H${cx0 + cw}V${bot - 18}${hem.slice(hem.indexOf(' q'))}" fill="none"/><path d="M${cx0} ${sb + 14}H${cx0 + cw}V${bot - 18}H${cx0}z" fill="${PNK}" stroke="${INK}" stroke-width="${SW}"/><rect x="${cx0}" y="${sb + 14}" width="${cw}" height="${bot - sb - 32}" fill="url(#st-star)"/>${folds}
+<path d="${hem}V${bot - 24}H${cx0}z" fill="#fff" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/>
+<g transform="translate(${cx0 + cw / 2} ${sb + 70})"><path d="M0 8c-20-16-34-12-34 4S0 44 0 44s34-16 34-32-14-20-34-4z" fill="#fff" stroke="${INK}" stroke-width="1.6"/><text y="30" text-anchor="middle" class="st-hand" font-size="15" fill="${PNK2}">SMILE</text></g>
+${foot(cx0 + 56)}${foot(cx0 + 78)}
+${r(x + 166, sb + 12, 88, 46, '#fff', 6, INK, 1.4)}${[0, 1, 2, 3].map(i => r(x + 172 + i * 20, sb + 18, 16, 20, [PNK, MNT, BUT, SKY][i], 2, INK, 1)).join('')}${[0, 1, 2, 3].map(i => heart(x + 180 + i * 20, sb + 41, .35, [PNK2, MNT2, BUT2, SKY2][i])).join('')}
+${r(x + 166, sb + 66, 88, 66, '#4b3f6b', 8, INK, 1.6)}${r(x + 172, sb + 72, 76, 50, 'url(#st-scr)', 4, INK, 1.2)}${[0, 1, 2].map(c => [0, 1].map(rr => r(x + 177 + c * 24, sb + 77 + rr * 21, 20, 18, [PNK, MNT, LIL, BUT, SKY, PCH][c + rr * 3], 2, null)).join('')).join('')}
+${ln(`M${x + 252} ${sb + 112}q10 14 -2 26`, INK, 1.2)}<path d="M${x + 247} ${sb + 138}l6 -2 3 14-4 2z" fill="${BUT2}" stroke="${INK}" stroke-width="1.1"/>
+${r(x + 176, sb + 146, 68, 12, '#4b3f6b', 6, INK, 1.4)}<g transform="rotate(4 ${x + 210} ${sb + 160})">${r(x + 194, sb + 151, 32, 34, '#fff', 2, INK, 1.2)}${[0, 1].map(c => [0, 1].map(rr => r(x + 197 + c * 14, sb + 154 + rr * 15, 12, 13, [PNK, SKY, BUT, MNT][c + rr * 2], 1, null)).join('')).join('')}</g>
+${plate(cx0 + cw - 24, sb + 30, LIL2)}</g>`;
 }
 function ichibanShop(x) { // 一番赏：薄荷 + 奶油黄，屋顶一只系蝴蝶结的大礼盒，橱窗里一格一格的奖品
   const w = 280, top = 98;
@@ -93,38 +102,54 @@ ${r(x + 6, top, w - 12, GY - top, 'url(#st-wall-m)', 0)}<rect x="${x + 6}" y="${
 ${r(x - 6, top - 14, w + 12, 18, MNT, 9)}${frost(x - 6, top + 4, w + 12, '#fff')}
 <g transform="translate(${x + w / 2} ${top - 18})">${r(-40, -50, 80, 50, PNK, 6)}${r(-46, -62, 92, 16, PNK2, 6)}${r(-8, -62, 16, 62, LIL, 0)}<path d="M0 -62c-10-18-30-16-26-4 2 6 14 6 26 4zM0 -62c10-18 30-16 26-4-2 6-14 6-26 4z" fill="${LIL}" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/>${spark(-28, -30, .8)}${spark(30, -20, .6)}</g>
 ${win(x + 30, top + 22, 50, 62, 'box', MNT2)}${win(x + w / 2 - 25, top + 22, 50, 62, 'arch', MNT2)}${win(x + w - 80, top + 22, 50, 62, 'box', MNT2)}
-${r(x + 40, top + 100, w - 80, 40, '#fff', 20, INK, SW)}<text x="${x + w / 2}" y="${top + 129}" text-anchor="middle" class="st-hand" font-size="27" fill="${MNT2}">一番賞</text>${spark(x + 58, top + 120, .9, BUT2)}${spark(x + w - 58, top + 120, .9, PNK2)}
+${r(x + 40, top + 100, w - 80, 40, '#fff', 20, INK, SW)}<text x="${x + w / 2}" y="${top + 129}" text-anchor="middle" class="st-hand" font-size="27" fill="${MNT2}">一番赏</text>${spark(x + 58, top + 120, .9, BUT2)}${spark(x + w - 58, top + 120, .9, PNK2)}
 ${r(x, GY - 132, w, 132, '#e2625a', 0)}${r(x, GY - 22, w, 22, '#b8372f', 0)}
 ${r(x + 16, GY - 112, 160, 92, 'url(#st-glass)', 10, MNT2, 4)}${[0, 1].map(rw => [0, 1, 2, 3].map(c => { const bx = x + 26 + c * 37, by = GY - 104 + rw * 42, col = [PNK, LIL, MNT, SKY][(c + rw) % 4]; return r(bx, by + 6, 30, 30, col, 6, INK, 1.4) + `<text x="${bx + 15}" y="${by + 27}" text-anchor="middle" font-size="13" fill="#fff" class="st-hand">${'ABCDEFGH'[rw * 4 + c]}</text>`; }).join('')).join('')}${ln(`M${x + 18} ${GY - 64}h156`, MNT2, 2.4)}
 ${r(x + 192, GY - 116, 70, 116, MNT, 14, INK, SW)}${r(x + 202, GY - 104, 50, 44, 'url(#st-glass)', 10, MNT2, 2)}<circle cx="${x + 250}" cy="${GY - 52}" r="3.4" fill="${BUT2}" stroke="${INK}" stroke-width="1.2"/>
 ${awning(x - 6, GY - 150, w + 12, 'st-stp-m', '#fff')}${plate(x + 227, GY - 42, MNT2)}</g>`;
 }
-function sweetShop(x) { // 甜品屋：婴儿蓝，屋顶叠着三层马卡龙，门口一张小圆桌
-  const w = 230, top = 158;
-  const mac = (cx, cy, c, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})"><path d="M-30 -2a30 13 0 0 1 60 0z" fill="${c}" stroke="${INK}" stroke-width="${SW}"/>${r(-28, -2, 56, 6, '#fff', 3, INK, 1.4)}<path d="M-30 4h60a30 13 0 0 1 -60 0z" fill="${c}" stroke="${INK}" stroke-width="${SW}"/></g>`;
+function sweetShop(x) { // 烘焙店：婴儿蓝，屋顶摆着一条大吐司和一只牛角包，橱窗里一排刚出炉的面包，门口一张小圆桌
+  const w = 230, top = 158, CR = '#f0b46a', CR2 = '#d98e45';
+  const loaf = (cx, cy, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})"><path d="M-30 10V-6c0-14 10-20 30-20s30 6 30 20V10z" fill="${CR}" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/><path d="M-30 -6c0-14 10-20 30-20s30 6 30 20c-4 4-10 4-14 0-4 4-12 4-16 0-4 4-12 4-16 0-4 4-10 4-14 0z" fill="#fbe2b4" stroke="${INK}" stroke-width="1.4"/>${ln('M-14 -16l6 8M0 -18l6 8M14 -16l5 7', CR2, 2)}</g>`;
+  const crois = (cx, cy, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})">${[[-22, 4, 40], [-13, -4, 20], [0, -7, 0], [13, -4, -20], [22, 4, -40]].map(([dx, dy, a], k) => `<ellipse cx="${dx}" cy="${dy}" rx="${k == 2 ? 11 : 8}" ry="${k == 2 ? 10 : 7}" transform="rotate(${a} ${dx} ${dy})" fill="${k % 2 ? CR2 : CR}" stroke="${INK}" stroke-width="1.4"/>`).join('')}</g>`;
+  const bun = (cx, cy) => `<g transform="translate(${cx} ${cy})"><path d="M-12 4a12 11 0 0 1 24 0z" fill="${CR}" stroke="${INK}" stroke-width="1.3"/>${[-5, 0, 5].map(d => `<ellipse cx="${d}" cy="-3" rx="1" ry="1.6" fill="#fff"/>`).join('')}</g>`;
   return `<g class="st-shop" data-a="stshop" data-x="sweet" filter="url(#st-soft)">
 ${r(x + 6, top, w - 12, GY - top, 'url(#st-wall-b)', 0)}<rect x="${x + 6}" y="${top}" width="${w - 12}" height="${GY - top}" fill="url(#st-dots)"/>
 ${r(x - 6, top - 14, w + 12, 18, '#fff', 9)}${frost(x - 6, top + 4, w + 12, PCH)}
-${mac(x + w / 2, top - 22, PNK)}${mac(x + w / 2, top - 46, MNT, .82)}${mac(x + w / 2, top - 66, LIL, .64)}${spark(x + w / 2 + 42, top - 60, .9, BUT2)}
+${loaf(x + w / 2 - 18, top - 24)}${crois(x + w / 2 + 40, top - 20, .8)}${spark(x + w / 2 + 64, top - 50, .9, BUT2)}${spark(x + w / 2 - 56, top - 44, .7, '#fff')}
 ${win(x + 30, top + 22, 50, 56, 'arch', SKY2)}${win(x + w - 80, top + 22, 50, 56, 'arch', SKY2)}
-${r(x, GY - 116, w, 116, CRM, 0)}${r(x, GY - 20, w, 20, SKY2, 0)}${r(x + 14, GY - 100, 110, 78, 'url(#st-glass)', 10, SKY2, 4)}${[0, 1, 2].map(i => `<g transform="translate(${x + 38 + i * 32} ${GY - 44})"><path d="M-12 0h24l-3 10h-18z" fill="#fff" stroke="${INK}" stroke-width="1.2"/><circle cx="0" cy="-6" r="10" fill="${[PNK, BUT, LIL][i]}" stroke="${INK}" stroke-width="1.2"/></g>`).join('')}
+${r(x, GY - 116, w, 116, CRM, 0)}${r(x, GY - 20, w, 20, SKY2, 0)}${r(x + 14, GY - 100, 110, 78, 'url(#st-glass)', 10, SKY2, 4)}
+${ln(`M${x + 20} ${GY - 62}h98M${x + 20} ${GY - 32}h98`, SKY2, 2.4)}${loaf(x + 44, GY - 74, .5)}${crois(x + 90, GY - 70, .55)}${bun(x + 36, GY - 36)}${bun(x + 64, GY - 36)}${crois(x + 100, GY - 40, .45)}
 ${r(x + 140, GY - 104, 64, 104, PCH, 14, INK, SW)}${r(x + 150, GY - 94, 44, 38, 'url(#st-glass)', 10, '#e7a98c', 2)}
-${cloud(x + 40, GY - 172, w - 80, '甜品屋', '#fff', SKY2, 21)}${awning(x - 6, GY - 128, w + 12, 'st-stp-c', '#fff')}
+${cloud(x + 40, GY - 172, w - 80, '烘焙店', '#fff', SKY2, 21)}${awning(x - 6, GY - 128, w + 12, 'st-stp-c', '#fff')}
 <g transform="translate(${x + 72} ${GY + 2})">${r(-24, -32, 48, 6, '#fff', 3)}${ln('M0 -26V0M-12 0h24', INK, 2)}<path d="M-6 -44h12v10h-12z" fill="#fff" stroke="${INK}" stroke-width="1.2"/>${heart(0, -50, .45)}</g>${plate(x + 172, GY - 40, SKY2)}</g>`;
 }
 function clawShop(x) { // 娃娃机：一整台大娃娃机立在街边——顶上一圈小灯泡的招牌，大玻璃箱里吊着三爪钩、底下堆满玩偶，前面操作台有摇杆和按钮，下面出货口
   const w = 172, t = 86, gy = t + 52, gb = gy + 138, cp = gb + 24;
-  const toy = (cx, cy, c, ear, s = 1) => `<g transform="translate(${cx} ${cy}) scale(${s})">${ear == 'b' ? `<circle cx="-9" cy="-10" r="5" fill="${c}" stroke="${INK}" stroke-width="1.3"/><circle cx="9" cy="-10" r="5" fill="${c}" stroke="${INK}" stroke-width="1.3"/>` : `<ellipse cx="-5" cy="-16" rx="3.2" ry="8.5" fill="${c}" stroke="${INK}" stroke-width="1.3"/><ellipse cx="5" cy="-16" rx="3.2" ry="8.5" fill="${c}" stroke="${INK}" stroke-width="1.3"/>`}<circle r="13" fill="${c}" stroke="${INK}" stroke-width="1.4"/><circle cx="-4.5" cy="-1" r="1.5" fill="${INK}"/><circle cx="4.5" cy="-1" r="1.5" fill="${INK}"/><path d="M-1.6 3q1.6 1.6 3.2 0" fill="none" stroke="${INK}" stroke-width="1"/><circle cx="-8" cy="4" r="2.2" fill="${PNK2}" opacity=".55"/><circle cx="8" cy="4" r="2.2" fill="${PNK2}" opacity=".55"/></g>`;
+  // 玩偶（自己画的，圆头圆脑）：小熊、垂耳小狗、兔兔、小黄鸡、顶橘子的水豚、小青蛙
+  const eye = (dx, dy = 0) => `<circle cx="${dx}" cy="${dy}" r="1.9" fill="${INK}"/><circle cx="${dx + .6}" cy="${dy - .7}" r=".6" fill="#fff"/>`;
+  const face = (dy = 0) => `${eye(-5, dy)}${eye(5, dy)}<ellipse cx="-9" cy="${dy + 5}" rx="2.8" ry="1.8" fill="${PNK2}" opacity=".55"/><ellipse cx="9" cy="${dy + 5}" rx="2.8" ry="1.8" fill="${PNK2}" opacity=".55"/>`;
+  const bod = (c, dy = 15) => `<ellipse cx="0" cy="${dy}" rx="11" ry="8" fill="${c}" stroke="${INK}" stroke-width="1.3"/><circle cx="-6" cy="${dy + 6}" r="3" fill="${c}" stroke="${INK}" stroke-width="1.1"/><circle cx="6" cy="${dy + 6}" r="3" fill="${c}" stroke="${INK}" stroke-width="1.1"/>`;
+  const S2 = 'stroke="' + INK + '" stroke-width="1.4"';
+  const P = {
+    bear: `${bod('#e3b48a')}<circle cx="-10" cy="-10" r="5.5" fill="#e3b48a" ${S2}/><circle cx="10" cy="-10" r="5.5" fill="#e3b48a" ${S2}/><circle cx="-10" cy="-10" r="2.6" fill="#fbe9d4"/><circle cx="10" cy="-10" r="2.6" fill="#fbe9d4"/><circle r="14" fill="#e3b48a" ${S2}/><ellipse cy="5" rx="6.5" ry="4.8" fill="#fbe9d4"/><ellipse cy="3" rx="2" ry="1.4" fill="${INK}"/>${face(-1)}`,
+    pup: `${bod('#fffaf2')}<circle r="14" fill="#fffaf2" ${S2}/><ellipse cx="-12.5" cy="1" rx="5" ry="9.5" transform="rotate(16 -12.5 1)" fill="#c99a72" ${S2}/><ellipse cx="12.5" cy="1" rx="5" ry="9.5" transform="rotate(-16 12.5 1)" fill="#c99a72" ${S2}/><ellipse cx="4" cy="-4" rx="4" ry="3.4" fill="#f1dcc6"/><ellipse cy="4" rx="2.4" ry="1.7" fill="${INK}"/>${face(-1)}`,
+    bun: `${bod('#fbd5da')}<ellipse cx="-5.5" cy="-19" rx="4.6" ry="11" fill="#fbd5da" ${S2}/><ellipse cx="5.5" cy="-19" rx="4.6" ry="11" fill="#fbd5da" ${S2}/><ellipse cx="-5.5" cy="-18" rx="2" ry="7" fill="${PNK2}" opacity=".5"/><ellipse cx="5.5" cy="-18" rx="2" ry="7" fill="${PNK2}" opacity=".5"/><circle r="13.5" fill="#fbd5da" ${S2}/><path d="M-2.4 4q1.2 1.8 2.4 0q1.2 1.8 2.4 0" fill="none" stroke="${INK}" stroke-width="1"/>${face(-1)}`,
+    chick: `<circle r="15" fill="#fde58a" ${S2}/><path d="M-2 -15q-2-7 2-6 2-5 4 1" fill="#fde58a" ${S2}/><ellipse cx="-14" cy="5" rx="4" ry="6" transform="rotate(25 -14 5)" fill="#f8d35e" ${S2}/><ellipse cx="14" cy="5" rx="4" ry="6" transform="rotate(-25 14 5)" fill="#f8d35e" ${S2}/><path d="M-3 3l3-2.6 3 2.6-3 2.6z" fill="#f4a74b" stroke="${INK}" stroke-width="1"/>${face(-3)}`,
+    capy: `${bod('#c99a6b', 14)}<circle cx="-10" cy="-9" r="3.5" fill="#b5835a" ${S2}/><circle cx="10" cy="-9" r="3.5" fill="#b5835a" ${S2}/><ellipse rx="15" ry="12.5" fill="#c99a6b" ${S2}/><ellipse cy="5" rx="9.5" ry="6.5" fill="#b5835a"/><circle cx="-2.5" cy="3.5" r="1" fill="${INK}"/><circle cx="2.5" cy="3.5" r="1" fill="${INK}"/><circle cy="-15" r="5" fill="#f4a74b" ${S2}/><path d="M1 -20q4-3 6 0-3 2-6 0z" fill="#8fbf6c"/>${eye(-6, -3)}${eye(6, -3)}`,
+    frog: `${bod('#a8d68a', 13)}<circle cx="-7" cy="-10" r="6" fill="#a8d68a" ${S2}/><circle cx="7" cy="-10" r="6" fill="#a8d68a" ${S2}/><ellipse rx="15" ry="11.5" fill="#a8d68a" ${S2}/><path d="M-4 3q4 3 8 0" fill="none" stroke="${INK}" stroke-width="1.1"/>${eye(-7, -10)}${eye(7, -10)}<ellipse cx="-9" cy="2" rx="2.8" ry="1.8" fill="${PNK2}" opacity=".55"/><ellipse cx="9" cy="2" rx="2.8" ry="1.8" fill="${PNK2}" opacity=".55"/>`,
+  };
+  const toy = (k, cx, cy, s = 1, rot = 0) => `<g transform="translate(${cx} ${cy}) rotate(${rot}) scale(${s})">${P[k]}</g>`;
   const bulbs = (n, y0, y1, xx) => [...Array(n)].map((_, i) => `<circle cx="${xx}" cy="${y0 + (y1 - y0) * i / (n - 1)}" r="3.4" fill="${i % 2 ? '#fff' : BUT2}" stroke="${INK}" stroke-width="1"/>`).join('');
   return `<g class="st-shop" data-a="stshop" data-x="claw" filter="url(#st-soft)">
 <circle cx="${x + w / 2}" cy="${t + 20}" r="90" fill="url(#st-glow2)"/>
 <path d="M${x} ${gy}V${t + 22}q0-22 22-22h${w - 44}q22 0 22 22V${gy}z" fill="${PNK2}" stroke="${INK}" stroke-width="${SW}"/>
 ${[...Array(9)].map((_, i) => `<circle cx="${x + 20 + i * (w - 40) / 8}" cy="${t + 9}" r="3.4" fill="${i % 2 ? '#fff' : BUT2}" stroke="${INK}" stroke-width="1"/>`).join('')}${bulbs(4, t + 20, gy - 8, x + 9)}${bulbs(4, t + 20, gy - 8, x + w - 9)}
-${r(x + 22, t + 16, w - 44, 30, '#fff', 15, INK, 1.6)}<text x="${x + w / 2}" y="${t + 39}" text-anchor="middle" class="st-hand" font-size="22" fill="${PNK2}">娃娃機</text>${heart(x + 34, t + 24, .5, PNK2)}${spark(x + w - 34, t + 31, .6, BUT2)}
+${r(x + 22, t + 16, w - 44, 30, '#fff', 15, INK, 1.6)}<text x="${x + w / 2}" y="${t + 39}" text-anchor="middle" class="st-hand" font-size="22" fill="${PNK2}">娃娃机</text>${heart(x + 34, t + 24, .5, PNK2)}${spark(x + w - 34, t + 31, .6, BUT2)}
 ${r(x, gy, w, gb - gy, PNK, 0)}${r(x + 12, gy + 4, w - 24, gb - gy - 8, 'url(#st-glass)', 4, INK, 1.6)}
 ${r(x + 14, gy + 8, w - 28, 7, '#e9e1dc', 3, INK, 1.2)}${r(x + 64, gy + 5, 26, 13, LIL, 3, INK, 1.2)}${ln(`M${x + 77} ${gy + 18}V${gy + 62}`, INK, 1.4)}
 <g transform="translate(${x + 77} ${gy + 62})"><path d="M-9 0h18l-3 9h-12z" fill="${BUT2}" stroke="${INK}" stroke-width="1.3" stroke-linejoin="round"/>${ln('M-6 8c-9 6-11 15-6 22M6 8c9 6 11 15 6 22M0 9v19', INK, 2.4)}${ln('M-12 30l4 1M12 30l-4 1', INK, 2.4)}</g>
-${toy(x + 34, gb - 22, MNT, 'b')}${toy(x + 60, gb - 16, BUT, 'r')}${toy(x + 88, gb - 22, LIL, 'b')}${toy(x + 46, gb - 44, SKY, 'r', .9)}${toy(x + 76, gb - 46, PNK, 'b', .9)}${toy(x + 30, gb - 60, PCH, 'b', .8)}
+${toy('frog', x + 92, gb - 46, .82, 8)}${toy('chick', x + 34, gb - 48, .85, -10)}${toy('capy', x + 64, gb - 50, .85, 4)}${toy('pup', x + 32, gb - 22, .95, -6)}${toy('bear', x + 62, gb - 20, .95)}${toy('bun', x + 92, gb - 20, .92, 8)}
 ${r(x + w - 52, gy + 74, 38, gb - gy - 78, '#ffffff', 2, INK, 1.4)}<rect x="${x + w - 52}" y="${gy + 74}" width="38" height="${gb - gy - 78}" fill="url(#st-glass)" opacity=".6"/>${ln(`M${x + w - 52} ${gy + 74}h38`, INK, 2.2)}
 ${ln(`M${x + 22} ${gy + 30}l18 -12M${x + 22} ${gy + 44}l10 -7`, '#fff', 3)}
 <path d="M${x - 8} ${cp}l8 -${cp - gb}h${w}l8 ${cp - gb}z" fill="${BUT}" stroke="${INK}" stroke-width="${SW}" stroke-linejoin="round"/>
@@ -150,7 +175,7 @@ ${tree(46, .85)}${photoShop(96)}${lamp(386)}${bunting(96, 390, 210)}${ichibanSho
 }
 
 /* ---------- 页面 ---------- */
-const SHOPS = [['photo', '大头贴', '拍拍屋'], ['ichiban', '一番赏', '抽抽乐'], ['sweet', '甜品屋', '小坐一下'], ['claw', '娃娃机', '抓一只']];
+const SHOPS = [['photo', '大头贴', '拍拍屋'], ['ichiban', '一番赏', '抽抽乐'], ['sweet', '烘焙店', '刚出炉'], ['claw', '娃娃机', '抓一只']];
 const POS = { photo: 96 + 135, ichiban: 420 + 140, sweet: 776 + 115, claw: 1066 + 86 };
 const coin = `<svg viewBox="0 0 20 20" width="15" height="15"><circle cx="10" cy="10" r="8.5" fill="${BUT}" stroke="${INK}" stroke-width="1.4"/>${spark(10, 10, .75, '#fff')}</svg>`;
 const body = () => { const st = ST(); return `<div class="street">
