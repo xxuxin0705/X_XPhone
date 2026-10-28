@@ -1535,3 +1535,6 @@
 .thm-categories button{flex:1;min-height:44px;border:0;border-radius:10px;padding:10px 8px;background:transparent;color:var(--pt);font:inherit;font-size:calc(14px*var(--fz,1));cursor:pointer}
 .thm-categories button.on{background:var(--cd);font-weight:600;box-shadow:0 3px 8px -5px #0005}
 .thm-categories button:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+/* 没有返回键的弹窗（菜单、表单）：右边空占位去掉，标题才居中 */
+.pg-h:not(:has(.pg-back)) .pg-r:empty{display:none}
