@@ -5,6 +5,7 @@
   font:calc(14px*var(--fz,1))/1.45 -apple-system,"SF Pro Text","PingFang SC","HarmonyOS Sans SC","MiSans","Roboto","Microsoft YaHei",sans-serif!important;color:var(--pt);-webkit-font-smoothing:antialiased;user-select:none;text-align:left}
 #stp:not(.on){visibility:hidden;transition:opacity .3s,transform .45s cubic-bezier(.2,.9,.3,1.15),visibility 0s .45s}
 #stp.on{opacity:1;pointer-events:auto;transform:scale(var(--sc))}
+#stp{will-change:transform,opacity}.lock{will-change:transform}
 /* 锁着的时候锁屏底下的桌面 / 应用不画（液态玻璃很费），手指按上锁屏才画出来 */
 .stp-scr.locked:not(.peek)>.desk,.stp-scr.locked:not(.peek)>.stack{visibility:hidden}
 #stp *{box-sizing:border-box}#stp,#stp :where(:not(i):not(.clk-t):not(.clk-d):not(pre):not(code)){font-family:inherit}
@@ -67,12 +68,17 @@
 .desk.edit .dock.empty{display:flex;border-style:dashed}
 .dock.empty::before{content:"拖动应用到这里";opacity:.45;font-size:12px;pointer-events:none}
 .it .x,.ed-bar{display:none}
-.desk.edit .it .x{display:grid;place-items:center;position:absolute;top:-7px;left:-7px;z-index:3;width:22px;height:22px;border-radius:50%;background:rgba(90,90,90,.75);backdrop-filter:blur(6px);color:#fff;font-size:calc(15px*var(--fz,1));line-height:1}
+.desk.edit .it .x{display:block;position:absolute;top:-7px;left:-7px;z-index:6;width:22px;height:22px;border-radius:50%;background:rgba(110,110,118,.9);color:#fff;font:700 18px/21px sans-serif;text-align:center;box-shadow:0 1px 4px #0004;cursor:pointer}
+/* 编辑时图标轻轻抖（组件抖得更轻），相邻的错开节奏 */
+@keyframes dk-jig{0%{rotate:-1.6deg}50%{rotate:1.6deg}100%{rotate:-1.6deg}}@keyframes dk-jig2{0%{rotate:-.5deg}50%{rotate:.5deg}100%{rotate:-.5deg}}
+.desk.edit .it.app{animation:dk-jig .27s ease-in-out infinite}.desk.edit .it.app:nth-child(2n){animation-delay:-.13s}.desk.edit .it.wg{animation:dk-jig2 .34s ease-in-out infinite}.desk.edit .it.wg:nth-child(2n){animation-delay:-.17s}
 .dbar{flex:none;position:relative;display:flex;justify-content:center}
 .desk.edit .dots{visibility:hidden}
 .desk.edit .ed-bar{display:flex;gap:8px;justify-content:center;align-items:center;position:absolute;inset:0;z-index:2} /* 编辑按钮叠在页码点的位置，不挤占桌面高度 */
-.ed-bar .btn{width:auto;margin:0;padding:7px 14px;font-size:calc(13px*var(--fz,1));border-radius:16px;background:rgba(255,255,255,.7);backdrop-filter:blur(10px)}
-.ed-bar .btn.pri{background:var(--ac)}
+.ed-bar .tool{padding:6px 13px;border-radius:16px;background:rgba(255,255,255,.9);color:#222;font-size:13px;font-weight:600;box-shadow:0 2px 10px rgba(0,0,0,.16);cursor:pointer;white-space:nowrap}
+.ed-bar .tool.done{background:#1677ff;color:#fff}
+.desk.edit .it.app>.x{left:calc(50% - 38px);top:0}.page>.it.app{overflow:visible}
+.wapps{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 12px;margin-bottom:8px;border-bottom:.5px solid rgba(0,0,0,.06)}.wapps .it.app{flex:none;width:62px}.wapps .ico{width:52px;height:52px;border-radius:14px;display:grid;place-items:center}.wapps .ico svg{width:30px;height:30px}.wapps span{font-size:11.5px;color:#555}.ed-bar .tool:active{transform:scale(.95)}
 .desk.edit .pages{overflow:hidden;touch-action:none}
 @keyframes jig{from{transform:rotate(-1.2deg)}to{transform:rotate(1.2deg)}}
 .it.ghost{z-index:95;pointer-events:none;opacity:.95;transition:none;animation:none!important;filter:drop-shadow(0 12px 20px rgba(0,0,0,.25))}.it.ghost .x{display:none!important}
@@ -1221,6 +1227,8 @@
 
 
 /* 液态玻璃：底色几乎为零（不染色、不糊），折射由 glass.js 做；亮边只在左上角和右下角，沿边慢慢淡掉，不是一整圈白描边 */
+/* 锁屏下面露出来、解锁滑动的时候：液态玻璃先换成普通模糊（液态玻璃每帧都要重算，最卡） */
+.stp-scr:is(.locked,.unlk) .lg{backdrop-filter:blur(10px) saturate(1.4)!important;-webkit-backdrop-filter:blur(10px) saturate(1.4)!important}
 .lg{background:rgba(255,255,255,.04)!important;border:0!important;backdrop-filter:blur(10px) saturate(1.4);-webkit-backdrop-filter:blur(10px) saturate(1.4);box-shadow:0 10px 26px -12px rgba(0,0,0,.28)!important;isolation:isolate}
 .lg::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;padding:1.4px;
   background:linear-gradient(135deg,rgba(255,255,255,.95) 0%,rgba(255,255,255,.35) 14%,rgba(255,255,255,0) 32%,rgba(255,255,255,0) 68%,rgba(255,255,255,.3) 86%,rgba(255,255,255,.75) 100%);

@@ -25,8 +25,9 @@ function drag(el, h, key, tap) {
 }
 const pos = () => [[ui.root, 'win'], [$('#stp-ball'), 'ball']].forEach(([el, k]) => { el.style.left = el.style.top = el.style.right = el.style.bottom = ''; S.pos[k] && place(el, ...S.pos[k]); });
 // 收起手机 = 熄屏：开了锁屏的话，下次打开先看到锁屏
-const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || (randWall(), relock(), emit('phone-open')); $('#stp-ball').classList.remove('dot'); tick(); } else was && setTimeout(() => ui.root.classList.contains('on') || relock(true), 320); }; // 等收起动画结束再把锁屏重置好、画好
-function tick() { $('.sb-t', ui.root).textContent = hm(now()); ui.root.classList.contains('on') && !ui.desk.classList.contains('edit') && renderDesk(); }
+const toggle = v => { const was = ui.root.classList.contains('on'); if (ui.root.classList.toggle('on', v ?? !was)) { was || (relock(), emit('phone-open')); $('#stp-ball').classList.remove('dot'); $('.sb-t', ui.root).textContent = hm(now()); setTimeout(tick, 480); } else was && setTimeout(() => { if (ui.root.classList.contains('on')) return; relock(true); randWall(); }, 320); }; // 打开时不在动画里重画桌面；随机壁纸在收起时就换好 // 等收起动画结束再把锁屏重置好、画好
+let lastT = ''; // 桌面只在分钟变了时重画（以前每 30 秒整桌重画一次，会一顿一顿的）
+function tick(force) { const t = hm(now()); $('.sb-t', ui.root).textContent = t; if (!ui.root.classList.contains('on') || ui.desk.classList.contains('edit') || (t == lastT && force !== true)) return; lastT = t; renderDesk(); }
 function show() {
   $('#stp-ball').hidden = S.show != 'float'; applyBall(); $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', 1); ui.root.style.setProperty('--fz', .92 * (S.fzp ?? 100) / 100); // 字体：100% = 原来的默认大小
   if (S.show != 'wand') return;
@@ -43,12 +44,12 @@ function init() {
   bind(ui.root); applyTheme(); initDesk(); show(); pos();
   drag(ui.root, $('#stp .sb'), 'win'); drag($('#stp-ball'), $('#stp-ball'), 'ball', () => toggle());
   ui.sheets.addEventListener('click', e => e.target == ui.sheets && ui.sheets.lastElementChild?._pg.close());
-  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz)/.test(k) && show(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(); });
+  on('cfg', k => { k.startsWith('lock.on') && !S.lock.on && isLocked() && unlock(); /^(show|scale|fz)/.test(k) && show(); /^(theme|wall|css)/.test(k) && applyTheme(); k == 'pos' && pos(); k == 'time' && tick(true); });
   on('open-chat', id => { toggle(true); openChat(id); });
   on('home', () => randWall());
   on('badge', () => ui.root.classList.contains('on') || $('#stp-ball').classList.add('dot'));
   const c = C(), E = c.eventTypes || c.event_types;
-  c.eventSource.on(E.CHAT_CHANGED, () => { home(); renderDesk(); syncInject(); tick(); setTimeout(() => gc(), 800); });
+  c.eventSource.on(E.CHAT_CHANGED, () => { home(); renderDesk(); syncInject(); tick(true); setTimeout(() => gc(), 800); });
   E.CHAT_DELETED && c.eventSource.on(E.CHAT_DELETED, name => gc(new Set(), String(name).replace(/\.jsonl$/, ''))); // 整个聊天被删：它独占的图片也删掉
   E.GROUP_CHAT_DELETED && c.eventSource.on(E.GROUP_CHAT_DELETED, name => gc(new Set(), String(name).replace(/\.jsonl$/, '')));
   // 只对 AI 正常生成的新回复做处理：打开聊天时的开场白、切换 swipe、扩展 / 指令插入的消息都不算

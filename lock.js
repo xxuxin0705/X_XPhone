@@ -181,6 +181,7 @@ function auth() {
 }
 export function unlock() {
   if (!el || !locked) return; locked = false; el.classList.add('out'); ui.scr.classList.remove('locked'); clearInterval(iv);
+  ui.scr.classList.add('unlk'); setTimeout(() => ui.scr.classList.remove('unlk'), 650); // 解锁动画期间桌面玻璃先用普通模糊，动画完再换回液态玻璃
   $('.lk-ic', el) && ($('.lk-ic', el).innerHTML = UNLOCK);
   setTimeout(() => { if (locked) return; fx?.stop(); fx = null; el.hidden = true; el.innerHTML = ''; vurl && URL.revokeObjectURL(vurl); vurl = ''; }, 480);
 }

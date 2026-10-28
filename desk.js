@@ -40,15 +40,15 @@ const def = () => ({ pages: [[W('clock', 4, 2, { ...WK.clock.d }), W('ccd', 2, 2
 
 let edit = 0, cur = 0, moved = 0;
 export const icon = id => S.icons[id] ? `<img src="${esc(S.icons[id])}">` : APPS[id]?.icon || '';
-const x = id => `<b class="x" data-a="del" data-x="${id}">×</b>`;
+const x = id => `<b class="x" data-a="del" data-x="${id}">−</b>`;
 const item = (it, pos = '') => it.t == 'w' ? `<div class="it wg w${it.w} h${it.h} k-${it.k} ${WK[it.k]?.cls || ''}"${pos} data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}${tpl(WK[it.k]?.r(it.p || {}, it))}</div>`
-  : `<div class="it app"${pos} data-it="${it.id}" data-a="tap" data-lp="dlp">${it.t == 'folder' ? x(it.id) : ''}<div class="ico ${it.t == 'folder' ? 'fdi' : 'a-' + it.app}">${it.t == 'folder' ? it.apps.map(a => `<i class="ico a-${a}">${icon(a)}</i>`).join('') : icon(it.app)}</div><span>${esc(it.t == 'folder' ? it.name : APPS[it.app]?.name)}</span></div>`;
+  : `<div class="it app"${pos} data-it="${it.id}" data-a="tap" data-lp="dlp">${x(it.id)}<div class="ico ${it.t == 'folder' ? 'fdi' : 'a-' + it.app}">${it.t == 'folder' ? it.apps.map(a => `<i class="ico a-${a}">${icon(a)}</i>`).join('') : icon(it.app)}</div><span>${esc(it.t == 'folder' ? it.name : APPS[it.app]?.name)}</span></div>`;
 export function renderDesk() {
   const d = S.desk, el = ui.desk; if (!el) return;
   d.pages = fitPages(d.pages); cur = Math.min(cur,d.pages.length-1);
-  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dbar"><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar">${btn('wAdd', '＋ 小组件')}${btn('pAdd', '＋ 页面')}${btn('edDone', '完成', '', 'pri')}</div></div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
+  el.innerHTML = `<div class="pages">${d.pages.map((p, i) => `<div class="page" data-box="${i}" data-lp="dlp">${pageLayout(p).placed.map(({it,row,col,w,h})=>item(it,` style="grid-column:${col+1}/span ${w};grid-row:${row+1}/span ${h}"`)).join('')}</div>`).join('')}</div><div class="dbar"><div class="dots">${d.pages.map((_, i) => `<i data-a="go" data-x="${i}" class="${i == cur ? 'on' : ''}"></i>`).join('')}</div><div class="ed-bar"><b class="tool" data-a="wAdd">＋ 组件</b><b class="tool" data-a="pAdd">＋ 页面</b><b class="tool" data-a="edTheme">🎨 美化/主题</b><b class="tool done" data-a="edDone">完成</b></div></div><div class="dock${d.dock.length ? '' : ' empty'}" data-box="dock">${d.dock.map(it=>item(it)).join('')}</div>`;
   mountWideVideos(el); mountPaintPhotos(el);
-  liquid($('.dock', el)); liquid($('.dots', el), { bezel: 10, scale: 18 }); $$('.ed-bar .btn', el).forEach(b => liquid(b, { bezel: 12, scale: 22 })); // 底部：液态玻璃
+  liquid($('.dock', el)); liquid($('.dots', el), { bezel: 10, scale: 18 }); // 底部：液态玻璃
   const pg = $('.pages', el); pg.scrollLeft = cur * pg.clientWidth;
   pg.onscroll = () => { const i = Math.round(pg.scrollLeft / pg.clientWidth); i != cur && (cur = i, $$('.dots i', el).forEach((x, j) => x.classList.toggle('on', j == i))); };
 }
@@ -134,6 +134,19 @@ function drag(e, id, longPress = false) {
   place(e);hold();R.setPointerCapture?.(pointer);
   R.addEventListener('pointermove',mv);R.addEventListener('pointerup',finish);R.addEventListener('pointercancel',finish);R.addEventListener('lostpointercapture',finish);
 }
+// 平时：手指左右滑翻页（一次一页，跟手）；竖着滑、点、长按都照常
+function deskSwipe(e) {
+  if (edit || dragging || e.button > 0 || e.isPrimary === false || e.target.closest('.phone-gesture-control,input,textarea,select,.dots,.dock')) return;
+  const pg = e.target.closest('.pages'); if (!pg) return;
+  const id = e.pointerId, start = cur, at = Date.now(), width = pg.clientWidth, scale = pg.getBoundingClientRect().width / width || 1; let on = 0, dx = 0;
+  const off = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
+  const mv = ev => { if (ev.pointerId !== id) return; dx = (ev.clientX - e.clientX) / scale; const dy = (ev.clientY - e.clientY) / scale;
+    if (!on) { if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) return off(); if (Math.abs(dx) < 8) return; on = 1; pg.style.scrollSnapType = 'none'; try { pg.setPointerCapture(id); } catch { } }
+    pg.scrollLeft = start * width - dx; };
+  const up = ev => { if (ev.pointerId !== id) return; off(); if (!on) return; pg.style.scrollSnapType = ''; moved = Date.now();
+    const turn = Math.abs(dx) > width * .18 || Math.abs(dx) > 24 && Math.abs(dx) / (Date.now() - at) > .35; goPage(start + (turn ? (dx < 0 ? 1 : -1) : 0)); };
+  addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+}
 // 编辑时：轻扫翻页，按住 240ms 拖动；空白处也能翻页。指针一直捕获在稳定根节点。
 function editGesture(e) {
   if(!edit || dragging || e.button>0 || e.isPrimary===false || e.target.closest('.x,.ed-bar,.dots'))return;
@@ -209,9 +222,10 @@ function wAddSheet() {
   const szs = [...new Set(all.map(e => `${e.w}x${e.h}`))].sort((a, b) => a.split('x').reduce((x, y) => x * y) - b.split('x').reduce((x, y) => x * y) || a.localeCompare(b));
   let fz = '';
   const card = (e, i) => `<div class="wcard" data-a="pick" data-x="${i}" data-k="${e.k}" data-sz="${e.w}x${e.h}"><div class="wprev" style="width:${e.w * CELL}px;height:${e.h * CELL}px"><div class="it wg w${e.w} h${e.h} k-${e.k} ${e.cls}">${tpl(WK[e.k].r(e.p, { w: e.w, h: e.h }))}</div></div><span class="wc-n">${esc(e.n)}</span><span class="wc-s">${e.w}×${e.h}</span></div>`;
+  const on = new Set([...S.desk.pages.flat(), ...S.desk.dock].flatMap(x => x.apps || [x.app])), gone = Object.keys(APPS).filter(a => !on.has(a)); // 从桌面移走的应用：在这里加回来
   const s = sheet({ cls: 'wadd', noBack: 1, title: '添加小组件', after: mountPaintPhotos,
-    body: () => `<div class="szf">${[['', '全部尺寸'], ...szs.map(z => [z, z.replace('x', '×')])].map(([v, l]) => `<b class="${fz == v ? 'on' : ''}" data-a="szf" data-x="${v}">${l}</b>`).join('')}</div><div class="wgrid">${all.map((e, i) => !fz || `${e.w}x${e.h}` == fz ? card(e, i) : '').join('')}</div>`,
-    acts: { szf: v => { fz = v; s.reb(); }, pick: i => { cur = placeItem(S.desk.pages,all[+i].mk(),cur); s.close(); clean(); } } });
+    body: () => `${gone.length ? `<div class="wapps">${gone.map(a => `<div class="it app" data-a="addApp" data-x="${a}"><div class="ico a-${a}">${icon(a)}</div><span>${esc(APPS[a].name)}</span></div>`).join('')}</div>` : ''}<div class="szf">${[['', '全部尺寸'], ...szs.map(z => [z, z.replace('x', '×')])].map(([v, l]) => `<b class="${fz == v ? 'on' : ''}" data-a="szf" data-x="${v}">${l}</b>`).join('')}</div><div class="wgrid">${all.map((e, i) => !fz || `${e.w}x${e.h}` == fz ? card(e, i) : '').join('')}</div>`,
+    acts: { addApp: a => { cur = placeItem(S.desk.pages, A(a), cur); s.close(); clean(); }, szf: v => { fz = v; s.reb(); }, pick: i => { cur = placeItem(S.desk.pages,all[+i].mk(),cur); s.close(); clean(); } } });
 }
 Object.assign(G, {
   dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it, true); },
@@ -220,6 +234,7 @@ Object.assign(G, {
   tap: (_, t) => { if (dragging || Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder' && !edit) return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); }, // 组件仅在长按进入编辑模式后可修改；普通点击不打开上传菜单。
   del: id => { const [l, i] = find(id), it = l[i]; dropMedia(it); it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
   wAdd: () => wAddSheet(),
+  edTheme: () => APPS.theme?.open(),
   pAdd: () => { S.desk.pages.push([]); clean(); goPage(S.desk.pages.length - 1); },
 });
 export function initDesk() {
@@ -233,7 +248,7 @@ export function initDesk() {
   if (!S.deskStreet) { S.deskStreet = 1; [...S.desk.pages.flat(), ...S.desk.dock].some(x => x.app == 'street' || x.apps?.includes('street')) || placeItem(S.desk.pages, A('street'), 0); } // 新增的商业街：老桌面也放一个
   if (!S.deskMusic) { S.deskMusic = 1; const has = [...S.desk.pages.flat(), ...S.desk.dock].some(x => x.app == 'music' || x.apps?.includes('music')); has || (S.desk.dock.length < 4 ? S.desk.dock.splice(1, 0, A('music')) : placeItem(S.desk.pages, A('music'), 0)); } // 新增的音乐 App：老桌面也放一个
   S.desk.pages = fitPages(S.desk.pages); save(); renderDesk();
-  ui.desk.addEventListener('pointerdown', editGesture);
+  ui.desk.addEventListener('pointerdown', editGesture); ui.desk.addEventListener('pointerdown', deskSwipe);
 }
 
 
