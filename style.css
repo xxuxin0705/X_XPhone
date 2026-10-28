@@ -1529,3 +1529,9 @@
 .cs-qq{background:linear-gradient(150deg,#7fd8ff,#1e9bff)}
 .cs-kk{background:linear-gradient(150deg,#ffef5c,#fbd800)}
 .cs-line{background:linear-gradient(150deg,#3ee07f,#05b74c)}
+
+/* 主题首页：全局与应用美化入口始终放在内容顶部。 */
+.thm-categories{display:flex;gap:4px;padding:4px;margin:0 0 18px;border-radius:14px;background:var(--ln)}
+.thm-categories button{flex:1;min-height:44px;border:0;border-radius:10px;padding:10px 8px;background:transparent;color:var(--pt);font:inherit;font-size:calc(14px*var(--fz,1));cursor:pointer}
+.thm-categories button.on{background:var(--cd);font-weight:600;box-shadow:0 3px 8px -5px #0005}
+.thm-categories button:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
