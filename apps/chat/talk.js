@@ -8,7 +8,7 @@ import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref } from './data.js';
 import { openFeed } from './chat.js';
-import { payPage, hbOpen } from './pay.js';
+import { payPage, hbOpen, hbDetail, tfPage } from './pay.js';
 import { bridge as mzB } from '../music/music-share.js';
 
 const EMO = '❤️ 👍 😂 🥺 😮 😡 🥳 🙏'.split(' ');
@@ -66,7 +66,7 @@ export function parseReply(raw, ch) {
 }
 function replyP(ch, patNow) {
   const g = ch.type == 'g', me = meObj().nick, sk = [...new Set([...S.assets.sticker.map(s => s.name), ...S.stk.mine.flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
-  const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${qShow(ch, m.q).c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
+  const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${qShow(ch, m.q).c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? m.rcpt ? `（这条是${m.st == '已退还' ? '退还' : '收下'}对方那笔转账的回执）` : `（${m.st}）` : ''}`).join('\n');
   const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg;
   const rn0 = Math.max(1, +cf.rmin || 1), rn1 = Math.max(rn0, +cf.rmax || 5), vn0 = Math.max(0, +cf.vmin || 0), vn1 = Math.max(vn0, cf.vmax == null ? 1 : +cf.vmax);
   const ls = mzB.getMusicListening(ch.id), snap = ls && G.mzSnapshot?.(), mt2 = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
@@ -196,8 +196,8 @@ function body(m, i, cf, ch) {
     case 'listen': case 'minv': return mzCard(m, i, ch);
     case 'img': return m.url ? `<img class="pic" src="${esc(m.url)}">` : `<div class="picd">🖼 ${esc(m.c)}</div>`;
     case 'voice': return `<div class="vc" data-a="play" data-x="${i}">${I.wave}${Math.max(1, Math.ceil(said(m, ch).length / 4))}″</div>${m.open ? `<div class="vt">${esc(said(m, ch))}</div>` : ''}${m.tr && m.open && !zhOnly(m, ch) ? fold(i, m.tr, '翻译', tzo) : ''}`;
-    case 'hb': return `<div class="tf hbk ${m.st ? 'done' : ''}" data-a="hbo" data-x="${i}"><b>${esc(m.c || '恭喜发财，大吉大利')}</b><small>${m.st ? (m.f == 'me' ? '已被领取' : '已领取') : ''}</small><i>红包</i></div>`;
-    case 'transfer': return `<div class="tf ${m.st ? 'done' : ''}" data-a="tf" data-x="${i}"><b>¥${(+m.amt).toFixed(2)}</b><small>${esc(m.st || m.c || (m.f == 'me' ? '待对方收款' : '请收款'))}</small><i>转账</i></div>`;
+    case 'hb': return `<div class="tf hbk ${m.st ? 'done' : ''}" data-a="hbo" data-x="${i}"><b>${esc(m.c || '恭喜发财，大吉大利')}</b><small>${m.st ? (m.f == 'me' ? '已被领取' : '已领取') : ''}</small><i>${m.f == 'me' ? '红包' : '微信红包'}</i></div>`;
+    case 'transfer': return `<div class="tf ${m.st ? 'done' : ''} ${m.st == '已退还' ? 'ret' : ''}" data-a="tf" data-x="${i}"><b>¥${(+m.amt).toFixed(2)}</b><small>${esc(m.st || m.c || (m.f == 'me' ? '你发起了一笔转账' : '请收款'))}</small><i>转账</i></div>`;
     default: return zhOnly(m, ch) ? esc(m.tr).replace(/\n/g, '<br>') : esc(m.c).replace(/\n/g, '<br>') + (m.tp ? '<small class="tp">翻译中…</small>' : '') + (m.orig ? fold(i, m.orig, '原文', tzo) : m.tr ? fold(i, m.tr, '翻译', tzo) : '');
   }
 }
@@ -213,7 +213,7 @@ function msgs(ch, sel) {
   let p, o = ''; const cf = ch.cfg, g = ch.type == 'g', me = meObj(), bub = S.assets.bubble.find(a => a.id == cf.bub);
   ch.msgs.forEach((m, i) => {
     const gap = !p || m.ts - p.ts > 3e5; gap && (o += `<div class="tm">${tT(m.ts)}</div>`);
-    if (m.t == 'pat' || m.t == 'sys') o += `<div class="sys ${m.t} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="slp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${esc(m.t == 'pat' ? patShow(m.c) : m.c)}${m.old != null && m.f == 'me' ? ` <b data-a="redit" data-x="${i}">重新编辑</b>` : ''}</div>`;
+    if (m.t == 'pat' || m.t == 'sys') o += `<div class="sys ${m.t} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="slp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${m.hb ? `<i class="hbic"></i>${esc(m.c).replace(/红包$/, '<em>红包</em>')}` : esc(m.t == 'pat' ? patShow(m.c) : m.c)}${m.old != null && m.f == 'me' ? ` <b data-a="redit" data-x="${i}">重新编辑</b>` : ''}</div>`;
     else {
       const mine = m.f == 'me', c = mine ? me : get(m.f) || { nick: '已删除' }, same = !gap && p?.f == m.f && !/sys|pat/.test(p.t);
       const tag = g && !mine ? (ch.owner == m.f ? '<em class="own">群主</em>' : ch.admins.includes(m.f) ? '<em class="adm">管理员</em>' : '') + (ch.titles[m.f] ? `<em>${esc(ch.titles[m.f])}</em>` : '') : '';
@@ -308,14 +308,19 @@ export function openChat(id) {
       skadd: async () => { const r = await form('添加表情包', [['name', '描述（AI 按描述发送）'], ['img', '图片', 'img']]); if (!r?.img) return; S.assets.sticker.push({ id: uid(), name: r.name || '表情', img: r.img }); C().saveSettingsDebounced(); pan('stk', 1); },
       // 转账 / 发红包：整页（仿微信）；群里先选给谁
       ptf: () => tool(async () => { const to = ch.type == 'p' ? ch : get(await menu(ch.members.map(i => [i, esc(nm(get(i)))]), '转账给谁')); to && payPage(to, 'tf', r => { D().me.wallet -= r.amt; push(ch, { t: 'transfer', amt: r.amt, c: r.c, ...(ch.type == 'g' && { to: to.id }) }); }); }),
-      phb: () => tool(async () => payPage(ch, 'hb', r => { D().me.wallet -= r.amt; push(ch, { t: 'hb', amt: r.amt, c: r.c || '恭喜发财，大吉大利' }); })),
-      hbo: i => { const m = ch.msgs[i]; if (!m) return; if (m.f == 'me') return toast(m.st ? '红包已被领取' : '红包未被领取'); const from = get(m.f) || ch; if (m.st) return toast('你已领取过这个红包');
-        hbOpen(m, from, () => { m.st = '已领取'; D().me.wallet = +D().me.wallet + m.amt; ch.msgs.push({ f: 'sys', t: 'sys', c: `你领取了${nm(from)}的红包`, ts: +now() }); saveD(); }); },
+      phb: () => tool(async () => payPage(ch, 'hb', r => { D().me.wallet -= r.amt; push(ch, { t: 'hb', amt: r.amt, c: r.c || '恭喜发财，大吉大利', ...(r.si && { si: r.si, sn: r.sn }) }); })),
+      // 红包：我发的 / 已经拆过的直接看详情；别人的没拆 → 红色卡片点「開」
+      hbo: i => { const m = ch.msgs[i]; if (!m) return; const from = m.f == 'me' ? meObj() : get(m.f) || ch, reply = () => pan('stk', 1);
+        if (m.f == 'me' || m.st) return hbDetail(m, from, reply);
+        hbOpen(m, from, () => { m.st = '已领取'; D().me.wallet = +D().me.wallet + m.amt; ch.msgs.push({ f: 'sys', t: 'sys', hb: 1, c: `你领取了${nm(from)}的红包`, ts: +now() }); saveD(); }, reply); },
       avc: x => { clearTimeout(avT); if (avL == x) { avL = 0; return pat(x); } avL = x; avT = setTimeout(() => { avL = 0; x != 'sys' && openFeed(x); }, 280); },
       tz: (i, t) => { const m = ch.msgs[i]; m.tz = !m.tz; saveD(); const o = !!cf.trOpen != !!m.tz, p = t.nextElementSibling; t.classList.toggle('on', o); p && (p.hidden = !o); },
       rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; saveD(); emit('chat'); },
       redit: i => { const m = ch.msgs[i], ip = $('.ip', pg.el); ip.value = m.old; ip.oninput(); ip.focus(); },
-      tf: async i => { const m = ch.msgs[i]; if (m.f == 'me' || m.st || !await ok(`收下 ¥${m.amt}？`)) return; m.st = '已收款'; D().me.wallet = +D().me.wallet + m.amt; saveD(); emit('chat'); },
+      // 转账：点开是转账详情页；别人转给我、还没处理的可以收款 / 退还（各自在我这边多一条「已收款 / 已退还」）
+      tf: i => { const m = ch.msgs[i]; if (!m) return; const from = m.f == 'me' ? (m.to ? get(m.to) : ch) || ch : get(m.f) || ch;
+        const fin = st => { m.st = st == '已收款' ? '已被接收' : st; m.rt = +now(); ch.msgs.push({ f: 'me', t: 'transfer', amt: m.amt, st, rcpt: 1, t0: m.ts, rt: m.rt, ts: m.rt }); saveD(); emit('chat'); };
+        tfPage(m, from, m.f != 'me' && !m.st && !m.rcpt ? { take: () => { D().me.wallet = +D().me.wallet + m.amt; fin('已收款'); }, ret: () => fin('已退还') } : null); },
       play: i => { const m = ch.msgs[i], c = m.f == 'me' ? meVoice() : get(m.f); m.open = 1; saveD(); emit('chat'); tts(said(m, ch), '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p' }).catch(e => fail('语音失败：' + e.message)); },
       mlp: async (i, t) => {
         const m = ch.msgs[i]; if (!m || /sys|pat/.test(m.t)) return; const mine = m.f == 'me', stk = m.t == 'sticker', text = /text|voice/.test(m.t);

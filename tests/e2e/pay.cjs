@@ -1,0 +1,67 @@
+// 微信转账 / 红包（照着真机录屏）：发红包（键盘、祝福语、表情、支付弹层）、转账（支付成功页）、拆红包（開 → 详情页、系统提示）、收转账（待你收款 → 你已收款、回执）、消息列表预览
+const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
+const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
+const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.html': 'text/html' };
+const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (MIME[path.extname(f)] || 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8820);
+let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
+const IMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#8cf"/><circle cx="5" cy="5" r="3" fill="#fff"/></svg>');
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort());
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto('http://localhost:8820/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
+  const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'pay_' + n + '.png') });
+  const key = async k => { await p.click(`.pay-k [data-x="${k}"]`); };
+  await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js');
+    core.S.lock.on = false; core.S.style = 'wx'; core.S.assets.sticker = [{ id: 's1', name: '被拿捏', img: '${IMG}' }]; core.D().me.wallet = 1000;
+    core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '徐鑫', nick: '绷带盐', fr: 1 })); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
+  // 发红包
+  await E(`core.top().acts.phb()`); await W(500);
+  ok(/金额/.test(await E(`document.querySelector('.hbs').textContent`)) && await E(`!document.querySelector('.paypg .pg-f').classList.contains('off')`), '发红包页：金额 / 祝福语 / 红包封面，数字键盘弹着');
+  for (const k of ['1', '2', '3']) await key(k);
+  ok(await E(`document.querySelector('.hbs-r .pay-n').textContent`) == '¥123' && /123\.00/.test(await E(`document.querySelector('.hbs-big').textContent`)), '输入 123：金额栏 ¥123，大字 ¥123.00');
+  await shot('hb_key');
+  await p.click('.pay-k [data-a=pkok]'); await W(150);
+  ok(await E(`document.querySelector('.paypg .pg-f').classList.contains('off')`), '点「确定」收起键盘');
+  await p.fill('.hbs-in', '你好'); await W(200);
+  ok(/根据祝福语推荐/.test(await E(`document.querySelector('.hbs').textContent`)), '写了祝福语：出现「根据祝福语推荐」');
+  await p.click('.hbs-sk'); await W(400); await shot('hb_sk');
+  await p.click('.hbsk-g b'); await W(400);
+  ok(await E(`!!document.querySelector('.hbs-sk img')`), '选了表情：祝福语右边换成表情缩略图');
+  await shot('hb_note');
+  await p.click('.hbs-go'); await W(1100); await shot('hb_sheet');
+  ok(/微信红包[\s\S]*123\.00[\s\S]*零钱/.test(await E(`document.querySelector('.wxps')?.textContent || ''`)), '塞钱进红包 → 微信支付 → 支付弹层（微信红包 ¥123.00 / 零钱）');
+  for (const k of '123456') { await p.click(`.wxps-k [data-k="${k}"]`); await W(40); }
+  await W(300); await shot('hb_paying'); await W(1500);
+  const hb = await E(`JSON.stringify(_c.msgs.at(-1))`);
+  ok(/"t":"hb"/.test(hb) && /"c":"你好"/.test(hb) && /"si"/.test(hb) && await E(`core.D().me.wallet`) == 877, '输完 6 位密码：红包发出（带表情），零钱扣掉');
+  ok(await E(`[...document.querySelectorAll('.chat .tf.hbk i')].at(-1)?.textContent`) == '红包', '我发的红包标签是「红包」');
+  // 转账
+  await E(`core.top().acts.ptf()`); await W(500);
+  ok(/转账给 绷带盐 \(\*鑫\)/.test(await E(`document.querySelector('.pay-h').textContent`)), '转账页：转账给 绷带盐 (*鑫)');
+  await key('1'); await key('2'); await shot('tf_key'); await p.click('.pay-k .pay-go'); await W(1100);
+  ok(/向绷带盐 \(\*鑫\)转账[\s\S]*12\.00/.test(await E(`document.querySelector('.wxps')?.textContent || ''`)), '支付弹层：向绷带盐 (*鑫)转账 ¥12.00');
+  for (const k of '123456') { await p.click(`.wxps-k [data-k="${k}"]`); await W(40); } await W(1800); await shot('tf_paid');
+  ok(/支付成功[\s\S]*待绷带盐确认收款[\s\S]*12\.00[\s\S]*完成/.test(await E(`core.top().el.textContent`)), '支付成功页：待绷带盐确认收款 + 完成');
+  await p.click('.wxtp-done'); await W(500);
+  ok(/你发起了一笔转账/.test(await E(`[...document.querySelectorAll('.chat .tf')].at(-1).textContent`)), '聊天里：¥12.00 你发起了一笔转账');
+  // 收红包 / 转账
+  await E(`(() => { _c.msgs.push({ f: _c.id, t: 'hb', c: '你好', amt: 123, si: '${IMG}', ts: Date.now() }, { f: _c.id, t: 'transfer', amt: 12, c: '', ts: Date.now() }); _c.unread = 2; core.saveD(); core.back(); })()`); await W(500);
+  const pv = await E(`document.querySelector('.chatapp .cl-m small').textContent`);
+  ok(/^\[转账, 红包\] \[转账\] 请收款$/.test(pv), '消息列表：红字 [转账, 红包] + [转账] 请收款 → ' + pv);
+  await E(`talk.openChat(_c.id)`); await W(500); await shot('in_chat');
+  ok(await E(`[...document.querySelectorAll('.chat .tf.hbk i')].at(-1)?.textContent`) == '微信红包', '收到的红包标签是「微信红包」');
+  await E(`[...document.querySelectorAll('.chat [data-a=hbo]')].at(-1).click()`); await W(400); await shot('hb_open');
+  ok(/绷带盐的红包[\s\S]*你好/.test(await E(`document.querySelector('.hbo')?.textContent || ''`)) && await E(`!!document.querySelector('.hbo .hbo-sk')`), '拆红包卡片：绷带盐的红包 / 你好 / 表情 / 開');
+  await p.click('.hbo-o'); await W(300); await shot('hb_spin'); await W(1100); await shot('hb_detail');
+  ok(/123\.00[\s\S]*已存入零钱[\s\S]*回复表情到聊天/.test(await E(`core.top().el.textContent`)), '红包详情：123.00 元、已存入零钱、回复表情到聊天');
+  await E(`core.back()`); await W(500); await shot('hb_after');
+  ok(/你领取了绷带盐的红包/.test(await E(`document.querySelector('.chat .sys .hbic')?.parentElement.textContent || ''`)), '系统提示：🧧 你领取了绷带盐的红包');
+  await E(`[...document.querySelectorAll('.chat [data-a=tf]')].find(x => /请收款/.test(x.textContent)).click()`); await W(500); await shot('tf_in');
+  ok(/待你收款[\s\S]*12\.00[\s\S]*转账时间[\s\S]*收款[\s\S]*退还/.test(await E(`core.top().el.textContent`)), '待你收款页：¥12.00 / 转账时间 / 收款 / 退还');
+  await p.click('.wxtp-go'); await W(1200); await shot('tf_got');
+  ok(/你已收款，资金已存入零钱[\s\S]*收款时间[\s\S]*零钱通/.test(await E(`core.top().el.textContent`)), '收款后：你已收款，资金已存入零钱 / 收款时间 / 零钱通');
+  await E(`core.back()`); await W(500); await shot('tf_after');
+  const tfs = await E(`[...document.querySelectorAll('.chat .tf:not(.hbk)')].map(x => x.textContent).join('|')`);
+  ok(/已被接收/.test(tfs) && /12\.00已收款/.test(tfs), '原来那条变「已被接收」，我这边多一条「已收款」 ' + tfs);
+  ok(errs.length == 0, '没有报错 ' + errs.join(' | '));
+  console.log(`\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
+})();

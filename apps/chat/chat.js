@@ -144,9 +144,12 @@ export const syncStory = t => task('剧情同步中', async sg => { const o = ap
 // 多选模式：msel 是选中的会话 id（null = 没在多选）
 let msel = null;
 const vis = () => D().chats.filter(c => c.fr !== 0 || c.msgs.length);
+// 微信消息列表的预览：转账 / 红包写成「[转账] 请收款」「[微信红包]祝福语」；没读的消息里有待收的转账 / 红包，前面加红字「[转账, 红包]」
+const pvw = m => S.style != 'wx' ? brief(m) : m.t == 'transfer' ? `[转账] ${m.st || m.c || (m.f == 'me' ? '你发起了一笔转账' : '请收款')}` : m.t == 'hb' ? `[微信红包]${m.c || ''}` : brief(m);
+const payTag = c => { if (S.style != 'wx' || !c.unread) return ''; const L = c.msgs.slice(-c.unread).filter(m => m.f != 'me' && !m.st && !m.rcpt), k = [L.some(m => m.t == 'transfer') && '转账', L.some(m => m.t == 'hb') && '红包'].filter(Boolean); return k.length ? `<em class="cl-pay">[${k.join(', ')}]</em> ` : ''; };
 const list = () => vis().sort((a, b) => (b.pin | 0) - (a.pin | 0) || (b.msgs.at(-1)?.ts || 0) - (a.msgs.at(-1)?.ts || 0)).map(c => {
   const m = c.msgs.at(-1);
-  return `<div class="cl ${c.pin ? 'pin' : ''} ${msel ? 'msel' : ''} ${msel?.has(c.id) ? 'on' : ''}" data-a="open" data-x="${c.id}" data-lp="clp">${msel ? '<i class="ck"></i>' : ''}<div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${gsz(c)})</small>` : ''}</b><small>${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + brief(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
+  return `<div class="cl ${c.pin ? 'pin' : ''} ${msel ? 'msel' : ''} ${msel?.has(c.id) ? 'on' : ''}" data-a="open" data-x="${c.id}" data-lp="clp">${msel ? '<i class="ck"></i>' : ''}<div class="avw"><img class="av" src="${esc(avOf(c))}">${c.unread ? `<i class="badge">${c.unread > 99 ? '99+' : c.unread}</i>` : ''}</div><div class="cl-m"><b>${esc(nm(c))}${c.type == 'g' ? ` <small>(${gsz(c)})</small>` : ''}</b><small>${payTag(c)}${esc(m ? (c.type == 'g' && m.f != 'me' && m.f != 'sys' ? nm(get(m.f)) + ': ' : '') + pvw(m) : '')}</small></div><time>${m ? tT(m.ts).split(' ')[0] : ''}</time></div>`;
 }).join('') || `<div class="empty"><p>还没有聊天 ✧</p>${btn('tab', '去通讯录添加联系人', 'ct', 'pri')}</div>`;
 const meP = () => {
   const f = fx(D().me), m = meObj();

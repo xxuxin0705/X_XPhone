@@ -61,7 +61,7 @@ apps/chat/       聊天 App
   data.js          联系人 / 群 / 消息的增删改（addMsg、applyDelta）
   sticker*.js      表情包：免费表情库、表情商店、我的表情
   voice.js ocr.js  语音、识图
-  pay.js           转账 / 发红包整页（自带数字键盘，红包单个 ≤200）、拆红包卡片
+  pay.js           转账 / 红包（照真机录屏）：发红包页 / 转账页（自带数字键盘，红包单个 ≤200）→ 微信支付弹层 → 转账支付成功页；拆红包「開」→ 红包详情页；转账详情（待你收款 → 你已收款，回执消息 rcpt）
   feed.js          动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）、个人相册、生成动态弹窗（条数 / 必定出现的人）
   wx.js            微信样式外壳：底栏（微信/通讯录/发现/我）图标、「我」页及个人信息/服务/设置子页、朋友资料页（发现 = 直接进朋友圈；点头像 → 资料 → 朋友圈相册）
 apps/music/      音乐 App
@@ -147,7 +147,7 @@ tests/           测试（见第五节）
 
 - `node tests/run.cjs music isle` 按改动范围选择测试组，不默认运行全量测试。修改部分及直接受影响流程测试通过后推送；只有用户要求时才运行 `node tests/run.cjs` 全量测试。
 - `tests/unit/*.mjs`：纯逻辑（Node 直接跑）。`tests/e2e/*.cjs`：Playwright + 模拟酒馆 `tests/e2e/st.html`，外网接口一律 `page.route` 模拟。
-- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8819，新文件用 8820 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
+- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8820，新文件用 8821 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
 - 模拟 AI：`core.S.api.chat.src = 'tavern'` 后替换 `SillyTavern.getContext().generateRaw`。
 - 模拟开机前已有的设置：`page.addInitScript(() => { window.__preset = { st_phone: {…} } })`。
 - 截图输出在 `tests/out/`（不提交）。
