@@ -93,7 +93,11 @@ ${mine ? `<div class="mz-ics"><b data-a="post">${FI.say}<span>说说</span></b><
 const dayOf = ts => { const d = new Date(ts), t = now(), y = new Date(+t - 864e5); return d.toDateString() == t.toDateString() ? ['今天'] : d.toDateString() == y.toDateString() ? ['昨天'] : [String(d.getDate()).padStart(2, '0'), d.getMonth() + 1 + '月']; };
 function album(u, aid, ps, cov) {
   const days = []; ps.forEach(p => { const k = new Date(p.ts).toDateString(), l = days.at(-1); l && l.k == k ? l.ps.push(p) : days.push({ k, d: dayOf(p.ts), ps: [p] }); });
-  const it = p => { const first=postImages(p)[0]?.url; return `<div class="al-p ${first ? 'im' : ''}" data-a="apost" data-x="${p.id}">${first ? `<img src="${esc(first)}">` : ''}<p>${esc(p.tr && auOf(p).cfg?.trAuto === false ? p.tr : p.c || (p.imgd ? '[图片] ' + p.imgd : ''))}</p></div>`; };
+  // 有配图的：左边一个小方块拼图（照真微信个人相册：1 张铺满、2 张左右、3 张左一右二、4 张田字、5～9 张九宫格），右边最多三行字；没生成的图也占格子（灰底小图标）
+  const it = p => { const ims = postImages(p), t = faces(esc(p.tr && auOf(p).cfg?.trAuto === false ? p.tr : p.c || ''));
+    if (!ims.length) return `<div class="al-p" data-a="apost" data-x="${p.id}"><p>${t}</p></div>`;
+    const n = Math.min(9, ims.length), k = n >= 5 ? 9 : n;
+    return `<div class="al-p im" data-a="apost" data-x="${p.id}"><div class="al-g n${k}">${ims.slice(0, n).map(v => v.url ? `<img src="${esc(v.url)}" loading="lazy" alt="">` : `<i class="al-ph">${FI.img}</i>`).join('')}</div>${t ? `<p>${t}</p>` : ''}</div>`; };
   return `<div class="album"><div class="al-cv" data-a="fcov" data-x="${aid}" ${bg(cov)}><b>${esc(nm(u))}</b><img class="av" src="${esc(avOf(u))}"></div><p class="al-sg">${esc(u?.sign || '这个人很神秘，什么也没留下~')}</p>
 ${days.map(g => `<div class="al-d"><div class="al-t"><b>${g.d[0]}</b>${g.d[1] ? `<small>${g.d[1]}</small>` : ''}</div><div class="al-l">${g.ps.map(it).join('')}</div></div>`).join('') || `<p class="al-e">${aid == 'me' ? '你' : 'TA'} 还没有发过朋友圈</p>`}</div>`;
 }
@@ -227,10 +231,10 @@ const SPIN = WXI('mo-spin');
 export function mountFeed(el) {
   const area=el.querySelector('.pg-b'), head=el.querySelector('.pg-h');
   if(!area || !head)return;
-  const wx = el.querySelector('.feed.mz-wx') && !el.classList.contains('alpg');
-  if(wx) { const title=head.querySelector('.pg-t');if(title)title.textContent='朋友圈'; }
+  const al = el.classList.contains('alpg') && el.querySelector('.album'), wx = al || el.querySelector('.feed.mz-wx'); // 个人相册（照我的朋友圈一样：封面顶到状态栏、滑过封面顶栏变实心、下拉光圈）
+  if(wx) { const title=head.querySelector('.pg-t');if(title)title.textContent=al ? el.querySelector('.al-cv b')?.textContent || '' : '朋友圈'; }
   if(el.classList.contains('tb-feed') && D().posts.some(p => p.u)) { D().posts.forEach(p => delete p.u); saveD(); } // 看过了，发现 上的红点消掉
-  const cv = () => el.querySelector('.feed.mz-wx>.mo-cv');
+  const cv = () => el.querySelector('.feed.mz-wx>.mo-cv,.album>.al-cv');
   const edge = () => { const c = cv(); return c ? c.offsetHeight - head.offsetTop - head.offsetHeight : 150; };
   const update=()=>head.classList.toggle('feed-header-solid',area.scrollTop>Math.max(40, edge()));
   area.onscroll=update;update();

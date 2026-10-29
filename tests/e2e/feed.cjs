@@ -37,4 +37,7 @@ await p.click('.imv');await p.waitForTimeout(600);assert.equal(await p.locator('
 await p.evaluate(()=>{c.D().me.fbg='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>';c.top().re();});assert.equal(await p.locator('.wxm').evaluate(el=>getComputedStyle(el).borderRadius),'12px');
 for(const [style,key] of [['wx','wx'],['qq','qq'],['line','tw']]){await p.evaluate(({style})=>{c.S.style=style;c.top().re();},{style});await p.waitForTimeout(150);assert.equal(await p.locator('.mo-photo').count(),2);fs.mkdirSync(path.join(root,'tests/out'),{recursive:true});await p.screenshot({path:path.join(root,'tests/out/feed-'+key+'.png')});}
 await p.evaluate(()=>{c.S.style='wx';c.top().re();f.FA.fgen();});await p.waitForTimeout(350);await p.screenshot({path:path.join(root,'tests/out/feed-generator.png')});
-assert.deepEqual(errors,[]);console.log('19 passed, 0 failed');}finally{await b?.close();srv.close();}})().catch(e=>{console.error(e);process.exitCode=1});
+// 角色的个人相册：封面顶到状态栏（和我的朋友圈一样），有图的动态显示配图拼图（2 张左右排）
+await p.evaluate(()=>{c.home();f.openFeed(c.D().posts[0].a);});await p.waitForTimeout(500);
+assert.deepEqual(await p.evaluate(()=>[getComputedStyle(c.top().el).paddingTop,document.querySelectorAll('.al-p.im .al-g.n2>*').length]),['0px',2]);
+assert.deepEqual(errors,[]);console.log('20 passed, 0 failed');}finally{await b?.close();srv.close();}})().catch(e=>{console.error(e);process.exitCode=1});

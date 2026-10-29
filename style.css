@@ -1965,3 +1965,20 @@ html{min-height:100%;min-height:100dvh}
 #stp .ci-nm .ci:first-child textarea{font-size:calc(17px*var(--fz,1))}
 .ci-top>.ci-av{margin-top:5px}
 .r2-n{z-index:2}
+/* 个人相册和「我的朋友圈」一样：封面顶到状态栏（状态栏白字），封面高度一样；滑过封面顶栏变实心灰底 + 名字 */
+.feedpg.alpg{padding-top:0}.stp-scr:has(.stack>.pg:last-child.feedpg.alpg)>.sb{color:#fff}
+.alpg .al-cv{height:270px}
+.alpg .pg-h .pg-t{opacity:0;color:#111;font-size:15px}.alpg .pg-h.feed-header-solid{background:#ededed!important;color:#111}
+.alpg .pg-h.feed-header-solid .pg-t{opacity:1}.alpg .pg-h.feed-header-solid svg{color:#111;filter:none}
+.alpg .pg-h.feed-header-solid::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:var(--sbh);background:#ededed;pointer-events:none}
+/* 顶栏变实心时状态栏的字换回深色（不然白字落在灰底上看不见） */
+.stp-scr:has(.stack>.pg:last-child .pg-h.feed-header-solid)>.sb{color:#111!important}
+/* 相册里的配图拼图 */
+.al-g{flex:none;display:grid;gap:2px;width:78px;height:78px;overflow:hidden}
+.al-g.n1{grid-template:1fr/1fr}.al-g.n2{grid-template:1fr/1fr 1fr}.al-g.n3,.al-g.n4{grid-template:1fr 1fr/1fr 1fr}.al-g.n3>:first-child{grid-row:span 2}
+.al-g.n9{grid-template:repeat(3,1fr)/repeat(3,1fr)}
+.al-p .al-g img{display:block;width:100%;height:100%;min-width:0;min-height:0;object-fit:cover}
+.al-ph{display:grid;place-items:center;min-width:0;min-height:0;background:#ececec;color:#c2c2c2}.al-ph svg{width:40%;max-width:22px;height:auto}
+.al-p.im p{padding-top:0;font-size:calc(15px*var(--fz,1));line-height:1.5;-webkit-line-clamp:3}
+/* 朋友圈正文和配图之间留一点空（照真微信） */
+.feed.mz-wx .mo-t+.mo-images{margin-top:12px}
