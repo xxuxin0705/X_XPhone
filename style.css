@@ -2124,3 +2124,7 @@ html{min-height:100%;min-height:100dvh}
 .xc-kb input::placeholder{color:rgba(255,255,255,.45)}
 #stp .xc-kb input:focus{border-bottom-color:rgba(255,255,255,.5)}
 .xc.pl .xc-kb{bottom:calc(254px + env(safe-area-inset-bottom))}
+/* 通话 · 模型听：说话时字幕位置是一排跟着音量跳的小竖条 */
+.xc-lv{display:inline-flex;gap:4px;align-items:center;height:18px;--lv:.2}
+.xc-lv i{width:3px;border-radius:2px;background:#fff;height:calc(4px + 14px * var(--lv));transition:height .08s}
+.xc-lv i:nth-child(2),.xc-lv i:nth-child(4){height:calc(4px + 10px * var(--lv))}.xc-lv i:nth-child(1),.xc-lv i:nth-child(5){height:calc(3px + 6px * var(--lv))}

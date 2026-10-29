@@ -84,3 +84,12 @@
 - TauriTavern 的 `/api/backends/chat-completions/generate` 支持流式（ai-routes.js 里的 createChatCompletionStreamResponse），所以 curReq 在 Tauri 里也能一句一句出；请求带 `type: 'quiet'`，不当成正文生成。
 - 做法：在 Tauri 里（有 `__TAURI_INTERNALS__` / `__TAURI__`）不开浏览器识别，轮到我就弹出输入框，用手机输入法自带的语音输入（键盘上的话筒；输入法有自己的麦克风权限）。自动接话开着时，框里的字 1.8 秒不再变就自动发出去。
 - 以后如果 TauriTavern 加上了 RECORD_AUDIO：可以用 getUserMedia 录音，把音频跟本轮请求一起发给 Gemini（它能听音频），让模型先写出听到的话再回答，不多调一次模型。
+
+## 2026-10-30：「模型听」——不再靠浏览器自带识别
+
+- 用户在原生酒馆（浏览器）里也录不进：报 `network`（浏览器自带识别要把声音传到谷歌服务器，国内不开梯子连不上；很多国产手机没有谷歌服务，开了也不行）和 `audio-capture`（麦克风被录屏占着）。结论：浏览器自带识别在国内靠不住。
+- 新做法（默认）：`getUserMedia` 自己开麦克风（回声消除、降噪、自动增益）→ ScriptProcessor 每帧算音量，噪声底自适应，连着约 0.13 秒够响就算开口（字幕位置出现跟音量跳的竖条），安静 1 秒算说完，不到 0.35 秒的不算 → 录音降到 16kHz 单声道 wav → 跟本轮请求一起发给模型（`llm(..., { audio })`）。走酒馆时是 `audio_url` 内容块，酒馆会转成 Gemini 的 inlineData（prompt-converters.js 里 convertGooglePrompt 支持）；走自己的 API 是 `input_audio`。
+- 模型回复第一行是 `HEARD: 我说的原话`，填进字幕里我那一行、记进通话内容；后面照常切句、合成、逐字字幕。只调用一次模型，不用谷歌、不要额外的密钥。要 Gemini 这类能听音频的模型；听不了时提示把底部切成「浏览器识别」。
+- 半双工：TA 想和说的时候不听，TA 说完再等 0.45 秒（回声尾巴）才开始听。麦克风一点声音都没有时提示可能被录屏占着。
+- TauriTavern 里没有麦克风权限，还是输入法说；以后 TauriTavern 加上 RECORD_AUDIO，模型听可以直接用。
+- 测试：`callear`（8824），假麦克风 + 音量控制。

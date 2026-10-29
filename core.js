@@ -467,12 +467,16 @@ export const llm = (sys, user, desc = '聊天', sg, o = {}) => {
   const R = route(o.aux, o.use); return call('chat', desc, user, async (p, sig, cx) => {
   const key = R.raw ? 'raw' : R.st ? 'st:' + R.st.id : 'p:' + p.id + ':' + p.model;
   const imgs = o.images?.length && !noVision.has(key) ? (await Promise.all(o.images.map(u => imgData(u).catch(() => null)))).filter(Boolean) : [];
+  // o.audio：一段录音（data:audio/wav;base64,…），跟这次请求一起发给模型听（打电话「模型听」用，不另外调用识别）
+  //   走酒馆（当前连接 / 连接配置）用酒馆认识的 audio_url，酒馆会转成 Gemini 的 inlineData；走自己的 API 用 OpenAI 兼容的 input_audio
+  const au = o.audio, stU = au ? [{ type: 'text', text: user }, { type: 'audio_url', audio_url: { url: au } }] : user,
+    opU = au ? [{ type: 'text', text: user }, { type: 'input_audio', input_audio: { data: au.split(',')[1], format: (au.match(/audio\/(\w+)/) || [])[1] || 'wav' } }] : user;
   const once = async img => {
     if (R.raw && o.stream && !img.length && curStream()) { let got = false; // 流式走不通（比如酒馆版本差异）且还没出字：退回 generateRaw 再来一次
-      try { return await curReq(sys, user, sig, cx, { ...o, onText: t => { got = true; o.onText?.(t); } }); } catch (e) { if (sig?.aborted || got) throw e; cx.part('（流式没走通，改成整段返回：' + e.message + '）', 0); } }
-    if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: user });
-    if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : user, sig, cx, o);
-    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : user }], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
+      try { return await curReq(sys, stU, sig, cx, { ...o, onText: t => { got = true; o.onText?.(t); } }); } catch (e) { if (sig?.aborted || got) throw e; cx.part('（流式没走通，改成整段返回：' + e.message + '）', 0); } }
+    if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: au ? [{ role: 'user', content: stU }] : user });
+    if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : stU, sig, cx, o);
+    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : opU }], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
     const x = p.fast || o.fast ? noThink(p.model) : null; let r;
     try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
     catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }
