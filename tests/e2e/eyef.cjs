@@ -59,7 +59,7 @@ ${Array.from({ length: 52 }, (_, i) => `#${i + 1} 网友${i % 7} | ${['CP粉', '
   await fr().click('#f3 .like'); ok(await fr().$eval('#f3 .like .xf-n', x => x.textContent) == '27', '点赞 +1');
   await p.screenshot({ path: OUT + '/eyef-thread.png' });
   const pr = await E(`window.__prompt`);
-  ok(!/\{\{char\}\}|\{\{user\}\}/.test(pr) && /灰吕杵志/.test(pr) && /只能来自上面的【正文剧情】/.test(pr), '提示词里的 {{char}} {{user}} 换成了名字，要求只用正文里的人和事');
+  ok(!/\{\{char\}\}|\{\{user\}\}/.test(pr) && /灰吕杵志/.test(pr) && /不会说谁是 OC/.test(pr) && /只能来自上面的【正文剧情】/.test(pr), '提示词里的 {{char}} {{user}} 换成了名字，要求只用正文里的人和事');
   ok(/漫画/.test(pr) && /画崩/.test(pr) && /漫画家/.test(pr) && /至少 50 楼/.test(pr) && /最近几帖用过：无/.test(pr), '提示词带形态、50 楼、最近用过的平台');
   // 再刷一帖
   await E(`document.querySelector('.ef-h [data-a=efgen]').click()`); await W(1800);
