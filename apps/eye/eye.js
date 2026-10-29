@@ -1,18 +1,18 @@
 // 小手机 · 窥探之眼：从更高一层往下看——这段剧情在「那个世界」里是一部漫画 / 动画 / 电视剧 / 小说 / 游戏
 // 画面全是生成的图（assets/eye/*.webp），一笔不画：
-//   room / room_author  客厅（面具挂在墙上 / 戴在他脸上）   phone  他手里的手机特写（屏幕上的图标抹掉了，前端叠）
-//   backstage  帷幕后面   cabinet  周边柜特写   fg  最前面一层虚化的沙发   tv_*  五种形态在电视上放的画面   gp_* / gi_*  引导用的五块面板和小图标
-// 第一次进来先选「这段剧情是一部什么」：五块面板浮在茶几上方，点一块，电视就亮起对应的画面
+//   room / room_author  客厅（面具挂在墙上 / 戴在他脸上）   phone  他手里的手机特写（图标就是图里的，点哪个开哪个）
+//   backstage  帷幕后面   cabinet  周边柜特写   fg  最前面一层虚化的沙发   tv_*  五种形态在电视上放的画面   guide  选作品时的客厅（茶几上方五块面板）   gi_*  小图标
+// 第一次进来先选「这段剧情是一部什么」：整间屋子是暗的，五块面板浮在茶几上方，点哪块哪块亮、电视跟着亮；选过以后再进来就不用选了
 // 手机上的 App：官方平台（随形态换，五选一）/ 论坛 / 周边店 / 同人圈 / 另一条线（同人作品是原著线，原创作品是 IF 线）
 // 内容都是样例；生成之后接
 import { S, $, $$, page, reg, toast, save, esc, openApp } from '../../core.js';
 
-const CSS = new URL('./eye.css?v=4', import.meta.url).href;
+const CSS = new URL('./eye.css?v=5', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
 let pxReady; const pxFont = () => pxReady ||= (async () => { try { const f = new FontFace('xp-px', `url("${PXF}") format("woff")`); await f.load(); document.fonts.add(f); } catch {} })();
-const ST = () => { const e = (S.eye ||= { form: '', role: 'viewer', wall: false, src: 'orig', intro: true }); if (typeof e.intro != 'boolean') e.intro = true; return e; };
+const ST = () => { const e = (S.eye ||= { form: '', role: 'viewer', wall: false, src: 'orig', intro: true }); if (typeof e.intro != 'boolean') e.intro = true; if (e.v != 2) { e.v = 2; e.form = ''; save(); } return e; };
 
 /* ---------- 形态 ---------- */
 const FORMS = [['manga', '漫画'], ['game', '游戏'], ['novel', '小说'], ['drama', '电视剧'], ['anime', '动画']];
@@ -24,18 +24,21 @@ const FM = {
   novel: { ep: '章', unit: '第三卷 · 第 41 章', where: '文库 · 连载中', plat: '文库', bs: '作者的话', who: '作者', tv: 'novel' },
   game: { ep: '章', unit: '第 4 章 · 雨夜', where: '游戏库 · 已发售', plat: '游戏库', bs: '开发者日志', who: '制作组', tv: 'game' },
 };
-// 引导面板和小图标在底图上的位置（百分比，从第二张图量的）
-// （面板原图位置，留着备用）
-const GP = { manga: [36.3, 40.6, 49.6, 47.8], game: [49.6, 41.6, 63.3, 49.3], novel: [64.1, 41.9, 75.8, 49.0], drama: [75.8, 42.0, 87.5, 49.4], anime: [87.1, 42.2, 98.8, 49.7] };
-const GI = { manga: [46.2, 51.0], game: [56.9, 52.6], novel: [69.6, 51.9], drama: [80.8, 52.2], anime: [91.4, 51.9] };
+// 选作品那张图上，每一列（面板 + 小图标 + 茶几上对应的东西）的范围，百分比：左 上 右 下
+const GCOL = { manga: [36.6, 40, 54.2, 64], game: [49.8, 40, 68.4, 68.4], novel: [63, 40, 75.2, 64], drama: [74.7, 40, 86.4, 69.2], anime: [86.4, 40, 99.4, 63] };
+const GHIT = { manga: [36, 40, 50, 68], game: [50, 40, 64, 68], novel: [64, 40, 75.5, 68], drama: [75.5, 40, 86.5, 70], anime: [86.5, 40, 99.5, 68] };
+const pct = ([l, t, r, b]) => `left:${l}%;top:${t}%;width:${r - l}%;height:${b - t}%`;
 
 /* ---------- 热区（相对底图的百分比：左 上 右 下） ---------- */
 const ZONES = { tv: [33.5, 14.5, 78.5, 43.5], phone: [38, 56, 50, 67], mask: [16, 9, 27.5, 21], cab: [13.5, 20, 28.5, 34.5], curtain: [82, 8, 99.5, 52], cctv: [72, 2, 87, 9.5], table: [52, 51, 97, 70] };
 const CAMS = { tv: 1.5, phone: 1.9, mask: 2.4, cab: 2.2, curtain: 1.9, cctv: 2.6, table: 1.7 };
 // 点了以后整张换成另一张图的：手机特写 / 帷幕后面 / 周边柜
 const SWAP = { phone: 'phone', curtain: 'backstage', cab: 'cabinet' };
-// 手机屏幕上放图标的那块（手机特写图里的四个角，百分比；左上 右上 右下 左下）
-const PHQ = [[40.5, 31.6], [68.0, 36.2], [54.6, 62.0], [29.6, 57.9]];
+// 手机特写图里每个图标的中心（百分比）。五个官方平台只有当前形态那个能点，其余压暗
+const PH = [['plat', 45.2, 34.3, 'novel'], ['plat', 53.0, 35.4, 'game'], ['plat', 60.5, 36.6, 'drama'], ['plat', 68.3, 37.7, 'anime'],
+  ['plat', 42.5, 41.5, 'manga'], ['shop', 50.3, 42.8], ['fan', 57.9, 44.0], ['line', 65.5, 45.2],
+  ['forum', 39.7, 48.8], ['cloud', 47.5, 50.0], ['mask', 55.4, 51.4], ['set', 63.0, 52.7]];
+const phz = () => PH.map(([k, x, y, f]) => `<b class="phz ${f && f != ST().form ? 'dim' : ''}" data-a="hopen" data-x="${k}" ${f ? `data-f="${f}"` : ''} style="left:${x}%;top:${y}%"></b>`).join('');
 
 /* ---------- 电视里的画面 ---------- */
 function tvScreen() {
@@ -45,29 +48,6 @@ function tvScreen() {
   return `<img class="tv-img" src="${IMG('tv_' + f.tv)}" alt=""><i class="tv-scan"></i>
 <div class="tv-dm">${['前方高能', '泪目了', '这一集神作', '你倒是回头啊', '打卡', '啊啊啊啊'].map((t, i) => `<span style="--i:${i}">${t}</span>`).join('')}</div>
 <div class="tv-sub"><b>${esc(FN[st.form])} · ${esc(f.unit)}</b><small>「……雨，停了啊。」</small></div>`;
-}
-
-/* ---------- 手机上的 App ---------- */
-const APPS = () => { const st = ST(), f = FM[st.form] || FM.anime; return [
-  ['plat', f.plat, 'plat ' + st.form], ['forum', '论坛', 'forum'], ['shop', '周边店', 'shop'], ['fan', '同人圈', 'fan'], ['line', st.src == 'fan' ? '原著线' : 'IF 线', 'line'], ['set', '设置', 'set']]; };
-const GLY = {
-  plat: '<svg viewBox="0 0 24 24"><path d="M5 5h14v12H9l-4 3z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>',
-  forum: '<svg viewBox="0 0 24 24"><path d="M4 6h16v10H10l-4 3v-3H4z" fill="#fff"/><circle cx="9" cy="11" r="1.2" fill="#3a7bd5"/><circle cx="12" cy="11" r="1.2" fill="#3a7bd5"/><circle cx="15" cy="11" r="1.2" fill="#3a7bd5"/></svg>',
-  shop: '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z" fill="#fff"/><path d="M9 8V6a3 3 0 0 1 6 0v2" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M9 12v1M15 12v1" stroke="#e8542a" stroke-width="2" stroke-linecap="round"/></svg>',
-  fan: '<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-9.5A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7 2.5C19 15.6 12 20 12 20z" fill="#fff"/><path d="M15 4l1 2 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2L12 6.3l2-.3z" fill="#fff"/></svg>',
-  line: '<svg viewBox="0 0 24 24"><path d="M4 17c5 0 5-10 10-10h6M4 7c5 0 5 10 10 10h6" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/><path d="M18 5l2 2-2 2M18 15l2 2-2 2" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  set: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="#fff" stroke-width="2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
-};
-function phoneGrid() {
-  return `<div class="ph-grid">${APPS().map(([id, n, cls]) => `<b data-a="hopen" data-x="${id}"><i class="pi ${cls}">${GLY[id]}</i><span>${esc(n)}</span></b>`).join('')}</div>`;
-}
-// 把手机屏幕那块四边形算成 matrix3d（单位正方形 → 四个角）
-function quadMatrix(w, h, pts) { // 把 (0,0)-(w,h) 的矩形映射到四个角 pts（像素）
-  const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = pts;
-  const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
-  const det = dx1 * dy2 - dx2 * dy1, g = (dx3 * dy2 - dx2 * dy3) / det, hh = (dx1 * dy3 - dx3 * dy1) / det;
-  const a = x1 - x0 + g * x1, b = x3 - x0 + hh * x3, d = y1 - y0 + g * y1, e = y3 - y0 + hh * y3;
-  return `matrix3d(${a / w},${d / w},0,${g / w},${b / h},${e / h},0,${hh / h},0,0,1,0,${x0},${y0},0,1)`;
 }
 
 /* ---------- 全息屏：每个入口一页，点进去还有下一层 ---------- */
@@ -114,14 +94,13 @@ function scramble(el) {
 
 /* ---------- 镜头 / 换图 ---------- */
 let focused = '', stack = [], played = false;
-function fitRoom(el) { const st = $('.eye-stage', el), fit = $('.fit', el); if (!st || !fit) return; const w = st.clientWidth, h = st.clientHeight; const fw = w + 'px'; fit.style.setProperty('--fw', fw); st.style.setProperty('--fw', fw); placePhone(el); }
-function placePhone(el) { const sw = $('.swaps', el), g = $('.ph-grid', el); if (!sw || !g) return; const fw = sw.clientWidth, fh = fw * 1466 / 1024;
-  g.style.transform = quadMatrix(g.offsetWidth, g.offsetHeight, PHQ.map(([x, y]) => [x / 100 * fw, y / 100 * fh])); }
+// 客厅按宽铺（整张都看得到，上下用模糊的同一张图垫着）；换上来的特写图按满屏铺
+function fitRoom(el) { const st = $('.eye-stage', el); if (!st) return; const w = st.clientWidth, h = st.clientHeight; st.style.setProperty('--fw', w + 'px'); st.style.setProperty('--cw', Math.max(w, h * 1024 / 1466) + 'px'); }
 function cam(el, k) {
   const st = $('.eye-stage', el), room = $('.eye-room', el); if (!st) return;
   const zk = k ? k.split(':')[0] : '', z = ZONES[zk];
   st.classList.toggle('zoom', !!k); st.dataset.focus = zk;
-  if (z) { const fit = $('.fit', el), s = CAMS[zk] || 1.8, sw = st.clientWidth, sh = st.clientHeight, fw = parseFloat(fit.style.getPropertyValue('--fw')) || sw, fh = fw * 1466 / 1024;
+  if (z) { const s = CAMS[zk] || 1.8, sw = st.clientWidth, sh = st.clientHeight, fw = sw, fh = fw * 1466 / 1024;
     const cx = (sw - fw) / 2 + (z[0] + z[2]) / 200 * fw, cy = (sh - fh) / 2 + (z[1] + z[3]) / 200 * fh, C = [sw / 2, sh / 2], target = [sw / 2, sh * (zk == 'tv' ? .26 : .40)];
     let tx = target[0] - C[0] - (cx - C[0]) * s, ty = target[1] - C[1] - (cy - C[1]) * s; const fx0 = (sw - fw) / 2, fy0 = (sh - fh) / 2;
     const cl = (v, lo, hi) => lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi); // 放大后图还没舞台高时就居中
@@ -173,10 +152,21 @@ function intro(el) {
 
 /* ---------- 引导：第一次进来先选作品 ---------- */
 function guide(el, on) { const g = $('.eye-guide', el); if (!g) return; g.classList.toggle('in', on); $('.eye-stage', el).classList.toggle('guiding', on); }
-function pickForm(el, k, pg) {
-  const st = ST(); st.form = k; save();
-  const g = $('.eye-guide', el); if (g) { $$('.gp', g).forEach(p => p.classList.toggle('pick', p.dataset.x == k)); $$('.gp', g).forEach(p => p.dataset.x != k && p.classList.add('off')); }
-  setTimeout(() => { guide(el, false); $('.tv-scr', el).innerHTML = tvScreen(); $('.tv-scr', el).classList.add('lit'); $('.eye-brand small', el).textContent = `${FN[k]} · ${FM[k].unit}`; placePhone(el); $('.ph-grid', el).innerHTML = phoneGrid().replace(/^<div class="ph-grid">|<\/div>$/g, ''); }, 650);
+function guideHtml() {
+  const g = IMG('guide');
+  return `<div class="eye-guide ${ST().form ? '' : 'in'}"><img class="bleed" src="${g}" alt=""><div class="gfit"><img class="gbase" src="${g}" draggable="false" alt="">
+<div class="gtv"><p class="gq">在那个世界里，<br>这段剧情是一部……</p></div>
+${FORMS.map(([k], i) => { const [l, t, r, b] = GCOL[k]; return `<div class="gcol" data-x="${k}" style="${pct(GCOL[k])};--i:${i}"><img src="${g}" style="width:${10000 / (r - l)}%;left:${-l / (r - l) * 100}%;top:${-t / (b - t) * 100}%" alt=""></div>`; }).join('')}
+${FORMS.map(([k]) => `<b class="gh" data-a="gpick" data-x="${k}" style="${pct(GHIT[k])}"></b>`).join('')}</div></div>`;
+}
+function pickForm(el, k) {
+  const g = $('.eye-guide', el); if (!g || g.classList.contains('picked')) return;
+  const st = ST(); st.form = k; save(); g.classList.add('picked');
+  $$('.gcol', g).forEach(c => c.classList.toggle('on', c.dataset.x == k));
+  const tv = $('.gtv', g); tv.insertAdjacentHTML('beforeend', `<img class="tv-img" src="${IMG('tv_' + FM[k].tv)}" alt=""><i class="tv-scan"></i>`); tv.classList.add('lit');
+  $('.tv-scr', el).innerHTML = tvScreen(); $('.tv-scr', el).classList.add('lit'); $('.eye-brand small', el).textContent = `${FN[k]} · ${FM[k].unit}`;
+  $$('.phz[data-f]', el).forEach(z => z.classList.toggle('dim', z.dataset.f != k));
+  setTimeout(() => guide(el, false), 1700);
 }
 
 function mount(el) {
@@ -184,7 +174,7 @@ function mount(el) {
   st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); st.style.setProperty('--mx', (e.clientX - r.left) / r.width * 100 + '%'); st.style.setProperty('--my', (e.clientY - r.top) / r.height * 100 + '%'); });
   let y0 = 0; st.addEventListener('pointerdown', e => { const c = e.target.closest('.holo'); y0 = c ? e.clientY : 0; });
   st.addEventListener('pointerup', e => { if (y0 && e.clientY - y0 > 48) back(el); y0 = 0; });
-  st.addEventListener('click', e => { if (st.classList.contains('guiding')) return; if (e.target.closest('.holo,[data-a],.ph-grid')) return; if (focused) back(el); });
+  st.addEventListener('click', e => { if (st.classList.contains('guiding')) return; if (e.target.closest('.holo,[data-a]')) return; if (focused) back(el); });
   if (ST().intro && !played) { played = true; intro(el); } else if (!ST().form) guide(el, true);
 }
 
@@ -195,9 +185,8 @@ const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-s
 <i class="led"></i><i class="moon-ray"></i><i class="curtain-glow"></i>
 ${Object.entries(ZONES).map(([k, z]) => `<b class="hz hz-${k}" data-a="ez" data-x="${k}" style="left:${z[0]}%;top:${z[1]}%;width:${z[2] - z[0]}%;height:${z[3] - z[1]}%"></b>`).join('')}
 </div></div>
-<div class="eye-guide ${has ? '' : 'in'}"><p class="gq"><b>在那个世界里，这段剧情是一部……</b><small>点一块面板</small></p>
-<div class="gps">${FORMS.map(([k, n]) => `<b class="gp" data-a="gpick" data-x="${k}"><img src="${IMG('gp_' + k)}" alt=""><span>${n}</span><img class="gi" src="${IMG('gi_' + k)}" alt=""></b>`).join('')}</div></div>
-<div class="swaps">${Object.entries(SWAP).map(([k, f]) => `<img class="swap" data-k="${f}" src="${IMG(f)}" draggable="false" alt="">`).join('')}<div class="ph-grid" data-a="noop">${has ? phoneGrid().replace(/^<div class="ph-grid">|<\/div>$/g, '') : ''}</div></div>
+${guideHtml()}
+<div class="swaps">${Object.entries(SWAP).map(([k, f]) => `<img class="swap" data-k="${f}" src="${IMG(f)}" draggable="false" alt="">`).join('')}<div class="phzs">${phz()}</div></div>
 <img class="eye-fg" src="${IMG('fg')}" draggable="false" alt="">
 <div class="eye-fx"><i class="dust d1"></i><i class="dust d2"></i><i class="dust d3"></i><i class="dust d4"></i><i class="dust d5"></i><i class="dust d6"></i></div>
 ${st.intro && !played ? introHtml() : ''}
@@ -207,13 +196,13 @@ ${st.intro && !played ? introHtml() : ''}
 reg({
   id: 'eye', name: '窥探之眼',
   icon: `<img src="${IMG('icon')}" alt="">`,
-  open: async () => { await css(); ST().intro && pxFont(); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
+  open: async () => { await css(); pxFont(); ['guide', ...Object.values(SWAP)].forEach(f => { const i = new Image(); i.src = IMG(f); i.decode?.().catch(() => {}); }); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
     ez: (k, t, e, pg) => { if (!ST().form) return; focus(pg.el, k == focused ? '' : k); },
     eback: (x, t, e, pg) => back(pg.el),
-    gpick: (k, t, e, pg) => pickForm(pg.el, k, pg),
+    gpick: (k, t, e, pg) => pickForm(pg.el, k),
     noop: () => {},
     iskip: (x, t, e, pg) => $('.eye-intro', pg.el)?._skip?.(),
-    hopen: (k, t, e, pg) => focus(pg.el, 'phone:' + k),
+    hopen: (k, t, e, pg) => { if (e.target.closest('.dim')) return; if (k == 'cloud') return toast('还没接上，先看样子'); focus(pg.el, 'phone:' + k); },
     eform: (k, t, e, pg) => { ST().form = k; save(); pg.re(); },
     hact: (a, t, e, pg) => {
       const st = ST();
