@@ -68,6 +68,10 @@ ${Array.from({ length: 52 }, (_, i) => `#${i + 1} 网友${i % 7} | ${['CP粉', '
   await E(`document.querySelector('.ef-h [data-a=efhist]').click()`); await W(500);
   ok(await E(`document.querySelectorAll('.efh-l li').length`) == 2, '历史列表 2 帖');
   await p.screenshot({ path: OUT + '/eyef-hist.png' });
+  await E(`window.__del = core.D().eye.forum[1]`);
+  await E(`document.querySelectorAll('.efh-l li em[data-a=efdel]')[1].click()`); await W(400); await E(`document.querySelector('.sheet.mnu .mi.danger')?.click()`); await W(500);
+  ok(await E(`core.D().eye.forum.length`) == 1 && await E(`document.querySelectorAll('.efh-l li').length`) == 1, '历史里点「删除」→ 确认：删掉了');
+  await E(`core.D().eye.forum.push(JSON.parse(JSON.stringify(window.__del)))`); await E(`document.querySelector('.pg.in:last-child').querySelector('.efh-l') && core.top().re()`); await W(300);
   await E(`document.querySelectorAll('.efh-l li')[1].click()`); await W(500);
   ok(await E(`document.querySelector('.ef-ttl').textContent`) == '百度贴吧 · 少年漫吃瓜专组', '点历史里的旧帖：回到论坛显示那一帖');
   await E(`document.querySelector('.ef-h [data-a=efhist]').click()`); await W(400); await E(`document.querySelectorAll('.efh-l li')[0].click()`); await W(500);

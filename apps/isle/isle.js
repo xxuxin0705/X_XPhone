@@ -6,6 +6,8 @@
 // 球和手势在 jelly.js（three.js，按需加载），球里的世界在 build.js
 // D().isle = { cur: 角色id, by: { id: { mood, scene, say, sea, ts, world: 配方, hist: [...] } } }；S.isle = { auto, q: 画质 }
 import { S, D, $, esc, save, saveD, on, emit, page, back, menu, form, ok, toast, reg, top, llm, json, sysCtx, task, now, nm, rn, byId, avOf, syncInject, I } from '../../core.js';
+import { regMod, mp } from '../../mods.js';
+regMod({ k: 'isle.mood', app: '心屿', n: '读心情', def: '根据最近的剧情，判断{{对象}}此刻的心情。', vars: [['对象', '要读心情的人']] });
 import { makeRecipe, hintOf, recipeName, eraOf, seasonOf, SEASONS } from './gen.js';
 import { jelly, warm } from './jelly.js';
 
@@ -108,7 +110,7 @@ const mount = el => { pt?.stop(); pt = null; el.querySelectorAll('.is-who [role=
   jelly(cv, () => { const r = id ? viewOf(id) : null; return { scene: r?.scene || r?.wx || 'sunset', recipe: r?.world || makeRecipe(1) }; }, { quality: S.isle?.q, onTap: voice, onQuality: qv => { S.isle ||= {}; S.isle.q = qv; save(); } })
     .then(j => { if (n !== mountN) return j.stop(); pt = j; }) /* 占位画布已被换成常驻画布，所以只看是不是最新一次挂载 */.catch(e => { console.error('[心屿]', e); toast('这台设备画不出 3D 的岛：' + (e.message || e)); }); };
 const look = () => { const id = curId(), c = byId(id); if (!c) return; return task(`读 ${nm(c)} 的心情`, async sg => {
-  const r = json(await llm(await sysCtx({ n: 10, rc: 3500, wi: 0, desc: 1000 }), `根据最近的剧情，判断${rn(c)}此刻的心情。只输出 JSON：{"mood":"两到四个字的心情词","scene":"sun|sunset|rain|storm|snow|aurora|night|fog|fireworks 里选一个最贴切的（storm 雷暴，snow 飘雪）","say":"${rn(c)}此刻没说出口的一句话，30字以内，第一人称","sea":0到1的数字表示情绪起伏大小,"voices":["${rn(c)}此刻脑子里一闪而过的念头，三到六句，每句 15 字以内，口吻贴人设，彼此不重复"],"world":"此刻该出现在${rn(c)}心里那座岛上的风景，四到八个词：先写时代（现代 / 古风）和季节（春 / 夏 / 秋 / 冬），再写剧情此刻所在的地方（如 古寺求签、深夜便利店、医院走廊、海边灯塔、学校操场、小酒馆），再加天气时间和两三样具体物件，要和故事的世界观一致，例：古风 秋 古寺 求签 枫叶 香炉 / 现代 冬 深夜便利店 路灯 雪 自动贩卖机"}`, '读心情', sg, { aux: 1 }));
+  const r = json(await llm(await sysCtx({ n: 10, rc: 3500, wi: 0, desc: 1000 }), `${mp('isle.mood', { 对象: rn(c) })}只输出 JSON：{"mood":"两到四个字的心情词","scene":"sun|sunset|rain|storm|snow|aurora|night|fog|fireworks 里选一个最贴切的（storm 雷暴，snow 飘雪）","say":"${rn(c)}此刻没说出口的一句话，30字以内，第一人称","sea":0到1的数字表示情绪起伏大小,"voices":["${rn(c)}此刻脑子里一闪而过的念头，三到六句，每句 15 字以内，口吻贴人设，彼此不重复"],"world":"此刻该出现在${rn(c)}心里那座岛上的风景，四到八个词：先写时代（现代 / 古风）和季节（春 / 夏 / 秋 / 冬），再写剧情此刻所在的地方（如 古寺求签、深夜便利店、医院走廊、海边灯塔、学校操场、小酒馆），再加天气时间和两三样具体物件，要和故事的世界观一致，例：古风 秋 古寺 求签 枫叶 香炉 / 现代 冬 深夜便利店 路灯 雪 自动贩卖机"}`, '读心情', sg, { aux: 1, mod: 'isle.mood' }));
   if (!r?.mood) throw Error('没读出来，再试一次'); setMood(id, r); pt?.hop(); return `${nm(c)}：${r.mood}`; }); };
 reg({
   id: 'isle', name: '心屿', icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="#fff" opacity=".35"/><circle cx="12" cy="12" r="8" fill="none" stroke="#fff" stroke-width="1.4"/><ellipse cx="12" cy="14.2" rx="4.6" ry="1.7" fill="#fff"/><path d="M12 7.5v6.3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><path d="M12 8.3c1.2 0 2.2-.8 2.6-1.3M12 8.3c-1.2 0-2.2-.8-2.6-1.3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/><circle cx="8.3" cy="9.3" r=".9" fill="#fff"/></svg>',

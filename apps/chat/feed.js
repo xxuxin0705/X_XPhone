@@ -1,5 +1,8 @@
 import { FEED_ICONS } from './feed-icons.js';
-import { MOMENTS_PROMPT, normalizeMoments } from './feed-generation.js';
+import { MOMENTS_CORE, MOMENTS_FMT, normalizeMoments } from './feed-generation.js';
+import { regMod, mp } from '../../mods.js';
+regMod({ k: 'chat.feed', app: '聊天', n: '动态', def: MOMENTS_CORE, vars: [['currentStoryTime', '剧情时间'], ['contactsInfo', '联系人列表'], ['memoryInfo', '记忆']] });
+regMod({ k: 'chat.cmt', app: '聊天', n: '动态评论', def: '评论和点赞的人要符合各自人设和与发帖人的亲疏；评论口语、简短，像真人随手回复，可以互相接话、玩梗、拌嘴。' });
 // 聊天 · 动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）+ 个人相册 + 生成动态弹窗
 // 角色的动态和评论在同一次生成里带上 [翻译]（tr），点「查看翻译」展开；不额外调用
 import { S, D, saveD, esc, uid, page, sheet, menu, form, toast, nm, rn, avOf, meObj, now, llm, json, sysCtx, task, emit, drop, pickImg, ok, genImg } from '../../core.js';
@@ -112,11 +115,12 @@ function genFeed(st) {
   const data = D(), selected = [...st.sel].map(get).filter(Boolean), names=selected.map(rn), contacts=friends();
   if(!contacts.length)return toast('请先添加联系人');
   generating = true;
-  const prompt = MOMENTS_PROMPT.replaceAll('{{currentStoryTime}}', now().toLocaleString('zh-CN')).replaceAll('{{memoryInfo}}','以提供的剧情和世界书为准').replaceAll('{{contactsInfo}}',contacts.map(c=>`${rn(c)}：${c.desc || c.sign || ''}`).join('；')).replaceAll('{{user}}',nm(meObj()));
+  const V = { currentStoryTime: now().toLocaleString('zh-CN'), memoryInfo: '以提供的剧情和世界书为准', contactsInfo: contacts.map(c=>`${rn(c)}：${c.desc || c.sign || ''}`).join('；'), user: nm(meObj()) };
+  const prompt = mp('chat.feed', V) + Object.entries(V).reduce((t, [k, v]) => t.replaceAll(`{{${k}}}`, v), MOMENTS_FMT);
   return task('正在生成动态', async sg => {
     try {
       const only = st.only && names.length > 0;
-      const result = json(await llm(await sysCtx(), `${prompt}\n${langRule(contacts)}\n【本次数量】只生成 ${st.n} 条动态。\n【配图不是必须的】很多动态只发文字，images 写空数组。\n${names.length ? only ? '【指定发布者】只能由这些好友发布：'+names.join('、') : '【必定出现】这些好友必须各发至少一条：'+names.join('、') : ''}`, '生成动态', sg));
+      const result = json(await llm(await sysCtx(), `${prompt}\n${langRule(contacts)}\n【本次数量】只生成 ${st.n} 条动态。\n【配图不是必须的】很多动态只发文字，images 写空数组。\n${names.length ? only ? '【指定发布者】只能由这些好友发布：'+names.join('、') : '【必定出现】这些好友必须各发至少一条：'+names.join('、') : ''}`, '生成动态', sg, { mod: 'chat.feed' }));
       if(D() !== data) throw Error('聊天已切换，本次结果未写入');
       const posts=normalizeMoments(result,contacts,{n:st.n,names,only},nm(meObj()),+now());
       if(!posts.length)throw Error('这次没有生成出内容，再试一次吧');
@@ -133,7 +137,7 @@ function genCmt(p, why) {
   pendingComments.add(p.id);
   return task('正在生成评论', async sg => {
     try {
-    const r = json(await llm(await sysCtx(), `${p.a == 'me' ? meObj().nick : rn(au)}发了动态：“${p.c}”${p.tr ? `（${p.tr}）` : ''}\n已有评论：${p.cm.map(c => `${nm(who(c.f))}${c.to ? '回复' + nm(who(c.to)) : ''}：${c.c}`).join('；') || '无'}\n${why}\n${langRule(L)}\n只输出JSON：{"comments":[{"from":"名字","text":"","tr":"","to":"回复谁(可空)"}],"likes":["名字"]}`, '动态评论', sg));
+    const r = json(await llm(await sysCtx(), `${p.a == 'me' ? meObj().nick : rn(au)}发了动态：“${p.c}”${p.tr ? `（${p.tr}）` : ''}\n已有评论：${p.cm.map(c => `${nm(who(c.f))}${c.to ? '回复' + nm(who(c.to)) : ''}：${c.c}`).join('；') || '无'}\n${why}\n${langRule(L)}\n${mp('chat.cmt')}\n只输出JSON：{"comments":[{"from":"名字","text":"","tr":"","to":"回复谁(可空)"}],"likes":["名字"]}`, '动态评论', sg, { mod: 'chat.cmt' }));
     if(D() !== data || !data.posts.includes(p)) return '动态已删除或聊天已切换';
     const allowed = new Set(L.flatMap(c=>[rn(c),nm(c)]));
     r?.comments?.filter(c=>allowed.has(c.from))?.forEach(c => c.text && p.cm.push({ f: c.from, c: c.text, tr: c.tr || '', ...(c.to && { to: c.to }) })); r?.likes?.filter(n=>allowed.has(n))?.forEach(n => n && !p.likes.includes(n) && p.likes.push(n)); saveD(); emit('chat'); return '收到评论';

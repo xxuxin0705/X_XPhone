@@ -37,6 +37,7 @@ desk.js          桌面：多页 4×7 网格、Dock、文件夹、小组件（WK
 desk-layout.js   桌面网格的纯计算（放得下吗、挪到哪），有单元测试
 lock.js          锁屏：上滑解锁、数字 / 手势 / 指纹密码
 lockfx.js        动态锁屏场景（Canvas）
+mods.js          模块配置：每个调用模型的功能（模块）登记默认提示词（regMod），mp(模块) 取当前生效的提示词；llm 的 o.mod 套用该模块的模型 / 流式 / 低思考
 glass.js         液态玻璃效果（SVG 位移滤镜 + backdrop-filter），桌面底栏在用
 ball.js          悬浮球造型
 style.css        全部全局样式（App 自带的样式除外，比如 apps/music/music.css）
@@ -94,6 +95,7 @@ tests/           测试（见第五节）
 - 事件总线 `on` / `emit`：`chat`（聊天数据变了）、`stk`（表情包）、`cfg`（设置项变了）、`badge`、`home`、`open-chat`、`isle` / `isle-mood`、`phone-open`（手机从收起变成打开，心屿用它趁空闲预热 3D）。
 
 **AI 和费用**
+- `llm(系统, 用户, 描述, signal, { aux, images, mod })`：mod 是模块名（见 mods.js），设置 → 模块配置 里给它设的模型 / 流式 / 低思考会盖过默认；新加调用模型的功能都要 regMod 登记，可换的「内容 / 风格」段用 mp() 取，输出格式写死在代码里。
 - `llm(系统, 用户, 描述, signal, { aux, images })`：调聊天模型，自动记日志；`aux: 1` 走设置里的「生成用模型」（生成联系人、读心情这类活；没设就用聊天模型），`images` 一起发图片。
 - `task(标题, async signal => …)`：带转圈、计时、取消的任务条；出错用 `fail(msg)`。
 - `sysCtx({ n, rc, wi, desc })`：拼角色卡 + 最近剧情 + 世界书的上下文。

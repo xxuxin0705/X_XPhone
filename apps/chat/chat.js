@@ -1,5 +1,8 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
 import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
+import { regMod, mp } from '../../mods.js';
+regMod({ k: 'chat.contacts', app: '聊天', n: '生成联系人', def: '· 网名＝TA自己在社交软件上起的昵称，要像真实中文互联网上的人，按性格来，同一批人风格要拉开：\n  - 软萌 / 爱卖萌：叠字、小动物、零食，常带颜文字或小符号，如「软糖不软ᐟ」「芋泥啵啵(｡･ω･｡)」「小熊不吃香菜ʕ•ᴥ•ʔ」「桃桃乌龙.」\n  - 中二 / 非主流：用怪符号包起来，如「†漆黑之翼†」「꧁深渊回响꧂」「ℓ夜行のReaper」「゛黑化肥发灰」\n  - 冷淡 / 话少：极简，一个字、一个标点、首字母、拼音或英文，如「。」「z」「Lin」「wy」「-」\n  - 文艺：「晚风与你」「人间理想」「指针朝北」\n  - 沙雕 / 搞笑：「今天也没暴富」「退休了别找我」「云吸咸鱼」\n  - 长辈 / 打工人：「岁月静好🌸」「宁静致远」「老王装修」\n  - 也可以是英文名、名字谐音、中日英混搭（如「森林の鹿」）\n· 备注＝{{user}}自己手机通讯录里给TA存的名字，像活人随手存的：亲近的用昵称 / 外号 / 叠字 / 带emoji / 带点吐槽，长辈就是「妈」「三叔」，不熟的直接写名字。绝对不要写「同班同学」「前不良少年」「热血班长」这种身份说明。例：「沈遥🐟」「狗头军师老周」「班长大人」「烦人精」「林老师（数学）」\n· 性别写 男 或 女\n· 拍一拍后缀＝别人拍TA时显示在「拍了拍TA」后面的那句，要有网感、有梗，像微信里真有人设置的那样，按人设来编（中二的就中二，高冷的可以只有一个「。」），20字内。风格参考（别照抄）：「的存款+1」「的木鱼功德+1」「并留下了小猫脚印🐾」「说：500万，离开我儿子」「的小脑瓜然后变成猪」「发现没拍到ōÓ」「的肩膀叫了声富婆💰」「的肚子duangduang」「被反手一巴掌打翻在地」「的次数太多，已拍死」。不要写「的头发」「的肩膀」这种平淡的\n· 语言＝TA平时发消息用的语言，按剧情里TA实际怎么说话判断：说中文就写 中文；只有剧情里TA确实用外语交流才写 日语 / 英语 / 韩语 等\n· 群头衔：贴合人设和群氛围，有梗一点，如「班长」「摸鱼大师」「人间扫描仪」「本群最靓的仔」，不是每个人都要有\n· 签名15字内；群公告25字内。先写完所有「人」再写「群」\n示例：\n人|沈知遥|晚风与你|遥遥🐟|男|的存款+1|中文|今天也在图书馆\n群|高三(2)班|林老师|沈知遥|沈知遥:班长,周小满:摸鱼大师,林老师:班主任|42|周五前交志愿表' });
+regMod({ k: 'chat.sync', app: '聊天', n: '剧情同步', def: '任务：找出这段剧情里发生在线上（手机/社交软件）的事件并同步到小手机：发消息、加好友、拉群/进群、发朋友圈动态、转账、拍一拍等。剧情里没出现的不要编。' });
 import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, TN, CN, FS, FN, LANGS, lname } from './data.js';
 import { openChat, cset, tT } from './talk.js';
 import { feed, FA, openFeed, feedRight, mountFeed } from './feed.js';
@@ -10,7 +13,7 @@ export { openChat, applyDelta };
 /* ---------- 提示词 ---------- */
 const names = () => D().chats.map(c => c.type == 'g' ? `群「${c.name}」` : rn(c)).join('、') || '无';
 const GJ = '"groups":[{"name":"群名","owner":"群主真实姓名","admins":[],"members":["真实姓名"],"notice":"群公告"}]';
-export const SCAN = t => `【最新剧情】\n${t}\n\n任务：找出这段剧情里发生在线上（手机/社交软件）的事件并同步到小手机：发消息、加好友、拉群/进群、发朋友圈动态、转账、拍一拍等。已有：${names()}。剧情里没出现的不要编。
+export const SCAN = t => `【最新剧情】\n${t}\n\n${mp('chat.sync')}已有：${names()}。
 只输出JSON：{"contacts":[{"real":"真实姓名","nick":"网名","sign":"签名"}],${GJ},"msgs":[{"chat":"私聊对象真实姓名或群名","from":"发送者真实姓名","type":"text","text":"内容"}],"posts":[{"author":"","text":""}]}，没有的项给空数组。`;
 // 生成联系人：只要 {{user}} 视角（已加好友的人、{{user}}本人在里面的群）。
 // 提速：① 用「一行一个」的竖线格式代替 JSON（输出更短，流式收到一行就立刻加一个，超时也能保住已生成的部分）
@@ -19,23 +22,7 @@ const LF = u => `【输出格式】不要JSON、不要解释、不要编号，�
 人|真实姓名|网名|备注|性别|拍一拍后缀|语言|个性签名
 群|群名|群主真实姓名|管理员(逗号分隔，没有就空着)|成员(逗号分隔，格式「名字:群头衔」，没头衔就只写名字，不写${u})|群人数(数字，含没写出来的人)|群公告
 字段说明：
-· 网名＝TA自己在社交软件上起的昵称，要像真实中文互联网上的人，按性格来，同一批人风格要拉开：
-  - 软萌 / 爱卖萌：叠字、小动物、零食，常带颜文字或小符号，如「软糖不软ᐟ」「芋泥啵啵(｡･ω･｡)」「小熊不吃香菜ʕ•ᴥ•ʔ」「桃桃乌龙.」
-  - 中二 / 非主流：用怪符号包起来，如「†漆黑之翼†」「꧁深渊回响꧂」「ℓ夜行のReaper」「゛黑化肥发灰」
-  - 冷淡 / 话少：极简，一个字、一个标点、首字母、拼音或英文，如「。」「z」「Lin」「wy」「-」
-  - 文艺：「晚风与你」「人间理想」「指针朝北」
-  - 沙雕 / 搞笑：「今天也没暴富」「退休了别找我」「云吸咸鱼」
-  - 长辈 / 打工人：「岁月静好🌸」「宁静致远」「老王装修」
-  - 也可以是英文名、名字谐音、中日英混搭（如「森林の鹿」）
-· 备注＝${u}自己手机通讯录里给TA存的名字，像活人随手存的：亲近的用昵称 / 外号 / 叠字 / 带emoji / 带点吐槽，长辈就是「妈」「三叔」，不熟的直接写名字。绝对不要写「同班同学」「前不良少年」「热血班长」这种身份说明。例：「沈遥🐟」「狗头军师老周」「班长大人」「烦人精」「林老师（数学）」
-· 性别写 男 或 女
-· 拍一拍后缀＝别人拍TA时显示在「拍了拍TA」后面的那句，要有网感、有梗，像微信里真有人设置的那样，按人设来编（中二的就中二，高冷的可以只有一个「。」），20字内。风格参考（别照抄）：「的存款+1」「的木鱼功德+1」「并留下了小猫脚印🐾」「说：500万，离开我儿子」「的小脑瓜然后变成猪」「发现没拍到ōÓ」「的肩膀叫了声富婆💰」「的肚子duangduang」「被反手一巴掌打翻在地」「的次数太多，已拍死」。不要写「的头发」「的肩膀」这种平淡的
-· 语言＝TA平时发消息用的语言，按剧情里TA实际怎么说话判断：说中文就写 中文；只有剧情里TA确实用外语交流才写 日语 / 英语 / 韩语 等
-· 群头衔：贴合人设和群氛围，有梗一点，如「班长」「摸鱼大师」「人间扫描仪」「本群最靓的仔」，不是每个人都要有
-· 签名15字内；群公告25字内。先写完所有「人」再写「群」
-示例：
-人|沈知遥|晚风与你|遥遥🐟|男|的存款+1|中文|今天也在图书馆
-群|高三(2)班|林老师|沈知遥|沈知遥:班长,周小满:摸鱼大师,林老师:班主任|42|周五前交志愿表`;
+${mp('chat.contacts')}`;
 const INIT = r => { const c = C(), u = c.name1; return `任务：${r.mode == 'me' ? `按用户提供的信息生成${u}手机里的联系人/群聊：${r.info}\n数量：联系人 ${+r.n || 0} 个，群聊 ${+r.g || 0} 个。` : `根据人设、世界书和剧情，列出${u}手机里实际存在的联系人和群聊。`}
 【联系人】＝${u}认识、已经加了好友的人：
   ① 一定先列出角色卡里的主要角色（${c.name2}；如果角色卡是世界观 / 多人卡，就是卡里写到的主要人物）——他们和${u}关系最近，必须在联系人里；
@@ -109,7 +96,7 @@ export async function genContacts(sys, prompt, desc, sg, prog, o = {}) {
   const run = (s, p, d) => {
     let done = 0, rs = ''; const i = drafts.push('') - 1; alive++;
     const eat = (txt, end) => { const ls = String(txt).split('\n'), n = end ? ls.length : ls.length - 1; for (; done < n; done++) { const x = pline(ls[done]); x && (put(x), got++); } got && prog?.(count()); };
-    llm(s, p, d, ac.signal, { fast: 1, aux: 1, onText: t => eat(t), onThink: (n, r) => { drafts[i] = rs += r; got || prog?.(`模型思考中 ${n}字 · ${(Date.now() - t0) / 1e3 | 0}s`); } })
+    llm(s, p, d, ac.signal, { fast: 1, aux: 1, mod: 'chat.contacts', onText: t => eat(t), onThink: (n, r) => { drafts[i] = rs += r; got || prog?.(`模型思考中 ${n}字 · ${(Date.now() - t0) / 1e3 | 0}s`); } })
       .then(raw => { eat(raw, 1); if (!got) { const j = json(raw); j && put(unz(j)); } settle('ok'); },
         e => { lastErr = e; if (ac.signal.aborted) return; if (--alive) return; o.quick && !bkOn ? backup() : settle('err'); });
   };
@@ -151,7 +138,7 @@ export function inlineSync(id) {
   return out.length;
 }
 // 手动补同步：会调用一次 API（只在设置里点按钮时用）
-export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1 }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
+export const syncStory = t => task('剧情同步中', async sg => { const o = applyDelta(json(await llm(await sysCtx(), SCAN(t), '剧情同步', sg, { aux: 1, mod: 'chat.sync' }))); o.forEach(([ch, x]) => notify(ch, x)); return o.length ? `剧情同步：${o.length} 条新消息` : '剧情同步完成'; });
 
 /* ---------- 渲染 ---------- */
 // 多选模式：msel 是选中的会话 id（null = 没在多选）

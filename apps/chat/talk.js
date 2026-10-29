@@ -1,6 +1,9 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
 import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
 import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task } from '../../core.js';
+import { regMod, mp } from '../../mods.js';
+regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '在回复的人'], ['我', '我的网名']] });
+regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang } from './data.js';
@@ -73,7 +76,8 @@ function replyP(ch, patNow) {
   return `${lsP}【当前聊天】${g ? `群聊「${ch.name}」 群主:${ch.owner ? rn(get(ch.owner)) : me} 管理员:${ch.admins.map(i => rn(get(i))).join('、') || '无'}\n成员：${ch.members.map(i => { const c = get(i); return `${rn(c)}(网名${c.nick}${ch.titles[i] ? '，头衔' + ch.titles[i] : ''})`; }).join('、')}${ch.notice ? '\n群公告：' + ch.notice : ''}` : `与${rn(ch)}（网名${ch.nick}）的私聊`}
 【聊天记录】\n${hist || '（空）'}
 
-请继续这段手机聊天${g ? '，让群成员按各自人设自然互动、互相接话' : `，你扮演${rn(ch)}回复${me}`}。像真人发消息：口语、短句，这一轮一共 ${rn0 == rn1 ? rn0 : `${rn0}-${rn1}`} 条（文字、图片、语音、表情各算一条）${vn1 ? `，其中语音 ${vn0 == vn1 ? vn0 : `${vn0}-${vn1}`} 条` : '，不发语音'}，符合人设与当前剧情。
+请继续这段手机聊天${g ? '' : `，你扮演${rn(ch)}回复${me}`}。这一轮一共 ${rn0 == rn1 ? rn0 : `${rn0}-${rn1}`} 条（文字、图片、语音、表情各算一条）${vn1 ? `，其中语音 ${vn0 == vn1 ? vn0 : `${vn0}-${vn1}`} 条` : '，不发语音'}。
+${mp(g ? 'chat.reply.g' : 'chat.reply.p', { 对方: rn(ch), 我: me })}
 【输出格式】每条消息单独一行：${g ? '「真实姓名: 内容」' : '直接写内容'}。不要写${me}的话，不要任何解释。按人设此刻会“已读不回”就什么都不输出。
 【可用标签】（单独一行，前面同样写名字）
 [表情包:关键词] 发表情包${S.stk.auto ? '，关键词写 2~6 个字，像在微信里搜表情那样（如：摸摸头、无语、开心到转圈、晚安）' : ''}${sk ? `（优先用：${sk}）` : ''}
@@ -115,7 +119,7 @@ export async function gen(ch) {
     // 识图：我上次被回复之后发的表情包（最多 3 个），图片跟这次回复请求一起发过去，让对方看图理解（不额外调用）
     const lastR = ch.msgs.findLastIndex(m => m.f != 'me' && !/sys|pat/.test(m.t)), see = S.stk.see !== false ? ch.msgs.slice(lastR + 1).filter(m => m.f == 'me' && m.t == 'sticker' && m.img).slice(-3) : [];
     const P = replyP(ch, ch.cfg.pat && Math.random() < .3) + (see.length ? `\n\n【表情包图片】附上了${meObj().nick}刚发的 ${see.length} 个表情包的图片，按顺序对应上面最后 ${see.length} 个「[表情包：…]」。先看图弄懂${meObj().nick}想表达的情绪和意思，再自然地回应。` : '');
-    const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img) }), ch);
+    const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img), mod: ch.type == 'g' ? 'chat.reply.g' : 'chat.reply.p' }), ch);
     for (const m of ms.filter(m => m.type != 'bt')) { if (ac.signal.aborted) break; const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
   } catch (e) { ac.signal.aborted ? toast('已停止回复') : fail(`${nm(ch)} · 回复失败：${e.message}`); }
   finally { busy = 0; CTL = null; emit('chat'); goSync(); retrans(ch); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回

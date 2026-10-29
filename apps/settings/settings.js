@@ -6,13 +6,14 @@ import { lock, askPin, askFp, wpName, lockMig } from '../../lock.js';
 import { wallPage, wallName } from '../theme/theme.js';
 import { libList, voicePage, people } from '../chat/voice.js';
 import { ballPicker, ballUrl, ballName } from '../../ball.js';
+import { modsPage } from './mods-ui.js';
 import { localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
 const sub = (a, x) => a == 'api' ? (x == 'chat' && S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? '' : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
-const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪']]],
+const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪'], ['mods', '模块配置', '#bf5af2', '⚙']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
   ['通用', [['disp', '显示方式', '#64d2ff', '▣'], ['logs', '调用日志', '#8e8e93', '≡'], ['data', '数据管理', '#30b0c7', '⇪']]]];
@@ -22,7 +23,7 @@ reg({
   open: () => page({
     title: '设置', cls: 'set',
     body: () => ROWS.map(([h, rs]) => `<h6>${h}</h6><div class="card">${rs.map(([a, x, c, i]) => `<div class="row go" data-a="${a}" data-x="${a == 'api' ? x : ''}"><i class="ri" style="background:${c}">${i}</i><span>${T[x] || x}</span><small>${esc(sub(a, x))}</small></div>`).join('')}</div>`).join(''),
-    acts: { api, link, ctx, disp, logs, data, lockp, stkp },
+    acts: { api, link, ctx, disp, logs, data, lockp, stkp, mods: () => modsPage() },
   }),
 });
 
@@ -141,7 +142,7 @@ function api(t) {
       ? (t == 'chat' ? stPick(a) : `<p class="tip">${{ img: '调用酒馆「图像生成」扩展（/sd）。', tts: '调用酒馆「TTS」扩展（/speak）。' }[t]}</p>`)
       : `<div class="card">${a.list.map(p => `<div class="row prof ${p.id == a.cur ? 'on' : ''}" data-a="pick" data-x="${p.id}" data-lp="pedit"><i class="radio"></i><span><b>${esc(p.name || '未命名')}${t == 'chat' ? '' : `<em class="pv">${esc(pn(t, p.prov))}</em>`}</b><small>${esc(p.model || p.voice || '未选模型')}${p.url ? ' · ' + esc(p.url) : ''}</small></span></div>${t == 'chat' ? mchips(p) : ''}`).join('') || '<p class="tip">还没有配置，点下方新增</p>'}</div><p class="tip">点击切换使用 · 长按编辑 / 复制 / 删除${t == 'chat' ? ' · 点模型名直接换模型，长按模型名移除' : ''}</p>${btn('padd', '＋ 新增' + (t == 'chat' ? '配置' : '渠道'))}${p && t != 'chat' && (p.prov || 'openai') == 'openai' ? btn('pmod', '拉取模型列表') : ''}`
         + (t == 'tts' && p ? `<h6>兜底音色 · ${esc(p.name || pn(t, p.prov))}</h6><div class="card">${fx(a).inp(`list.${i}.vm`, '男声兜底', 'text', '男性联系人没绑音色时用')}${fx(a).inp(`list.${i}.vf`, '女声兜底', 'text', '女性联系人没绑音色时用')}</div><p class="tip">联系人没有绑定专属音色时，按联系人性别调用这里的男 / 女兜底音色；性别不明就用配置里的默认音色。联系人的性别和音色在「聊天信息」里改。</p>` : ''))
-      + (t == 'chat' && (a.list.length || stProfiles()?.length) ? `<h6>生成用模型</h6><div class="card">${fx(a).sel('aux', '生成联系人 / 剧情同步', [['', '跟聊天模型一样'], ...mopts()])}${fx(a).sel('eyef', '窥探之眼 · 论坛', [['', '跟聊天模型一样'], ...mopts()])}</div><p class="tip">生成联系人、剧情同步、世界书解析、生图提示词这类「列清单」的活不需要思考。像 glm-5.3-flash 这种强制思考、关不掉的模型，会先想上万字再输出（日志里的「模型思考中 N字」就是它，不是联系人内容）。这里另选一个不思考的模型（同一个公益站里的非思考模型就行），会快很多；聊天回复仍用上面的模型。</p>` : '')
+      + (t == 'chat' && (a.list.length || stProfiles()?.length) ? `<h6>生成用模型</h6><div class="card">${fx(a).sel('aux', '生成联系人 / 剧情同步', [['', '跟聊天模型一样'], ...mopts()])}</div><p class="tip">生成联系人、剧情同步、世界书解析、生图提示词这类「列清单」的活不需要思考。像 glm-5.3-flash 这种强制思考、关不掉的模型，会先想上万字再输出（日志里的「模型思考中 N字」就是它，不是联系人内容）。这里另选一个不思考的模型（同一个公益站里的非思考模型就行），会快很多；聊天回复仍用上面的模型。</p>` : '')
       + (t == 'chat' ? `<div class="card">${fx(a).inp('$tmo', '超时（秒）', 'number', '300')}</div><p class="tip">连续这么久没收到任何数据才判定失败（流式输出时边收边计时，默认5分钟）。想更快：开「低思考模式」、选非思考模型、减少「上下文与世界书」里的条数。</p>` : '')
       + (t == 'img' ? `<div class="card">${fx(a).tog('auto', 'AI 发图 / 动态配图时自动生图')}</div>` : '') + btn('test', '测试连接', '', 'pri'); },
     acts: {

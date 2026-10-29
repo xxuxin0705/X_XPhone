@@ -422,13 +422,16 @@ export const imgData = u => imgC.get(u) || (imgC.set(u, (async () => {
   g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bm, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', .82);
 })().catch(e => { imgC.delete(u); throw e; })), imgC.get(u));
 const withImgs = (user, imgs) => [{ type: 'text', text: user }, ...imgs.map(url => ({ type: 'image_url', image_url: { url } }))];
-export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const R = route(o.aux, o.use); return call('chat', desc, user, async (p, sig, cx) => {
+export const llm = (sys, user, desc = '聊天', sg, o = {}) => {
+  // o.mod：模块配置（设置 → 模块配置）里给这个模块单独设的模型 / 流式 / 低思考，设了就盖过代码里的默认
+  const mo = o.mod && S.mods?.[o.mod]; if (mo) o = { ...o, ...(mo.use && { use: mo.use }), ...(mo.stream && { stream: mo.stream == 'on' }), ...(mo.think && { fast: mo.think == 'low' ? 1 : 0 }) };
+  const R = route(o.aux, o.use); return call('chat', desc, user, async (p, sig, cx) => {
   const key = R.raw ? 'raw' : R.st ? 'st:' + R.st.id : 'p:' + p.id + ':' + p.model;
   const imgs = o.images?.length && !noVision.has(key) ? (await Promise.all(o.images.map(u => imgData(u).catch(() => null)))).filter(Boolean) : [];
   const once = async img => {
     if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: user });
     if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : user, sig, cx, o);
-    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : user }], ...((p.stream ?? !p.nostream) && { stream: true }) };
+    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : user }], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
     const x = p.fast || o.fast ? noThink(p.model) : null; let r;
     try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
     catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }

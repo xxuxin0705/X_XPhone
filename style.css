@@ -1620,3 +1620,7 @@ html{min-height:100%;min-height:100dvh}
 .wp-b>div{display:flex;align-items:center;justify-content:center;gap:8px;height:56px;color:#576b95;font-size:calc(16px*var(--fz,1));cursor:pointer}
 .wp-b svg{width:20px;height:20px}
 .al-cv{height:316px}.al-cv .av{width:66px;height:66px;border:0;border-radius:8px;box-shadow:none;bottom:-22px}.al-cv b{right:96px;bottom:12px;font-size:calc(19px*var(--fz,1));font-weight:600}.al-sg{margin-top:-6px}
+/* 设置 → 模块配置 */
+#stp .modv-t{margin:12px;padding:14px;border-radius:14px;background:var(--card,#fff);white-space:pre-wrap;word-break:break-word;font-size:calc(13px*var(--fz,1));line-height:1.65;color:var(--pt)}
+#stp .modp .row .seg{margin:0 0 0 auto;flex:none}
+#stp .modp .row.prof .lnk{margin-left:auto;flex:none;padding:4px 2px 4px 10px}
