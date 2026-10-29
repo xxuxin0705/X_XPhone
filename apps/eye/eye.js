@@ -7,7 +7,7 @@
 // 内容都是样例；生成之后接
 import { S, $, $$, page, reg, toast, save, esc, openApp } from '../../core.js';
 
-const CSS = new URL('./eye.css?v=3', import.meta.url).href;
+const CSS = new URL('./eye.css?v=4', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
@@ -31,7 +31,7 @@ const GI = { manga: [46.2, 51.0], game: [56.9, 52.6], novel: [69.6, 51.9], drama
 
 /* ---------- 热区（相对底图的百分比：左 上 右 下） ---------- */
 const ZONES = { tv: [33.5, 14.5, 78.5, 43.5], phone: [38, 56, 50, 67], mask: [16, 9, 27.5, 21], cab: [13.5, 20, 28.5, 34.5], curtain: [82, 8, 99.5, 52], cctv: [72, 2, 87, 9.5], table: [52, 51, 97, 70] };
-const CAMS = { tv: 1.35, phone: 1.9, mask: 2.4, cab: 2.2, curtain: 1.9, cctv: 2.6, table: 1.7 };
+const CAMS = { tv: 1.5, phone: 1.9, mask: 2.4, cab: 2.2, curtain: 1.9, cctv: 2.6, table: 1.7 };
 // 点了以后整张换成另一张图的：手机特写 / 帷幕后面 / 周边柜
 const SWAP = { phone: 'phone', curtain: 'backstage', cab: 'cabinet' };
 // 手机屏幕上放图标的那块（手机特写图里的四个角，百分比；左上 右上 右下 左下）
@@ -113,8 +113,8 @@ function scramble(el) {
 }
 
 /* ---------- 镜头 / 换图 ---------- */
-let focused = '', stack = [];
-function fitRoom(el) { const st = $('.eye-stage', el), fit = $('.fit', el); if (!st || !fit) return; const w = st.clientWidth, h = st.clientHeight; const fw = Math.max(w, h * 1024 / 1466) + 'px'; fit.style.setProperty('--fw', fw); st.style.setProperty('--fw', fw); placePhone(el); }
+let focused = '', stack = [], played = false;
+function fitRoom(el) { const st = $('.eye-stage', el), fit = $('.fit', el); if (!st || !fit) return; const w = st.clientWidth, h = st.clientHeight; const fw = w + 'px'; fit.style.setProperty('--fw', fw); st.style.setProperty('--fw', fw); placePhone(el); }
 function placePhone(el) { const sw = $('.swaps', el), g = $('.ph-grid', el); if (!sw || !g) return; const fw = sw.clientWidth, fh = fw * 1466 / 1024;
   g.style.transform = quadMatrix(g.offsetWidth, g.offsetHeight, PHQ.map(([x, y]) => [x / 100 * fw, y / 100 * fh])); }
 function cam(el, k) {
@@ -124,7 +124,8 @@ function cam(el, k) {
   if (z) { const fit = $('.fit', el), s = CAMS[zk] || 1.8, sw = st.clientWidth, sh = st.clientHeight, fw = parseFloat(fit.style.getPropertyValue('--fw')) || sw, fh = fw * 1466 / 1024;
     const cx = (sw - fw) / 2 + (z[0] + z[2]) / 200 * fw, cy = (sh - fh) / 2 + (z[1] + z[3]) / 200 * fh, C = [sw / 2, sh / 2], target = [sw / 2, sh * (zk == 'tv' ? .26 : .40)];
     let tx = target[0] - C[0] - (cx - C[0]) * s, ty = target[1] - C[1] - (cy - C[1]) * s; const fx0 = (sw - fw) / 2, fy0 = (sh - fh) / 2;
-    tx = Math.min(Math.max(tx, sw - (C[0] + (fx0 + fw - C[0]) * s)), -(C[0] + (fx0 - C[0]) * s)); ty = Math.min(Math.max(ty, sh - (C[1] + (fy0 + fh - C[1]) * s)), -(C[1] + (fy0 - C[1]) * s));
+    const cl = (v, lo, hi) => lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi); // 放大后图还没舞台高时就居中
+    tx = cl(tx, sw - (C[0] + (fx0 + fw - C[0]) * s), -(C[0] + (fx0 - C[0]) * s)); ty = cl(ty, sh - (C[1] + (fy0 + fh - C[1]) * s), -(C[1] + (fy0 - C[1]) * s));
     room.style.setProperty('--s', s); room.style.setProperty('--tx', tx + 'px'); room.style.setProperty('--ty', ty + 'px'); }
   else { room.style.setProperty('--s', 1); room.style.setProperty('--tx', '0px'); room.style.setProperty('--ty', '0px'); }
   // 换整张图：推近以后再淡入（手机特写 / 帷幕后 / 周边柜）
@@ -144,7 +145,9 @@ const back = el => { if (stack.length) focus(el, stack.pop(), false); else focus
 
 /* ---------- 片头：每次进来都放（主题 → 应用 → 窥探之眼 里可以关） ---------- */
 const INTRO = [['如果这个世界，', ''], ['是一部', '漫画'], ['一本', '小说'], ['一部', '电视剧'], ['一个', '游戏'], ['一个', '动漫']];
-function introHtml() { return `<div class="eye-intro"><i class="istars"></i><canvas class="ipx"></canvas><b class="iskip" data-a="iskip">跳过</b><div class="ie"><i class="orb o1"></i><i class="orb o2"></i><img src="${IMG('logo')}" alt=""><i class="lid t"></i><i class="lid b"></i><i class="slit"></i></div><i class="iwipe"></i><i class="iflash"></i></div>`; }
+// 眼睛是自己画的：一条杏仁形的红色霓虹线，闭着的时候压成一道缝，睁开时撑起来；虹膜和瞳孔被杏仁形裁住
+function introHtml() { return `<div class="eye-intro"><i class="istars"></i><canvas class="ipx"></canvas><b class="iskip" data-a="iskip">跳过</b><div class="ie"><i class="orb o1"></i><i class="orb o2"></i>
+<svg class="esvg" viewBox="0 0 240 150"><defs><clipPath id="eye-clip"><path d="M18 75Q120 -8 222 75Q120 158 18 75Z"/></clipPath></defs><g class="eg"><g class="eball" clip-path="url(#eye-clip)"><circle class="iris" cx="120" cy="75" r="36"/><circle class="pupil" cx="120" cy="75" r="16"/><circle class="hl" cx="131" cy="63" r="5"/></g><path class="elid" d="M18 75Q120 -8 222 75Q120 158 18 75Z"/><path class="elash" d="M60 24l-6-12M120 6V-8M180 24l6-12"/></g></svg></div><i class="iwipe"></i><i class="iflash"></i></div>`; }
 // 像素打字：字先画在很小的 canvas 上，再放大三倍、关掉平滑，就成了像素字；一个字一个字出来，后面跟一个闪的方块光标
 function pxType(cv, lines, done) {
   const SC = 3, W = 112, LH = 20, PAD = 8; cv.width = W; cv.height = PAD * 2 + LH * lines.length; cv.style.width = W * SC + 'px'; cv.style.height = cv.height * SC + 'px';
@@ -163,7 +166,7 @@ function pxType(cv, lines, done) {
 }
 function intro(el) {
   const it = $('.eye-intro', el); if (!it) return; let t = []; const at = (ms, f) => t.push(setTimeout(f, ms));
-  const eye = () => { it.classList.add('eye'); at(1400, () => it.classList.add('open')); at(2300, () => it.classList.add('glance')); at(3000, () => it.classList.add('flash')); at(3400, () => { it.classList.add('out'); if (!ST().form) guide(el, true); }); at(4300, () => it.remove()); };
+  const eye = () => { it.classList.add('eye'); at(1300, () => it.classList.add('open')); at(2300, () => it.classList.add('glance')); at(3000, () => it.classList.add('flash')); at(3250, () => { it.classList.add('out'); if (!ST().form) guide(el, true); }); at(4000, () => it.remove()); };
   const cancel = pxType($('.ipx', it), INTRO, () => { it.classList.add('wipe'); at(700, eye); });
   it._skip = () => { cancel(); t.forEach(clearTimeout); t = []; it.classList.add('out'); if (!ST().form) guide(el, true); setTimeout(() => it.remove(), 500); };
 }
@@ -182,12 +185,11 @@ function mount(el) {
   let y0 = 0; st.addEventListener('pointerdown', e => { const c = e.target.closest('.holo'); y0 = c ? e.clientY : 0; });
   st.addEventListener('pointerup', e => { if (y0 && e.clientY - y0 > 48) back(el); y0 = 0; });
   st.addEventListener('click', e => { if (st.classList.contains('guiding')) return; if (e.target.closest('.holo,[data-a],.ph-grid')) return; if (focused) back(el); });
-  st.addEventListener('pointerdown', e => { const b = e.target.closest('button,.hz,.ph-grid b,.ho-forms b,.gp'); if (!b) return; const r = b.getBoundingClientRect(), i = document.createElement('i'); i.className = 'rip'; i.style.left = e.clientX - r.left + 'px'; i.style.top = e.clientY - r.top + 'px'; b.append(i); setTimeout(() => i.remove(), 700); });
-  if (ST().intro) intro(el); else if (!ST().form) guide(el, true);
+  if (ST().intro && !played) { played = true; intro(el); } else if (!ST().form) guide(el, true);
 }
 
 const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="--mx:50%;--my:50%">
-<div class="eye-room" style="--s:1;--tx:0px;--ty:0px"><div class="fit">
+<div class="eye-room" style="--s:1;--tx:0px;--ty:0px"><img class="bleed" src="${IMG('room')}" draggable="false" alt=""><div class="fit">
 <img class="base ${st.role == 'author' ? '' : 'in'}" src="${IMG('room')}" draggable="false" alt=""><img class="base ${st.role == 'author' ? 'in' : ''}" src="${IMG('room_author')}" draggable="false" alt="">
 <div class="tv-scr ${has ? 'lit' : ''}">${tvScreen()}</div>
 <i class="led"></i><i class="moon-ray"></i><i class="curtain-glow"></i>
@@ -198,14 +200,14 @@ ${Object.entries(ZONES).map(([k, z]) => `<b class="hz hz-${k}" data-a="ez" data-
 <div class="swaps">${Object.entries(SWAP).map(([k, f]) => `<img class="swap" data-k="${f}" src="${IMG(f)}" draggable="false" alt="">`).join('')}<div class="ph-grid" data-a="noop">${has ? phoneGrid().replace(/^<div class="ph-grid">|<\/div>$/g, '') : ''}</div></div>
 <img class="eye-fg" src="${IMG('fg')}" draggable="false" alt="">
 <div class="eye-fx"><i class="dust d1"></i><i class="dust d2"></i><i class="dust d3"></i><i class="dust d4"></i><i class="dust d5"></i><i class="dust d6"></i></div>
-${st.intro ? introHtml() : ''}
+${st.intro && !played ? introHtml() : ''}
 <div class="eye-top"><b class="eye-back ${focused ? 'show' : ''}" data-a="eback">‹ 回到客厅</b><span class="eye-brand"><i></i>窥探之眼<small>${has ? esc(FN[st.form]) + ' · ' + esc(FM[st.form].unit) : '选一部作品'}</small></span></div>
 </div>`; };
 
 reg({
   id: 'eye', name: '窥探之眼',
   icon: `<img src="${IMG('icon')}" alt="">`,
-  open: async () => { await css(); ST().intro && pxFont(); focused = ''; stack = []; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
+  open: async () => { await css(); ST().intro && pxFont(); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
     ez: (k, t, e, pg) => { if (!ST().form) return; focus(pg.el, k == focused ? '' : k); },
     eback: (x, t, e, pg) => back(pg.el),
     gpick: (k, t, e, pg) => pickForm(pg.el, k, pg),

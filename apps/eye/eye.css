@@ -11,6 +11,7 @@
 /* 房间：整张图；推镜 = 放大 + 以热区中心为原点 */
 .eye-room { position: absolute; inset: 0; transform-origin: 50% 50%; transform: translate(var(--tx), var(--ty)) scale(var(--s)); transition: transform 1s cubic-bezier(.22, .82, .18, 1); will-change: transform; }
 /* 底图按原比例铺满（cover）：fit 框保持 1024:1466，宽不够就按高撑，所有百分比热区都挂在 fit 上 */
+.eye-room .bleed { position: absolute; left: -10%; top: -10%; width: 120%; height: 120%; object-fit: cover; filter: blur(22px) brightness(.45); pointer-events: none; }
 .eye-room .fit { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%); }
 .eye-room .fit > img.base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; opacity: 0; transition: opacity .7s ease; }
 .eye-room .fit > img.in { opacity: 1; }
@@ -124,10 +125,10 @@
 .eye-brand small { font-weight: 400; letter-spacing: .5px; opacity: .6; font-size: calc(10.5px * var(--fz, 1)); }
 
 /* ===== 全息屏：浮在他面前，蓝色、玻璃、扫描线、流光边框 ===== */
-.holo { position: absolute; left: 50%; top: 44%; width: min(88%, 340px);  transform: translate(-50%, -56%) perspective(800px) rotateX(10deg) scale(.86); opacity: 0; transition: transform .7s cubic-bezier(.22, .82, .18, 1), opacity .4s; z-index: 5; display: flex; flex-direction: column;
+.holo { position: absolute; left: 50%; top: 44%; width: min(88%, 340px);  transform: translate(-50%, -56%) scale(.9); opacity: 0; transition: transform .7s cubic-bezier(.22, .82, .18, 1), opacity .4s; z-index: 5; display: flex; flex-direction: column;
   border-radius: 10px; color: #d8ecff; background: linear-gradient(160deg, rgba(60, 150, 255, .20), rgba(10, 50, 130, .34) 60%, rgba(40, 120, 255, .18)); backdrop-filter: blur(12px) saturate(140%); -webkit-backdrop-filter: blur(12px) saturate(140%);
   box-shadow: 0 0 0 1px rgba(140, 210, 255, .55), 0 0 26px rgba(80, 180, 255, .45), inset 0 0 40px rgba(90, 190, 255, .18), 0 30px 60px -20px rgba(0, 0, 0, .8); }
-.holo.in { transform: translate(-50%, -56%) perspective(800px) rotateX(6deg) scale(1); opacity: 1; }
+.holo.in { transform: translate(-50%, -56%) scale(1); opacity: 1; }
 /* 全息屏下面一道光束连到手机 */
 .holo-beam { position: absolute; left: 50%; top: 52%; width: 120px; height: 120px; transform: translateX(-50%); z-index: 4; pointer-events: none; opacity: 0; transition: opacity .5s; background: linear-gradient(0deg, rgba(90, 190, 255, .22), transparent); clip-path: polygon(44% 100%, 56% 100%, 100% 0, 0 0); }
 .holo-beam.in { opacity: 1; }
@@ -184,9 +185,6 @@
 .ho-acts button + button { border-top: 1px solid rgba(140, 210, 255, .15); }
 .ho-acts button i { font-style: normal; color: #7fe0ff; font-size: 18px; }
 .ho-acts button:active { background: rgba(120, 200, 255, .12); }
-/* 点击涟漪 */
-.rip { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: rgba(160, 220, 255, .45); pointer-events: none; animation: rip .7s ease-out forwards; }
-@keyframes rip { to { transform: scale(26); opacity: 0 } }
 
 /* ===== 片头：黑底星雨 → 像素字一个个打出来 → 红色斜切 → 眼睛闭着 → 睁开 → 客厅 ===== */
 .eye-intro { position: absolute; inset: 0; z-index: 20; background: #000; overflow: hidden; transition: opacity .7s; }
@@ -209,26 +207,31 @@
 .iwipe { position: absolute; inset: -40%; background: #c8102e; transform: translateX(120%) rotate(-24deg); pointer-events: none; }
 .eye-intro.wipe .iwipe { animation: iwipe .9s cubic-bezier(.7, 0, .2, 1) forwards; }
 @keyframes iwipe { 0% { transform: translateX(120%) rotate(-24deg) } 45% { transform: translateX(0) rotate(-24deg) } 100% { transform: translateX(-130%) rotate(-24deg) } }
-.ie { position: absolute; left: 50%; top: 50%; width: min(70vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%) scale(.92); opacity: 0; transition: opacity .5s, transform 1s cubic-bezier(.22, .82, .18, 1); }
+.ie { position: absolute; left: 50%; top: 50%; width: min(72vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%) scale(.92); opacity: 0; transition: opacity .5s, transform 1s cubic-bezier(.22, .82, .18, 1); }
 .eye-intro.eye .ie { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-.ie img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: transform .35s cubic-bezier(.5, 0, .3, 1); }
+.eye-intro.out .ie { opacity: 0; transform: translate(-50%, -50%) scale(1.5); transition: opacity .45s, transform .7s cubic-bezier(.5, 0, .2, 1); }
+.esvg { position: absolute; left: 0; top: 50%; width: 100%; transform: translateY(-50%); overflow: visible; filter: drop-shadow(0 0 6px #ff2a2a) drop-shadow(0 0 18px rgba(255, 42, 42, .45)); }
+.esvg .eg { transform-origin: 120px 75px; transform: scaleY(.025); transition: transform 1.1s cubic-bezier(.7, 0, .15, 1.1); }
+.eye-intro.open .eg { transform: scaleY(1); }
+.esvg .elid { fill: none; stroke: #ff2a2a; stroke-width: 4; stroke-linejoin: round; }
+.esvg .iris { fill: rgba(255, 42, 42, .12); stroke: #ff2a2a; stroke-width: 3; }
+.esvg .pupil { fill: #ff2a2a; }
+.esvg .hl { fill: #fff; opacity: .85; }
+.esvg .elash { fill: none; stroke: #ff2a2a; stroke-width: 3; stroke-linecap: round; opacity: 0; transition: opacity .4s .6s; }
+.eye-intro.open .elash { opacity: .8; }
+/* 闭着时那道缝一呼一吸地亮 */
+.eye-intro.eye:not(.open) .esvg { animation: slit 1.2s ease-in-out infinite; }
+@keyframes slit { 50% { filter: drop-shadow(0 0 10px #ff2a2a) drop-shadow(0 0 30px rgba(255, 42, 42, .7)) } }
 /* 睁开以后瞄一眼左边再回来 */
-.eye-intro.glance .ie img { animation: glance 1s cubic-bezier(.5, 0, .3, 1); }
-@keyframes glance { 30% { transform: translateX(-4%) } 65% { transform: translateX(3%) } 100% { transform: none } }
-/* 眼皮 */
-.ie .lid { position: absolute; left: -2%; right: -2%; height: 51%; background: #000; transition: transform 1s cubic-bezier(.7, 0, .2, 1); z-index: 2; }
-.ie .lid.t { top: 0; } .ie .lid.b { bottom: 0; }
-.eye-intro.open .lid.t { transform: translateY(-100%); } .eye-intro.open .lid.b { transform: translateY(100%); }
-.ie .slit { position: absolute; left: 14%; right: 14%; top: 50%; height: 3px; margin-top: -1.5px; background: #ff2a2a; box-shadow: 0 0 10px #ff2a2a; border-radius: 2px; transition: opacity .4s .3s; z-index: 3; animation: slit 1.2s ease-in-out infinite; }
-@keyframes slit { 50% { box-shadow: 0 0 18px #ff2a2a, 0 0 30px rgba(255, 42, 42, .5) } }
-.eye-intro.open .slit { opacity: 0; }
+.eye-intro.glance .eball { animation: glance 1s cubic-bezier(.5, 0, .3, 1); }
+@keyframes glance { 30% { transform: translateX(-16px) } 65% { transform: translateX(12px) } 100% { transform: none } }
 /* 闭着的时候，两道细细的红色轨道绕着转，像在扫描 */
 .ie .orb { position: absolute; left: 50%; top: 50%; width: 120%; height: 120%; margin: -60% 0 0 -60%; border: 1px solid rgba(255, 42, 42, .55); border-radius: 50%; transform: rotateX(72deg) rotateZ(0deg); animation: orb 4s linear infinite; pointer-events: none; transition: opacity .5s; }
 .ie .orb.o2 { width: 136%; height: 136%; margin: -68% 0 0 -68%; transform: rotateX(72deg) rotateY(40deg); animation-duration: 6s; animation-direction: reverse; border-color: rgba(255, 42, 42, .3); }
 @keyframes orb { to { transform: rotateX(72deg) rotateZ(360deg) } }
 .eye-intro.open .orb { opacity: 0; }
-.eye-intro.open .ie img { animation: ie-glow 1.4s ease-out .5s both; }
-@keyframes ie-glow { 30% { filter: brightness(1.8) drop-shadow(0 0 30px #ff2a2a) } 100% { filter: brightness(1) } }
+.eye-intro.open .esvg { animation: ie-glow 1.4s ease-out .5s both; }
+@keyframes ie-glow { 30% { filter: drop-shadow(0 0 14px #ff2a2a) drop-shadow(0 0 40px #ff2a2a) } 100% { filter: drop-shadow(0 0 6px #ff2a2a) drop-shadow(0 0 18px rgba(255, 42, 42, .45)) } }
 .iflash { position: absolute; inset: 0; background: #ff2a2a; opacity: 0; pointer-events: none; }
 .eye-intro.flash .iflash { animation: iflash .5s ease-out forwards; }
 @keyframes iflash { 0% { opacity: .85 } 100% { opacity: 0 } }
