@@ -9,7 +9,7 @@
 import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
 import { openForum } from './forum.js';
 
-const CSS = new URL('./eye.css?v=15', import.meta.url).href;
+const CSS = new URL('./eye.css?v=16', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
@@ -195,14 +195,14 @@ function mount(el) {
   if (!cssOk) return void cssReady.then(() => { cssOk = true; mount(el); });
   st0.style.visibility = '';
   fitRoom(el); requestAnimationFrame(() => fitRoom(el)); const st = $('.eye-stage', el); if (!st || st._eye) return; st._eye = 1; new ResizeObserver(() => fitRoom(el)).observe(st);
-  st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); st.style.setProperty('--mx', (e.clientX - r.left) / r.width * 100 + '%'); st.style.setProperty('--my', (e.clientY - r.top) / r.height * 100 + '%'); });
+  const spot = $('.eye-spot', st); st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); spot && (spot.style.transform = `translate(${e.clientX - r.left}px,${e.clientY - r.top}px)`); });
   let y0 = 0; st.addEventListener('pointerdown', e => { const c = e.target.closest('.holo'); y0 = c ? e.clientY : 0; });
   st.addEventListener('pointerup', e => { if (y0 && e.clientY - y0 > 48) back(el); y0 = 0; });
   st.addEventListener('click', e => { if (st.classList.contains('guiding')) return; if (e.target.closest('.holo,[data-a]')) return; if (focused) back(el); });
   if (INTRO_ON() && !played) { played = true; intro(el); } else if (!ST().form) guide(el, true);
 }
 
-const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="--mx:50%;--my:50%;position:absolute;inset:0;background:#06070c${cssOk ? '' : ';visibility:hidden'}">
+const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="position:absolute;inset:0;background:#06070c${cssOk ? '' : ';visibility:hidden'}">
 <div class="eye-room" style="--s:1;--tx:0px;--ty:0px"><img class="bleed" src="${IMG('room')}" draggable="false" alt=""><div class="fit">
 <img class="base ${st.role == 'author' ? '' : 'in'}" src="${IMG('room')}" draggable="false" alt=""><img class="base ${st.role == 'author' ? 'in' : ''}" src="${IMG('room_author')}" draggable="false" alt="">
 <div class="tv-scr ${has ? 'lit' : ''}">${tvScreen()}</div>
@@ -211,6 +211,7 @@ ${Object.entries(ZONES).map(([k, z]) => `<b class="hz hz-${k}" data-a="ez" data-
 </div></div>
 ${guideHtml()}
 <div class="swaps">${Object.entries(SWAP).map(([k, f]) => `<img class="swap" data-k="${f}" src="${SWIMG(f)}" draggable="false" alt="">`).join('')}<div class="phzs">${phz()}</div></div>
+<i class="eye-spot"></i>
 <img class="eye-fg" src="${IMG('fg')}" draggable="false" alt="">
 <div class="eye-fx"><i class="dust d1"></i><i class="dust d2"></i><i class="dust d3"></i><i class="dust d4"></i><i class="dust d5"></i><i class="dust d6"></i></div>
 ${INTRO_ON() && !played ? introHtml() : ''}

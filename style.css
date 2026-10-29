@@ -1624,3 +1624,6 @@ html{min-height:100%;min-height:100dvh}
 #stp .modv-t{margin:12px;padding:14px;border-radius:14px;background:var(--card,#fff);white-space:pre-wrap;word-break:break-word;font-size:calc(13px*var(--fz,1));line-height:1.65;color:var(--pt)}
 #stp .modp .row .seg{margin:0 0 0 auto;flex:none}
 #stp .modp .row.prof .lnk{margin-left:auto;flex:none;padding:4px 2px 4px 10px}
+/* 手机手感：点按钮不等双击缩放判断（click 立刻触发），长按按钮不选中文字 */
+#stp button,#stp [data-a],#stp-ball{touch-action:manipulation}
+#stp button,#stp-ball{-webkit-user-select:none;user-select:none}

@@ -6,7 +6,9 @@
 
 .eye-stage { position: absolute; inset: 0; overflow: hidden; background: #06070c; touch-action: none; user-select: none; -webkit-user-select: none; perspective: 900px; }
 /* 聚光灯：手指在哪，哪里亮一点 */
-.eye-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3; background: radial-gradient(circle 150px at var(--mx) var(--my), rgba(170, 200, 255, .10), transparent 70%), radial-gradient(ellipse 85% 75% at 50% 45%, transparent 50%, rgba(0, 0, 0, .55) 100%); }
+.eye-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3; background: radial-gradient(ellipse 85% 75% at 50% 45%, transparent 50%, rgba(0, 0, 0, .55) 100%); }
+/* 聚光灯：手指在哪，哪里亮一点。单独一个小元素，直接改它的 transform（改父元素上的 CSS 变量会让所有子元素每一帧都重算样式） */
+.eye-spot { position: absolute; left: -150px; top: -150px; width: 300px; height: 300px; border-radius: 50%; pointer-events: none; z-index: 3; background: radial-gradient(circle closest-side, rgba(170, 200, 255, .10), transparent); transform: translate(50vw, 40vh); }
 
 /* 房间：整张图；推镜 = 放大 + 以热区中心为原点 */
 .eye-room { position: absolute; inset: 0; transform-origin: 50% 50%; transform: translate(var(--tx), var(--ty)) scale(var(--s)); transition: transform 1s cubic-bezier(.22, .82, .18, 1); will-change: transform; }
@@ -276,7 +278,7 @@
 /* 门板的木纹 / 噪点 */
 .efp::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .018) 0 2px, transparent 2px 9px), repeating-linear-gradient(0deg, rgba(0, 0, 0, .25) 0 1px, transparent 1px 3px); }
 .efp-ld { animation: ef-in .3s ease-out; }
-.efp-ld.out { animation: efp-out .6s ease-in forwards; }
+.efp-ld.out { animation: efp-out .6s cubic-bezier(.4, 0, .2, 1) forwards; }
 .efp-ld.out .ph { animation: ph-zoom .6s cubic-bezier(.6, 0, .4, 1) forwards; }
 @keyframes ef-in { from { opacity: 0 } }
 @keyframes efp-out { 60% { opacity: 1 } to { opacity: 0 } }
