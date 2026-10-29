@@ -91,7 +91,7 @@ function replyP(ch, patNow) {
   const g = ch.type == 'g', me = meObj().nick, al = stkOf(ch), sk = [...new Set([...(!al || al.has('fav') ? S.assets.sticker.map(s => s.name) : []), ...S.stk.mine.filter(p => !al || al.has(srcOf(p.id))).flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
   const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${qShow(ch, m.q).c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? m.rcpt ? `（这条是${m.st == '已退还' ? '退还' : '收下'}对方那笔转账的回执）` : `（${m.st}）` : ''}`).join('\n');
   const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg;
-  const rn0 = Math.max(0, cf.rmin == null ? 1 : +cf.rmin || 0), rn1 = Math.max(rn0, cf.rmax == null ? 5 : +cf.rmax), vn0 = Math.max(0, +cf.vmin || 0), vn1 = Math.max(vn0, cf.vmax == null ? 1 : +cf.vmax);
+  const c50 = v => Math.max(0, Math.min(50, +v || 0)), rn0 = c50(cf.rmin == null ? 1 : cf.rmin), rn1 = Math.max(rn0, c50(cf.rmax == null ? 5 : cf.rmax)), vn0 = c50(cf.vmin), vn1 = Math.max(vn0, c50(cf.vmax == null ? 1 : cf.vmax)); // 最多 50 条
   const ls = mzB.getMusicListening(ch.id), snap = ls && G.mzSnapshot?.(), mt2 = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const lsP = ls ? ['【一起听歌】', g ? `${me}在群里发起了一起听歌，群成员现在可以一起听。` : `${me}和${rn(ch)}正在一起听歌。`, `正在放：《${snap?.songName || ls.songName}》 - ${snap?.artist || ls.artist}${snap ? `，放到 ${mt2(snap.currentTime || 0)}${snap.duration ? ' / ' + mt2(snap.duration) : ''}` : ''}`,
     snap?.lyric ? `现在唱到：${snap.lyric}${snap.lyricTranslation ? `（${snap.lyricTranslation}）` : ''}` : '', snap?.lyricWindow?.length ? `接下来的歌词：${snap.lyricWindow.slice(0, 6).join(' / ')}` : '',
@@ -430,18 +430,20 @@ function trSec(ch, f, g) {
 }
 // 聊天设置 · 基本信息：标签在上、内容在下占满一行，写多长都整段显示（自动长高，不截成省略号）；回车不换行
 const ci = (o, k, l, ph = '') => `<label class="ci"><span>${l}</span><textarea rows="1" data-k="${k}" data-one placeholder="${esc(ph)}">${esc(o[k] ?? '')}</textarea></label>`;
-export const ciGrow = el => el.querySelectorAll('textarea[data-one]').forEach(t => { const g = () => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }; requestAnimationFrame(g); t.addEventListener('input', g); t.onkeydown = e => e.key == 'Enter' && e.preventDefault(); });
-// 回复条数 / 语音条数：一条轨道两个圆钮拉区间，圆钮上直接写数字；从 0 开始，右边的圆钮拉到头，刻度再往后长 5 格，可以接着拉
-const r2hi = (b, h0) => Math.max(h0, Math.ceil((b + 1) / 5) * 5);
-const r2t = (lo, hi) => Array.from({ length: hi - lo + 1 }, (_, i) => `<small style="left:${i / (hi - lo) * 100}%">${lo + i}</small>`).join('');
-const r2 = (ch, k, l, h0, d0, d1) => { const a = +(ch.cfg[k + 'min'] ?? d0), b = +(ch.cfg[k + 'max'] ?? d1), lo = 0, hi = r2hi(b, h0);
-  return `<div class="r2" data-r2="${k}" data-h0="${h0}" style="--r2a:${(a - lo) / (hi - lo)};--r2b:${(b - lo) / (hi - lo)}"><div class="r2-h"><span>${l}</span><b>${a == b ? a : `${a} – ${b}`} 条</b></div><div class="r2-t"><i></i><input type="range" min="${lo}" max="${hi}" value="${a}" data-r2k="${k}min"><input type="range" min="${lo}" max="${hi}" value="${b}" data-r2k="${k}max"><em class="r2-n a">${a}</em><em class="r2-n b">${b}</em></div><div class="r2-s">${r2t(lo, hi)}</div></div>`; };
-const r2Bind = (el, ch) => el.querySelectorAll('[data-r2]').forEach(w => { const [x, y] = w.querySelectorAll('input'), lo = +x.min, k = w.dataset.r2, h0 = +w.dataset.h0;
-  const up = e => { let a = +x.value, b = +y.value, hi = +x.max; if (a > b) e?.target == x ? (b = a, y.value = b) : (a = b, x.value = a);
-    if (b >= hi) { hi = r2hi(b, h0); x.max = y.max = hi; x.value = a; y.value = b; w.querySelector('.r2-s').innerHTML = r2t(lo, hi); } // 拉到头：刻度往后长
-    ch.cfg[k + 'min'] = a; ch.cfg[k + 'max'] = b;
-    w.style.setProperty('--r2a', (a - lo) / (hi - lo)); w.style.setProperty('--r2b', (b - lo) / (hi - lo)); w.querySelector('.r2-n.a').textContent = a; w.querySelector('.r2-n.b').textContent = b; w.querySelector('.r2-h b').textContent = `${a == b ? a : `${a} – ${b}`} 条`; };
-  x.oninput = y.oninput = up; x.onchange = y.onchange = () => saveD(); });
+// 头像和右边那几行名字一样高（上下齐平）：右边内容变高（换行）头像跟着变，最大 150px
+const avFit = el => { const n = el.querySelector('.ci-nm'), a = el.querySelector('.ci-av'); if (!n || !a || !window.ResizeObserver) return;
+  new ResizeObserver(() => a.style.setProperty('--cav', Math.min(150, Math.max(56, n.offsetHeight - 10)) + 'px')).observe(n); };
+export const ciGrow = el => avFit(el) || el.querySelectorAll('textarea[data-one]').forEach(t => { const g = () => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }; requestAnimationFrame(g); t.addEventListener('input', g); t.onkeydown = e => e.key == 'Enter' && e.preventDefault(); });
+// 回复条数 / 语音条数：一条轨道两个圆钮拉区间，圆钮上直接写数字（数字放在滑块前面：通用的滑块会改它后面那个 <em>，放后面会被改成另一个钮的数）；都是 0～50 条，刻度只标 0 / 10 / 20 / 30 / 40 / 50
+const R2MAX = 50, r2c = v => Math.max(0, Math.min(R2MAX, Math.round(+v || 0)));
+const r2t = () => Array.from({ length: R2MAX / 10 + 1 }, (_, i) => `<small style="--p:${i * 10 / R2MAX}">${i * 10}</small>`).join('');
+const r2 = (ch, k, l, d0, d1) => { let a = r2c(ch.cfg[k + 'min'] ?? d0), b = r2c(ch.cfg[k + 'max'] ?? d1); a > b && ([a, b] = [b, a]);
+  return `<div class="r2" data-r2="${k}" style="--r2a:${a / R2MAX};--r2b:${b / R2MAX}"><div class="r2-h"><span>${l}</span><b>${a == b ? a : `${a} – ${b}`} 条</b></div><div class="r2-t"><i></i><em class="r2-n a">${a}</em><em class="r2-n b">${b}</em><input type="range" min="0" max="${R2MAX}" value="${a}" data-r2k="${k}min"><input type="range" min="0" max="${R2MAX}" value="${b}" data-r2k="${k}max"></div><div class="r2-s">${r2t()}</div></div>`; };
+const r2Bind = (el, ch) => el.querySelectorAll('[data-r2]').forEach(w => { const [x, y] = w.querySelectorAll('input'), k = w.dataset.r2;
+  const up = e => { let a = +x.value, b = +y.value; if (a > b) e?.target == x ? (b = a, y.value = b) : (a = b, x.value = a);
+    ch.cfg[k + 'min'] = a; ch.cfg[k + 'max'] = b; 
+    w.style.setProperty('--r2a', a / R2MAX); w.style.setProperty('--r2b', b / R2MAX); w.querySelector('.r2-n.a').textContent = a; w.querySelector('.r2-n.b').textContent = b; w.querySelector('.r2-h b').textContent = `${a == b ? a : `${a} – ${b}`} 条`; };
+  x.oninput = y.oninput = up; x.onchange = y.onchange = () => saveD(); up(); });
 // 性别：三个小胶囊，选中的那个滑过去一块白底；男偏蓝、女偏粉
 const SEX = [['', '未知'], ['男', '♂ 男'], ['女', '♀ 女']];
 const sexP = ch => { const i = Math.max(0, SEX.findIndex(x => x[0] == (ch.sex || ''))); return `<div class="row sexr"><span>性别</span><div class="sexp" style="--i:${i}"><i class="sexp-i"></i>${SEX.map(([v, l], j) => `<b class="${j == i ? 'on' : ''} sx${j}" data-a="sexset" data-x="${v}">${l}</b>`).join('')}</div></div>`; };
@@ -452,13 +454,13 @@ export function cset(ch) {
     onChange: k => (/^cfg\.(lang|trFollow|trAuto|trMine|trTo)$/.test(k) && D().chats.forEach(retrans), /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; })),
     body: () => sec('cset', [
       ['info', '基本信息', g ? `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'name', '群名')}${ci(ch, 'no', '群号')}</div></div>` + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
-        : `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'remark', '备注')}${ci(ch, 'nick', '昵称（网名）')}</div></div>`
-          + `<div class="ci-l">${ci(ch, 'real', '真实姓名')}${ci(ch, 'wxid', '微信号', '没填就随机生成')}${sty(ch) == 'wx' ? `<div class="ci go" data-a="tgset"><span>标签</span><p class="ci-v ${tagsOf(ch).length ? '' : 'emp'}">${esc(tagsOf(ch).join('，') || '添加标签')}</p></div>` : `<div class="ci go" data-a="grpset"><span>分组</span><p class="ci-v">${esc(ch.grp || '我的好友')}</p></div>`}${ci(ch, 'sign', '个性签名')}${ci(ch, 'ps', '拍一拍后缀', '如：的小脑袋')}${sexP(ch)}</div>`],
+        : `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'nick', '昵称（网名）')}${ci(ch, 'real', '真实姓名')}${ci(ch, 'remark', '备注')}</div></div>`
+          + `<div class="ci-l">${ci(ch, 'wxid', '微信号', '没填就随机生成')}${sty(ch) == 'wx' ? `<div class="ci go" data-a="tgset"><span>标签</span><p class="ci-v ${tagsOf(ch).length ? '' : 'emp'}">${esc(tagsOf(ch).join('，') || '添加标签')}</p></div>` : `<div class="ci go" data-a="grpset"><span>分组</span><p class="ci-v">${esc(ch.grp || '我的好友')}</p></div>`}${ci(ch, 'sign', '个性签名')}${ci(ch, 'ps', '拍一拍后缀', '如：的小脑袋')}${sexP(ch)}</div>`],
       g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}`],
       !g && ['voice', '专属音色', vSec(ch, f)],
       ['tr', '翻译', trSec(ch, f, g)],
       ['stk', '表情包', `<div class="stks">${STK_ALL().map(k => `<label class="row"><span>${esc(k == 'lib' ? '自己搜索' : k == 'fav' ? '我喜欢的表情' : packMeta(k)?.name || k)}</span><input type="checkbox" class="sw" data-a="stkt" data-x="${esc(k)}" ${(ch.cfg.stkOff || []).includes(k) ? '' : 'checked'}></label>`).join('')}</div>`],
-      ['reply', '回复设置', r2(ch, 'r', '回复条数', 10, 1, 5) + r2(ch, 'v', '语音条数', 5, 0, 1) + `${f.tog('cfg.vpre', '收到语音就合成')}`],
+      ['reply', '回复设置', r2(ch, 'r', '回复条数', 1, 5) + r2(ch, 'v', '语音条数', 0, 1) + `${f.tog('cfg.vpre', '收到语音就合成')}`],
       ['rd', '互动', (sty(ch) == 'wx' ? '' : f.tog('cfg.read', '显示已读 / 未读')) + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
       // 微信样式的美化只留日间 / 夜间和聊天背景（每条消息都带头像、不合并，跟真微信一样）；其他样式照旧
       ['look', '美化', sty(ch) == 'wx' ? `<div class="row"><span>${ch.cfg.dark ? '夜间' : '日间'}</span><b class="dn ${ch.cfg.dark ? 'on' : ''}" data-a="dntog" role="switch" aria-checked="${!!ch.cfg.dark}"><i class="dn-k"></i></b></div>` + f.img('cfg.bg', '聊天背景') : f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
@@ -477,7 +479,8 @@ export function cset(ch) {
       dntog: (x, t) => { ch.cfg.dark = !ch.cfg.dark; saveD(); t.classList.toggle('on', ch.cfg.dark); t.setAttribute('aria-checked', ch.cfg.dark); t.previousElementSibling.textContent = ch.cfg.dark ? '夜间' : '日间'; },
       // 标签 / 分组是选的，不是填的：微信进「选择标签」，其他样式从已有分组里挑（或新建）
       tgset: () => pickTags([ch]),
-      sexset: (v, t, e, pg) => { if ((ch.sex || '') == v) return; ch.sex = v; saveD(); const w = t.parentNode, i = SEX.findIndex(x => x[0] == v); w.style.setProperty('--i', i); w.querySelectorAll('b').forEach((b, j) => b.classList.toggle('on', j == i)); setTimeout(() => pg.re(), 260); }, // 先让白块滑过去，再重画（语音按性别选默认音色）
+      sexset: (v, t, e, pg) => { if ((ch.sex || '') == v) return; ch.sex = v; saveD(); const w = t.parentNode, i = SEX.findIndex(x => x[0] == v); w.style.setProperty('--i', i); w.querySelectorAll('b').forEach((b, j) => b.classList.toggle('on', j == i));
+        setTimeout(() => { const vb = pg.el.querySelector('[data-sec="voice"] .sec-b'); vb && (vb.innerHTML = vSec(ch, f)); }, 260); }, // 白块滑过去就好，不重画整页（会闪）；只刷新「专属音色」那一块（默认音色按性别选）
       grpset: async (x, t, e, pg) => { const k = await menu([...grpNames().map(g => [g, esc(g)]), ['+', '＋ 新建分组']], '分组'); if (!k) return; let g = k; if (k == '+') { const r = await form('新建分组', [['n', '分组名']], { n: '' }); g = String(r?.n || '').trim(); if (!g) return; } ch.grp = g == '我的好友' ? '' : g; saveD(); pg.re(); },
       stkt: (k, t) => { const off = new Set(ch.cfg.stkOff || []); t.checked ? off.delete(k) : off.add(k); ch.cfg.stkOff = [...off]; saveD(); },
       clr: async () => { if (await ok('清空全部聊天记录？')) { drop(ch.msgs); ch.msgs = []; saveD(); toast('已清空'); } },

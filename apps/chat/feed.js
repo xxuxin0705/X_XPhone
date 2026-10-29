@@ -47,7 +47,7 @@ let FM; const faceMap = () => FM ||= new Map(wxFaces().map(x => [x.l, x]));
 const faces = h => h.replace(/\[([^\[\]<>]{1,6})\]/g, (m, l) => faceMap().has(l) ? imgH(faceMap().get(l), 'f-emo', ` alt="${esc(m)}"`) : m);
 const liked = p => p.likes.includes(nm(meObj()));
 // 评论（照微信）：后面不放「回复」「删除」，只有查看翻译 / 显示原文；点别人的评论就是回复 TA，点自己的评论弹出删除
-const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c" data-a="${isMe(c.f) ? 'fcme' : 'crep'}" data-x="${p.id}|${i}"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${faces(tx(c.c, c.tr, p.id + ':' + i, who(c.f)))}${c.img ? `<img class="f-ci" src="${esc(c.img)}" data-a="fcimg" data-x="${p.id}|${i}" loading="lazy">` : ''}</div>`).join('');
+const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c" data-a="${isMe(c.f) ? 'fcme' : 'crep'}" data-x="${p.id}|${i}"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${faces(tx(noAt(c.c), noAt(c.tr), p.id + ':' + i, who(c.f)))}${c.img ? `<img class="f-ci" src="${esc(c.img)}" data-a="fcimg" data-x="${p.id}|${i}" loading="lazy">` : ''}</div>`).join('');
 
 /* ---------- 三种样式的一条动态 ---------- */
 export const postImages = p => p.images?.length ? p.images : p.url ? [{url:p.url}] : p.imgd ? [(d=>({description:d.zh||d.en,prompt:d.en}))(imgDesc(p.imgd))] : [];
@@ -117,7 +117,12 @@ function genDlg(pre) {
   });
 }
 // 每个人用什么语言写（跟他私聊里的「角色消息翻译为」）：外语正文 + 中文译文一起生成
-const langRule = L => { const r = L.map(c => [c, c.cfg?.lang]).filter(([, l]) => l && l != 'zh-TW'); return r.length ? `【语言】${r.map(([c, l]) => `${rn(c)}用${lname(l)}`).join('；')}：这些人的正文和评论 text 直接用该语言写，tr 写简体中文译文（贴合说话人的人设、口癖和语气，口语自然）；其他人用中文，tr 留空。` : '【语言】都用简体中文，tr 留空。'; };
+// 评论、回复也一样按「说话的这个人」自己的语言来，不跟着帖子走（日语帖子底下说中文的人照样说中文，反过来也一样）
+const langRule = L => { const r = L.map(c => [c, c.cfg?.lang]).filter(([, l]) => l && l != 'zh-TW'), zh = L.filter(c => !r.some(([x]) => x == c));
+  return (r.length ? `【语言】每个人只用自己的语言说话——${r.map(([c, l]) => `${rn(c)}用${lname(l)}`).join('；')}。这些人发的正文、写的每一条评论和回复（不管回复谁、帖子是什么语言）text 都用自己的语言写，tr 写简体中文译文（贴合说话人的人设、口癖和语气，口语自然）；${zh.length ? zh.map(rn).join('、') + '等其他人' : '其他人'}用中文，tr 留空。` : '【语言】都用简体中文，tr 留空。')
+    + '\n【回复格式】回复别人的评论时 text 开头不要写「@名字」（微信回复不艾特，系统会自动显示「A 回复 B」），直接说话。'; };
+// 去掉评论开头的 @某某（模型有时还是会写；旧数据显示时也去掉）
+const noAt = t => String(t || '').replace(/^\s*(?:@[^\s@：:，,]+[\s：:，,]*)+/, '');
 
 function genFeed(st) {
   if (generating) return;
@@ -134,7 +139,7 @@ function genFeed(st) {
       const posts=normalizeMoments(result,contacts,{n:st.n,names,only},nm(meObj()),+now());
       if(!posts.length)throw Error('这次没有生成出内容，再试一次吧');
       const split = text => { const m=String(text).match(/^([\s\S]*?)\s*\[翻译[:：]([^\]]*)\]\s*$/);return m ? [m[1].trim(),m[2].trim()] : [text,'']; };
-      const added=posts.map(p=> { const [c,tr]=split(p.text); return {id:uid(),u:1,a:contacts.find(c=>[rn(c),nm(c)].includes(p.author)).id,c,tr:p.tr||tr,ts:p.ts,location:p.location,images:p.images.map(v=>/^https?:\/\/|^data:image\/|^\//.test(v)?{url:v}:(d=>({description:d.zh||d.en,prompt:d.en}))(imgDesc(v))),likes:p.likes,cm:p.comments.map(v=>{const [c,tr]=split(v.text);return {f:v.from,c,tr:v.tr||tr,...(v.to?{to:v.to}:{})};})}; });
+      const added=posts.map(p=> { const [c,tr]=split(p.text); return {id:uid(),u:1,a:contacts.find(c=>[rn(c),nm(c)].includes(p.author)).id,c,tr:p.tr||tr,ts:p.ts,location:p.location,images:p.images.map(v=>/^https?:\/\/|^data:image\/|^\//.test(v)?{url:v}:(d=>({description:d.zh||d.en,prompt:d.en}))(imgDesc(v))),likes:p.likes,cm:p.comments.map(v=>{const [c,tr]=split(v.text);return {f:v.from,c:noAt(c),tr:noAt(v.tr||tr),...(v.to?{to:v.to}:{})};})}; });
       data.posts.unshift(...added); saveD();emit('chat');return `新增 ${added.length} 条动态`;
     } finally {generating=false;}
   });
@@ -149,7 +154,7 @@ function genCmt(p, why) {
     const r = json(await llm(await sysCtx(), `${p.a == 'me' ? meObj().nick : rn(au)}发了动态：“${p.c}”${p.tr ? `（${p.tr}）` : ''}\n已有评论：${p.cm.map(c => `${nm(who(c.f))}${c.to ? '回复' + nm(who(c.to)) : ''}：${c.c}${c.img ? '[图片]' : ''}`).join('；') || '无'}\n${why}\n${langRule(L)}\n${mp('chat.cmt')}\n${NOAI}\n只输出JSON：{"comments":[{"from":"名字","text":"","tr":"","to":"回复谁(可空)"}],"likes":["名字"]}`, '动态评论', sg, { mod: 'chat.cmt' }));
     if(D() !== data || !data.posts.includes(p)) return '动态已删除或聊天已切换';
     const allowed = new Set(L.flatMap(c=>[rn(c),nm(c)]));
-    r?.comments?.filter(c=>allowed.has(c.from))?.forEach(c => c.text && p.cm.push({ f: c.from, c: c.text, tr: c.tr || '', ...(c.to && { to: c.to }) })); r?.likes?.filter(n=>allowed.has(n))?.forEach(n => n && !p.likes.includes(n) && p.likes.push(n)); saveD(); emit('chat'); return '收到评论';
+    r?.comments?.filter(c=>allowed.has(c.from))?.forEach(c => c.text && p.cm.push({ f: c.from, c: noAt(c.text), tr: noAt(c.tr), ...(c.to && { to: c.to }) })); r?.likes?.filter(n=>allowed.has(n))?.forEach(n => n && !p.likes.includes(n) && p.likes.push(n)); saveD(); emit('chat'); return '收到评论';
     } finally {pendingComments.delete(p.id);}
   });
 }
