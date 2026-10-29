@@ -1,5 +1,5 @@
 // 消息 · 微信样式的外壳：底栏（微信 / 通讯录 / 发现 / 我）、发现页、「我」页，照着现在的微信来
-import { S, D, saveD, esc, page, fx, form, toast, avOf, meObj, emit, C, nm, back, menu } from '../../core.js';
+import { S, D, saveD, esc, roll, page, fx, form, toast, avOf, meObj, emit, C, nm, back, menu } from '../../core.js';
 import { openFeed, FA, postImages } from './feed.js';
 import { get, sty } from './data.js';
 import { openChat, cset } from './talk.js';
@@ -53,7 +53,7 @@ export const WXA = {
       if (k == 'nick' && !v) return toast('名字不能为空');
       me[k] = v; }
     saveD(); emit('chat'); pg.re(); },
-  wsv: () => sub('服务', () => `<div class="wsv"><div data-a="wwal"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M15.5 14.5h2.5"/></svg><b>钱包</b><small>¥${(+D().me.wallet || 0).toFixed(2)}</small></div></div>`),
+  wsv: () => sub('服务', () => `<div class="wsv"><div data-a="wwal"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M15.5 14.5h2.5"/></svg><b>钱包</b><small>¥${roll('wal', D().me.wallet)}</small></div></div>`),
   wwal: async (x, t, e, pg) => { const r = await form('零钱余额', [['w', '余额', 'number']], { w: D().me.wallet || 0 }); if (r && r.w !== '' && !isNaN(+r.w)) { D().me.wallet = +r.w; saveD(); pg.re(); toast('已修改'); } },
   wstk: () => minePage(),
   wset: () => sub('设置', () => { const f = fx(D().me); return `<div class="wx-g">${f.img('cover', '朋友圈封面')}${f.img('fbg', '朋友圈背景')}</div>`; }),

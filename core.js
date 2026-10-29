@@ -124,7 +124,15 @@ export function task(title, fn) {
   };
   return fn(ac.signal, prog).then(m => (fin(1, m || title + ' · 完成'), m), e => ac.signal.aborted ? fin(2, `${title} · 已取消`) : fin(0, `${title}失败：${e?.message || e}`));
 }
-export const toast = s => { const t = Object.assign(document.createElement('div'), { className: 'stp-toast', textContent: s }); ui.scr?.append(t); setTimeout(() => t.remove(), 2400); };
+// 滚动数字（余额这类）：每一位是一列 0-9，从上次显示的数滚到现在的数；纯 CSS 动画，不用挂载
+const RN = {};
+export const roll = (k, v, dp = 2) => { const t = (+v || 0).toFixed(dp), f = (RN[k] ?? (0).toFixed(dp)).padStart(t.length, '0').slice(-t.length); RN[k] = t;
+  return `<span class="rnum" aria-label="${t}">${[...t].map((c, i) => /\d/.test(c) ? `<i class="rn-c"><span class="rn-s" style="--rf:${/\d/.test(f[i]) ? f[i] : 0};--rt:${c};--rd:${(t.length - i) * 60}ms">0123456789</span></i>` : `<i>${c}</i>`).join('')}</span>`; };
+// 提示叠着放：新的在最下面，旧的往上收一点、变小变淡，最多叠 3 条（同一句话不重复叠）
+const TST = [], tstLay = () => TST.forEach((t, i, a) => t.style.setProperty('--ti', a.length - 1 - i));
+export const toast = s => { const d = TST.find(t => t.textContent == s); if (d) { clearTimeout(d._t); d._t = setTimeout(() => d._x(), 2400); return; }
+  const t = Object.assign(document.createElement('div'), { className: 'stp-toast', textContent: s }); ui.scr?.append(t); TST.push(t); TST.length > 3 && TST[0]._x(); tstLay();
+  t._x = () => { clearTimeout(t._t); const i = TST.indexOf(t); i >= 0 && TST.splice(i, 1); t.classList.add('out'); setTimeout(() => t.remove(), 200); tstLay(); }; t._t = setTimeout(t._x, 2400); };
 export const menu = (items, title = '') => new Promise(res => {
   let done; const s = sheet({ title, noBack: 1, cls: 'mnu', body: () => items.map(([k, l, c = '']) => `<button class="mi ${c}" data-a="pick" data-x="${esc(k)}">${l}</button>`).join('') + '<button class="mi cancel" data-a="pick">取消</button>', acts: { pick: x => { done = 1; s.close(); res(x ?? null); } }, onClose: () => done || res(null) });
 });
@@ -658,12 +666,23 @@ const IMG = {
 };
 // 结果统一压成 webp 存进聊天数据（链接会过期的渠道也能留住图）；拿不到就保留原链接
 const shrink = async s => { try { return await readImg(s instanceof Blob ? s : await (await fetch(s)).blob(), 1280); } catch { return s instanceof Blob ? URL.createObjectURL(s) : s; } };
+// 图片描述「中文（English tags）」拆成 { zh, en }：最后一对括号里是英文就算 tags
+export const imgDesc = v => { if (v && typeof v == 'object') return { zh: String(v.zh || v.description || '').trim(), en: String(v.en || v.prompt || '').trim() };
+  const s = String(v ?? '').trim(), m = s.match(/^([\s\S]*?)\s*[（(]([^（）()]*)[）)]\s*$/);
+  if (m && /[A-Za-z]/.test(m[2]) && !/[一-鿿]/.test(m[2])) { const r = imgDesc(m[1]); return { zh: r.zh, en: m[2].trim() }; }
+  const z = s.replace(/^\[(?:图片|用户照片)[:：]([^\]]*)\]$/, '$1').replace(/^\[(?:图片|用户照片)[^\]:：]*\]\s*/, '').replace(/^[（(]([\s\S]*)[）)]$/, '$1').trim();
+  return /[一-鿿]/.test(z) || !z ? { zh: z, en: '' } : { zh: '', en: z };
+};
+// NAI / SD / ComfyUI 只认英文 tags：没有就机翻（免费）；OpenAI / 硅基流动 认自然语言：中文描述 + 英文 tags 一起给
+const TAGP = new Set(['nai', 'sd', 'comfy']);
+const imgPr = async (prov, d) => TAGP.has(prov) ? d.en || (d.zh ? await mt(d.zh, 'en').catch(() => d.zh) : '') : [d.zh, d.en].filter(Boolean).join('\n');
 export async function genImg(prompt, sg, app) {
-  const b = bindOf('img', app), pO = b && b != prof('img').prov ? imgCfg(b) : null, p = pO || prof('img'), own = p;
+  const b = bindOf('img', app), pO = b && b != prof('img').prov ? imgCfg(b) : null, p = pO || prof('img'), d = imgDesc(prompt);
   // 画师串、正面质量词放在提示词前面（不再多调一次聊天模型翻译）
-  const lead = [p.art, p.pre].map(x => String(x || '').trim().replace(/,\s*$/, '')).filter(Boolean); lead.length && (prompt = [...lead, prompt].join(', '));
-  return call('img', '生图', prompt, async (p, sig) => {
-    const r = await (IMG[p.prov] || IMG.openai)(iq(p), prompt, sig); if (!r) throw Error('没有返回图片'); return putMedia(await shrink(r), 'ai');
+  const lead = [p.art, p.pre].map(x => String(x || '').trim().replace(/,\s*$/, '')).filter(Boolean), full = pr => [...lead, pr].filter(Boolean).join(', ');
+  return call('img', '生图', full(d.en || d.zh), async (p, sig) => {
+    const pr = full(await imgPr(p.prov || 'openai', d));
+    const r = await (IMG[p.prov] || IMG.openai)(iq(p), pr, sig); if (!r) throw Error('没有返回图片'); return putMedia(await shrink(r), 'ai');
   }, sg, pO);
 }
 // 拉取音色：Fish（我的音色，没有就列热门）/ ElevenLabs / MiniMax；其他服务商用快速选择清单

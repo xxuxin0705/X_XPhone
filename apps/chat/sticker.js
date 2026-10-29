@@ -46,6 +46,7 @@ const flU = (pkg, ver, c) => [`https://registry.npmmirror.com/@lobehub/${pkg}/${
 const flItems = d => FL[d].map(([c, l]) => { const a = flU('fluent-emoji-anim-' + flPkg(c), '1.0.0', c), t = flU('fluent-emoji-3d', FLV[3], c); return { l, th: t[0], img: a[0], alt: [a[1], t[0], t[1]], k: 'f-' + d }; });
 const wlUrl = (d, it, k) => WLB[k] + d + '/' + WL[d].p + encodeURIComponent(it) + '.' + WL[d].t;
 const wlItems = d => WL[d].i.map(x => { const [it, l] = Array.isArray(x) ? x : [x, x]; return { l, img: wlUrl(d, it, 0), alt: [wlUrl(d, it, 1), wlUrl(d, it, 2)], sm: WL[d].s, k: d }; });
+export const wxFaces = () => wlItems('wechat'); // 微信小黄脸（朋友圈评论框的表情面板）
 let bq = null, bqP = null;
 const LSK = 'stp_bqb_v1';
 const bqClean = n => { const st = n.split('/').pop().replace(/\.[^.]+$/, ''); if (/^\d+$/.test(st)) return ''; const l = st.replace(/^[^\d]*?\d{3,}[-_ ]*/, '').replace(/[-_]+/g, ' ').trim(); return /^[A-Za-z]*\d*$/.test(l) ? '' : l; };

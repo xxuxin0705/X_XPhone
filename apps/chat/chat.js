@@ -1,5 +1,5 @@
 // 聊天 · App：消息列表 / 通讯录 / 动态（朋友圈·QQ空间·推特式）/ 我 / AI 生成联系人
-import { C, S, D, saveD, esc, uid, $, $$, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
+import { C, S, D, saveD, esc, roll, uid, $, $$, reg, page, top, back, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, meObj, brief, now, llm, json, sysCtx, I, task, sheet, wiBooks, loadBook, wiText, notify, emit, drop, pickImg, defAv } from '../../core.js';
 import { regMod, mp } from '../../mods.js';
 regMod({ k: 'chat.contacts', app: '聊天', n: '生成联系人', def: '· 网名＝TA自己在社交软件上起的昵称，要像真实中文互联网上的人，按性格来，同一批人风格要拉开：\n  - 软萌 / 爱卖萌：叠字、小动物、零食，常带颜文字或小符号，如「软糖不软ᐟ」「芋泥啵啵(｡･ω･｡)」「小熊不吃香菜ʕ•ᴥ•ʔ」「桃桃乌龙.」\n  - 中二 / 非主流：用怪符号包起来，如「†漆黑之翼†」「꧁深渊回响꧂」「ℓ夜行のReaper」「゛黑化肥发灰」\n  - 冷淡 / 话少：极简，一个字、一个标点、首字母、拼音或英文，如「。」「z」「Lin」「wy」「-」\n  - 文艺：「晚风与你」「人间理想」「指针朝北」\n  - 沙雕 / 搞笑：「今天也没暴富」「退休了别找我」「云吸咸鱼」\n  - 长辈 / 打工人：「岁月静好🌸」「宁静致远」「老王装修」\n  - 也可以是英文名、名字谐音、中日英混搭（如「森林の鹿」）\n· 备注＝{{user}}自己手机通讯录里给TA存的名字，像活人随手存的：亲近的用昵称 / 外号 / 叠字 / 带emoji / 带点吐槽，长辈就是「妈」「三叔」，不熟的直接写名字。绝对不要写「同班同学」「前不良少年」「热血班长」这种身份说明。例：「沈遥🐟」「狗头军师老周」「班长大人」「烦人精」「林老师（数学）」\n· 性别写 男 或 女\n· 拍一拍后缀＝别人拍TA时显示在「拍了拍TA」后面的那句，要有网感、有梗，像微信里真有人设置的那样，按人设来编（中二的就中二，高冷的可以只有一个「。」），20字内。风格参考（别照抄）：「的存款+1」「的木鱼功德+1」「并留下了小猫脚印🐾」「说：500万，离开我儿子」「的小脑瓜然后变成猪」「发现没拍到ōÓ」「的肩膀叫了声富婆💰」「的肚子duangduang」「被反手一巴掌打翻在地」「的次数太多，已拍死」。不要写「的头发」「的肩膀」这种平淡的\n· 语言＝TA平时发消息用的语言，按剧情里TA实际怎么说话判断：说中文就写 中文；只有剧情里TA确实用外语交流才写 日语 / 英语 / 韩语 等\n· 群头衔：贴合人设和群氛围，有梗一点，如「班长」「摸鱼大师」「人间扫描仪」「本群最靓的仔」，不是每个人都要有\n· 签名15字内；群公告25字内。先写完所有「人」再写「群」\n示例：\n人|沈知遥|晚风与你|遥遥🐟|男|的存款+1|中文|今天也在图书馆\n群|高三(2)班|林老师|沈知遥|沈知遥:班长,周小满:摸鱼大师,林老师:班主任|42|周五前交志愿表' });
 regMod({ k: 'chat.sync', app: '聊天', n: '剧情同步', def: '任务：找出这段剧情里发生在线上（手机/社交软件）的事件并同步到小手机：发消息、加好友、拉群/进群、发朋友圈动态、转账、拍一拍等。剧情里没出现的不要编。' });
@@ -156,10 +156,10 @@ const meP = () => {
   const f = fx(D().me), m = meObj();
   return `<div class="me-c" data-a="img" data-x="av"><img class="av" src="${esc(avOf(m))}"><div><b>${esc(m.nick)}</b><small>真实姓名：${esc(m.real)}</small><small>${esc(m.sign || '点击头像更换 · 下方编辑签名')}</small></div></div>${sec('me', [
     ['p', '个人资料', f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名', 'text', C().name1 + '（默认酒馆里的名字）') + f.inp('sign', '签名') + f.inp('ps', '我的拍一拍后缀', 'text', '如：的小脑袋') + f.img('cover', '动态封面') + f.img('fbg', '动态背景')],
-    ['w', '钱包', `<div class="wal"><small>余额</small><b>¥${(+D().me.wallet || 0).toFixed(2)}</b></div>` + f.inp('wallet', '修改余额', 'number')],
+    ['w', '钱包', `<div class="wal"><small>余额</small><b>¥${roll('wal', D().me.wallet)}</b></div>` + f.inp('wallet', '修改余额', 'number')],
     ['d', '我的动态', btn('myfeed', '查看我的' + FN[S.style])]])}`;
 };
-const tabs = tab => { const u = D().chats.reduce((a, c) => a + (c.unread || 0), 0); const wx = S.style == 'wx'; return `<nav class="tabs">${[['list', TN[S.style], I.chat], ['ct', CN[S.style], I.book], ['feed', FN[S.style], I.star], ['me', '我', I.user]].map(([k, l, i]) => `<button data-a="tab" data-x="${k}" class="${tab == k ? 'on' : ''}">${wx ? WT[k][tab == k ? 1 : 0] : i}<span>${wx ? WTN[k] : l}</span>${k == 'list' && u ? `<i class="badge">${u}</i>` : ''}</button>`).join('')}</nav>`; };
+const tabs = tab => { const u = D().chats.reduce((a, c) => a + (c.unread || 0), 0); const wx = S.style == 'wx'; return `<nav class="tabs">${[['list', TN[S.style], I.chat], ['ct', CN[S.style], I.book], ['feed', FN[S.style], I.star], ['me', '我', I.user]].map(([k, l, i]) => `<button data-a="tab" data-x="${k}" class="${tab == k ? 'on' : ''}">${wx ? WT[k][tab == k ? 1 : 0] : i}<span>${wx ? WTN[k] : l}</span>${k == 'list' && u ? `<i class="badge">${u}</i>` : ''}${k == 'feed' && D().posts.some(p => p.u) ? '<i class="tdot"></i>' : ''}</button>`).join('')}</nav>`; };
 const stCls = (el, c) => { const keep = el.classList.contains('in'); el.className = `pg ${c}${keep ? ' in' : ''}`; };
 
 

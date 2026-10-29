@@ -242,7 +242,9 @@ function body(m, i, cf, ch) {
     default: return zhOnly(m, ch) ? esc(m.tr).replace(/\n/g, '<br>') : esc(m.c).replace(/\n/g, '<br>') + (m.tp ? '<small class="tp">翻译中…</small>' : '') + (m.orig ? fold(i, m.orig, '原文', tzo) : m.tr ? fold(i, m.tr, '翻译', tzo) : '');
   }
 }
-const rxH = (m, i) => { const g = {}; nre(m.re).forEach(r => (g[r.e] ||= []).push(r.by)); return Object.keys(g).length ? `<div class="rx">${Object.entries(g).map(([e, bs]) => `<span class="rp ${bs.includes('me') ? 'mine' : ''}" data-a="rpx" data-x="${i}|${e}">${e}<small>${esc(bs.map(b => b == 'me' ? '我' : nm(get(b))).slice(0, 2).join('、'))}${bs.length > 2 ? `等${bs.length}人` : ''}</small></span>`).join('')}</div>` : ''; };
+// 刚贴上的表情回应弹一下、往上飘一个同款（微信没有贴表情，只有其他样式有）
+let RXP = '';
+const rxH = (m, i) => { const g = {}; nre(m.re).forEach(r => (g[r.e] ||= []).push(r.by)); return Object.keys(g).length ? `<div class="rx">${Object.entries(g).map(([e, bs]) => `<span class="rp ${bs.includes('me') ? 'mine' : ''}${RXP == i + '|' + e ? ' pop' : ''}" data-a="rpx" data-x="${i}|${e}" data-e="${esc(e)}">${e}<small>${esc(bs.map(b => b == 'me' ? '我' : nm(get(b))).slice(0, 2).join('、'))}${bs.length > 2 ? `等${bs.length}人` : ''}</small></span>`).join('')}</div>` : ''; };
 // 已读回执：微信/QQ 文字，Kakao 未读显示黄色数字，LINE 显示 Read
 const rd = (m, ch) => { const st = sty(ch), g = ch.type == 'g', n = g ? ch.members.length : 1; if (st == 'wx') return ''; return m.rd ? (st == 'kk' ? '' : `<em class="rd">${st == 'line' ? (g ? 'Read ' + n : 'Read') : g ? n + '人已读' : '已读'}</em>`) : `<em class="rd un">${st == 'kk' ? n : st == 'line' ? '' : '未读'}</em>`; };
 // 旧版存的拍一拍统一显示成「“X” 拍了拍你」/「你拍了拍 “X”」，后缀只用「我」里设置的
@@ -356,7 +358,7 @@ export function openChat(id) {
         hbOpen(m, from, () => { m.st = '已领取'; D().me.wallet = +D().me.wallet + m.amt; ch.msgs.push({ f: 'sys', t: 'sys', hb: 1, c: `你领取了${nm(from)}的红包`, ts: +now() }); saveD(); }, reply); },
       avc: x => { clearTimeout(avT); if (avL == x) { avL = 0; return pat(x); } avL = x; avT = setTimeout(() => { avL = 0; x != 'sys' && openFeed(x); }, 280); },
       tz: (i, t) => { const m = ch.msgs[i]; m.tz = !m.tz; saveD(); const o = !!cf.trOpen != !!m.tz, p = t.nextElementSibling; t.classList.toggle('on', o); p && (p.hidden = !o); },
-      rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; saveD(); emit('chat'); },
+      rpx: x => { const [i, e] = x.split('|'), m = ch.msgs[i], r = nre(m.re), k = r.findIndex(y => y.e == e && y.by == 'me'); m.re = k > -1 ? r.filter((_, j) => j != k) : [...r, { e, by: 'me' }]; RXP = k > -1 ? '' : i + '|' + e; saveD(); emit('chat'); RXP = ''; },
       redit: i => { const m = ch.msgs[i], ip = $('.ip', pg.el); ip.value = m.old; ip.oninput(); ip.focus(); },
       // 转账：点开是转账详情页；别人转给我、还没处理的可以收款 / 退还（各自在我这边多一条「已收款 / 已退还」）
       tf: i => { const m = ch.msgs[i]; if (!m) return; const from = m.f == 'me' ? (m.to ? get(m.to) : ch) || ch : get(m.f) || ch;
