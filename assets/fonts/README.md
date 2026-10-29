@@ -20,3 +20,5 @@
 | clk-shrikhand | Shrikhand |
 
 另外在「主题 → 锁屏时间」里可以上传自己的字体文件（.ttf / .otf / .woff），只存在自己浏览器里，不会进仓库。
+
+- `px-eye.woff`：缝合怪像素字体 Fusion Pixel 12px（TakWolf，SIL OFL 1.1，见 FUSION-PIXEL-OFL.txt），只截了窥探之眼片头用到的几十个字。

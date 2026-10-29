@@ -10,6 +10,8 @@ import { S, $, $$, page, reg, toast, save, esc, openApp } from '../../core.js';
 const CSS = new URL('./eye.css?v=3', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
+const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
+let pxReady; const pxFont = () => pxReady ||= (async () => { try { const f = new FontFace('xp-px', `url("${PXF}") format("woff")`); await f.load(); document.fonts.add(f); } catch {} })();
 const ST = () => { const e = (S.eye ||= { form: '', role: 'viewer', wall: false, src: 'orig', intro: true }); if (typeof e.intro != 'boolean') e.intro = true; return e; };
 
 /* ---------- 形态 ---------- */
@@ -145,18 +147,18 @@ const INTRO = [['如果这个世界，', ''], ['是一部', '漫画'], ['一本'
 function introHtml() { return `<div class="eye-intro"><i class="istars"></i><canvas class="ipx"></canvas><b class="iskip" data-a="iskip">跳过</b><div class="ie"><i class="orb o1"></i><i class="orb o2"></i><img src="${IMG('logo')}" alt=""><i class="lid t"></i><i class="lid b"></i><i class="slit"></i></div><i class="iwipe"></i><i class="iflash"></i></div>`; }
 // 像素打字：字先画在很小的 canvas 上，再放大三倍、关掉平滑，就成了像素字；一个字一个字出来，后面跟一个闪的方块光标
 function pxType(cv, lines, done) {
-  const SC = 3, W = 128, LH = 17, PAD = 10; cv.width = W; cv.height = PAD * 2 + LH * lines.length; cv.style.width = W * SC + 'px'; cv.style.height = cv.height * SC + 'px';
+  const SC = 3, W = 112, LH = 20, PAD = 8; cv.width = W; cv.height = PAD * 2 + LH * lines.length; cv.style.width = W * SC + 'px'; cv.style.height = cv.height * SC + 'px';
   const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; let li = 0, ci = 0, cur = 1, t = [], stop = false;
   const paint = () => {
-    g.clearRect(0, 0, cv.width, cv.height); g.font = '11px "PingFang SC","HarmonyOS Sans SC","MiSans","Noto Sans CJK SC",sans-serif'; g.textBaseline = 'top';
+    g.clearRect(0, 0, cv.width, cv.height); g.font = '12px "xp-px","PingFang SC","HarmonyOS Sans SC","MiSans","Noto Sans CJK SC",sans-serif'; g.textBaseline = 'top';
     for (let i = 0; i <= Math.min(li, lines.length - 1); i++) {
       const [a, b] = lines[i], y = PAD + i * LH, full = a + (b ? b + '…' : ''), n = i < li ? full.length : ci, txt = full.slice(0, n); let x = PAD;
       for (let k = 0; k < txt.length; k++) { const ch = txt[k], red = k >= a.length && k < a.length + b.length; g.fillStyle = i == 0 ? '#9a9a9a' : red ? '#ff2a2a' : '#e8e8e8'; g.fillText(ch, x, y); x += g.measureText(ch).width; }
-      if (i == li && cur) { g.fillStyle = '#ff2a2a'; g.fillRect(x + 1, y + 1, 6, 12); }
+      if (i == li && cur) { g.fillStyle = '#ff2a2a'; g.fillRect(x + 2, y, 7, 13); }
     }
   };
   const step = () => { if (stop) return; const [a, b] = lines[li], full = a + (b ? b + '…' : ''); if (ci < full.length) { ci++; paint(); t.push(setTimeout(step, /[，…]/.test(full[ci - 1]) ? 260 : 95)); } else if (li < lines.length - 1) { li++; ci = 0; paint(); t.push(setTimeout(step, 420)); } else { paint(); t.push(setTimeout(done, 900)); } };
-  const blink = setInterval(() => { cur ^= 1; paint(); }, 420); paint(); t.push(setTimeout(step, 500));
+  const blink = setInterval(() => { cur ^= 1; paint(); }, 420); pxFont().then(() => { if (!stop) { paint(); t.push(setTimeout(step, 400)); } });
   return () => { stop = true; t.forEach(clearTimeout); clearInterval(blink); };
 }
 function intro(el) {
@@ -203,7 +205,7 @@ ${st.intro ? introHtml() : ''}
 reg({
   id: 'eye', name: '窥探之眼',
   icon: `<img src="${IMG('icon')}" alt="">`,
-  open: async () => { await css(); focused = ''; stack = []; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
+  open: async () => { await css(); ST().intro && pxFont(); focused = ''; stack = []; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
     ez: (k, t, e, pg) => { if (!ST().form) return; focus(pg.el, k == focused ? '' : k); },
     eback: (x, t, e, pg) => back(pg.el),
     gpick: (k, t, e, pg) => pickForm(pg.el, k, pg),

@@ -194,9 +194,16 @@
 /* 星雨：细细的光线往下落 */
 .istars { position: absolute; inset: -20% 0 0; pointer-events: none; opacity: .55; background: radial-gradient(1px 1px at 12% 20%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 48% 8%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 80% 30%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 30% 60%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 66% 72%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 90% 85%, #fff 50%, transparent 51%), repeating-linear-gradient(180deg, transparent 0 140px, rgba(255, 255, 255, .0) 140px 141px), linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .22) 100%) 10% 0 / 1px 120px no-repeat, linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .18) 100%) 35% 0 / 1px 160px no-repeat, linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .2) 100%) 58% 0 / 1px 100px no-repeat, linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .16) 100%) 82% 0 / 1px 180px no-repeat; animation: istars 6s linear infinite; }
 @keyframes istars { to { transform: translateY(20%) } }
-.ipx { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); image-rendering: pixelated; image-rendering: crisp-edges; }
+.ipx { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); image-rendering: pixelated; image-rendering: crisp-edges; filter: drop-shadow(0 0 6px rgba(255, 42, 42, .25)); }
+/* 整个片头罩一层细扫描线 + 四角压暗，像老显像管 */
+.eye-intro::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .22) 0 1px, transparent 1px 3px), radial-gradient(ellipse 80% 70% at 50% 50%, transparent 55%, rgba(0, 0, 0, .7) 100%); }
+.eye-intro::after { content: ''; position: absolute; left: 0; right: 0; height: 18%; top: -18%; z-index: 2; pointer-events: none; background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .035), transparent); animation: crt 5s linear infinite; }
+@keyframes crt { to { top: 110% } }
+.eye-intro.wipe .ipx { animation: iglitch .7s steps(1) both; }
+@keyframes iglitch { 0% { transform: translate(-50%, -50%) } 10% { transform: translate(-52%, -50%); filter: drop-shadow(3px 0 #f22) drop-shadow(-3px 0 #2ef) } 20% { transform: translate(-49%, -51%) } 30% { transform: translate(-51%, -50%); filter: drop-shadow(-4px 0 #f22) drop-shadow(4px 0 #2ef) } 45% { transform: translate(-50%, -49%) } 60% { transform: translate(-50%, -50%); filter: drop-shadow(0 0 6px rgba(255, 42, 42, .25)) } 100% { transform: translate(-50%, -50%) } }
+.eye-intro.eye::before { background: radial-gradient(ellipse 80% 70% at 50% 50%, transparent 55%, rgba(0, 0, 0, .7) 100%); }
 .eye-intro.wipe .ipx, .eye-intro.wipe .istars { transition: opacity .3s; opacity: 0; }
-.iskip { position: absolute; right: 14px; top: calc(var(--sbh) * .68 + 12px); padding: 4px 10px; font-size: calc(11px * var(--fz, 1)); letter-spacing: 3px; color: rgba(255, 255, 255, .55); border: 1px solid rgba(255, 255, 255, .25); border-radius: 2px; cursor: pointer; z-index: 3; }
+.iskip { position: absolute; right: 14px; top: calc(var(--sbh) * .68 + 12px); padding: 4px 10px; font-size: calc(11px * var(--fz, 1)); font-family: "xp-px", sans-serif; letter-spacing: 3px; color: rgba(255, 255, 255, .55); border: 1px solid rgba(255, 255, 255, .25); border-radius: 2px; cursor: pointer; z-index: 3; }
 .iskip:active { color: #ff2a2a; border-color: #ff2a2a; }
 /* 红色斜切：从右下扫到左上再退掉，像翻了一页 */
 .iwipe { position: absolute; inset: -40%; background: #c8102e; transform: translateX(120%) rotate(-24deg); pointer-events: none; }
