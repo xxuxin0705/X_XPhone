@@ -86,7 +86,8 @@ const pgOf = t => { while (t && !t._pg) t = t.parentElement; return t?._pg; };
 function mk(o, cls, box) {
   const el = document.createElement('section'); el.className = cls + ' ' + (o.cls || ''); el._pg = o; o.el = el;
   o.reb = () => { const b = $('.pg-b', el), sc = b.scrollTop; o.nb = b.scrollHeight - sc - b.clientHeight < 60; b.innerHTML = o.body(); b.scrollTop = sc; o.after?.(el); o.nb = null; }; // nb：重画前是不是停在最底下
-  o.re = () => { el.innerHTML = `<header class="pg-h">${o.noBack ? '' : `<b class="pg-back" data-a="back">${I.back}</b>`}<div class="pg-t">${typeof o.title == 'function' ? o.title() : o.title || ''}</div><div class="pg-r">${o.right?.() || ''}</div></header><div class="pg-b">${o.body()}</div>${o.foot ? `<footer class="pg-f">${o.foot()}</footer>` : ''}`; o.after?.(el); };
+  // 重画整页时保持滚动位置（点开关、分段按钮不跳回顶部）；要回顶部的（切标签页）自己设 scrollTop = 0
+  o.re = () => { const sc = $('.pg-b', el)?.scrollTop || 0; el.innerHTML = `<header class="pg-h">${o.noBack ? '' : `<b class="pg-back" data-a="back">${I.back}</b>`}<div class="pg-t">${typeof o.title == 'function' ? o.title() : o.title || ''}</div><div class="pg-r">${o.right?.() || ''}</div></header><div class="pg-b">${o.body()}</div>${o.foot ? `<footer class="pg-f">${o.foot()}</footer>` : ''}`; sc && ($('.pg-b', el).scrollTop = sc); o.after?.(el); };
   o.re(); box.append(el); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in'))); return o;
 }
 const close = o => { o.el.classList.remove('in'); o.onClose?.(); setTimeout(() => o.el.remove(), 330); };

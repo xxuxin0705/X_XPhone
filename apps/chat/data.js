@@ -57,7 +57,7 @@ export function addMsg(ch, m) {
   const t = m.type || 'text', f = isMe(m.from) ? 'me' : ch.type == 'p' ? ch.id : member(ch, m.from), name = who(ch, f);
   const near = frag => (frag && ch.msgs.findLast(x => !/sys|pat/.test(x.t) && (String(x.c) + (x.orig || '')).includes(frag))) || null;
   if (t == 'react') { const x = near(m.frag) || ch.msgs.findLast(x => x.f == 'me' && !/sys|pat/.test(x.t)); x && (x.re = [...nre(x.re), { e: m.text || '❤️', by: f }]); return null; }
-  if (t == 'hbopen') { const x = ch.msgs.findLast(x => x.t == 'hb' && x.f == 'me' && !x.st); x && (x.st = '已被领取', ch.msgs.push({ f: 'sys', t: 'sys', hb: 1, c: `${name}领取了你的红包`, ts: +now() })); return null; }
+  if (t == 'hbopen') { const x = ch.msgs.findLast(x => x.t == 'hb' && x.f == 'me' && !x.st); x && (x.st = '已被领取', ch.msgs.push({ f: 'sys', t: 'sys', hb: 1, ref: x.ts, c: `${name}领取了你的红包`, ts: +now() })); return null; }
   if (t == 'accept') { const x = ch.msgs.findLast(x => x.t == 'transfer' && x.f == 'me' && !x.st && !x.rcpt); x && (x.st = '已被接收', x.rt = +now(), ch.msgs.push({ f, t: 'transfer', amt: x.amt, st: '已收款', rcpt: 1, t0: x.ts, rt: x.rt, ts: x.rt })); return null; } // 跟微信一样：我那条变「已被接收」，对方那边多一条「已收款」
   if (t == 'recall') { const x = ch.msgs.findLast(x => x.f == f && !/sys|pat/.test(x.t)); x && Object.assign(x, { t: 'sys', c: `“${name}” 撤回了一条消息`, re: [] }); return null; }
   const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : t == 'hb' ? String(m.text || '恭喜发财，大吉大利') : String(m.text ?? ''), tr: m.tr || '', amt: t == 'hb' ? Math.min(200, +m.amount || 0) : +m.amount || 0, ts: +now() };

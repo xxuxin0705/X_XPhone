@@ -15,9 +15,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`document.querySelectorAll('.chat .msg .avw').length == 2 && [...document.querySelectorAll('.chat .msg .avw')].every(a => getComputedStyle(a).visibility != 'hidden') && !document.querySelector('.chat.cont, .chat.noav')`), '微信样式：旧设置里开着合并 / 隐藏头像也不生效，每条都带头像');
   await E(`talk.cset(_c)`); await W(500);
   const look = await E(`document.querySelector('[data-sec=look]').textContent`);
-  ok(/日间/.test(look) && /夜间/.test(look) && /聊天背景/.test(look) && !/气泡|头像形状|头像框|风格|合并/.test(look), '美化只有日间 / 夜间 + 聊天背景：' + look.replace(/\s+/g, ' '));
-  await E(`document.querySelector('[data-sec=look] [data-k2="cfg.dark"][data-x="1"]').click()`); await W(300);
-  ok(await E(`!!_c.cfg.dark`), '点「夜间」切到夜间');
+  ok(/日间/.test(look) && /聊天背景/.test(look) && await E(`!!document.querySelector('[data-sec=look] .dn')`) && !/气泡|头像形状|头像框|风格|合并/.test(look), '美化只有日夜开关 + 聊天背景：' + look.replace(/\s+/g, ' '));
+  await E(`document.querySelector('[data-sec=look]').scrollIntoView()`); await W(200); const sc0 = await E(`core.top().el.querySelector('.pg-b').scrollTop`);
+  await E(`document.querySelector('[data-sec=look] .dn').click()`); await W(400); await shot('dn');
+  ok(await E(`!!_c.cfg.dark && document.querySelector('[data-sec=look] .dn').classList.contains('on')`) && sc0 > 100 && Math.abs(await E(`core.top().el.querySelector('.pg-b').scrollTop`) - sc0) < 5, '点日夜开关切到夜间，页面不跳回顶部');
+  // 专属音色：现在用的保存过、有名字 → 直接显示名字，下面不再重复；朗读语言只在用 MiniMax 时出现
+  await E(`(() => { _c.tv = { v: { fish: 'ab6bdf381b884136b4c04025eebe3975' }, lib: { fish: [{ id: 'ab6bdf381b884136b4c04025eebe3975', n: '测试' }, { id: 'zzz', n: '备用' }] } }; core.S.api.tts.src = 'custom'; core.S.api.tts.pv = 'fish'; core.top().re(); })()`); await W(300);
+  const vr = await E(`(() => { const r = [...document.querySelectorAll('.vrow')].find(x => /Fish/.test(x.querySelector('span').textContent)); return [r.querySelector('.vnm span')?.textContent, [...r.querySelectorAll('.vchip')].map(x => x.textContent).join(), /朗读语言|仅 MiniMax/.test(document.querySelector('[data-sec=voice]').textContent)]; })()`);
+  ok(vr[0] == '测试' && vr[1] == '备用×' && !vr[2], 'Fish 那行直接显示「测试」，下面只剩「备用」；没有朗读语言 ' + JSON.stringify(vr));
   const ps = await E(`(() => { const t = document.querySelector('.ci textarea[data-k=ps]'); return t.scrollHeight <= t.clientHeight + 2 && t.clientHeight > 30; })()`);
   ok(ps, '拍一拍后缀很长：自动换行整段显示，没有截断');
   await shot('info');
@@ -36,6 +41,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(pr == '["sticker:发财"]', '「[絵文字: …] [翻译:[表情包:发财]]」→ 一个表情包「发财」，没有半截文字 ' + pr);
   const sk = await E(`(async () => { const s = await import('/apps/chat/sticker.js'); return [await s.stkFind('完全不存在的东西qwxz'), !!(await s.stkFind('被拿捏', new Set(['fav']))), !!(await s.stkFind('被拿捏', new Set(['lib'])))]; })()`);
   ok(sk[0] === '' && sk[1] && !sk[2], '搜不到就不发；只勾「我喜欢的表情」时只在里面找 ' + JSON.stringify(sk));
+  // 重新生成：对方这一轮收了我的转账 → 我那条变回没收的样子
+  const ud = await E(`(() => { const t = { f: 'me', t: 'transfer', amt: 520, ts: 111, st: '已被接收', rt: 222 }, r = { f: _c.id, t: 'transfer', amt: 520, st: '已收款', rcpt: 1, t0: 111, ts: 222 }; _c.msgs.push(t, r); talk.undoRound(_c, _c.msgs.splice(_c.msgs.indexOf(r))); return [t.st || '', _c.msgs.includes(r)]; })()`);
+  ok(ud[0] == '' && !ud[1], '重新生成：我的转账变回没被接收 ' + JSON.stringify(ud));
   // 分组 + 朋友圈谁可以看
   const cs = await E(`(() => { const a = dt.add(dt.blank('p', { real: 'A', fr: 1, grp: '同事' })), b = dt.add(dt.blank('p', { real: 'B', fr: 1 })), p = { vis: { m: 'only', g: ['同事'] } }, q = { vis: { m: 'not', g: ['同事'] } }; return [dt.canSee(p, a), dt.canSee(p, b), dt.canSee(q, a), dt.canSee(q, b), dt.grpNames().join()]; })()`);
   ok(JSON.stringify(cs) == '[true,false,false,true,"我的好友,同事"]', '分组可见：只给同事看 / 不给同事看 ' + JSON.stringify(cs));

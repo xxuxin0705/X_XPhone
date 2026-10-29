@@ -148,6 +148,17 @@ export async function qFix(ch) {
   }
   hit && (saveD(), emit('chat'));
 }
+// 重新生成：这一轮删掉的消息里，转账 / 红包留下的后果一起撤回——对方收了我的转账、领了我的红包 → 我那条变回没领的样子；
+//  我收了 / 领了对方这一轮发的 → 零钱扣回去（那条本身被删了）。旧数据没记是哪一条：按金额找最近一条已处理的
+export function undoRound(ch, gone) {
+  const me = D().me, mine = t => ch.msgs.findLast(x => x.f == 'me' && x.t == t && !x.rcpt && x.st);
+  for (const m of gone) {
+    if (m.rcpt && m.f != 'me') { const x = ch.msgs.find(y => y.f == 'me' && y.t == 'transfer' && !y.rcpt && y.ts == m.t0) || mine('transfer'); x && (delete x.st, delete x.rt); }
+    if (m.t == 'sys' && m.hb && m.f == 'sys' && !/^你/.test(m.c)) { const x = (m.ref && ch.msgs.find(y => y.f == 'me' && y.t == 'hb' && y.ts == m.ref)) || mine('hb'); x && delete x.st; }
+    if (m.f != 'me' && m.f != 'sys' && (m.t == 'hb' || m.t == 'transfer') && m.st && m.st != '已退还' && !m.rcpt) me.wallet = (+me.wallet || 0) - (+m.amt || 0);
+  }
+  return gone;
+}
 export async function gen(ch) {
   clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id);
   if (busy) { busy == ch.id ? (ch._again = 1) : toast('上一轮回复还在生成中…'); return; }
@@ -337,7 +348,7 @@ export function openChat(id) {
         const k = await pop(t.closest('.msg')?.querySelector('.bub') || t, [
           ...(stk && !has ? [['add', '添加']] : []), ...(text ? [['copy', '复制']] : []), ['fwd', '转发'], ['q', '引用'],
           ...(m.t == 'text' ? [['edit', '编辑']] : []), ['multi', '多选'],
-          ...(mine ? [['rc', '撤回']] : ch.msgs.slice(+i + 1).every(x => x.f != 'me') ? [['regen', '重新生成']] : []), /* 只有最新一轮回复能重新生成 */ ['del', '删除']], m.t != 'rec' && sty(ch) != 'wx'); if (!k) return; // 注入正文只在多选里（整个聊天开了注入就不用）；微信没有贴表情
+          ...(mine ? [['rc', '撤回']] : ch.msgs.slice(+i + 1).every(x => x.f != 'me' || x.rcpt) ? [['regen', '重新生成']] : []), /* 只有最新一轮回复能重新生成 */ ['del', '删除']], m.t != 'rec' && sty(ch) != 'wx'); if (!k) return; // 注入正文只在多选里（整个聊天开了注入就不用）；微信没有贴表情
         if (k[0] == '~') return pg.acts.rpx(i + '|' + k.slice(1)); // 表情回应
         if (k == 'q') { q = i; qbar(); return $('.ip', pg.el).focus(); }
         if (k == 'add') { S.assets.sticker.unshift({ id: uid(), name: m.c && m.c != '表情' ? m.c : '表情', img: m.img }); C().saveSettingsDebounced(); return toast('已添加到「我的表情」'); }
@@ -353,7 +364,7 @@ export function openChat(id) {
           else { m.tp = 1; emit('chat'); try { const t = await mt(m.c, ch.cfg.lang); if (t != m.c) { m.orig = m.c; m.c = t; m.tz = !ch.cfg.trOpen; } else toast('这句不用翻译'); } catch (e) { toast('机翻暂时不可用，稍后再试'); } m.tp = 0; }
         }
         k == 'inj' && (m.inj = !m.inj); k == 'tts' && tts(m.c, get(m.f)?.voice, get(m.f)?.sex).catch(e => fail('朗读失败：' + e.message)); k == 'copy' && navigator.clipboard?.writeText(m.c).then(() => toast('已复制'), () => {});
-        k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && drop(ch.msgs.splice(i, 1)); k == 'regen' && (drop(ch.msgs.splice(ch.msgs.findLastIndex(x => x.f == 'me') + 1)), gen(ch)); // 整轮回复重来
+        k == 'rc' && Object.assign(m, { t: 'sys', c: '你撤回了一条消息', old: m.c, re: [] }); k == 'del' && drop(ch.msgs.splice(i, 1)); k == 'regen' && (drop(undoRound(ch, ch.msgs.splice(ch.msgs.findLastIndex(x => x.f == 'me' && !x.rcpt) + 1))), gen(ch)); // 整轮回复重来
         saveD(); emit('chat');
       },
       // 多选（仿微信）：点消息勾选；「选择到这里」从第一条选中的一直选到屏幕上看到的最后一条；全选；转发 / 注入正文 / 删除
@@ -412,7 +423,7 @@ export function cset(ch) {
 <div class="row rng"><span>语音条数</span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
       ['rd', '互动', (sty(ch) == 'wx' ? '' : f.tog('cfg.read', '显示已读 / 未读')) + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
       // 微信样式的美化只留日间 / 夜间和聊天背景（每条消息都带头像、不合并，跟真微信一样）；其他样式照旧
-      ['look', '美化', sty(ch) == 'wx' ? `<div class="row"><span>显示</span>${f.seg('cfg.dark', [['', '日间'], ['1', '夜间']])}</div>` + f.img('cfg.bg', '聊天背景') : f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
+      ['look', '美化', sty(ch) == 'wx' ? `<div class="row"><span>${ch.cfg.dark ? '夜间' : '日间'}</span><b class="dn ${ch.cfg.dark ? 'on' : ''}" data-a="dntog" role="switch" aria-checked="${!!ch.cfg.dark}"><i class="dn-st"></i><i class="dn-cl"></i><i class="dn-k"><i></i><i></i><i></i></i></b></div>` + f.img('cfg.bg', '聊天背景') : f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],
       ['link', '正文联动', f.tog('cfg.inj', '整个聊天注入正文') + ``],
@@ -424,6 +435,8 @@ export function cset(ch) {
       mdel: (i, t, e, pg) => { ch.members = ch.members.filter(x => x != i); ch.admins = ch.admins.filter(x => x != i); saveD(); pg.re(); },
       madd: async (x, t, e, pg) => { const k = await menu(D().chats.filter(c => c.type == 'p' && !ch.members.includes(c.id)).map(c => [c.id, esc(nm(c))]), '邀请成员'); if (!k) return; ch.members.push(k); ch.msgs.push({ f: 'sys', t: 'sys', c: `“${nm(meObj())}”邀请“${nm(get(k))}”加入了群聊`, ts: +now() }); saveD(); pg.re(); },
       impcss: async (x, t, e, pg) => { const fl = await pickFile('.css,text/css'); if (!fl) return; const a = { id: uid(), name: fl.name.replace(/\.\w+$/, ''), css: await fl.text() }; S.assets.bubble.push(a); ch.cfg.bub = a.id; C().saveSettingsDebounced(); saveD(); pg.re(); },
+      // 日间 / 夜间开关：太阳滑过去变成月亮，云散开、星星出来；只改这个开关本身，不重画整页（不跳回顶部）
+      dntog: (x, t) => { ch.cfg.dark = !ch.cfg.dark; saveD(); t.classList.toggle('on', ch.cfg.dark); t.setAttribute('aria-checked', ch.cfg.dark); t.previousElementSibling.textContent = ch.cfg.dark ? '夜间' : '日间'; },
       stkt: (k, t) => { const off = new Set(ch.cfg.stkOff || []); t.checked ? off.delete(k) : off.add(k); ch.cfg.stkOff = [...off]; saveD(); },
       clr: async () => { if (await ok('清空全部聊天记录？')) { drop(ch.msgs); ch.msgs = []; saveD(); toast('已清空'); } },
       rm: async () => { if (await ok('确定删除？')) { rm(ch); saveD(); back(); back(); } },
