@@ -12,7 +12,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar2 = 'model'; core.S.callNudge = false; window._P = []; window._loud = 0; window._gum = 0;
     navigator.mediaDevices.getUserMedia = async c => { _gum++; const X = new AudioContext(), o = X.createOscillator(), g = X.createGain(), d = X.createMediaStreamDestination(); o.frequency.value = 220; o.connect(g); g.connect(d); o.start(); g.gain.value = 0; setInterval(() => { g.gain.value = _loud * .5 + .0005; }, 20); window._mic = c; return d.stream; };
-    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); if (_mode == 'r429' && !window._thrown) { window._thrown = 1; throw Error('HTTP 429 {"error":{"message":"您已达到请求数限制：1分钟内最多请求3次 (request id: abc)"}}'); } return /先开口/.test(s) ? '喂？' : _mode == 'fix' && /行好累/.test(s) ? 'FIX: 心好累啊\\n怎么啦，今天很辛苦吗？' : _mode == 'bye' ? '好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
+    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); if (_mode == 'r429' && !window._thrown) { window._thrown = 1; throw Error('HTTP 429 {"error":{"message":"您已达到请求数限制：1分钟内最多请求3次 (request id: abc)"}}'); } return /想听：/.test(s) ? '从前，森林里住着一只小狐狸。\\n它每天晚上都会抬头数星星。\\n数着数着，它就睡着了。\\n晚安，做个好梦。' : /先开口/.test(s) ? '喂？' : _mode == 'fix' && /行好累/.test(s) ? 'FIX: 心好累啊\\n怎么啦，今天很辛苦吗？' : _mode == 'bye' ? '好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
     delete window.webkitSpeechRecognition;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '五条悟', nick: '五条', fr: 1 })); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
@@ -88,8 +88,30 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   asrNext = '在吗'; await E(`_mode = 'r429'; window._thrown = 0`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3500);
   ok(await E(`core.S.callRpm == 3 && cl.inCall().ph != 'fail' && !/request id|\\{/.test(document.querySelector('.xc').innerText)`) && /排队中|在想|正在说|在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), '429：记住每分钟 3 次，排队自动重发（不算失败）：' + await E(`document.querySelector('.xc-ph').textContent`));
   await E(`_mode = ''; core.S.callRpm = 0`); asrNext = null;
+  await E(`cl.inCall()?.hang?.()`); await W(400);
+  // 枕边故事：「＋」里点开 → TA 问想听什么（不调用模型）→ 我说一句 → 一次请求讲完，一句一句慢慢念；讲的时候不追问
+  asrNext = '讲个小狐狸的故事'; await E(`(() => { core.S.callEar2 = 'sf'; core.S.callNudge = true; _mode = ''; window._s0 = _P.length; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pstory]').click()`); await W(6500);
+  ok(await E(`_P.length == _s0`) && /想听什么故事/.test(await E(`document.querySelector('.xc-tx').innerText`)), '枕边故事：接通后 TA 先问「想听什么故事」（没调用模型）');
+  await p.waitForFunction(`/想听什么故事？直接说/.test(document.querySelector('.xc-ph')?.textContent || '')`, null, { timeout: 8000 }).catch(() => { }); await W(500);
+  await E(`_loud = 1`); await W(1100); await E(`_loud = 0`); await W(3000);
+  ok(/在讲故事|在想故事/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态：在讲故事');
+  await W(9000);
+  const sp = await E(`JSON.stringify(_P.at(-1))`);
+  ok(await E(`_P.length == _s0 + 1`) && /想听：「讲个小狐狸的故事/.test(sp) && /1500 字/.test(sp), '我说一句想听什么 → 只发了一次请求，让 TA 讲 1500 字左右 n=' + (await E(`_P.length - _s0`)) + ' ' + (sp.match(/想听：「[^」]*」|已经 \\d+ 秒没出声|刚刚说：「[^」]*」/g) || []).join(','));
+  ok(/小狐狸/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /晚安/.test(await E(`document.querySelector('.xc-tx').innerText`)), '故事一句一句念出来（字幕里有）');
+  await p.waitForFunction(`/讲完啦/.test(document.querySelector('.xc-ph')?.textContent || '')`, null, { timeout: 20000 }).catch(() => { });
+  await E(`cl.inCall().idleAt = performance.now() - 31e3`); await W(1500);
+  ok(await E(`!cl.inCall() && /^枕边故事 /.test(_c.msgs.at(-1).c) && _P.length == _s0 + 1`), '讲完 30 秒没动静：自己挂了（聊天里记一条「枕边故事」），整通只调用了一次');
+  await E(`core.S.callNudge = false`); asrNext = null;
+  // 免费模型：一键加成配置（同一家不重复加），官网 / 拿密钥的链接能点开、能复制
+  ok(await E(`(async () => { const f = await import('/apps/settings/free-models.js'); const n0 = core.S.api.chat.list.length; const id = f.freeAdd('zhipu', 'glm-4-flash-250414', 'k1'); const id2 = f.freeAdd('zhipu', 'glm-4.7-flash'); const p = core.S.api.chat.list.find(x => x.id == id);
+    return id == id2 && core.S.api.chat.list.length == n0 + 1 && p.url == 'https://open.bigmodel.cn/api/paas/v4' && p.key == 'k1' && p.model == 'glm-4.7-flash' && p.models.includes('glm-4-flash-250414') && p.fast; })()`), '免费模型：添加智谱 → 新配置（地址、密钥、模型都填好），再加同一家只换模型不重复');
+  await E(`(async () => { const f = await import('/apps/settings/free-models.js'); f.freePage(); })()`); await W(500); await shot('free');
+  ok(await E(`(() => { const el = core.top().el; return el.querySelectorAll('h6').length == 3 && !!el.querySelector('a[href="https://open.bigmodel.cn"]') && !!el.querySelector('a[href="https://cloud.siliconflow.cn/account/ak"]') && !!el.querySelector('a[href="https://aistudio.google.com"]') && el.querySelectorAll('[data-a=fcopy]').length == 6 && el.querySelectorAll('[data-a=fadd]').length == 8; })()`), '免费模型页：三家（智谱 / 硅基流动 / Gemini），官网和拿密钥都能点开、能复制，8 个模型可以添加');
+  await E(`core.back()`); await W(300);
   // TA 主动挂电话（学 evolia 的 call_control）：聊完了 TA 在最后写 [挂断]
-  await E(`_mode = 'bye'; core.S.callEar2 = 'model'`); await E(`(() => { const a = cl.inCall(); a.ear = 'model'; })()`); await W(1500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
+  await E(`_mode = 'bye'; core.S.callEar2 = 'model'`); await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
   ok(await E(`!cl.inCall() && _c.msgs.at(-1).t == 'call'`) && !/挂断\]/.test(await E(`JSON.stringify(_c.msgs.at(-1).log)`)), 'TA 说「晚安」后在最后写 [挂断]：电话自己挂了，字幕和记录里不露标记');
   await E(`cl.inCall()?.hang?.()`); await W(300); await E(`_mode = ''`);
   // 说完等多久可以调：设成 1.6 秒，停 1.2 秒还不算说完，停够才发

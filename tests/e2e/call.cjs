@@ -17,7 +17,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 回归：通话界面的样式名不能和聊天列表的 .cl 撞（之前撞了：列表整个看不见、点哪都进第一个人的聊天）
   await E(`core.home(); core.APPS.chat.open()`); await W(500); ok(await E(`(() => { const r = document.querySelector('.chatapp .cl'), s = r && getComputedStyle(r); return !!r && s.opacity == '1' && s.position != 'absolute' && r.getBoundingClientRect().height < 120; })()`), '聊天列表正常显示（样式名不和通话撞）'); await E(`talk.openChat(_c.id)`); await W(500);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(300); await shot('panel');
-  ok(await E(`[...document.querySelectorAll('.pan .tl')].map(t => t.textContent).join()`) == '视频通话,红包,转账,收藏,个人名片', '「＋」面板：视频通话 / 红包 / 转账 / 收藏 / 个人名片（图标抠自录屏）');
+  ok(await E(`[...document.querySelectorAll('.pan .tl')].map(t => t.textContent).join()`) == '视频通话,枕边故事,红包,转账,收藏,个人名片', '「＋」面板：视频通话 / 枕边故事 / 红包 / 转账 / 收藏 / 个人名片（图标抠自录屏）');
   await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(400);
   ok(/视频通话/.test(await E(`document.querySelector('.sheet.in').textContent`)) && /语音通话/.test(await E(`document.querySelector('.sheet.in').textContent`)), '点视频通话：底部弹出 视频通话 / 语音通话 / 取消');
   await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(400); await shot('dial');

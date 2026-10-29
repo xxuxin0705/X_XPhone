@@ -2135,3 +2135,6 @@ html{min-height:100%;min-height:100dvh}
 #stp .xc-fix input{width:100%;max-width:none;box-sizing:border-box;padding:9px 12px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;text-align:left;font-size:calc(15px*var(--fz,1))}
 .xc-fix div{display:flex;justify-content:flex-end;gap:10px}.xc-fix b{padding:6px 14px;border-radius:16px;background:rgba(255,255,255,.14);cursor:pointer;font-weight:500}.xc-fix b.ok{background:#07c160}
 .xc-hint{overflow-wrap:anywhere;max-height:4.5em;overflow:hidden}
+/* 设置 · 免费模型 */
+.freem h6 .fm-on{margin-left:8px;padding:1px 7px;border-radius:9px;font-style:normal;font-size:calc(11px*var(--fz,1));background:var(--ac);color:#fff;vertical-align:1px}
+.freem .fm-l a.lnk{margin-left:auto;margin-right:14px}

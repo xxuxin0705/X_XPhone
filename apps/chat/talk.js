@@ -5,7 +5,7 @@ import { regMod, mp, NOAI } from '../../mods.js';
 regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '在回复的人'], ['我', '我的网名']] });
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
-import { callSheet, callBub } from './call.js';
+import { callSheet, callBub, startCall } from './call.js';
 import { recall } from './recall.js';
 import { addFav, favPage, cardPick, cardH } from './fav.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
@@ -310,10 +310,10 @@ export function openChat(id) {
     smile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><circle cx="12" cy="12" r="10.25"/><circle cx="8.7" cy="9.4" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.3" cy="9.4" r="1.15" fill="currentColor" stroke="none"/><path d="M7.4 12.9h9.2a4.6 4.6 0 0 1-9.2 0Z"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10.25"/><path d="M12 7v10M7 12h10"/></svg>' };
   // 「＋」面板的图标：从微信录屏里抠的黑色实心图标（assets/wx/call/p-*.png，用 mask 上色，夜间也能变白）
-  const pIc = n => `<i class="xc-i pic-i" style="--ci:url('${new URL(`../../assets/wx/call/p-${n}.png`, import.meta.url).href}')"></i>`;
-  const WXI = { pcall: pIc('video'), phb: pIc('hb'), ptf: pIc('tf'), pfav: pIc('fav'), pcard: pIc('card') };
+  const pIc = n => `<i class="xc-i pic-i" style="--ci:url('${new URL(`../../assets/wx/call/p-${n}${/\./.test(n) ? '' : '.png'}`, import.meta.url).href}')"></i>`;
+  const WXI = { pcall: pIc('video'), pstory: pIc('story.svg'), phb: pIc('hb'), ptf: pIc('tf'), pfav: pIc('fav'), pcard: pIc('card') };
   const panHtml = k => k == 'stk' ? pbar() + `<div class="pbody">${pgrid()}</div>`
-    : `<div class="pgrid tools">${[...(ch.type == 'p' ? [['pcall', sty(ch) == 'wx' ? '视频通话' : '通话', '📞']] : []), ['phb', '红包', '🧧'], ['ptf', '转账', '¥'], ['pfav', '收藏', '⭐'], ['pcard', '个人名片', '👤']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${sty(ch) == 'wx' ? WXI[a] : i}</i>${l}</div>`).join('')}</div>`;
+    : `<div class="pgrid tools">${[...(ch.type == 'p' ? [['pcall', sty(ch) == 'wx' ? '视频通话' : '通话', '📞'], ['pstory', '枕边故事', '🌙']] : []), ['phb', '红包', '🧧'], ['ptf', '转账', '¥'], ['pfav', '收藏', '⭐'], ['pcard', '个人名片', '👤']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${sty(ch) == 'wx' ? WXI[a] : i}</i>${l}</div>`).join('')}</div>`;
   // 微信风格的“更多”面板用线条图标（白底方块里一个黑色小图标），跟原生一致
   const pan = (k, keep) => { const p = $('.pan', pg.el), on = keep || p.dataset.k != k || !p.classList.contains('on'); p.dataset.k = k; p.classList.toggle('on', on); const sc = $('.pbar', p)?.scrollLeft; p.innerHTML = panHtml(k); sc && ($('.pbar', p).scrollLeft = sc); };
   const qbar = () => { const b = $('.qbar', pg.el), m = q != null && ch.msgs[q]; b.innerHTML = m ? `<span>${esc(who(ch, m.f))}：${esc(brief(m)).slice(0, 40)}</span><b data-a="qx">×</b>` : ''; b.classList.toggle('on', !!m); };
@@ -359,6 +359,7 @@ export function openChat(id) {
       // 转账 / 发红包：整页（仿微信）；群里先选给谁
       ptf: () => tool(async () => { const to = ch.type == 'p' ? ch : get(await menu(ch.members.map(i => [i, esc(nm(get(i)))]), '转账给谁')); to && payPage(to, 'tf', r => { D().me.wallet -= r.amt; push(ch, { t: 'transfer', amt: r.amt, c: r.c, ...(ch.type == 'g' && { to: to.id }) }); }); }),
       pcall: () => tool(() => callSheet(ch)), recall: () => callSheet(ch),
+      pstory: () => tool(() => startCall(ch, 'voice', { story: 1 })), // 枕边故事：说一句想听什么，TA 一次讲完（只调用一次）
       pfav: () => tool(() => favPage({ ch, done: m => push(ch, m) })),
       pcard: () => tool(() => cardPick(ch, (c, note) => { push(ch, { t: 'card', cid: c.id, c: nm(c) }); note && push(ch, { t: 'text', c: note }); })),
       cdopen: i => { const id = ch.msgs[i]?.cid; if (!get(id)) return toast('这个人已经不在通讯录里了'); import('./wx.js').then(w => sty(get(id)) == 'wx' ? w.wxProf(id) : cset(get(id))); },
