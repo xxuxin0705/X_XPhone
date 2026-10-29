@@ -1,7 +1,7 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
 import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
 import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task } from '../../core.js';
-import { regMod, mp } from '../../mods.js';
+import { regMod, mp, NOAI } from '../../mods.js';
 regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '在回复的人'], ['我', '我的网名']] });
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
@@ -78,6 +78,7 @@ function replyP(ch, patNow) {
 
 请继续这段手机聊天${g ? '' : `，你扮演${rn(ch)}回复${me}`}。这一轮一共 ${rn0 == rn1 ? rn0 : `${rn0}-${rn1}`} 条（文字、图片、语音、表情各算一条）${vn1 ? `，其中语音 ${vn0 == vn1 ? vn0 : `${vn0}-${vn1}`} 条` : '，不发语音'}。
 ${mp(g ? 'chat.reply.g' : 'chat.reply.p', { 对方: rn(ch), 我: me })}
+${NOAI}
 【输出格式】每条消息单独一行：${g ? '「真实姓名: 内容」' : '直接写内容'}。不要写${me}的话，不要任何解释。按人设此刻会“已读不回”就什么都不输出。
 【可用标签】（单独一行，前面同样写名字）
 [表情包:关键词] 发表情包${S.stk.auto ? '，关键词写 2~6 个字，像在微信里搜表情那样（如：摸摸头、无语、开心到转圈、晚安）' : ''}${sk ? `（优先用：${sk}）` : ''}

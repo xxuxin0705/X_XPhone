@@ -4,7 +4,7 @@
 // 楼层内容用很省字的文本给；这里把数据填进模板，拼成网页放进 sandbox iframe。这样每帖排版都能完全不同，50 楼也写得下。
 // 历史按聊天存在 D().eye.forum（存模型原文，看的时候再拼），最多 30 帖。模型在 设置 → API 里单独选（默认跟小手机的聊天模型）。
 import { S, C, D, $, page, back, toast, saveD, esc, uid, llm, sysCtx, task, ok } from '../../core.js';
-import { regMod, mp } from '../../mods.js';
+import { regMod, mp, NOAI } from '../../mods.js';
 
 const KEEP = 30;
 const FS = () => (D().eye ||= { form: '', role: 'viewer', wall: false, src: 'orig' }).forum ||= [];
@@ -128,6 +128,7 @@ function prompt0(cx, recent) {
 - ${role}
 
 ${mp('eye.forum', { 形态: cx.fname, 一话: cx.ep, 创作方: fd.who, 形态细节: fd.pts, 形态梗: fd.fans, 身份: role })}
+${NOAI}
 
 底线：骂的对象只能是角色、作品、创作方（笔名 / 职位）和网友马甲。真实存在的作者 / 声优 / 演员名字可以出现，但不编他们的私生活、丑闻和谣言；不用种族、性别、残障、地域的歧视性辱骂；不写色情描写。
 

@@ -4,6 +4,15 @@
 // 存在 S.mods[模块] = { use: 模型（空=跟随）, stream: ''|'on'|'off', think: ''|'low'|'full', cur: 选中的提示词 id（空=系统默认）, list: [{ id, n, t }] }
 import { S, C } from './core.js';
 
+// 所有「替角色说话」的模块都固定接上这段（不跟着自定义提示词换掉）：去掉模型写中文时最常见的 AI 腔
+export const NOAI = `【别有 AI 味】
+- 不用“不是……而是……”“与其说……不如说……”这种先否定再翻转的句子；不凑三连排比；不用破折号串句子。
+- 不拿金句、总结、感悟收尾，不升华，不讲道理。
+- 不堆套话：仿佛、某种、一丝、一抹、弧度、眼底闪过、指节泛白、空气凝固、心照不宣、不易察觉。写具体的事、具体的话。
+- 情绪从说的话和做的事里带出来，不旁白解释“他很难过”。
+- 不像客服：不说“好的呢”“我一直都在”“希望能帮到你”，不复述、不总结对方的话。
+- 句子长短不齐；按人设可以有口头禅、错字、话说一半、只回一两个字。`;
+
 export const MODS = []; // { k, app, n, def: 默认文本 或 () => 文本, vars: [[变量名, 说明]] }
 export const regMod = m => { const i = MODS.findIndex(x => x.k == m.k); i >= 0 ? (MODS[i] = m) : MODS.push(m); return m; };
 export const modOf = k => MODS.find(x => x.k == k);
