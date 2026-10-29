@@ -200,6 +200,8 @@ export async function putMedia(src, kind = 'img') {
     return typeof src == 'string' ? src : `data:${b.type};base64,${await toB64(b)}`;
   }
 }
+// 语音缓存：合成好的音频存浏览器本地数据库，消息里只存 idb:xxx（删消息时 gc 会一起删）
+export const putAudio = async b => { const k = 'idb:' + uid(); await idbDo('readwrite', st => st.put(b, k)); return k; };
 // 视频等存在本地数据库里的，用之前换成可播放的地址
 export const mediaSrc = async u => typeof u == 'string' && u.startsWith('idb:') ? URL.createObjectURL(await idbDo('readonly', st => st.get(u))) : u;
 export const mediaIn = x => { const s = typeof x == 'string' ? x : JSON.stringify(x ?? ''); return [...new Set([...(s.match(MRE) || []), ...(s.match(IRE) || [])])]; };
@@ -579,6 +581,7 @@ export const tts = (text, voice, sex, sg0, o = {}) => {
     const pk = voice ? { v: voice } : pickVoice(o.c, p, sex, o.app), v = pk.v, t = sayAs(text, o.c?.tv?.say), q = tq(p);
     if (o.c && pk.from == 'none') throw Error('还没给 TA 配音色');
     const b = await (TTS[q.prov] || TTS.openai)({ ...q, ...(o.c?.tv?.lang && { lang: o.c.tv.lang }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
+    if (o.blob) return b; // 只要音频（聊天里的语音消息自己播、自己缓存）
     await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · ${p.name || p.prov} · 音色 ${v || '默认'}]`;
   }, sg0, pO);
 };

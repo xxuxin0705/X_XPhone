@@ -245,9 +245,6 @@ html{min-height:100%;min-height:100dvh}
 .st-kk .mt time,.st-line .mt time{display:block}
 .ij{font-style:normal;color:var(--sac);font-size:calc(12px*var(--fz,1))}
 .re{position:relative;z-index:1;margin:-7px 6px 0;padding:1px 7px;border-radius:12px;background:var(--cd,#fff);box-shadow:0 1px 5px rgba(0,0,0,.14);font-size:calc(13px*var(--fz,1))}
-.vc{display:flex;gap:6px;align-items:center;min-width:72px;cursor:pointer}
-.vc svg{width:18px;height:18px}
-.me .vc{flex-direction:row-reverse}
 .vt{margin-top:6px;font-size:calc(13px*var(--fz,1));opacity:.8}
 .tf{width:210px;padding:12px 14px 7px;border-radius:var(--br);background:linear-gradient(135deg,#fdab52,#f78f2d);color:#fff;cursor:pointer}
 .tf b{display:block;font-size:calc(17px*var(--fz,1))}.tf small{font-size:calc(12px*var(--fz,1));opacity:.92}
@@ -1764,3 +1761,13 @@ html{min-height:100%;min-height:100dvh}
 .dn.on .dn-cl{transform:translateY(18px);opacity:0}
 .dn-st{position:absolute;left:10px;top:7px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:8px 6px 0 0 #fff,15px -1px 0 .5px #fff,4px 12px 0 -.2px rgba(255,255,255,.8),21px 10px 0 0 rgba(255,255,255,.7);opacity:0;transform:translateY(-8px);transition:transform var(--d) var(--ease-in-out,ease),opacity var(--d)}
 .dn.on .dn-st{opacity:1;transform:none}
+
+/* 语音消息（照真微信录屏，声波图标是抠的 assets/wx/voice-v1~3）：秒数越长气泡越宽；播放时声波一格一格亮，再点一下停 */
+.vc{display:flex;align-items:center;gap:8px;width:var(--vw,72px);max-width:100%;flex-direction:row-reverse;justify-content:flex-end;cursor:pointer;user-select:none;-webkit-user-select:none}
+.me .vc{flex-direction:row;justify-content:flex-end}
+.vc span{font-size:calc(16px*var(--fz,1))}
+.vw{flex:none;width:13px;height:18px;background:url(assets/wx/voice-v3.png) center/contain no-repeat}
+.msg:not(.me) .vw{transform:scaleX(-1)}
+.dark .msg:not(.me) .vw{filter:invert(1)}
+.vc.pl .vw{animation:vwv 1s steps(1) infinite}
+@keyframes vwv{0%{background-image:url(assets/wx/voice-v1.png)}33%{background-image:url(assets/wx/voice-v2.png)}66%{background-image:url(assets/wx/voice-v3.png)}}

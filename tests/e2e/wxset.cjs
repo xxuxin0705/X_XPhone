@@ -4,7 +4,10 @@ const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.html': 'text/html' };
 const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (MIME[path.extname(f)] || 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8821);
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
+const wav = () => { const n = 2400, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(24000, 24); b.writeUInt32LE(48000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; };
+let ttsN = 0;
 (async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort());
+  await ctx.route(/api\.fish\.audio/, r => { ttsN++; r.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'access-control-allow-origin': '*' }, body: wav() }); });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8821/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'wxset_' + n + '.png') });
@@ -44,6 +47,19 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 重新生成：对方这一轮收了我的转账 → 我那条变回没收的样子
   const ud = await E(`(() => { const t = { f: 'me', t: 'transfer', amt: 520, ts: 111, st: '已被接收', rt: 222 }, r = { f: _c.id, t: 'transfer', amt: 520, st: '已收款', rcpt: 1, t0: 111, ts: 222 }; _c.msgs.push(t, r); talk.undoRound(_c, _c.msgs.splice(_c.msgs.indexOf(r))); return [t.st || '', _c.msgs.includes(r)]; })()`);
   ok(ud[0] == '' && !ud[1], '重新生成：我的转账变回没被接收 ' + JSON.stringify(ud));
+  // 语音：点一下播（声波动），再点停；第二次播用缓存，不再合成
+  await E(`(() => { window.Audio = class { constructor(u) { this.u = u; this.duration = 3; setTimeout(() => this.onloadedmetadata?.(), 10); } play() { window.__pl = (window.__pl || 0) + 1; return Promise.resolve(); } pause() { window.__pz = (window.__pz || 0) + 1; } };
+    core.S.api.tts = { src: 'custom', pv: 'fish', cfg: { fish: { key: 'fk', model: 's1' } } }; _c.tv = { v: { fish: 'vid' } }; _c.msgs.push({ f: _c.id, t: 'voice', c: '你好呀', ts: Date.now() }); core.saveD(); core.home(); talk.openChat(_c.id); })()`); await W(500);
+  await E(`(() => { _c.msgs.push({ f: 'me', t: 'voice', c: '哈哈哈哈哈', ts: Date.now() }); core.emit('chat'); })()`); await W(300); await E(`[...document.querySelectorAll('.chat .vc')].at(-2).click()`); await W(800); await shot('voice');
+  ok(await E(`[...document.querySelectorAll('.chat .vc')].at(-2).classList.contains('pl')`) && ttsN == 1 && /^idb:/.test(await E(`_c.msgs.at(-2).au || ''`)), '点语音：合成一次、缓存、声波在动');
+  ok(await E(`[...document.querySelectorAll('.chat .vc')].at(-2).textContent`) == '3″', '播过之后显示真实秒数');
+  await E(`[...document.querySelectorAll('.chat .vc')].at(-2).click()`); await W(300);
+  ok(!(await E(`[...document.querySelectorAll('.chat .vc')].at(-2).classList.contains('pl')`)) && await E(`window.__pz >= 1`), '再点一下：停止');
+  await E(`[...document.querySelectorAll('.chat .vc')].at(-2).click()`); await W(500);
+  ok(ttsN == 1 && await E(`window.__pl`) == 2, '第三次点：直接播缓存，没有重新合成');
+  await E(`talk.cset(_c)`); await W(400);
+  ok(/合成语音[\s\S]*点播放时[\s\S]*收到就合成/.test(await E(`document.querySelector('[data-sec=reply]').textContent`)), '聊天设置：合成语音 点播放时 / 收到就合成');
+  await E(`core.back()`); await W(400);
   // 分组 + 朋友圈谁可以看
   const cs = await E(`(() => { const a = dt.add(dt.blank('p', { real: 'A', fr: 1, grp: '同事' })), b = dt.add(dt.blank('p', { real: 'B', fr: 1 })), p = { vis: { m: 'only', g: ['同事'] } }, q = { vis: { m: 'not', g: ['同事'] } }; return [dt.canSee(p, a), dt.canSee(p, b), dt.canSee(q, a), dt.canSee(q, b), dt.grpNames().join()]; })()`);
   ok(JSON.stringify(cs) == '[true,false,false,true,"我的好友,同事"]', '分组可见：只给同事看 / 不给同事看 ' + JSON.stringify(cs));

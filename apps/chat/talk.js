@@ -1,6 +1,6 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
 import { srcOf, stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
-import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task } from '../../core.js';
+import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task, putAudio, mediaSrc } from '../../core.js';
 import { regMod, mp, NOAI } from '../../mods.js';
 regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '在回复的人'], ['我', '我的网名']] });
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
@@ -15,11 +15,28 @@ const EMO = '❤️ 👍 😂 🥺 😮 😡 🥳 🙏'.split(' ');
 // 长按菜单的图标（仿微信深色气泡菜单）
 const MI = {edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>', copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>', fwd: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l7 6-7 6"/><path d="M21 11H11a7 7 0 0 0-7 7v1"/></svg>', add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M8.5 9.5h.01M13.5 9.5h.01M8.5 13.5c1.4 1.4 3.6 1.4 5 0"/><path d="M19 15v6M16 18h6"/></svg>', q: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17c-2 0-3-1.6-3-3.6C4 9.8 6.2 7.3 9 6.5"/><path d="M16 17c-2 0-3-1.6-3-3.6 0-3.6 2.2-6.1 5-6.9"/><circle cx="7" cy="14" r="2.6"/><circle cx="16" cy="14" r="2.6"/></svg>', tr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9M8.5 3v2M6 5c.8 3.5 3 6 6 7.5M11 5c-.6 3.6-3 6.6-6.5 8"/><path d="M13 20l4-9 4 9M14.5 17h5"/></svg>', tts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9v6h4l5 4V5L9 9H5z"/><path d="M17.5 8.5a5 5 0 0 1 0 7"/></svg>', multi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M15 17l2.5 2.5L22 15"/></svg>', inj: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>', rc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>', regen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>', del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'};
 // 长按消息：在消息旁边弹出深色菜单（上面一排表情回应，下面图标按钮），点空白处关闭；返回选中的 key
+// 语音消息：点一下播放（声波一格一格动），再点一下停；合成过的音频缓存在本地，再点直接播不重新合成
+let VA = null, VM = null; const VP = new Map(); // 正在播的 Audio / 消息；正在合成的（同一条不重复合成）
+const vStop = () => { VA?.pause(); VA = null; if (VM) { VM = null; emit('chat'); } };
+async function vBlob(ch, m) { // 合成并缓存，返回能播的地址；酒馆自带朗读（没法拿到音频）就直接读一遍，返回空
+  if (m.au) { const u = await mediaSrc(m.au).catch(() => ''); if (u) return u; }
+  if (VP.has(m)) return VP.get(m);
+  const c = m.f == 'me' ? meVoice() : get(m.f), p = tts(said(m, ch), '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p', blob: 1 }).then(async b => {
+    if (!(b instanceof Blob)) return ''; m.au = await putAudio(b); saveD(); return URL.createObjectURL(b); }).finally(() => VP.delete(m));
+  VP.set(m, p); return p;
+}
+async function vPlay(ch, m) {
+  if (VM == m) return vStop();
+  vStop(); VM = m; emit('chat');
+  try { const u = await vBlob(ch, m); if (VM != m) return; if (!u) return vStop();
+    const a = VA = new Audio(u); a.onloadedmetadata = () => { const d = Math.max(1, Math.round(a.duration)); isFinite(d) && m.du != d && (m.du = d, saveD(), emit('chat')); }; a.onended = () => VA == a && vStop(); await a.play();
+  } catch (e) { VM == m && vStop(); fail('语音失败：' + e.message); }
+}
 const pop = (anchor, items, emo = true) => new Promise(res => {
   const scr = ui.scr, R = scr.getBoundingClientRect(), A = anchor.getBoundingClientRect(), z = (parseFloat(getComputedStyle(ui.root).getPropertyValue('--sc')) || 1);
   const m = Object.assign(document.createElement('div'), { className: 'mpop-m' }); let done = 0;
   const end = k => { if (done) return; done = 1; m.classList.add('out'); setTimeout(() => m.remove(), 160); res(k ?? null); };
-  m.innerHTML = `<div class="mpop">${emo ? `<div class="mp-e">${EMO.map(e => `<b data-k="~${e}">${e}</b>`).join('')}</div>` : ''}<div class="mp-g">${items.map(([k, l]) => `<b data-k="${k}" class="${k == 'del' ? 'dg' : ''}">${MI[k == 'tts' ? 'tts' : k] || ''}<span>${l}</span></b>`).join('')}</div><i class="mp-ar"></i></div>`;
+  m.innerHTML = `<div class="mpop">${emo ? `<div class="mp-e">${EMO.map(e => `<b data-k="~${e}">${e}</b>`).join('')}</div>` : ''}<div class="mp-g">${items.map(([k, l]) => `<b data-k="${k}" class="${k == 'del' ? 'dg' : ''}">${MI[k == 'stt' ? 'tr' : k] || ''}<span>${l}</span></b>`).join('')}</div><i class="mp-ar"></i></div>`;
   scr.append(m); const P = m.firstChild, W = R.width / z, ph = P.offsetHeight, pw = P.offsetWidth;
   const top = (A.top - R.top) / z, bot = (A.bottom - R.top) / z, cx = ((A.left + A.right) / 2 - R.left) / z, up = top - ph - 12 > 60;
   P.style.top = (up ? top - ph - 10 : Math.min(bot + 10, R.height / z - ph - 8)) + 'px'; P.style.left = Math.max(8, Math.min(W - pw - 8, cx - pw / 2)) + 'px';
@@ -170,7 +187,7 @@ export async function gen(ch) {
     const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img), mod: ch.type == 'g' ? 'chat.reply.g' : 'chat.reply.p' }), ch);
     for (const m of ms.filter(m => m.type != 'bt')) { if (ac.signal.aborted) break;
       if (m.type == 'sticker') { const r = await stkFind(m.text, stkOf(ch)).catch(() => ''); if (!r) continue; Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }); } // 在能用的表情里搜不到：这条不发
-      const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
+      const x = addMsg(ch, m); x?.t == 'voice' && ch.cfg.vpre && vBlob(ch, x).catch(() => { }); /* 设成「收到就合成」：先合成好，点了直接播 */ saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
   } catch (e) { ac.signal.aborted ? toast('已停止回复') : fail(`${nm(ch)} · 回复失败：${e.message}`); }
   finally { busy = 0; CTL = null; emit('chat'); goSync(); retrans(ch); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
 }
@@ -215,7 +232,8 @@ function body(m, i, cf, ch) {
     case 'song': return mzSong(m, i);
     case 'listen': case 'minv': return mzCard(m, i, ch);
     case 'img': return m.url ? `<img class="pic" src="${esc(m.url)}">` : `<div class="picd">🖼 ${esc(m.c)}</div>`;
-    case 'voice': return `<div class="vc" data-a="play" data-x="${i}">${I.wave}${Math.max(1, Math.ceil(said(m, ch).length / 4))}″</div>${m.open ? `<div class="vt">${esc(said(m, ch))}</div>` : ''}${m.tr && m.open && !zhOnly(m, ch) ? fold(i, m.tr, '翻译', tzo) : ''}`;
+    case 'voice': { const d = m.du || Math.max(1, Math.ceil(said(m, ch).length / 4)); // 有缓存就是真实秒数，没有按字数估
+      return `<div class="vc ${VM == m ? 'pl' : ''}" data-a="play" data-x="${i}" style="--vw:${Math.min(170, 64 + d * 6)}px"><span>${d}″</span><i class="vw"></i></div>${m.open ? `<div class="vt">${esc(said(m, ch))}</div>` : ''}${m.tr && m.open && !zhOnly(m, ch) ? fold(i, m.tr, '翻译', tzo) : ''}`; }
     case 'hb': return `<div class="tf hbk ${m.st ? 'done' : ''}" data-a="hbo" data-x="${i}"><b>${esc(m.c || '恭喜发财，大吉大利')}</b><small>${m.st ? (m.f == 'me' ? '已被领取' : '已领取') : ''}</small><i>${m.f == 'me' ? '红包' : '微信红包'}</i></div>`;
     case 'transfer': return `<div class="tf ${m.st ? 'done' : ''} ${m.st == '已退还' ? 'ret' : ''}" data-a="tf" data-x="${i}"><b>¥${(+m.amt).toFixed(2)}</b><small>${esc(m.st || m.c || (m.f == 'me' ? '你发起了一笔转账' : '请收款'))}</small><i>转账</i></div>`;
     default: return zhOnly(m, ch) ? esc(m.tr).replace(/\n/g, '<br>') : esc(m.c).replace(/\n/g, '<br>') + (m.tp ? '<small class="tp">翻译中…</small>' : '') + (m.orig ? fold(i, m.orig, '原文', tzo) : m.tr ? fold(i, m.tr, '翻译', tzo) : '');
@@ -341,17 +359,18 @@ export function openChat(id) {
       tf: i => { const m = ch.msgs[i]; if (!m) return; const from = m.f == 'me' ? (m.to ? get(m.to) : ch) || ch : get(m.f) || ch;
         const fin = st => { m.st = st == '已收款' ? '已被接收' : st; m.rt = +now(); ch.msgs.push({ f: 'me', t: 'transfer', amt: m.amt, st, rcpt: 1, t0: m.ts, rt: m.rt, ts: m.rt }); saveD(); emit('chat'); };
         tfPage(m, from, m.f != 'me' && !m.st && !m.rcpt ? { take: () => { D().me.wallet = +D().me.wallet + m.amt; fin('已收款'); }, ret: () => fin('已退还') } : null); },
-      play: i => { const m = ch.msgs[i], c = m.f == 'me' ? meVoice() : get(m.f); m.open = 1; saveD(); emit('chat'); tts(said(m, ch), '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p' }).catch(e => fail('语音失败：' + e.message)); },
+      play: i => { const m = ch.msgs[i]; m && vPlay(ch, m); },
       mlp: async (i, t) => {
         const m = ch.msgs[i]; if (!m || /sys|pat/.test(m.t)) return; const mine = m.f == 'me', stk = m.t == 'sticker', text = /text|voice/.test(m.t);
         const has = stk && S.assets.sticker.some(x => x.img == m.img);
         const k = await pop(t.closest('.msg')?.querySelector('.bub') || t, [
           ...(stk && !has ? [['add', '添加']] : []), ...(text ? [['copy', '复制']] : []), ['fwd', '转发'], ['q', '引用'],
-          ...(m.t == 'text' ? [['edit', '编辑']] : []), ['multi', '多选'],
+          ...(m.t == 'text' ? [['edit', '编辑']] : []), ...(m.t == 'voice' ? [['stt', m.open ? '收起文字' : '转文字']] : []), ['multi', '多选'],
           ...(mine ? [['rc', '撤回']] : ch.msgs.slice(+i + 1).every(x => x.f != 'me' || x.rcpt) ? [['regen', '重新生成']] : []), /* 只有最新一轮回复能重新生成 */ ['del', '删除']], m.t != 'rec' && sty(ch) != 'wx'); if (!k) return; // 注入正文只在多选里（整个聊天开了注入就不用）；微信没有贴表情
         if (k[0] == '~') return pg.acts.rpx(i + '|' + k.slice(1)); // 表情回应
         if (k == 'q') { q = i; qbar(); return $('.ip', pg.el).focus(); }
         if (k == 'add') { S.assets.sticker.unshift({ id: uid(), name: m.c && m.c != '表情' ? m.c : '表情', img: m.img }); C().saveSettingsDebounced(); return toast('已添加到「我的表情」'); }
+        if (k == 'stt') { m.open = !m.open; saveD(); return emit('chat'); }
         if (k == 'fwd') return fwd([m], 'one');
         if (k == 'multi') { sel = new Set([+i]); return rer(); }
         if (k == 'edit') { // 改这条消息（有翻译的连译文一起改）
@@ -420,6 +439,7 @@ export function cset(ch) {
       ['tr', '翻译', trSec(ch, f, g)],
       ['stk', '表情包', `<div class="stks">${STK_ALL().map(k => `<label class="row"><span>${esc(k == 'lib' ? '自己搜索' : k == 'fav' ? '我喜欢的表情' : packMeta(k)?.name || k)}</span><input type="checkbox" class="sw" data-a="stkt" data-x="${esc(k)}" ${(ch.cfg.stkOff || []).includes(k) ? '' : 'checked'}></label>`).join('')}</div>`],
       ['reply', '回复设置', `<div class="row rng"><span>回复条数</span><i>最少</i><input type="number" min="1" data-k="cfg.rmin" value="${esc(ch.cfg.rmin ?? 1)}"><i>最多</i><input type="number" min="1" data-k="cfg.rmax" value="${esc(ch.cfg.rmax ?? 5)}"></div>
+<div class="row"><span>合成语音</span>${f.seg('cfg.vpre', [['', '点播放时'], ['1', '收到就合成']])}</div>
 <div class="row rng"><span>语音条数</span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
       ['rd', '互动', (sty(ch) == 'wx' ? '' : f.tog('cfg.read', '显示已读 / 未读')) + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
       // 微信样式的美化只留日间 / 夜间和聊天背景（每条消息都带头像、不合并，跟真微信一样）；其他样式照旧
