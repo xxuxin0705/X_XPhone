@@ -6,7 +6,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.goto('http://localhost:8773/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s);
   await E(`(async () => { window.core = await import('/core.js'); const d = await import('/apps/chat/data.js'); ['吵死了', '姜照临的朋友', '花孔雀', '郁明也堂哥', '姜照临的助理'].forEach((n, i) => d.add(d.blank('p', { real: n, nick: n, fr: 1, unread: i % 2 ? 3 : 0 }))); d.add(d.blank('g', { name: 'PK学园群' })); core.saveD(); core.APPS.chat.open(); })()`); await p.waitForTimeout(600);
-  const rows = () => E(`document.querySelectorAll('.chatapp .cl[data-x]').length`), title = () => E(`document.querySelector('.chatapp .pg-t').textContent`);
+  const rows = () => E(`document.querySelectorAll('.chatapp .cl[data-x]').length`), title = () => E(`document.querySelector('.chatapp .pg-t').textContent.replace(/^取消/, '')`);
   const lp = async i => { const r = await E(`(() => { const x = document.querySelectorAll('.chatapp .cl[data-x]')[${i}].getBoundingClientRect(); return [x.left + 150, x.top + x.height / 2]; })()`); await p.mouse.move(...r); await p.mouse.down(); await p.waitForTimeout(650); await p.mouse.up(); await p.waitForTimeout(250); };
   const tap = async i => { await p.click(`.chatapp .cl[data-x] >> nth=${i}`); await p.waitForTimeout(150); };
   ok(await rows() == 6, '6 conversations listed');
@@ -18,7 +18,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await tap(1); await tap(3); await p.click('[data-a=mread]'); await p.waitForTimeout(300);
   ok(await E(`core.D().chats.every(c => !c.unread)`) && !/已选择/.test(await title()), 'batch 标为已读 works and exits multi-select');
   await lp(0); await tap(1); await p.click('[data-a=mpin]'); await p.waitForTimeout(300); ok(await E(`core.D().chats.filter(c => c.pin).length == 2`), 'batch 置顶');
-  await lp(0); await p.click('.chatapp .pg-back'); await p.waitForTimeout(300); console.log('DBG', await title(), await E(`core.top()?.cls`), await E(`!!document.querySelector('.chatapp .pg-back')`)); ok(!/已选择/.test(await title()) && await E(`core.top()?.cls == 'chatapp'`), 'back arrow exits multi-select (stays in app)');
+  await lp(0); ok(await E(`!document.querySelector('.chatapp .pg-back') && document.querySelector('.chatapp .pg-t .msel-x')?.textContent == '取消'`), '多选时左上角是「取消」，返回箭头藏起来');
+  await p.click('.chatapp .pg-t .msel-x'); await p.waitForTimeout(300); ok(!/已选择/.test(await title()) && await E(`core.top()?.cls == 'chatapp'`), '点「取消」退出多选（还在 App 里）');
+  await lp(0); await E(`core.back()`); await p.waitForTimeout(300); ok(!/已选择/.test(await title()) && await E(`core.top()?.cls == 'chatapp'`), '右滑 / 系统返回也是先退出多选');
   await lp(0); await p.click('.pg-r .txt'); await p.click('[data-a=mdel]'); await p.waitForTimeout(500);
   ok(/删除选中的 5 个联系人和 1 个群聊/.test(await E(`document.querySelector('.sheet .mi.danger')?.textContent || ''`)), 'delete asks for confirmation with counts'); await p.screenshot({ path: path.join(OUT, 'ms_del.png') });
   await p.click('.sheet .mi.danger'); await p.waitForTimeout(500);

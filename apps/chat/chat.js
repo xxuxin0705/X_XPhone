@@ -342,7 +342,7 @@ ${btn('pchat', g ? '进入群聊' : '发消息', '', 'pri')}${g ? '' : btn('pfd'
 }
 
 /* ---------- 聊天 App ---------- */
-// 多选：长按任意会话进入，点选 / 全选，底部批量置顶、已读、删除；左上角返回退出多选
+// 多选：长按任意会话进入，点选 / 全选，底部批量置顶、已读、删除；左上角「取消」退出多选
 const mbar = () => { const n = msel.size, L = [...msel].map(get).filter(Boolean), allPin = n && L.every(c => c.pin);
   return `<nav class="mbar"><button data-a="mpin" class="${n ? '' : 'off'}">${allPin ? '取消置顶' : '置顶'}</button><button data-a="mread" class="${n ? '' : 'off'}">标为已读</button><button data-a="mdel" class="danger ${n ? '' : 'off'}">删除${n ? `(${n})` : ''}</button></nav>`; };
 const MS = {
@@ -379,9 +379,11 @@ const probe = () => { if (probed) return; probed = 1; Object.keys(CSN).forEach(s
 export const chatIcon = (st = S.style || 'wx') => { probe(); const u = S.icons['chat.' + st] || REPO[st]; return u ? `<img src="${esc(u)}">` : CSI[st] || CSI.wx; };
 reg({
   id: 'chat', skin: 1, get name() { return CSN[S.style] || CSN.wx; }, get icon() { return chatIcon(); },
-  open: () => page({
-    cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; }, get noBack() { return S.style == 'wx' && !msel && tab != 'feed'; },
-    title: () => msel && tab == 'list' ? `已选择 ${msel.size} 项` : S.style == 'wx' ? (tab == 'me' || tab == 'feed' ? '' : wxTitle(tab)) : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],
+  open: () => { const pg = page({
+    // 多选时左上角是「取消」（返回箭头藏起来），右滑返回 / 系统返回也先退出多选
+    cls: 'chatapp', live: 1, model: () => D().me, onClose: () => { msel = null; }, onBack: () => { if (!msel) return; msel = null; pg.re(); return true; },
+    get noBack() { return msel && tab == 'list' || S.style == 'wx' && !msel && tab != 'feed'; },
+    title: () => msel && tab == 'list' ? `<b class="txt msel-x" data-a="back">取消</b><b>已选择 ${msel.size} 项</b>` : S.style == 'wx' ? (tab == 'me' || tab == 'feed' ? '' : wxTitle(tab)) : ({ list: TN[S.style], ct: CN[S.style], feed: '', me: '我' })[tab],
     right: () => msel && tab == 'list' ? `<b class="txt" data-a="mall">${msel.size && msel.size >= vis().length ? '全不选' : '全选'}</b>` : S.style == 'wx' && tab == 'list' ? `<b data-a="lsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>` : S.style == 'wx' && tab == 'me' ? '' : tab == 'ct' ? ({ wx: `<b data-a="ctsrch">${CI.srch}</b><b data-a="plus">${I.plus}</b>`, kk: `<b data-a="ctsrch">${CI.srch}</b><b data-a="newfr">${CI.addp}</b>` }[S.style] || `<b data-a="newfr">${CI.addp}</b>`) : tab == 'feed' ? feedRight() : '',
     body: () => tab == 'list' ? list() : tab == 'ct' ? contacts() : tab == 'feed' ? feed() : S.style == 'wx' ? wxMe() : meP(), foot: () => msel && tab == 'list' ? mbar() : tabs(tab), after: el => { stCls(el, 'chatapp st-' + S.style + ' tb-' + tab); ctBind(el); if (tab == 'feed') mountFeed(el); },
     acts: {
@@ -394,5 +396,5 @@ reg({
         k == 'ai' && await aiInit(); k == 'wi' && await fromWi(); saveD(); emit('chat');
       },
     },
-  }),
+  }); return pg; },
 });

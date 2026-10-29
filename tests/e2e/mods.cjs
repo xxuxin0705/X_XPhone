@@ -1,4 +1,4 @@
-// 设置 → 模块配置：按应用列模块；每个模块单独选模型 / 流式 / 低思考；系统默认提示词只能看，可以新增、切换、编辑、删除自己的；生成时按选中的走
+// 设置 → 应用配置：按应用列模块；每个模块单独选模型 / 流式 / 低思考；系统默认提示词只能看，可以新增、切换、编辑、删除自己的；生成时按选中的走
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.woff': 'font/woff', '.html': 'text/html' };
@@ -13,13 +13,15 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 列表
   await E(`core.openApp('settings')`); await W(500);
   await E(`document.querySelector('.row.go[data-a=mods]').click()`); await W(500);
-  const groups = await E(`[...document.querySelectorAll('.pg.in:last-child h6')].map(h => h.textContent).join()`);
+  const apps = await E(`[...document.querySelectorAll('.pg.in:last-child .row.go span')].map(h => h.textContent).join()`);
+  ok(/聊天/.test(apps) && /窥探之眼/.test(apps) && /心屿/.test(apps) && !/私聊回复/.test(apps), '第一层是应用：' + apps);
+  await E(`document.querySelector('.pg.in:last-child .row.go[data-x="聊天"]').click()`); await W(500);
   const rows = await E(`[...document.querySelectorAll('.pg.in:last-child .row.go span')].map(h => h.textContent).join()`);
-  ok(/聊天/.test(groups) && /窥探之眼/.test(groups) && /心屿/.test(groups), '按应用分组：' + groups);
-  ok(['生成联系人', '私聊回复', '群聊回复', '动态', '动态评论', '剧情同步', '论坛', '读心情'].every(n => rows.includes(n)), '模块：' + rows);
+  ok(['生成联系人', '私聊回复', '群聊回复', '动态', '动态评论', '剧情同步'].every(n => rows.includes(n)), '点聊天 → 它的模块：' + rows);
   await p.screenshot({ path: OUT + '/mods-list.png' });
+  await E(`core.back()`); await W(400);
   // 论坛模块
-  await E(`document.querySelector('.pg.in:last-child .row.go[data-x="eye.forum"]').click()`); await W(500);
+  await E(`document.querySelector('.pg.in:last-child .row.go[data-x="窥探之眼"]').click()`); await W(500); // 只有一个模块：直接进配置
   ok(await E(`!!document.querySelector('.modp select[data-k=use]') && document.querySelectorAll('.modp .seg').length == 2`), '模块页：模型、流式、低思考');
   await E(`document.querySelector('.modp [data-k2=stream][data-x=off]').click()`); await W(200);
   await E(`document.querySelector('.modp [data-k2=think][data-x=low]').click()`); await W(200);

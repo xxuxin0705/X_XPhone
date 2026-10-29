@@ -1,4 +1,4 @@
-// 设置 → 模块配置：按应用列出每个会调用模型的模块；点进去配模型、流式、低思考和提示词
+// 设置 → 应用配置：先列应用，点应用列出它会调用模型的模块；再点进去配模型、流式、低思考和提示词
 import { S, page, fx, esc, uid, form, ok, menu, save, stProfiles } from '../../core.js';
 import { MODS, mcfg, defText, modOf } from '../../mods.js';
 
@@ -8,9 +8,19 @@ const tri = (on, off) => [['', '跟随'], ['on', on], ['off', off]];
 const sum = k => { const c = S.mods?.[k]; if (!c) return '默认'; const m = c.use && models().find(x => x[0] == c.use)?.[1], p = c.cur && c.list.find(x => x.id == c.cur)?.n;
   return [m && m.split(' · ')[0], p ? '「' + p + '」' : ''].filter(Boolean).join(' · ') || '默认'; };
 
+// 先列应用，点应用再列它的模块；只有一个模块的应用直接进配置
+const AC = { 聊天: ['#34c759', '✉'], 心屿: ['#5ac8fa', '◍'], 窥探之眼: ['#af52de', '◉'] };
+const appRow = a => { const [c, i] = AC[a] || ['#8e8e93', esc(a[0])], ms = MODS.filter(m => m.app == a);
+  return `<div class="row go" data-a="app" data-x="${esc(a)}"><i class="ri" style="background:${c}">${i}</i><span>${esc(a)}</span><small>${ms.length > 1 ? ms.length + ' 项' : esc(sum(ms[0].k))}</small></div>`; };
 export function modsPage() {
   const apps = [...new Set(MODS.map(m => m.app))];
-  const pg = page({ title: '模块配置', cls: 'set mods', body: () => apps.map(a => `<h6>${esc(a)}</h6><div class="card">${MODS.filter(m => m.app == a).map(m => `<div class="row go" data-a="mod" data-x="${m.k}"><span>${esc(m.n)}</span><small>${esc(sum(m.k))}</small></div>`).join('')}</div>`).join(''),
+  const pg = page({ title: '应用配置', cls: 'set mods', body: () => `<div class="card">${apps.map(appRow).join('')}</div>`,
+    acts: { app: a => { const ms = MODS.filter(m => m.app == a); ms.length == 1 ? modPage(ms[0].k, pg) : appPage(a, pg); } } });
+}
+
+function appPage(a, parent) {
+  const pg = page({ title: a, cls: 'set mods', onClose: () => parent?.re?.(),
+    body: () => `<div class="card">${MODS.filter(m => m.app == a).map(m => `<div class="row go" data-a="mod" data-x="${m.k}"><span>${esc(m.n)}</span><small>${esc(sum(m.k))}</small></div>`).join('')}</div>`,
     acts: { mod: k => modPage(k, pg) } });
 }
 

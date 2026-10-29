@@ -1,5 +1,5 @@
 // 聊天 · 数据层：联系人/群/消息的增删改，以及剧情同步 delta 的应用
-import { C, S, D, saveD, uid, ui, top, now, genImg, emit, merge, byId, nm, meObj, fail, drop } from '../../core.js';
+import { C, S, D, saveD, uid, ui, top, now, genImg, emit, merge, byId, nm, meObj, fail, drop, brief } from '../../core.js';
 
 export const CFG = { style: '', bub: '', shape: '', avs: '', showAv: true, cont: true, dark: false, frame: '', bg: '', lang: '', trOpen: false, trMine: false, inj: false, read: true, pat: true, auto: false, trAuto: true, trTo: '', trFollow: true, rmin: 1, rmax: 5, vmin: 0, vmax: 1 };
 // 这个人在这个聊天里说什么语言：私聊看聊天设置；群聊默认跟随成员各自私聊的设置，也可以统一设成一种
@@ -30,6 +30,8 @@ export const member = (g, n) => { const c = upsert({ real: n, fr: 0 }); g.member
 export const viewing = id => top()?.chat == id && ui.root.classList.contains('on');
 export const sty = c => c?.cfg?.style || S.style;
 export const who = (ch, f) => f == 'me' ? nm(meObj()) : nm(get(f));
+// 引用：记住被引用那条的 id（没有就现给一个），显示时按 id 取它现在的内容；w / c 是当时的样子，只在那条找不到时兜底
+export const qref = (ch, m) => ({ id: m.id ||= uid(), w: who(ch, m.f), c: brief(m).slice(0, 40) });
 // 表情包：先按名字精确匹配，再互相包含模糊匹配
 export const stk = n => { n = String(n || '').trim(); const L = S.assets.sticker; return (L.find(s => s.name == n) || L.find(s => n && (n.includes(s.name) || s.name.includes(n))))?.img || ''; };
 // 表情回应统一成 [{e, by}]（兼容旧版纯字符串）
@@ -50,7 +52,7 @@ export function addMsg(ch, m) {
   if (t == 'accept') { const x = ch.msgs.findLast(x => x.t == 'transfer' && x.f == 'me' && !x.st); x && (x.st = '已收款'); return null; }
   if (t == 'recall') { const x = ch.msgs.findLast(x => x.f == f && !/sys|pat/.test(x.t)); x && Object.assign(x, { t: 'sys', c: `“${name}” 撤回了一条消息`, re: [] }); return null; }
   const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : t == 'hb' ? String(m.text || '恭喜发财，大吉大利') : String(m.text ?? ''), tr: m.tr || '', amt: t == 'hb' ? Math.min(200, +m.amount || 0) : +m.amount || 0, ts: +now() };
-  const q = near(m.quote); q && (x.q = { w: who(ch, q.f), c: String(q.c).slice(0, 40) });
+  const q = near(m.quote); q && (x.q = qref(ch, q));
   t == 'minv' && Object.assign(x, { song: { name: x.c, artist: String(m.artist || '').trim(), pic: '' }, st: 'pending', c: `[音乐]《${x.c}》${m.artist ? ' - ' + m.artist : ''}` }); // 角色邀请一起听
   t == 'sticker' && (x.img = stk(x.c)); ch.msgs.push(x); t == 'pat' && shake();
   f != 'me' && !viewing(ch.id) && (ch.unread = (ch.unread || 0) + 1);

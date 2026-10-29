@@ -423,7 +423,7 @@ export const imgData = u => imgC.get(u) || (imgC.set(u, (async () => {
 })().catch(e => { imgC.delete(u); throw e; })), imgC.get(u));
 const withImgs = (user, imgs) => [{ type: 'text', text: user }, ...imgs.map(url => ({ type: 'image_url', image_url: { url } }))];
 export const llm = (sys, user, desc = '聊天', sg, o = {}) => {
-  // o.mod：模块配置（设置 → 模块配置）里给这个模块单独设的模型 / 流式 / 低思考，设了就盖过代码里的默认
+  // o.mod：模块配置（设置 → 应用配置）里给这个模块单独设的模型 / 流式 / 低思考，设了就盖过代码里的默认
   const mo = o.mod && S.mods?.[o.mod]; if (mo) o = { ...o, ...(mo.use && { use: mo.use }), ...(mo.stream && { stream: mo.stream == 'on' }), ...(mo.think && { fast: mo.think == 'low' ? 1 : 0 }) };
   const R = route(o.aux, o.use); return call('chat', desc, user, async (p, sig, cx) => {
   const key = R.raw ? 'raw' : R.st ? 'st:' + R.st.id : 'p:' + p.id + ':' + p.model;

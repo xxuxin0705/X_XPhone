@@ -109,7 +109,7 @@ tests/           测试（见第五节）
 - 事件总线 `on` / `emit`：`chat`（聊天数据变了）、`stk`（表情包）、`cfg`（设置项变了）、`badge`、`home`、`open-chat`、`isle` / `isle-mood`、`phone-open`（手机从收起变成打开，心屿用它趁空闲预热 3D）。
 
 **AI 和费用**
-- `llm(系统, 用户, 描述, signal, { aux, images, mod })`：mod 是模块名（见 mods.js），设置 → 模块配置 里给它设的模型 / 流式 / 低思考会盖过默认；新加调用模型的功能都要 regMod 登记，可换的「内容 / 风格」段用 mp() 取，输出格式写死在代码里。
+- `llm(系统, 用户, 描述, signal, { aux, images, mod })`：mod 是模块名（见 mods.js），设置 → 应用配置 里给它设的模型 / 流式 / 低思考会盖过默认；新加调用模型的功能都要 regMod 登记，可换的「内容 / 风格」段用 mp() 取，输出格式写死在代码里。
 - `llm(系统, 用户, 描述, signal, { aux, images })`：调聊天模型，自动记日志；`aux: 1` 走设置里的「生成用模型」（生成联系人、读心情这类活；没设就用聊天模型），`images` 一起发图片。
 - `task(标题, async signal => …)`：带转圈、计时、取消的任务条；出错用 `fail(msg)`。
 - `sysCtx({ n, rc, wi, desc })`：拼角色卡 + 最近剧情 + 世界书的上下文。
@@ -147,7 +147,7 @@ tests/           测试（见第五节）
 
 - `node tests/run.cjs music isle` 按改动范围选择测试组，不默认运行全量测试。修改部分及直接受影响流程测试通过后推送；只有用户要求时才运行 `node tests/run.cjs` 全量测试。
 - `tests/unit/*.mjs`：纯逻辑（Node 直接跑）。`tests/e2e/*.cjs`：Playwright + 模拟酒馆 `tests/e2e/st.html`，外网接口一律 `page.route` 模拟。
-- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8815，新文件用 8816 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
+- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8819，新文件用 8820 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
 - 模拟 AI：`core.S.api.chat.src = 'tavern'` 后替换 `SillyTavern.getContext().generateRaw`。
 - 模拟开机前已有的设置：`page.addInitScript(() => { window.__preset = { st_phone: {…} } })`。
 - 截图输出在 `tests/out/`（不提交）。

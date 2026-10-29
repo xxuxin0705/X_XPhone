@@ -13,7 +13,7 @@ const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
 const sub = (a, x) => a == 'api' ? (x == 'chat' && S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? '' : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
-const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪'], ['mods', '模块配置', '#bf5af2', '⚙']]],
+const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪'], ['mods', '应用配置', '#bf5af2', '⚙']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
   ['通用', [['disp', '显示方式', '#64d2ff', '▣'], ['logs', '调用日志', '#8e8e93', '≡'], ['data', '数据管理', '#30b0c7', '⇪']]]];

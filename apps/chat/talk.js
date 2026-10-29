@@ -6,7 +6,7 @@ regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
-import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang } from './data.js';
+import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref } from './data.js';
 import { openFeed } from './chat.js';
 import { payPage, hbOpen } from './pay.js';
 import { bridge as mzB } from '../music/music-share.js';
@@ -66,7 +66,7 @@ export function parseReply(raw, ch) {
 }
 function replyP(ch, patNow) {
   const g = ch.type == 'g', me = meObj().nick, sk = [...new Set([...S.assets.sticker.map(s => s.name), ...S.stk.mine.flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
-  const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${m.q.c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
+  const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${qShow(ch, m.q).c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? `（${m.st}）` : ''}`).join('\n');
   const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg;
   const rn0 = Math.max(1, +cf.rmin || 1), rn1 = Math.max(rn0, +cf.rmax || 5), vn0 = Math.max(0, +cf.vmin || 0), vn1 = Math.max(vn0, cf.vmax == null ? 1 : +cf.vmax);
   const ls = mzB.getMusicListening(ch.id), snap = ls && G.mzSnapshot?.(), mt2 = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
@@ -109,9 +109,23 @@ export async function retrans(ch) {
     try { const zh = m.tr || (/[一-鿿]/.test(m.c) && !inLang(m.c, l) ? m.c : await mt(m.c, 'zh-CN')), f = await mt(zh, l); f && f != zh && Object.assign(m, { c: f, tr: zh }); } catch { }
     m.tp = 0; saveD(); emit('chat');
   }
+  // 我的消息：开着「自动翻译我发出的消息」时，换了目标语言（或「跟角色一样」跟着角色换了），以前发的也从原文重新机翻过去；m.ml 记着上次翻成了哪种
+  for (const m of ch.msgs.filter(m => needMe(ch, m))) {
+    const l = needMe(ch, m); if (!l) continue; const src = m.orig || m.c; m.tp = 1; emit('chat');
+    try { const t = await mt(src, l); m.ml = l; t && t != src ? Object.assign(m, { orig: src, c: t }) : m.orig && (m.c = m.orig, delete m.orig); } catch { }
+    m.tp = 0; saveD(); emit('chat');
+  }
 }
+const needMe = (ch, m) => { const l = ch.cfg.trMine && myLang(ch); return l && m.f == 'me' && /text|voice/.test(m.t) && !m.tp && /[\p{L}]/u.test(m.orig || m.c || '') && (m.ml || '') != l && l; };
 const zhOnly = (m, ch) => ch.cfg.trAuto === false && m.tr && m.f != 'me' && !m.orig; // 关着自动翻译：直接说中文
 const said = (m, ch) => zhOnly(m, ch) ? m.tr : m.c;
+// 引用条显示被引用那条现在的样子（跟着翻译设置 / 编辑变）。旧数据没存 id：按当时存的文字找回那条，补上 id
+function qShow(ch, q) {
+  let m = q.id && ch.msgs.find(x => x.id == q.id);
+  if (!m && !q.id && q.c) { const hit = x => !/sys|pat/.test(x.t) && [brief(x), x.c, x.orig, x.tr].some(t => t && String(t).startsWith(q.c)); m = ch.msgs.find(hit); m && (q.id = m.id ||= uid()); }
+  if (!m) return q;
+  return { w: who(ch, m.f), c: m.t == 'sys' ? '该消息已撤回' : brief({ ...m, c: said(m, ch) }).slice(0, 40) };
+}
 export async function gen(ch) {
   clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id);
   if (busy) { busy == ch.id ? (ch._again = 1) : toast('上一轮回复还在生成中…'); return; }
@@ -127,7 +141,7 @@ export async function gen(ch) {
 }
 const push = (ch, m) => {
   const x = { f: 'me', t: 'text', c: '', ts: +now(), ...m }; ch.msgs.push(x); saveD(); emit('chat'); // 不自动回复：想发几条发几条，发完点右下角 ✦ 让对方回
-  if (ch.cfg.trMine && myLang(ch) && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, myLang(ch)).then(t => { t != x.c && (x.orig = x.c, x.c = t); }).catch(() => { }).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
+  if (ch.cfg.trMine && myLang(ch) && /text|voice/.test(x.t)) { x.tp = 1; mt(x.c, myLang(ch)).then(t => { x.ml = myLang(ch); t != x.c && (x.orig = x.c, x.c = t); }).catch(() => { }).finally(() => { x.tp = 0; saveD(); emit('chat'); }); }
   return x;
 };
 on('stk', () => { const el = ui.stack?.querySelector('.pg.chat'), o = el?._pg; o?.pan && (o.pkC && Object.keys(o.pkC).forEach(k => k.startsWith('c_') && delete o.pkC[k]), $('.pan.on', el) && o.pan('stk', 1)); }); // 表情包组增删后刷新聊天里的表情面板
@@ -186,7 +200,7 @@ function msgs(ch, sel) {
     else {
       const mine = m.f == 'me', c = mine ? me : get(m.f) || { nick: '已删除' }, same = !gap && p?.f == m.f && !/sys|pat/.test(p.t);
       const tag = g && !mine ? (ch.owner == m.f ? '<em class="own">群主</em>' : ch.admins.includes(m.f) ? '<em class="adm">管理员</em>' : '') + (ch.titles[m.f] ? `<em>${esc(ch.titles[m.f])}</em>` : '') : '';
-      o += `<div class="msg ${mine ? 'me' : ''} ${same ? 'same' : ''} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="mlp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${avH(c, ch, m.f)}<div class="mc">${!mine && !(same && cf.cont) ? `<div class="mn">${tag}${esc(nm(c))}</div>` : ''}<div class="mr"><div class="bub b-${m.t}">${body(m, i, cf, ch)}</div><span class="mt">${m.inj ? '<i class="ij">↪</i>' : ''}${mine && cf.read ? rd(m, ch) : ''}<time>${hm(new Date(m.ts))}</time></span></div>${m.q ? `<div class="qt">${esc(m.q.w)}：${esc(m.q.c)}</div>` : ''}${sty(ch) == 'wx' ? '' : rxH(m, i)}</div></div>`;
+      o += `<div class="msg ${mine ? 'me' : ''} ${same ? 'same' : ''} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="mlp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${avH(c, ch, m.f)}<div class="mc">${!mine && !(same && cf.cont) ? `<div class="mn">${tag}${esc(nm(c))}</div>` : ''}<div class="mr"><div class="bub b-${m.t}">${body(m, i, cf, ch)}</div><span class="mt">${m.inj ? '<i class="ij">↪</i>' : ''}${mine && cf.read ? rd(m, ch) : ''}<time>${hm(new Date(m.ts))}</time></span></div>${m.q ? (x => `<div class="qt">${esc(x.w)}：${esc(x.c)}</div>`)(qShow(ch, m.q)) : ''}${sty(ch) == 'wx' ? '' : rxH(m, i)}</div></div>`;
     }
     p = m;
   });
@@ -256,7 +270,7 @@ export function openChat(id) {
       ip.onkeydown = e => e.key == 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), pg.acts.send());
     },
     acts: {
-      send: () => { const ip = $('.ip', pg.el), v = ip.value.trim(); if (!v) return busy == ch.id || PEND.has(ch.id) ? stopGen(ch) : gen(ch); const m = q != null && ch.msgs[q]; ip.value = ''; ip.oninput(); push(ch, { c: v, ...(m && { q: { w: who(ch, m.f), c: brief(m).slice(0, 40) } }) }); q = null; qbar(); },
+      send: () => { const ip = $('.ip', pg.el), v = ip.value.trim(); if (!v) return busy == ch.id || PEND.has(ch.id) ? stopGen(ch) : gen(ch); const m = q != null && ch.msgs[q]; ip.value = ''; ip.oninput(); push(ch, { c: v, ...(m && { q: qref(ch, m) }) }); q = null; qbar(); },
       pan, cset: () => cset(ch), qx: () => { q = null; qbar(); },
       ptab: x => { ptab = x; pan('stk', 1); },
       psk: i => { const x = pkC[ptab]?.items[i]; x && push(ch, msgOf(x)); },
@@ -351,7 +365,7 @@ export function cset(ch) {
   const f = fx(ch), g = ch.type == 'g', mem = () => ch.members.map(i => [i, nm(get(i))]);
   page({
     title: g ? '群聊设置' : '聊天设置', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
-    onChange: k => (/^cfg\.(lang|trFollow|trAuto)$/.test(k) && D().chats.forEach(retrans), /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; })),
+    onChange: k => (/^cfg\.(lang|trFollow|trAuto|trMine|trTo)$/.test(k) && D().chats.forEach(retrans), /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; })),
     body: () => sec('cset', [
       ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
         : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])],
