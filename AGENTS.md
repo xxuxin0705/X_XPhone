@@ -31,6 +31,7 @@ SillyTavern（酒馆）扩展：在酒馆页面里放一部虚拟手机，有桌
 ## 二、文件地图
 
 ```
+preview/         预览页：不进酒馆直接在浏览器里玩小手机（假装成酒馆，数据存 localStorage）；GitHub Pages 开在 main 根目录后地址是 /X_XPhone/preview/
 index.js         入口：建手机外壳、悬浮球 / 魔法棒、绑定酒馆事件（收到消息、切换聊天）
 core.js          核心（所有 App 都依赖它）：设置与数据、页面栈、表单、AI 调用、媒体文件、正文注入
 desk.js          桌面：多页 4×7 网格、Dock、文件夹、小组件（WK）、长按编辑拖拽
