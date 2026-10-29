@@ -42,7 +42,8 @@ const foreign = t => /[぀-ヿ가-힯Ѐ-ӿ฀-๿]/.test(t) || /[A-Za-z]{3,}/.te
 // 点「查看翻译」：原文直接换成中文（不是在下面多一行），再点「显示原文」换回去
 const tx = (t, tr, k, au) => { if (!tr || tr == t || !foreign(t || '')) return esc(t || ''); if (au?.cfg?.trAuto === false) return esc(tr); const o = OPEN.has(k); return esc(o ? tr : t || '') + ` <a class="f-tl" data-a="ftr" data-x="${k}">${o ? '显示原文' : '查看翻译'}</a>`; };
 const liked = p => p.likes.includes(nm(meObj()));
-const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))} <a class="f-r" data-a="crep" data-x="${p.id}|${i}">回复</a>${isMe(c.f) ? ` <a class="f-r" data-a="fcdel" data-x="${p.id}|${i}">删除</a>` : ''}</div>`).join(''); // 别人的评论只能回复，不能删
+// 评论（照微信）：后面不放「回复」「删除」，只有查看翻译 / 显示原文；点别人的评论就是回复 TA，点自己的评论弹出删除
+const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c" data-a="${isMe(c.f) ? 'fcme' : 'crep'}" data-x="${p.id}|${i}"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))}</div>`).join('');
 
 /* ---------- 三种样式的一条动态 ---------- */
 export const postImages = p => p.images?.length ? p.images : p.url ? [{url:p.url}] : p.imgd ? [{description:p.imgd}] : [];
@@ -154,9 +155,14 @@ const WXI = n => new URL(`../../assets/wx/${n}.png`, import.meta.url).href;
 function wxPill(p, t) {
   const old = t.querySelector('.wxp'); document.querySelectorAll('.wxp').forEach(n => n.remove()); if (old) return;
   const w = Object.assign(document.createElement('span'), { className: 'wxp' });
-  w.innerHTML = `<b data-k="like"><img src="${WXI('mo-like')}">${liked(p) ? '取消' : '赞'}</b><i></i><b data-k="cmt"><img src="${WXI('mo-cmt')}">评论</b>`;
+  const on = liked(p);
+  w.innerHTML = `<b data-k="like"><img src="${WXI(on ? 'mo-liked' : 'mo-like')}"><span>${on ? '取消' : '赞'}</span></b><i></i><b data-k="cmt"><img src="${WXI('mo-cmt')}">评论</b>`;
   t.append(w); requestAnimationFrame(() => w.classList.add('in'));
-  w.onclick = e => { e.stopPropagation(); const k = e.target.closest('[data-k]')?.dataset.k; if (!k) return; w.remove(); FA[k](p.id); };
+  // 点赞 / 取消（照录屏）：心先换成红心（或变回白心）弹一下，停一小会儿小条再收回去，然后才记上赞
+  w.onclick = e => { e.stopPropagation(); const k = e.target.closest('[data-k]')?.dataset.k; if (!k || w.dataset.go) return;
+    if (k == 'cmt') { w.remove(); return FA.cmt(p.id); }
+    w.dataset.go = 1; const b = w.querySelector('[data-k=like]'), im = b.querySelector('img'); im.src = WXI(on ? 'mo-like' : 'mo-liked'); b.querySelector('span').textContent = on ? '赞' : '取消'; b.classList.add('pop');
+    setTimeout(() => { w.classList.remove('in'); setTimeout(() => { w.remove(); FA.like(p.id); }, 160); }, 480); };
   setTimeout(() => document.addEventListener('click', e => { w.contains(e.target) || w.remove(); }, { once: true }), 0);
 }
 // 底部评论框：「评论」/「回复XX:」，右边 表情（抠图）、图片（抠图）、发送（有字才变绿）；点外面收起
@@ -187,6 +193,7 @@ export const FA = {
     if(choice==='description')return page({title:'图片描述',body:()=>`<p>${esc(image.description || image.prompt)}</p>`});
     if(choice==='generate')return task('生成动态配图',async sg=>{const data=D(),url=await genImg(image.prompt || image.description,sg,'chat');if(D()!==data||!data.posts.includes(p)) {drop(url);return '动态已删除';} if(!p.images?.length)p.images=postImages(p);p.images[+index]={...image,url};saveD();emit('chat');return '图片已生成';});
   },
+  fcme: async v => { if (await menu([['d', '删除', 'danger']]) == 'd') { const [id, i] = v.split('|'), p = P(id); p?.cm.splice(+i, 1); saveD(); emit('chat'); } },
   fcdel: async value => {const [id,index]=value.split('|'),p=P(id);if(!p || !await ok('删除这条评论？'))return;p.cm.splice(+index,1);saveD();emit('chat');},
   fcov: async (x, t, e, pg) => { const o = x == 'me' ? D().me : get(x); if (!o) return; const v = await pickImg(1080, 'cover'); if (v == null) return; drop(o.cover); o.cover = v; saveD(); emit('chat'); pg?.re?.(); },
   fmore: async () => { const k = await menu([['cov', '换封面'], ['bg', '换动态背景']]); if (!k) return; const v = await pickImg(1080, 'cover'); if (v == null) return; const m = D().me, f = k == 'cov' ? 'cover' : 'fbg'; drop(m[f]); m[f] = v; saveD(); emit('chat'); },

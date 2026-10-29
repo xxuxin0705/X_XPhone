@@ -24,11 +24,20 @@ export function tagListPage() {
   page({ title: '通讯录标签', cls: 'tgpg', live: 1, after: bindQ,
     body: () => { const F = fr(), un = F.filter(c => !tagsOf(c).length);
       return `${srch()}<div class="tg-g"><div class="tg-r" data-a="tgun" data-q="未设置标签的朋友"><div><b>未设置标签的朋友 <em>(${un.length})</em></b>${un.length ? `<small>${esc(names(un))}</small>` : ''}</div></div></div>
-<div class="tg-g">${allTags().map(t => { const L = F.filter(c => tagsOf(c).includes(t)); return `<div class="tg-r ${ed ? 'ed' : ''}" data-a="${ed ? 'tgdel' : 'tgo'}" data-x="${esc(t)}" data-q="${esc(t)}">${ed ? '<i class="tg-minus"></i>' : ''}<div><b>${esc(t)} <em>(${L.length})</em></b>${L.length ? `<small>${esc(names(L))}</small>` : ''}</div></div>`; }).join('')}</div>`; },
+<div class="tg-g">${allTags().map(t => { const L = F.filter(c => tagsOf(c).includes(t)); return `<div class="tg-r ${ed ? 'ed' : ''}" data-a="${ed ? 'tgdel' : 'tgo'}" data-lp="tglp" data-x="${esc(t)}" data-q="${esc(t)}">${ed ? '<i class="tg-minus"></i>' : ''}<div><b>${esc(t)} <em>(${L.length})</em></b>${L.length ? `<small>${esc(names(L))}</small>` : ''}</div></div>`; }).join('')}</div>`; },
     foot: () => `<nav class="tg-f"><b data-a="tgnew">新建</b><b data-a="tged">${ed ? '完成' : '编辑'}</b></nav>`,
     acts: {
       tgun: () => untaggedPage(),
       tgo: t => tagPage(t),
+      // 长按一个标签（照录屏）：这一行变灰，右上方冒出白色小框「修改名称 | 删除」
+      tglp: (t, row) => { navigator.vibrate?.(12); document.querySelectorAll('.tg-pop').forEach(n => n.remove()); row.classList.add('lp');
+        const w = Object.assign(document.createElement('div'), { className: 'tg-pop' }); w.innerHTML = '<b data-k="r">修改名称</b><i></i><b data-k="d">删除</b>';
+        const R = row.getBoundingClientRect(), P = ui.scr.getBoundingClientRect(), z = P.width / ui.scr.offsetWidth || 1; w.style.top = (R.top - P.top) / z - 34 + 'px'; ui.scr.append(w);
+        const end = () => { w.remove(); row.classList.remove('lp'); };
+        w.onclick = async e => { const k = e.target.closest('[data-k]')?.dataset.k; if (!k) return; end();
+          if (k == 'd') { if (await menu([['y', '删除', 'danger']], '标签中的联系人不会被删除，使用此标签设置了分组的朋友圈，可见范围也将更新。') == 'y') dropTags([t]); return; }
+          const n = await newTag(t); if (!n || n == t) return; D().tags = allTags().map(y => y == t ? n : y); fr().forEach(c => tagsOf(c).includes(t) && setTags(c, tagsOf(c).map(y => y == t ? n : y))); saveD(); emit('chat'); };
+        setTimeout(() => document.addEventListener('pointerdown', e => { w.contains(e.target) || end(); }, { once: true }), 0); },
       tged: (x, tt, e, pg) => { ed = !ed; pg.re(); },
       tgdel: async (t, tt, e, pg) => { if (!await ok(`删除标签「${t}」`)) return; D().tags = allTags().filter(x => x != t); fr().forEach(c => tagsOf(c).includes(t) && setTags(c, tagsOf(c).filter(x => x != t))); saveD(); emit('chat'); pg.re(); },
       tgnew: async () => { const t = await newTag(); if (!t) return; pickPeople(`添加成员`, [], L => { L.forEach(c => setTags(c, [...tagsOf(c), t])); }, '完成'); },

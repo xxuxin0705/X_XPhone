@@ -1757,14 +1757,12 @@ html{min-height:100%;min-height:100dvh}
 .vc.pl .vw{animation:vwv 1s steps(1) infinite}
 @keyframes vwv{0%{background-image:url(assets/wx/voice-v1.png)}33%{background-image:url(assets/wx/voice-v2.png)}66%{background-image:url(assets/wx/voice-v3.png)}}
 
-/* 开关：所有开关同一个尺寸（50×30）。按住时圆钮会被压扁拉宽一点，打开后圆钮里亮一个小对勾 */
+/* 开关：所有开关同一个尺寸（50×30）。按住时圆钮会被压扁拉宽一点，松手弹过去 */
 #stp input.sw{appearance:none!important;-webkit-appearance:none!important;all:unset;flex:none;position:relative;width:50px!important;height:30px!important;border-radius:15px!important;background:rgba(120,120,128,.22)!important;cursor:pointer;margin:0!important;border:0!important;transition:background .22s var(--ease-out,ease)}
 #stp input.sw::after{content:'';position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:13px;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.04);transition:transform .26s cubic-bezier(.3,1.3,.5,1),width .16s var(--ease-out,ease)}
-#stp input.sw::before{content:'';position:absolute;z-index:1;top:9px;left:12px;width:4px;height:8px;border:solid var(--ac);border-width:0 2px 2px 0;opacity:0;transform:rotate(45deg) scale(.4);transition:transform .26s cubic-bezier(.3,1.3,.5,1),opacity .16s}
 #stp input.sw:checked{background:var(--ac)!important}
 #stp input.sw:checked::after{transform:translateX(20px)}
-#stp input.sw:checked::before{opacity:1;transform:translateX(20px) rotate(45deg) scale(1)}
-#stp input.sw:active::after{width:32px}#stp input.sw:checked:active::after{transform:translateX(14px)}#stp input.sw:checked:active::before{transform:translateX(17px) rotate(45deg) scale(1)}
+#stp input.sw:active::after{width:32px}#stp input.sw:checked:active::after{transform:translateX(14px)}
 /* 日间 / 夜间：跟其他开关一样大小和手感；白天是浅蓝底 + 圆钮里一个小太阳，晚上是深蓝底 + 小月亮，轨道上冒两颗小星星 */
 .dn{position:relative;flex:none;width:50px;height:30px;border-radius:15px;cursor:pointer;background:#8ccbf5;transition:background .26s var(--ease-out,ease);-webkit-tap-highlight-color:transparent}
 .dn.on{background:#2f3561}
@@ -1828,7 +1826,7 @@ html{min-height:100%;min-height:100dvh}
 .r2-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}.r2-h b{font-weight:600;color:var(--ac);font-variant-numeric:tabular-nums}
 .r2-t{position:relative;height:30px;margin:0 4px}
 .r2-t>i{position:absolute;left:13px;right:13px;top:13px;height:4px;border-radius:2px;background:rgba(120,120,128,.18)}
-.r2-t>i::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--a) * 100%);right:calc((1 - var(--b)) * 100%);border-radius:2px;background:var(--ac)}
+.r2-t>i::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--r2a) * 100%);right:calc((1 - var(--r2b)) * 100%);border-radius:2px;background:var(--ac)}
 #stp .r2-t input[type=range]{all:unset;-webkit-appearance:none;appearance:none;position:absolute;inset:0;width:100%;max-width:none;height:30px;padding:0;margin:0;background:none;pointer-events:none}
 #stp .r2-t input[type=range]::-webkit-slider-runnable-track{background:none;height:30px}
 #stp .r2-t input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:26px;height:26px;margin-top:2px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.22),0 0 0 .5px rgba(0,0,0,.05);cursor:grab;transition:transform .15s var(--ease-out,ease)}
@@ -1853,7 +1851,7 @@ html{min-height:100%;min-height:100dvh}
 .sb-c{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(127,127,127,.45);box-sizing:border-box;position:relative}.sb-c.on{border:0;background:var(--ac)}.sb-c.on::after{content:'';position:absolute;left:8px;top:4px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .sb-ops{display:flex;gap:10px;padding:10px 16px 14px}.sb-ops b{flex:1;text-align:center;padding:10px 0;border-radius:12px;background:rgba(127,127,127,.1);font-weight:500;cursor:pointer}.sb-ops b.off{opacity:.4;pointer-events:none}
 /* 朋友圈（照真微信录屏）：封面高度、自己的动态时间后面「删除」、赞 | 评论小条、底部评论框 */
-.feed.mz-wx .mo-cv{height:290px}
+.feed.mz-wx .mo-cv{height:270px}
 .mo-del{margin-left:12px;font-size:calc(13px*var(--fz,1));color:#576b95;cursor:pointer}
 .mo-f{position:relative}.mo-f .mo-ab{margin-left:auto}
 .wxp{position:absolute;right:calc(100% + 8px);top:50%;z-index:5;display:flex;align-items:center;height:38px;border-radius:5px;background:#4b4b4b;overflow:hidden;white-space:nowrap;transform:translateY(-50%);clip-path:inset(0 0 0 100%);transition:clip-path .2s var(--ease-out,ease)}
@@ -1879,3 +1877,23 @@ html{min-height:100%;min-height:100dvh}
 .tg-r.drag{position:relative;z-index:3;background:#f7f7f7;box-shadow:0 4px 14px rgba(0,0,0,.12)}
 .tg-cl{padding:14px 0 24px;background:#f7f7f7;border-top:.5px solid #e5e5e5;text-align:center}.tg-cl b{font-weight:400;font-size:calc(16px*var(--fz,1));color:#b2b2b2;cursor:pointer}.tg-cl b.on{color:#fa5151}
 .tgn-b.x::after{border:0;left:2px;right:2px;top:11px;width:auto;height:1.8px;background:#191919;transform:rotate(-45deg)}.tgn-b.x::before{content:'';position:absolute;left:2px;right:2px;top:11px;height:1.8px;background:#191919;transform:rotate(45deg)}
+
+/* 区间滑块第二版：圆钮上直接写数字；刻度对齐每一格（拉到头会往后长） */
+.r2-t{margin:0 13px}.r2-t>i{left:0;right:0}
+#stp .r2-t input[type=range]{left:-13px;right:-13px;width:calc(100% + 26px)}
+.r2-n{position:absolute;top:0;width:26px;height:30px;margin-left:-13px;display:grid;place-items:center;font-style:normal;font-weight:600;font-size:calc(12.5px*var(--fz,1));color:var(--ac);pointer-events:none;font-variant-numeric:tabular-nums}
+.r2-n.a{left:calc(var(--r2a) * 100%)}.r2-n.b{left:calc(var(--r2b) * 100%)}
+.r2-s{position:relative;height:16px;margin:4px 13px 0;padding:0;display:block}.r2-s small{position:absolute;top:0;width:20px;margin-left:-10px;text-align:center;font-size:calc(11px*var(--fz,1));opacity:.55}
+/* 语音还在合成：声波换成一个小转圈 */
+.vc.ld .vw{background:none;width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;opacity:.6;animation:vwld .8s linear infinite}
+@keyframes vwld{to{transform:rotate(360deg)}}
+.msg:not(.me) .vc.ld .vw{animation:vwld .8s linear infinite}
+/* 长按标签：这一行变灰 + 白色小框 */
+.tg-r.lp{background:#e5e5e5}
+.tg-pop{position:absolute;right:28px;z-index:60;display:flex;align-items:center;height:38px;border-radius:6px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.16);overflow:hidden}
+.tg-pop b{padding:0 16px;height:100%;display:grid;place-items:center;font-weight:400;font-size:calc(15px*var(--fz,1));color:#191919;cursor:pointer}.tg-pop b:active{background:#f2f2f2}.tg-pop i{width:.5px;height:18px;background:#e5e5e5}
+/* 朋友圈点赞：心弹一下（放大再回来），小条停一会儿再收 */
+.wxp b.pop img{animation:wxlk .42s cubic-bezier(.3,1.6,.5,1)}
+@keyframes wxlk{0%{transform:scale(1)}35%{transform:scale(1.55)}100%{transform:scale(1)}}
+.wxp{transition:clip-path .16s var(--ease-out,ease)}
+.feed .f-c{cursor:pointer}.feed .f-c:active{background:rgba(0,0,0,.06)}

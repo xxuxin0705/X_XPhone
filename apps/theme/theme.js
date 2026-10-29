@@ -1,5 +1,5 @@
 // 小手机 · 主题：桌面主题 / 壁纸 / 小组件 / 气泡样式 / 头像框 / 表情包 / 图标 / 自定义CSS
-import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok, emit } from '../../core.js';
+import { S, save, esc, uid, ui, $, reg, page, top, fx, btn, sec, menu, form, toast, pickFile, pickImg, APPS, drop, putMedia, mediaSrc, task, ok, emit, sbApply } from '../../core.js';
 import { renderDesk, icon, addDeskWidget } from '../../desk.js';
 import { SCENES, mountScene } from '../../lockfx.js';
 import { lock, lockMig, custKind, lockClk } from '../../lock.js';
@@ -184,11 +184,11 @@ reg({
       clkf: k => { lockClk().font = k; S.lock.clk.wt = ''; save(); reClk(); }, clkp: k => { lockClk().pos = k; save(); reClk(); },
       astopen: k => appStyle(k),
       // 顶部状态栏：每个应用一个开关；「批量选择」后勾几个，一起显示 / 隐藏
-      sbt: (id, t) => { const H = new Set(S.sbHide || []); t.checked ? H.delete(id) : H.add(id); S.sbHide = [...H]; save(); },
+      sbt: (id, t) => { const H = new Set(S.sbHide || []); t.checked ? H.delete(id) : H.add(id); S.sbHide = [...H]; save(); sbApply(ui.scr.dataset.app); }, // 马上生效（在主题里关「主题」的状态栏，现在就消失）
       sbbat: (x, t, e, pg) => { sbSel = sbSel ? null : new Set(); pg.re(); },
       sbpk: (id, t, e, pg) => { sbSel.has(id) ? sbSel.delete(id) : sbSel.add(id); pg.re(); },
       sball: (x, t, e, pg) => { const all = sbApps().map(a => a.id); sbSel = sbSel.size == all.length ? new Set() : new Set(all); pg.re(); },
-      sbdo: (x, t, e, pg) => { if (!sbSel.size) return; const H = new Set(S.sbHide || []); sbSel.forEach(id => x == 'hide' ? H.add(id) : H.delete(id)); S.sbHide = [...H]; save(); toast(`${sbSel.size} 个应用${x == 'hide' ? '隐藏' : '显示'}顶部状态栏`); sbSel = null; pg.re(); },
+      sbdo: (x, t, e, pg) => { if (!sbSel.size) return; const H = new Set(S.sbHide || []); sbSel.forEach(id => x == 'hide' ? H.add(id) : H.delete(id)); S.sbHide = [...H]; save(); sbApply(ui.scr.dataset.app); toast(`${sbSel.size} 个应用${x == 'hide' ? '隐藏' : '显示'}顶部状态栏`); sbSel = null; pg.re(); },
       th: (k, t, e, pg) => { S.theme = k; save(); applyTheme(); renderDesk(); pg.re(); },
       aa: k => edit(k), ae: x => { const [k, id] = x.split(':'); edit(k, S.assets[k].find(a => a.id == id)); },
       ad: async x => {
