@@ -2134,3 +2134,4 @@ html{min-height:100%;min-height:100dvh}
 .xc-fix small{opacity:.65;font-size:calc(12px*var(--fz,1))}
 #stp .xc-fix input{width:100%;max-width:none;box-sizing:border-box;padding:9px 12px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;text-align:left;font-size:calc(15px*var(--fz,1))}
 .xc-fix div{display:flex;justify-content:flex-end;gap:10px}.xc-fix b{padding:6px 14px;border-radius:16px;background:rgba(255,255,255,.14);cursor:pointer;font-weight:500}.xc-fix b.ok{background:#07c160}
+.xc-hint{overflow-wrap:anywhere;max-height:4.5em;overflow:hidden}
