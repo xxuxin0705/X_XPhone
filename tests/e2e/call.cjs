@@ -26,7 +26,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`!!document.querySelector('.xc .xc-tm') && /挂断/.test(document.querySelector('.xc-ctl').textContent)`), '接通：显示通话时长，按钮变「挂断」');
   ok(/怎么突然打电话/.test(await E(`document.querySelector('.xc').textContent`)) || /怎么突然打电话/.test(await E(`JSON.stringify(core.inCall?.() || '')`)) || await E(`_P.length`) >= 1, '接通后对方先开口（流式切句、字幕）');
   await W(2500);
-  ok(await E(`!!document.querySelector('.xc-type input')`), '没有语音识别：自动打开「打字说」');
+  ok(await E(`!!document.querySelector('.xc-pill[data-k=talk]')`) && /点这里说/.test(await E(`document.querySelector('.xc-ctl').textContent`)), 'TA 说完轮到我：下面是「点这里说」，不自动开麦');
+  await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(300);
+  ok(await E(`!!document.querySelector('.xc-type input')`), '没有语音识别：点「点这里说」打开「打字说」');
   await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '我明天回来'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(3500);
   ok(/我明天回来/.test(await E(`_P.at(-1)`)) && /打电话/.test(await E(`_P.at(-1)`)), '我打字说的话发给对方（提示词里写明在打电话）');
   await E(`document.querySelector('.xc [data-k=min]').click()`); await W(300); ok(await E(`document.querySelector('.xc').classList.contains('mini')`), '左上角缩小成小窗'); await shot('mini');
@@ -60,11 +62,20 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`_play`) >= 2, '两句都真的播放了（不是只显示字） play=' + await E(`_play`));
   ok(!/もしもし.*ZH|SAY:/.test(tx), '字幕里没有 SAY / ZH 标记');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''; core.S.api.tts = {}`);
-  // 有的手机识别完只给「中间结果」不给「最终结果」：也要当成我说了这句（以前会被丢掉，对方一直不回）
-  await E(`(() => { window._srN = 0; window.webkitSpeechRecognition = class { start() { const me = this; _srN++; if (_srN > 1) return; setTimeout(() => { me.onresult?.({ results: [Object.assign([{ transcript: '你在干嘛' }], { isFinal: false })] }); me.onend?.(); }, 300); } abort() {} stop() {} };
+  // 点一下说：话实时写在屏幕上；识别自己停了也接着听、拼起来；点「说完了」才发给对方
+  await E(`(() => { window._srN = 0; window.webkitSpeechRecognition = class { start() { const me = this; _srN++; const n = _srN; setTimeout(() => { if (n == 1) { me.onresult?.({ results: [Object.assign([{ transcript: '你在' }], { isFinal: true }), Object.assign([{ transcript: '干嘛' }], { isFinal: false })] }); me.onend?.(); } else if (n == 2) me.onresult?.({ results: [Object.assign([{ transcript: '呀' }], { isFinal: false })] }); }, 200); } abort() {} stop() {} };
     SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return '在发呆呢。'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500);
-  ok(/你在干嘛/.test(await E(`_P.at(-1)`)) && /你在干嘛/.test(await E(`document.querySelector('.xc-tx')?.innerText || ''`)), '识别只给中间结果也算我说了：发给对方，字幕里有');
+  await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(900);
+  ok(await E(`document.querySelector('.xc-tx .ing')?.textContent`) == '你在干嘛呀' && await E(`_srN`) >= 2 && /说完了/.test(await E(`document.querySelector('.xc-ctl').textContent`)), '说话时实时上屏；识别自己停了接着听、拼起来 ' + await E(`document.querySelector('.xc-tx .ing')?.textContent`));
+  ok(!/你在干嘛呀/.test(await E(`_P.at(-1)`)), '没点「说完了」之前不会发给对方');
+  await E(`document.querySelector('.xc-pill[data-k=done]').click()`); await W(2500);
+  ok(/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在发呆呢/.test(await E(`document.querySelector('.xc-tx').innerText`)), '点「说完了」：发给对方，字幕里有我说的和 TA 回的');
+  ok(/对方正在想|点这里说|正在说话/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态行有字');
+  // 通话用轻上下文：正文最多 6 条
+  ok(/最近6条/.test(await E(`_P.at(-1)`)), '打电话用轻一点的上下文（正文最近 6 条）');
+  // 常驻前缀整场不变：两轮的系统提示一字不差，只有后面的「这通电话里说过的」在变
+  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && (h => h(a.prompt) === h(b.prompt))(p => p.split(/【想起来的旧事】|【这通电话里说过的】|刚刚说：|电话刚接通/)[0]) && /你在干嘛呀/.test(b.prompt); })()`), '两轮之间系统提示和前缀完全一样（缓存能命中），只有通话内容在变');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition`);
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);

@@ -2106,3 +2106,12 @@ html{min-height:100%;min-height:100dvh}
 .xc-tx p{margin:0;max-width:86%;align-self:flex-start;font-size:calc(15px*var(--fz,1));line-height:1.45;opacity:.6;text-shadow:0 1px 4px rgba(0,0,0,.3);transition:opacity .2s}
 .xc-tx p.now,.xc-tx p:last-child{opacity:1}.xc-tx p.me{align-self:flex-end;text-align:right;opacity:.55}.xc-tx p.ing{font-style:italic;opacity:.75}
 .xc-tx em{display:block;margin-top:2px;font-style:normal;font-size:calc(13px*var(--fz,1));opacity:.75}
+/* 通话：点这里说 / 说完了；想了几秒；提示 */
+.xc-talk{display:flex;gap:10px;justify-content:center;margin-bottom:4px}
+.xc-pill{display:inline-flex;align-items:center;gap:8px;min-width:150px;justify-content:center;padding:12px 22px;border-radius:26px;background:rgba(255,255,255,.92);color:#111;font-weight:500;font-size:calc(16px*var(--fz,1));cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform 120ms var(--ease-out),background .2s}
+.xc-pill:active{transform:scale(.96)}.xc-pill.go{background:#07c160;color:#fff}.xc-pill.sub{min-width:0;background:rgba(0,0,0,.35);color:#fff;font-weight:400}.xc-pill.dis{opacity:.45}
+.xc-pill .xc-i.sm{width:20px;height:20px}
+.xc-ts{font-style:normal;font-variant-numeric:tabular-nums;opacity:.9}
+.xc-hint{margin:6px 10px 0;font-size:calc(12px*var(--fz,1));line-height:1.5;opacity:.7}
+.xc-cur{display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-.15em;background:#fff;animation:xc-cur 1s steps(2) infinite}@keyframes xc-cur{to{opacity:0}}
+.xc-tx p.ing{opacity:.95;font-style:normal}
