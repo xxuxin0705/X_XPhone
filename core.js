@@ -397,14 +397,14 @@ async function stReq(id, sys, user, sig, cx, o) {
   return out;
 }
 // 本次调用走哪条线：生成用模型（aux）> 聊天模型；酒馆模式下可指定某个连接配置，不指定就用酒馆当前连接
-const route = aux => {
-  const a = S.api.chat, x = aux && a.aux || '';
+const route = (aux, use) => {
+  const a = S.api.chat, x = use || aux && a.aux || ''; // use：某个功能单独选的模型（同 aux 的写法：配置 id / st:酒馆配置 id），空就照常
   if (x.startsWith('st:')) { const sp = stProf(x.slice(3)); if (sp) return { st: sp }; }
   else if (x) { const cp = a.list.find(p => p.id == x); if (cp) return { p: cp }; }
   if (a.src == 'tavern') { const sp = stProf(a.stp); return sp ? { st: sp } : { raw: 1 }; }
   return { p: prof('chat') };
 };
-// o.fast 本次强制低思考；o.aux 用「生成用模型」（生成联系人 / 剧情同步等，没设就用聊天模型）；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
+// o.fast 本次强制低思考；o.use 指定模型（功能单独选的，见 设置 → API）；o.aux 用「生成用模型」（生成联系人 / 剧情同步等，没设就用聊天模型）；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
 export const auxProf = () => { const r = route(1); return r.p && r.p.id == S.api.chat.aux ? r.p : null; };
 // 识图：把图片跟这次请求一起发给模型（不额外调用），模型看图理解意思。o.images = [图片地址…]
 // 先缩小成 320px 的 jpg（省 token）；模型或接口不支持看图就自动退回纯文字，并记住这条线以后不再带图
@@ -422,7 +422,7 @@ export const imgData = u => imgC.get(u) || (imgC.set(u, (async () => {
   g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bm, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', .82);
 })().catch(e => { imgC.delete(u); throw e; })), imgC.get(u));
 const withImgs = (user, imgs) => [{ type: 'text', text: user }, ...imgs.map(url => ({ type: 'image_url', image_url: { url } }))];
-export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const R = route(o.aux); return call('chat', desc, user, async (p, sig, cx) => {
+export const llm = (sys, user, desc = '聊天', sg, o = {}) => { const R = route(o.aux, o.use); return call('chat', desc, user, async (p, sig, cx) => {
   const key = R.raw ? 'raw' : R.st ? 'st:' + R.st.id : 'p:' + p.id + ':' + p.model;
   const imgs = o.images?.length && !noVision.has(key) ? (await Promise.all(o.images.map(u => imgData(u).catch(() => null)))).filter(Boolean) : [];
   const once = async img => {

@@ -9,7 +9,7 @@
 import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
 import { openForum } from './forum.js';
 
-const CSS = new URL('./eye.css?v=12', import.meta.url).href;
+const CSS = new URL('./eye.css?v=13', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
