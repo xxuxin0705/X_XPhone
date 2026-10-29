@@ -71,7 +71,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(!/你在干嘛呀/.test(await E(`_P.at(-1)`)), '没点「说完了」之前不会发给对方');
   await E(`document.querySelector('.xc-pill[data-k=done]').click()`); await W(2500);
   ok(/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在发呆呢/.test(await E(`document.querySelector('.xc-tx').innerText`)), '点「说完了」：发给对方，字幕里有我说的和 TA 回的');
-  ok(/对方正在想|点这里说|正在说话/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态行有字');
+  ok(/在想|点这里说|正在说/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态行有字');
   // 通话用轻上下文：正文最多 6 条
   ok(/最近6条/.test(await E(`_P.at(-1)`)), '打电话用轻一点的上下文（正文最近 6 条）');
   // 常驻前缀整场不变：两轮的系统提示一字不差，只有后面的「这通电话里说过的」在变
@@ -92,7 +92,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.waitForFunction(`_D.length >= 2`, null, { timeout: 9000 }).catch(() => { });
   ok(await E(`_D.length >= 2 && /我是螃蟹/.test(JSON.stringify(_D[1].messages))`), 'TA 说完自动开麦，我说完停 1.2 秒就自动发给 TA（不用点任何按钮） srN=' + await E(`_srN`));
   ok(await E(`_busy.every(x => !x)`), '半双工：TA 想的时候麦是关着的（不会把外放的声音录进去）');
-  await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /正在听你说/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「正在听你说」');
+  await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「在听…」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
   // 麦克风诊断：识别开起来了、麦克风也接上了，但一点声音都没进来（比如录屏占着麦克风）→ 屏幕上直接写出来
   await E(`(() => { window.webkitSpeechRecognition = class { start() { setTimeout(() => { this.onstart?.(); this.onaudiostart?.(); }, 100); } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async () => '喂？'; })()`);
@@ -103,10 +103,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // TauriTavern：App 没有录音权限 → 不开浏览器识别，轮到我就弹出输入框，用输入法的话筒说；字停 1.8 秒自动发
   await E(`(() => { window.__TAURI__ = {}; window._srN = 0; window.webkitSpeechRecognition = class { start() { _srN++; } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return '喂？'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500); await shot('tauri');
-  ok(await E(`/输入法/.test(document.querySelector('.xc-type input')?.placeholder || '') && /输入法/.test(document.querySelector('.xc-ph').textContent) && _srN == 0`), 'Tauri：不开浏览器识别，直接弹出输入框（按输入法的🎤说）');
-  await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '我在吃火锅'; i.dispatchEvent(new Event('input')); })()`); await W(900);
+  ok(await E(`/输入法/.test(document.querySelector('.xc-kb input')?.placeholder || '') && document.querySelector('.xc-ph').textContent == '在听…' && !/轮到/.test(document.querySelector('.xc').textContent) && !document.querySelector('.xc-pill') && _srN == 0`), 'Tauri：不开浏览器识别；状态只写「在听…」，没有「轮到你了」、没有按钮，字幕位置就是输入法写字的地方');
+  await E(`window._kb = document.querySelector('.xc-kb input'); _kb.focus()`);
+  await E(`(() => { const i = document.querySelector('.xc-kb input'); i.value = '我在吃火锅'; i.dispatchEvent(new Event('input')); })()`); await W(900);
   ok(!/我在吃火锅/.test(await E(`_P.at(-1)`)), '输入法还在写字时不发');
   await W(1500); ok(/我在吃火锅/.test(await E(`_P.at(-1)`)), '字停 1.8 秒自动发给 TA（不用点「说」）');
+  await W(2500); ok(await E(`document.querySelector('.xc-kb input') === _kb && document.activeElement === _kb && _kb.value == ''`), '发完、TA 回完：还是同一个输入框、焦点没丢（输入法的语音面板不会被关掉）');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition; delete window.__TAURI__`);
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);

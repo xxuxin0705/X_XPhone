@@ -2068,7 +2068,7 @@ html{min-height:100%;min-height:100dvh}
 .xc-kb{font-weight:400;font-size:calc(12.5px*var(--fz,1));opacity:.65;cursor:pointer}
 /* 缩小：右上角一个小窗，显示头像和时长，点一下回来 */
 .xc.mini{inset:auto 10px auto auto;top:calc(var(--sbh) + 52px);width:78px;height:104px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer}
-.xc.mini>*:not(.xc-bg):not(.xc-mini){display:none}.xc.mini .xc-bg{inset:0;filter:blur(8px) brightness(.5);transform:none}
+.xc.mini>*:not(.xc-bg):not(.xc-mini):not(.xc-v),.xc.mini>.xc-v>*:not(.xc-bg){display:none}.xc.mini .xc-bg{inset:0;filter:blur(8px) brightness(.5);transform:none}
 .xc-mini{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:12px;font-variant-numeric:tabular-nums}.xc-mini img{width:40px;height:40px;border-radius:6px;object-fit:cover}.xc:not(.mini) .xc-mini{display:none}
 /* 聊天里的通话消息、名片 */
 .clb{display:inline-flex;align-items:center;gap:7px;cursor:pointer}.clb-i{width:18px;height:18px;opacity:.9}
@@ -2116,3 +2116,11 @@ html{min-height:100%;min-height:100dvh}
 .xc-hint{margin:6px 10px 0;font-size:calc(12px*var(--fz,1));line-height:1.5;opacity:.7}
 .xc-cur{display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-.15em;background:#fff;animation:xc-cur 1s steps(2) infinite}@keyframes xc-cur{to{opacity:0}}
 .xc-tx p.ing{opacity:.95;font-style:normal}
+
+/* 通话 · 输入法说（TauriTavern）：输入框做成字幕的样子，常驻不重建 */
+.xc-v{display:contents}
+.xc-kb{position:absolute;left:24px;right:24px;bottom:calc(196px + env(safe-area-inset-bottom));display:block}
+#stp .xc-kb input{width:100%;max-width:none;box-sizing:border-box;padding:6px 2px;border:0;border-radius:0;border-bottom:1px solid rgba(255,255,255,.22);background:none;color:#fff;font:inherit;font-size:calc(15px*var(--fz,1));text-align:right;outline:none;caret-color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+.xc-kb input::placeholder{color:rgba(255,255,255,.45)}
+#stp .xc-kb input:focus{border-bottom-color:rgba(255,255,255,.5)}
+.xc.pl .xc-kb{bottom:calc(254px + env(safe-area-inset-bottom))}
