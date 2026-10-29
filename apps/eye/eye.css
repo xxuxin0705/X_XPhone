@@ -86,7 +86,7 @@
 .eye-guide { position: absolute; inset: 0; z-index: 6; opacity: 0; pointer-events: none; transition: opacity .9s; background: #06070c; overflow: hidden; }
 .eye-guide.in { opacity: 1; pointer-events: auto; }
 .eye-guide > .bleed { position: absolute; left: -10%; top: -10%; width: 120%; height: 120%; object-fit: cover; filter: blur(22px) brightness(.25); pointer-events: none; }
-.gfit { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%); }
+.gfit { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%) scale(1.32); transform-origin: 99% 40%; }
 .gbase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: brightness(.22) saturate(.45); pointer-events: none; transition: filter 1.2s; }
 .eye-guide.picked .gbase { filter: brightness(.3) saturate(.55); }
 .gcol { position: absolute; overflow: hidden; pointer-events: none; opacity: 0; -webkit-mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(transparent, #000 6%, #000 90%, transparent); -webkit-mask-composite: source-in; mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(transparent, #000 6%, #000 90%, transparent); mask-composite: intersect; animation: gidle 3.6s ease-in-out infinite; animation-delay: calc(var(--i) * .5s); }
@@ -94,9 +94,17 @@
 @keyframes gidle { 0%, 100% { opacity: 0 } 50% { opacity: .35 } }
 .gcol.on { animation: glit .8s steps(1) forwards; }
 @keyframes glit { 0% { opacity: .2 } 15% { opacity: 1 } 25% { opacity: .35 } 40%, 100% { opacity: 1 } }
-.eye-guide.picked .gcol:not(.on) { animation: none; opacity: 0; transition: opacity .4s; }
+.eye-guide.picked .gcol:not(.on) { animation: none; opacity: .14; transition: opacity .4s; }
 .gh { position: absolute; cursor: pointer; }
-.eye-guide.picked .gh { pointer-events: none; }
+.eye-guide.done .gh { pointer-events: none; }
+/* 每块面板下面的名字（像素字），选中的那个亮 */
+.gl { position: absolute; top: 40.6%; transform: translate(-50%, -100%); font-family: "xp-px", sans-serif; font-size: 12px; line-height: 1; white-space: nowrap; letter-spacing: 1px; color: rgba(190, 220, 255, .55); text-shadow: 0 0 4px #000, 0 0 2px #000; pointer-events: none; transition: color .3s, text-shadow .3s; -webkit-font-smoothing: none; }
+.gl.on { color: #fff; text-shadow: 0 0 6px #5ad0ff, 0 0 12px rgba(90, 208, 255, .7), 0 0 2px #000; }
+/* 确认：选了一个以后才出来 */
+.gok { position: absolute; left: 50%; bottom: calc(14% + env(safe-area-inset-bottom)); transform: translate(-50%, 12px); padding: 11px 34px; font-family: "xp-px", sans-serif; font-size: 14px; letter-spacing: 6px; color: #dff3ff; background: rgba(20, 60, 120, .45); border: 1px solid rgba(140, 210, 255, .7); border-radius: 3px; box-shadow: 0 0 16px rgba(80, 180, 255, .45), inset 0 0 14px rgba(90, 190, 255, .25); text-shadow: 0 0 6px #5ad0ff; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .4s, transform .4s, background .2s; -webkit-font-smoothing: none; }
+.eye-guide.picked .gok { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.eye-guide.done .gok { opacity: 0; pointer-events: none; }
+.gok:active { background: rgba(60, 140, 255, .6); }
 /* 电视：关着的屏，上面一行像素字问你 */
 .gtv { position: absolute; left: 33.6%; top: 14.9%; width: 44.6%; height: 17.6%; overflow: hidden; background: #04060c; display: grid; place-items: center; box-shadow: inset 0 0 20px rgba(0, 0, 0, .9); }
 .gtv::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .25) 0 1px, transparent 1px 3px); pointer-events: none; }

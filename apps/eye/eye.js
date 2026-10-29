@@ -2,12 +2,13 @@
 // 画面全是生成的图（assets/eye/*.webp），一笔不画：
 //   room / room_author  客厅（面具挂在墙上 / 戴在他脸上）   phone_*  他手里的手机特写，每种形态一张：只留那一个官方平台，其余七个往前挪成两排
 //   backstage  帷幕后面   cabinet  周边柜特写   fg  最前面一层虚化的沙发   tv_*  五种形态在电视上放的画面   guide  选作品时的客厅（茶几上方五块面板）   gi_*  小图标
-// 每个聊天窗口第一次进来先选「这段剧情是一部什么」（存在这个聊天里，换个聊天要重新选）：整间屋子是暗的，五块面板浮在茶几上方，点哪块哪块亮、电视跟着亮
+// 每个聊天窗口第一次进来先选「这段剧情是一部什么」（存在这个聊天里，换个聊天要重新选）：整间屋子是暗的，五块面板浮在茶几上方，每块下面写着是什么；
+// 点一块 = 预览（那一列亮、电视放对应画面），可以来回换；按「确认」才定下来
 // 手机上的 App：官方平台（随形态换，五选一）/ 论坛 / 周边店 / 同人圈 / 另一条线（同人作品是原著线，原创作品是 IF 线）
 // 内容都是样例；生成之后接
 import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
 
-const CSS = new URL('./eye.css?v=5', import.meta.url).href;
+const CSS = new URL('./eye.css?v=6', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
@@ -159,16 +160,24 @@ function guideHtml() {
   return `<div class="eye-guide ${ST().form ? '' : 'in'}"><img class="bleed" src="${g}" alt=""><div class="gfit"><img class="gbase" src="${g}" draggable="false" alt="">
 <div class="gtv"><p class="gq">在那个世界里，<br>这段剧情是一部……</p></div>
 ${FORMS.map(([k], i) => { const [l, t, r, b] = GCOL[k]; return `<div class="gcol" data-x="${k}" style="${pct(GCOL[k])};--i:${i}"><img src="${g}" style="width:${10000 / (r - l)}%;left:${-l / (r - l) * 100}%;top:${-t / (b - t) * 100}%" alt=""></div>`; }).join('')}
-${FORMS.map(([k]) => `<b class="gh" data-a="gpick" data-x="${k}" style="${pct(GHIT[k])}"></b>`).join('')}</div></div>`;
+${FORMS.map(([k, n]) => `<b class="gh" data-a="gpick" data-x="${k}" style="${pct(GHIT[k])}"></b><span class="gl" data-x="${k}" style="left:${(GCOL[k][0] + GCOL[k][2]) / 2}%">${n}</span>`).join('')}</div>
+<b class="gok" data-a="gok">确 认</b></div>`;
 }
+// 点一块：预览，可以换
 function pickForm(el, k) {
-  const g = $('.eye-guide', el); if (!g || g.classList.contains('picked')) return;
-  const st = ST(); st.form = k; saveD(); g.classList.add('picked');
-  $$('.gcol', g).forEach(c => c.classList.toggle('on', c.dataset.x == k));
-  const tv = $('.gtv', g); tv.insertAdjacentHTML('beforeend', `<img class="tv-img" src="${IMG('tv_' + FM[k].tv)}" alt=""><i class="tv-scan"></i>`); tv.classList.add('lit');
+  const g = $('.eye-guide', el); if (!g || g.classList.contains('done')) return;
+  if (g.dataset.sel == k) return; g.dataset.sel = k; g.classList.add('picked');
+  $$('.gcol', g).forEach(c => c.classList.toggle('on', c.dataset.x == k)); $$('.gl', g).forEach(c => c.classList.toggle('on', c.dataset.x == k));
+  const tv = $('.gtv', g); $$('.tv-img,.tv-scan', tv).forEach(i => i.remove()); tv.insertAdjacentHTML('beforeend', `<img class="tv-img" src="${IMG('tv_' + FM[k].tv)}" alt=""><i class="tv-scan"></i>`);
+  tv.classList.remove('lit'); void tv.offsetWidth; tv.classList.add('lit');
+}
+// 按确认：定下来，淡回客厅
+function confirmForm(el) {
+  const g = $('.eye-guide', el), k = g?.dataset.sel; if (!k || g.classList.contains('done')) return; g.classList.add('done');
+  const st = ST(); st.form = k; saveD();
   $('.tv-scr', el).innerHTML = tvScreen(); $('.tv-scr', el).classList.add('lit'); $('.eye-brand small', el).textContent = `${FN[k]} · ${FM[k].unit}`;
   const ph = $('.swap[data-k="phone"]', el); if (ph) ph.src = SWIMG('phone');
-  setTimeout(() => guide(el, false), 1700);
+  setTimeout(() => guide(el, false), 500);
 }
 
 function mount(el) {
@@ -202,6 +211,7 @@ reg({
     ez: (k, t, e, pg) => { if (!ST().form) return; focus(pg.el, k == focused ? '' : k); },
     eback: (x, t, e, pg) => back(pg.el),
     gpick: (k, t, e, pg) => pickForm(pg.el, k),
+    gok: (x, t, e, pg) => confirmForm(pg.el),
     noop: () => {},
     iskip: (x, t, e, pg) => $('.eye-intro', pg.el)?._skip?.(),
     hopen: (k, t, e, pg) => { if (k == 'cloud') return toast('还没接上，先看样子'); focus(pg.el, 'phone:' + k); },
