@@ -83,7 +83,7 @@ export const I = {
 };
 
 /* ---------- 页面栈 / 底部弹层 / 提示 ---------- */
-const stack = [];
+const stack = [], UNDER = 22; // 视差：下面那页退 22% 宽
 const pgOf = t => { while (t && !t._pg) t = t.parentElement; return t?._pg; };
 function mk(o, cls, box) {
   const el = document.createElement('section'); el.className = cls + ' ' + (o.cls || ''); el._pg = o; o.el = el;
@@ -93,9 +93,11 @@ function mk(o, cls, box) {
   o.re(); box.append(el); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in'))); return o;
 }
 const close = o => { o.el.classList.remove('in'); o.onClose?.(); setTimeout(() => o.el.remove(), 330); };
-export const page = o => (stack.push(o), ui.scr?.classList.add('app-open'), mk(o, 'pg', ui.stack));
+// 进新页时，下面那页同时往左退一小截（视差，表示「新页压在上面」）；返回时它跟着回来
+const under = (o, on) => o && requestAnimationFrame(() => requestAnimationFrame(() => o.el.classList.toggle('under', on)));
+export const page = o => { const prev = stack.at(-1); stack.push(o); ui.scr?.classList.add('app-open'); mk(o, 'pg', ui.stack); under(prev, true); return o; };
 export const top = () => stack.at(-1);
-export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); ui.scr?.classList.toggle('app-open', stack.length > 0); stack.length || sbApply(''); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
+export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); o && stack.at(-1)?.el.classList.remove('under'); ui.scr?.classList.toggle('app-open', stack.length > 0); stack.length || sbApply(''); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
 export const home = () => { while (stack.length) back(true); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };
@@ -120,7 +122,9 @@ export function task(title, fn) {
   const fin = (ok, msg) => {
     clearInterval(iv); const sec = (Date.now() - t0) / 1e3 | 0;
     if (!ok) return errBar(el, msg, sec);
-    el.className = 'tk ' + (ok == 2 ? 'cc' : 'ok'); el.innerHTML = `<i>${ok == 2 ? '–' : '✓'}</i><span>${esc(msg)}</span><time>${sec}s</time>`; el.onclick = () => el.remove(); setTimeout(() => el.remove(), 4000);
+    // 完成：转圈变成绿圆 → 弹一下、外面一圈光散开、对勾一笔画出来（学药房 App 下单成功，缩小成提示条的分量）；走的时候往上淡出
+    const bye = () => { el.classList.add('bye'); setTimeout(() => el.remove(), 220); };
+    el.className = 'tk ' + (ok == 2 ? 'cc' : 'ok'); el.innerHTML = `<i>${ok == 2 ? '–' : '<svg viewBox="0 0 24 24"><path d="M6.5 12.5l3.8 3.8 7.4-8.3"/></svg>'}</i><span>${esc(msg)}</span><time>${sec}s</time>`; el.onclick = bye; setTimeout(bye, 4000);
   };
   return fn(ac.signal, prog).then(m => (fin(1, m || title + ' · 完成'), m), e => ac.signal.aborted ? fin(2, `${title} · 已取消`) : fin(0, `${title}失败：${e?.message || e}`));
 }
@@ -243,14 +247,15 @@ export function bind(R) {
     const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('.cpk,.cpr,.phone-gesture-control,[data-no-swipe-back]')) return;
     // 输入框：正在输入（有焦点）、下拉框、滑块才不让右滑；没点进去的输入框上照样能右滑返回（聊天设置下半页全是输入框）
     const fd = e.target.closest('input,textarea,select'); if (fd && (fd == document.activeElement || fd.tagName == 'SELECT' || fd.type == 'range')) return;
-    const x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), w = pg.el.offsetWidth, sc = pg.el.getBoundingClientRect().width / w || 1; let on = 0, dx = 0;
+    const ue = stack.at(-2)?.el.classList.contains('under') ? stack.at(-2).el : null, x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), w = pg.el.offsetWidth, sc = pg.el.getBoundingClientRect().width / w || 1; let on = 0, dx = 0;
     const end = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
     const mv = ev => {
       dx = (ev.clientX - x0) / sc; const dy = (ev.clientY - y0) / sc;
       if (!on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) return end(); if (dx < 12 || dx < Math.abs(dy) * 1.5) return; on = 1; pg.el.style.transition = 'none'; getSelection()?.removeAllRanges(); }
       pg.el.style.transform = `translateX(${Math.max(0, dx)}px)`;
+      if (ue) { ue.style.transition = 'none'; ue.style.transform = `translateX(${-UNDER * (1 - Math.min(1, Math.max(0, dx) / w))}%)`; } // 下面那页跟着从左边回来
     };
-    const up = () => { end(); if (!on) return; swp = Date.now(); pg.el.style.transition = pg.el.style.transform = ''; (dx > w * .3 || dx / (Date.now() - t0) > .45) && back(); };
+    const up = () => { end(); if (!on) return; swp = Date.now(); pg.el.style.transition = pg.el.style.transform = ''; ue && (ue.style.transition = ue.style.transform = ''); (dx > w * .3 || dx / (Date.now() - t0) > .45) && back(); };
     addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up);
   });
   const hit = (e, a) => { const t = e.target.closest?.(`[data-${a}]`); if (!t || !R.contains(t)) return; const pg = pgOf(t), n = t.dataset[a], f = pg?.acts?.[n] || G[n]; f && (e.stopPropagation(), f(t.dataset.x, t, e, pg)); };

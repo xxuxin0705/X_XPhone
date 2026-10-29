@@ -304,7 +304,7 @@ function reviewPage(p, isNew, done, files) {
   const keep = () => L.filter(x => x.keep);
   if (files) L = files.map(f => ({ img: URL.createObjectURL(f), f, l: nameOf(f.name), d: '', keep: true }));
   const grid = () => `<div class="rv-bar"><span>${L.length ? `已选 <b>${keep().length}</b> / ${L.length}` : '还没有表情'}</span>${L.length ? '<b data-a="rvall">全选</b><b data-a="rvnone">全不选</b>' : ''}</div>${msg ? `<p class="rv-msg">${esc(msg)}</p>` : ''}
-<div class="sp-g rv-g">${L.map((x, i) => `<div class="sks-i rv-i ${x.keep ? '' : 'drop'}" data-a="rvt" data-lp="rvn" data-x="${i}">${imgH({ img: x.img })}<i class="rv-ck"></i><small data-a="rvn" data-x="${i}" class="${x.l ? '' : 'none'}">${esc(x.l || (x.ocr ? '读不出字·点这起名' : '点这起名字'))}</small></div>`).join('')}</div>`;
+<div class="sp-g rv-g">${L.map((x, i) => `<div class="sks-i rv-i ${x.keep ? '' : 'drop'}${x.rd ? ' scan' : ''}" data-a="rvt" data-lp="rvn" data-x="${i}">${imgH({ img: x.img })}${x.rd ? '<i class="rv-sl"></i>' : ''}<i class="rv-ck"></i><small data-a="rvn" data-x="${i}" class="${x.l ? '' : 'none'}${Date.now() - (x.got || 0) < 900 ? ' got' : ''}">${esc(x.l || (x.ocr ? '读不出字·点这起名' : '点这起名字'))}</small></div>`).join('')}</div>`;
   const draw = () => { const g = $('.rv-w', P.el); g && (g.innerHTML = grid()); const b = $('.lk-go', P.el); b && (b.textContent = keep().length ? `导入 ${keep().length} 个` : '导入'); };
   // 没名字的挨个读图里的字（一次只读一张，换了内容就重新开始）
   const ocr = async () => {
@@ -312,8 +312,10 @@ function reviewPage(p, isNew, done, files) {
     let n = 0;
     for (const x of todo) {
       if (my != run || !P.el.isConnected) return; msg = `正在本地读图里的字 ${++n}/${todo.length}…`; draw();
-      try { const t = await readText(x.f || x.img, s => { msg = s; draw(); }); x.ocr = 1; t && !x.l && (x.l = t, x.d ||= '图上写着：' + t); }
-      catch (e) { x.ocr = 1; if (/下载失败/.test(e.message)) { msg = '读字程序下载失败（网络不通），可以手动起名字'; return draw(); } }
+      x.rd = 1; draw(); // 正在读的这张：一道扫描线从上往下扫（照药房 App 扫处方的样子）
+      try { const t = await readText(x.f || x.img, s => { msg = s; draw(); }); x.ocr = 1; t && !x.l && (x.l = t, x.d ||= '图上写着：' + t, x.got = Date.now()); }
+      catch (e) { x.ocr = 1; if (/下载失败/.test(e.message)) { x.rd = 0; msg = '读字程序下载失败（网络不通），可以手动起名字'; return draw(); } }
+      finally { x.rd = 0; }
     }
     msg = `读完了：${todo.filter(x => x.l).length} 个读出了字，其余的没有字（可以点名字自己起）`; draw();
   };

@@ -93,7 +93,7 @@ html{min-height:100%;min-height:100dvh}
 .stack{position:absolute;inset:0;z-index:20;pointer-events:none}
 .pg,.pg-b{touch-action:pan-y}
 .pg{isolation:isolate;position:absolute;inset:0;padding-top:calc(var(--sbh) * .68);display:flex;flex-direction:column;background:var(--pg);color:var(--pt);transform:translateX(100%);transition:transform .34s var(--ease-drawer);pointer-events:auto;box-shadow:-12px 0 30px rgba(0,0,0,.08)}
-.pg.in{transform:none}
+.pg.in{transform:none}.pg.in.under{transform:translateX(-22%)}
 .pg-h{flex:none;display:flex;align-items:center;gap:6px;height:42px;padding:0 12px}
 .pg-back,.pg-r>b{display:grid;place-items:center;min-width:30px;height:32px;color:var(--ac);cursor:pointer;font-weight:500}
 .pg-back svg,.pg-r svg{width:23px;height:23px}
@@ -1225,7 +1225,7 @@ html{min-height:100%;min-height:100dvh}
 #stp :is(input,textarea){caret-color:var(--ac)}
 /* 系统设置了「减少动态效果」：去掉位移动画，只保留淡入淡出 */
 @media (prefers-reduced-motion:reduce){#stp *,#stp *::before,#stp *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}
-  #stp .pg,#stp .sheet{transition:opacity .2s ease!important}}
+  #stp .pg,#stp .sheet{transition:opacity .2s ease!important}#stp .pg.in.under{transform:none}}
 
 /* ===== 音乐 App：界面样式在 apps/music/music.css（随 App 加载），这里只有小手机这边的外壳 ===== */
 .a-music{background:linear-gradient(150deg,#ff8a8a,#e8262b)}
@@ -1925,3 +1925,22 @@ html{min-height:100%;min-height:100dvh}
 @keyframes rp-pop{0%{transform:scale(.4)}60%{transform:scale(1.18)}100%{transform:none}}
 @keyframes rp-fly{0%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-34px) scale(1.6)}}
 @media (prefers-reduced-motion:reduce){.rp.pop,.rp.pop::after{animation:none}}
+/* 表情导入：正在读字的那张，一道青色扫描线带着拖尾从上往下扫；读出名字的标签高亮一下（学药房 App 扫处方） */
+.rv-i.scan{overflow:hidden}.rv-i.scan img{filter:brightness(.96)}
+.rv-sl{position:absolute;left:0;right:0;top:0;height:38%;pointer-events:none;background:linear-gradient(to bottom,transparent,color-mix(in srgb,var(--ac,#1fb5a8) 22%,transparent) 85%,var(--ac,#1fb5a8) 100%);border-bottom:1.5px solid var(--ac,#1fb5a8);transform:translateY(-100%);animation:rv-scan 1.3s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes rv-scan{to{transform:translateY(270%)}}
+.rv-i small.got{animation:rv-got .9s var(--ease-out,ease)}
+@keyframes rv-got{0%{background:color-mix(in srgb,var(--ac,#1fb5a8) 40%,transparent);transform:scale(.92)}35%{transform:scale(1.04)}100%{background:transparent;transform:none}}
+#stp.lite .rv-sl{animation-duration:2s}
+@media (prefers-reduced-motion:reduce){.rv-sl{display:none}}
+/* 任务完成：绿圆弹一下 + 光圈散开 + 对勾画出来；文字带一点模糊换上；离开时往上淡出 */
+.tk.ok>i{position:relative;animation:tk-pop .42s cubic-bezier(.3,1.5,.5,1)}
+.tk.ok>i::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 0 #34c759;animation:tk-ring .7s var(--ease-out,ease-out) .1s forwards;pointer-events:none}
+.tk.ok>i svg{width:13px;height:13px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20;animation:tk-draw .32s var(--ease-out,ease-out) .16s forwards}
+.tk.ok span,.tk.cc span{animation:tk-txt .3s var(--ease-out,ease-out)}
+.tk.bye{opacity:0;transform:translateY(-8px) scale(.97);transition:opacity .2s,transform .2s var(--ease-out,ease-out)}
+@keyframes tk-pop{0%{transform:scale(.5)}60%{transform:scale(1.15)}100%{transform:none}}
+@keyframes tk-ring{to{box-shadow:0 0 0 9px #34c75900}}
+@keyframes tk-draw{to{stroke-dashoffset:0}}
+@keyframes tk-txt{from{opacity:0;filter:blur(3px)}}
+@media (prefers-reduced-motion:reduce){.tk.ok>i svg{stroke-dashoffset:0}}
