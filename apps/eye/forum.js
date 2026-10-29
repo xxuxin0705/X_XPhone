@@ -3,7 +3,7 @@
 // 「模板 + 数据」：模型写一次页面骨架 / 一楼的样子 / 一条楼中楼的样子（HTML + CSS，结构随便它定），
 // 楼层内容用很省字的文本给；这里把数据填进模板，拼成网页放进 sandbox iframe。这样每帖排版都能完全不同，50 楼也写得下。
 // 历史按聊天存在 D().eye.forum（存模型原文，看的时候再拼），最多 30 帖。模型在 设置 → API 里单独选（默认跟小手机的聊天模型）。
-import { S, D, $, page, back, toast, saveD, esc, uid, llm, sysCtx, task, ok } from '../../core.js';
+import { S, C, D, $, page, back, toast, saveD, esc, uid, llm, sysCtx, task, ok } from '../../core.js';
 
 const KEEP = 30;
 const FS = () => (D().eye ||= { form: '', role: 'viewer', wall: false, src: 'orig' }).forum ||= [];
@@ -59,22 +59,27 @@ img,svg{max-width:100%}blockquote{margin:8px 0;padding:4px 10px;border-left:3px 
 [data-more]{display:none!important}[data-fl].open [data-more]{display:revert!important}.xf-more{all:unset;cursor:pointer;color:inherit;opacity:.75;font-size:12.5px}`;
 const JS = `document.addEventListener('click',e=>{const l=e.target.closest('.like,[data-like]');if(l){const b=l.querySelector('.xf-n');l.classList.toggle('on');b&&(b.textContent=+b.textContent+(l.classList.contains('on')?1:-1));return}
 const r=e.target.closest('.xf-more');if(r){const f=r.closest('[data-fl]');f.classList.toggle('open');r.textContent=f.classList.contains('open')?'收起回复':'展开 '+r.dataset.n+' 条回复'}});`;
-export function html(raw) {
-  const p = parse(raw), own = !!(p.tp && p.tf && /\{\{floors\}\}/.test(p.tp));
-  const T = own ? { page: clean(p.tp), floor: clean(p.tf), reply: clean(p.tr || DEF.reply) } : DEF;
-  const av = (u, h) => `<i class="xf-av" style="--h:${h}">${esc([...(u || '?')][0])}</i>`;
-  const floors = p.fl.map((f, i) => {
-    const h = hue(f.u), more = f.rp.length > 3;
-    const replies = f.rp.map((r, j) => { const x = fill(T.reply, { u: esc(r.u), c: rich(r.c), av: av(r.u, hue(r.u)), hue: hue(r.u), i: j + 1 }); return j >= 3 ? mark(x, 'data-more') : x; }).join('');
-    return mark(fill(T.floor, { n: f.n, u: esc(f.u), tag: esc(f.tag), time: esc(f.time), like: `<b class="xf-n">${f.like}</b>`, c: f.c.map(rich).join('<br>'), av: av(f.u, h), hue: h,
-      lv: 1 + hue(f.u + 'lv') % 18, id: (hue(f.u) * 7919 + hue(f.u + 'x') * 104729).toString(36).slice(-8).toUpperCase(), ip: IPS[hue(f.u + 'ip') % IPS.length],
-      is_op: f.tag == '楼主' ? 'op' : '', i: i + 1, rn: f.rp.length, replies, more: more ? `<button class="xf-more" data-n="${f.rp.length - 3}">展开 ${f.rp.length - 3} 条回复</button>` : '' }), `data-fl="${f.n}" id="f${f.n}"`);
-  }).join('\n');
-  const body = fill(T.page, { plat: esc(p.plat), board: esc(p.board), total: esc(p.total || p.fl.length), count: p.fl.length, title: esc(p.t), op: esc(p.ou), op_tag: esc(p.otag), op_time: esc(p.otime),
-    op_av: av(p.ou, hue(p.ou)), body: p.body.split(/\n+/).map(x => `<p>${rich(x)}</p>`).join(''), floors });
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${BASE}</style><style>${own ? '' : DEF.css}${clean(p.css)}</style></head>
-<body class="xf">${own ? '' : clean(p.top)}${body}<script>${JS}<\/script></body></html>`;
+const avH = (u, h) => `<i class="xf-av" style="--h:${h}">${esc([...(u || '?')][0])}</i>`;
+const tpls = p => { const own = !!(p.tp && p.tf && /\{\{floors\}\}/.test(p.tp)); return { own, ...(own ? { page: clean(p.tp), floor: clean(p.tf), reply: clean(p.tr || DEF.reply) } : DEF) }; };
+const floorH = (T, f, i) => {
+  const h = hue(f.u), more = f.rp.length > 3;
+  const replies = f.rp.map((r, j) => { const x = fill(T.reply, { u: esc(r.u), c: rich(r.c), av: avH(r.u, hue(r.u)), hue: hue(r.u), i: j + 1 }); return j >= 3 ? mark(x, 'data-more') : x; }).join('');
+  return mark(fill(T.floor, { n: f.n, u: esc(f.u), tag: esc(f.tag), time: esc(f.time), like: `<b class="xf-n">${f.like}</b>`, c: f.c.map(rich).join('<br>'), av: avH(f.u, h), hue: h,
+    lv: 1 + hue(f.u + 'lv') % 18, id: (hue(f.u) * 7919 + hue(f.u + 'x') * 104729).toString(36).slice(-8).toUpperCase(), ip: IPS[hue(f.u + 'ip') % IPS.length],
+    is_op: f.tag == '楼主' ? 'op' : '', i: i + 1, rn: f.rp.length, replies, more: more ? `<button class="xf-more" data-n="${f.rp.length - 3}">展开 ${f.rp.length - 3} 条回复</button>` : '' }), `data-fl="${f.n}" id="f${f.n}"`);
+};
+// 生成中先把页面骨架 + 主楼放出来，后面的楼一层层发进 iframe 里接上（live）
+const LIVE = `addEventListener('message',e=>{const d=e.data;if(!d||d.t!='xf')return;const end=document.getElementById('xf-end');end&&end.insertAdjacentHTML('beforebegin',d.h)});`;
+export function html(raw, live) {
+  const p = parse(raw), T = tpls(p);
+  const floors = (live ? [] : p.fl).map((f, i) => floorH(T, f, i)).join('\n') + '<template id="xf-end"></template>';
+  const body = fill(T.page, { plat: esc(p.plat), board: esc(p.board), total: esc(p.total || p.fl.length), count: live ? '…' : p.fl.length, title: esc(p.t), op: esc(p.ou), op_tag: esc(p.otag), op_time: esc(p.otime),
+    op_av: avH(p.ou, hue(p.ou)), body: p.body.split(/\n+/).map(x => `<p>${rich(x)}</p>`).join(''), floors });
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${BASE}</style><style>${T.own ? '' : DEF.css}${clean(p.css)}</style></head>
+<body class="xf">${T.own ? '' : clean(p.top)}${body}<script>${JS}${LIVE}<\/script></body></html>`;
 }
+// 已经写完的楼（最后一楼可能还在写，不算）
+const doneFl = (t, end) => { const p = parse(t); return { p, fl: end ? p.fl : p.fl.slice(0, -1) }; };
 
 /* ---------- 提示词 ---------- */
 const PLATS = [
@@ -101,7 +106,8 @@ const FD = {
   novel: { who: '作者（大大）', pts: '网文连载、第几章、更新 / 断更 / 请假条、作者有话说、水字数、错别字和 bug、文笔、逻辑和设定、伏笔、感情线和虐点、本章说和段评、订阅 / 月票 / 打赏 / 盟主、全订、养肥再看、出版实体书、有声剧和广播剧、影视化传闻', fans: '“养肥党”“段评区”“作者别发刀”“弃文了”', plat: '豆瓣、Lofter、贴吧、那个世界的文学网站评论区' },
   game: { who: '策划、制作人、文案、美术', pts: '版本更新和新剧情章节、活动、卡池 / 抽卡 / 保底 / UP 池、角色强度（T0 / 下水道）、平衡性和削弱、bug 和补偿、建模 / 立绘 / Live2D、配音（CV）、文案和剧情策划背锅、氪金和福利、公告、玩家社区和攻略、二创、主播 / 实况、“为了这点剧情抽了几百发”', fans: '“策划死了”“退坑了”“云玩家”“非酋 / 欧皇”“强度党 vs 剧情党 vs XP党”', plat: 'NGA、TapTap 风格评论区、巴哈姆特、B站、贴吧' },
 };
-function prompt(cx, recent) {
+function prompt(cx, recent) { const c = C(), t = prompt0(cx, recent); return (c.substituteParams?.(t) ?? t).replaceAll('{{char}}', c.name2 || '角色').replaceAll('{{user}}', c.name1 || '我'); }
+function prompt0(cx, recent) {
   const fd = FD[cx.form] || FD.anime;
   const role = cx.role == 'author'
     ? `在那个世界里，{{user}}的“上层身份”就是这部${cx.fname}的创作方本人（${fd.who}里那一个）。网友骂的、@ 的、催更的就是“我”，但“我”不在这一帖里发言。`
@@ -113,6 +119,7 @@ function prompt(cx, recent) {
 - 那个世界的人只知道这部作品本身，把当前剧情当作唯一的官方剧情来讨论，不知道、也不提任何“原著”“原剧情”。
 - 作品名和作者：如果角色卡 / 世界书明显来自已有的作品，作品名、作者、连载平台、声优或演员直接用原作的真实信息；否则自己起一个像样的作品名和作者笔名。
 - 角色们不知道自己是角色；发帖、回帖的全是那个世界的读者 / 观众 / 玩家。
+- 帖子里的人物、事件、台词只能来自上面的【正文剧情】、角色卡和世界书里真实出现过的东西：主角就是{{char}}和{{user}}（以及剧情里出现过的人），讨论的就是正文里最近发生的事。不要编正文里没有的主角和事件，不要把系统提示、设定说明、模型自己的说明当成剧情。
 - ${role}
 
 【这是一部${cx.fname}：吵的东西要是${cx.fname}才有的】
@@ -139,7 +146,8 @@ ${PLATS.map(([n, d]) => `- ${n}：${d}`).join('\n')}
 <floor>一楼的样子。可以用 {{n}}楼号 {{u}}昵称 {{tag}}身份标签 {{time}} {{like}}赞数 {{c}}内容 {{av}}现成的圆形字母头像 {{hue}}0-359色相（自己画头像用，如 style="--h:{{hue}}"）{{lv}}1-18等级 {{id}}8位匿名ID {{ip}}IP属地 {{is_op}}楼主时是 op 否则为空（可放进 class）{{i}}第几楼 {{rn}}楼中楼条数 {{replies}}楼中楼 {{more}}“展开回复”按钮</floor>
 <reply>一条楼中楼的样子：{{u}} {{c}} {{av}} {{hue}} {{i}}</reply>
 <style>所有样式。点赞按钮加 class="like"，里面放 {{like}}。</style>
-模板里只用普通标签和 class / style 属性；不要 script、不要 on 事件、不要外链图片和字体。模板加样式一共不超过 5000 字。
+排版质量：头像和文字不能重叠；楼中楼放在这一楼内容下面、缩进或底色区分，楼中楼里不放头像或只放很小的（20px 左右）；正文字号 14～16px、行距舒服；楼与楼之间有清楚的分隔；主楼标题醒目；手机窄屏上不挤不溢出。
+模板里只用普通标签和 class / style 属性；不要 script、不要 on 事件、不要外链图片和字体；楼层容器不要用 table。模板加样式一共不超过 3000 字，写得精炼。
 
 【输出格式】只输出下面这些，不要别的话，不要代码块：
 <style>……</style>
@@ -161,7 +169,7 @@ ${PLATS.map(([n, d]) => `- ${n}：${d}`).join('\n')}
 #2 昵称 | 身份标签 | 时间 | 赞数
 ……
 
-要求：楼层至少 50 楼，楼号从 1 连续往下编；每楼 1～4 句，长短错落；至少 10 楼带楼中楼（每个 2～6 条）；楼主回帖时身份标签写“楼主”；时间从发帖时间往后推；昵称全是网名，同一个人在不同楼里昵称一致（匿名版就都叫无名氏）。`;
+要求：楼层至少 50 楼，楼号从 1 连续往下编；每楼 1～3 句，长短错落、多数很短（像真实评论区）；至少 10 楼带楼中楼（每个 2～6 条）；楼主回帖时身份标签写“楼主”；时间从发帖时间往后推；昵称全是网名，同一个人在不同楼里昵称一致（匿名版就都叫无名氏）。`;
 }
 
 /* ---------- 页面 ---------- */
@@ -171,7 +179,10 @@ const hole = (lines = '') => `<div class="ph"><div class="ph-in"><div class="ph-
 const entry = () => `<div class="efp">${hole()}<button class="efp-go" data-a="efgen">凑近看</button></div>`;
 const loading = () => `<div class="efp efp-ld"><b class="efp-x" data-a="efx">×</b>${hole()}<p class="efp-st"><span>${MSG[0]}</span><i class="efp-cur"></i></p><div class="efp-seg">${'<i></i>'.repeat(25)}</div></div>`;
 
-let busy = null; // { ac, el } 正在生成的那一次
+// 正在生成的那一次（全局只有一个：离开论坛再进来也接着显示它，不会再开第二次）
+// { ac, raw, shell: 骨架和主楼已经出来了, n: 已收到的楼数, cx }
+let busy = null;
+const pages = () => [...document.querySelectorAll('.ef-pg')];
 function show(el, item) {
   const v = $('.ef-v', el); if (!v) return;
   if (!item) { v.innerHTML = entry(); $('.ef-ttl', el).textContent = '论坛'; return; }
@@ -180,33 +191,60 @@ function show(el, item) {
   $('.ef-ttl', el).textContent = [item.plat, item.board].filter(Boolean).join(' · ') || '论坛';
   el.dataset.cur = item.id;
 }
+// 生成中的样子：骨架还没出来 → 猫眼；出来了 → 页面先放上，楼一层层接上，底下一个小条报进度
+function paintBusy(el) {
+  const v = $('.ef-v', el); if (!v || !busy) return;
+  if (!busy.shell) {
+    if (!$('.efp-ld', v)) { v.insertAdjacentHTML('beforeend', loading()); setTimeout(() => $('.efp:not(.efp-ld)', v)?.remove(), 350); }
+    const ov = $('.efp-ld', v), n = busy.n;
+    $('.efp-st span', ov).textContent = n ? `已窥到 #${n} 楼` : MSG[busy.mi % MSG.length];
+    return;
+  }
+  let fr = $('.ef-fr.live', v);
+  if (!fr) {
+    v.innerHTML = '<iframe class="ef-fr live" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe><div class="ef-live"><span></span><i></i></div>';
+    fr = $('.ef-fr', v); fr._sent = 0; fr.onload = () => { fr._ok = 1; feed(fr); }; fr.srcdoc = html(busy.raw, true);
+    const p = parse(busy.raw); $('.ef-ttl', el).textContent = [p.plat, p.board].filter(Boolean).join(' · ') || '论坛';
+  }
+  feed(fr); $('.ef-live span', v).textContent = `正在扒 #${busy.n} 楼`;
+}
+function feed(fr, end) {
+  if (!fr._ok || !busy) return; const { p, fl } = doneFl(busy.raw, end), T = tpls(p);
+  if (fl.length > fr._sent) { fr.contentWindow.postMessage({ t: 'xf', h: fl.slice(fr._sent).map((f, i) => floorH(T, f, fr._sent + i)).join('') }, '*'); fr._sent = fl.length; }
+}
 function gen(el, cx) {
-  if (busy) return toast('正在扒楼');
-  const v = $('.ef-v', el), data = D(), list = FS();
-  v.insertAdjacentHTML('beforeend', loading());
-  setTimeout(() => $('.efp:not(.efp-ld)', v)?.remove(), 350);
-  const ov = $('.efp-ld', v), st = $('.efp-st span', ov), roll = $('.ph-roll', ov), segs = [...ov.querySelectorAll('.efp-seg i')];
-  let mi = 0, floors = 0; const tick = setInterval(() => { if (!floors) st.textContent = MSG[++mi % MSG.length]; }, 1700);
-  const ac = new AbortController(); busy = { ac, el };
-  const done = () => { clearInterval(tick); busy = null; ov.classList.add('out'); setTimeout(() => ov.remove(), 600); };
+  if (busy) return toast('这一帖还没扒完');
+  const c = C(); if (!(c.chat || []).some(m => !m.is_system && String(m.mes || '').trim())) return toast('正文里还没有剧情');
+  const data = D(), list = FS(), ac = new AbortController();
+  busy = { ac, raw: '', shell: false, n: 0, mi: 0, cx };
+  const tick = setInterval(() => { busy && !busy.n && (busy.mi++, pages().forEach(paintBusy)); }, 1700);
+  pages().forEach(paintBusy);
+  const end = ok => { clearInterval(tick); const b = busy; busy = null;
+    pages().forEach(pg => { const v = $('.ef-v', pg); if (!v) return;
+      const ov = $('.efp-ld', v); ov && (ov.classList.add('out'), setTimeout(() => ov.remove(), 600));
+      $('.ef-live', v)?.remove();
+      if (ok) { const fr = $('.ef-fr.live', v); if (fr) { busy = b; feed(fr, true); busy = null; fr.classList.remove('live'); pg.dataset.cur = ok.id; } else show(pg, ok); }
+      else if ($('.ef-fr.live', v)) show(pg, FS()[0]);
+    }); };
   task('论坛 · 扒帖中', async sg => {
     sg.addEventListener('abort', () => ac.abort());
     try {
-      const raw = await llm(await sysCtx(), prompt(cx, list.slice(0, 3).map(x => x.plat).filter(Boolean)), '窥探之眼 · 论坛', ac.signal, {
-        use: S.api?.chat?.eyef || '',
+      const sys = await sysCtx({ n: 10, rc: 6000, wi: 3000, desc: 2000 });
+      const raw = await llm(sys, prompt(cx, list.slice(0, 3).map(x => x.plat).filter(Boolean)), '窥探之眼 · 论坛', ac.signal, {
+        use: S.api?.chat?.eyef || '', fast: 1,
         onText: t => {
-          const n = (t.match(/^#\s*\d+/gm) || []).length; if (n == floors) return; floors = n;
-          st.textContent = `已窥到 #${n} 楼`; segs.forEach((s, i) => s.classList.toggle('on', i < Math.ceil(n / 2)));
-          const last = parse(t).fl.slice(-8); roll.innerHTML = last.map(f => `<p><b>${esc(f.u)}</b>${esc(f.c.join(' ')).slice(0, 40)}</p>`).join('').repeat(2);
+          if (!busy) return; busy.raw = t; const n = (t.match(/^#\s*\d+/gm) || []).length;
+          if (!busy.shell && n >= 1) busy.shell = true; // 第 1 楼开始写了：骨架和主楼都已经齐了
+          if (n != busy.n || busy.shell) { busy.n = n; pages().forEach(paintBusy); }
         },
       });
       if (D() !== data) throw Error('聊天已切换，这一帖没存');
       const p = parse(raw); if (p.fl.length < 5 || !p.t) throw Error('格式不对，再扒一次试试');
       const item = { id: uid(), at: Date.now(), plat: p.plat, board: p.board, t: p.t, n: p.fl.length, form: cx.form, raw };
       list.unshift(item); list.length > KEEP && list.splice(KEEP); saveD();
-      el.isConnected && show(el, item); done();
+      busy.raw = raw; end(item);
       return `扒到 ${p.fl.length} 楼`;
-    } catch (e) { done(); if (ac.signal.aborted) return '论坛 · 已取消'; throw e; }
+    } catch (e) { end(null); if (ac.signal.aborted) return '论坛 · 已取消'; throw e; }
   });
 }
 function history(el) {
@@ -224,7 +262,7 @@ const IC = {
 // cx：{ form, fname, ep, role }，由窥探之眼传进来（避免两个文件互相 import）
 export function openForum(cx) {
   return page({ title: '', cls: 'ef-pg', noBack: 1, body: () => `<div class="ef"><header class="ef-h"><b data-a="efback">${IC.back}</b><span class="ef-ttl">论坛</span><b data-a="efhist">${IC.hist}</b><b data-a="efgen">${IC.ref}</b></header><div class="ef-v"></div></div>`,
-    after: el => { if (el._ef) return; el._ef = 1; show(el, FS()[0]); if (busy && !busy.el.isConnected) busy = null; },
+    after: el => { if (el._ef) return; el._ef = 1; show(el, FS()[0]); busy && paintBusy(el); },
     acts: {
       efback: () => back(),
       efhist: (x, t, e, pg) => history(pg.el),

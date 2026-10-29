@@ -2,7 +2,9 @@
 const { chromium } = require('playwright'); const fs = require('fs'), path = require('path'), http = require('http');
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.webp': 'image/webp', '.woff': 'font/woff', '.html': 'text/html' };
-const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'text/html' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8817);
+let reqs = 0; // 假的流式接口：每 40ms 吐一段
+const srv = http.createServer((q, r) => { const u = q.url.split('?')[0];
+  if (u == '/v1/chat/completions') { reqs++; r.writeHead(200, { 'content-type': 'text/event-stream' }); const t = fake('NGA', 1).replace('【平台】NGA', '【平台】NGA'), parts = t.match(/[\s\S]{1,50}/g); let i = 0; const iv = setInterval(() => { if (i < parts.length) r.write(`data: ${JSON.stringify({ choices: [{ delta: { content: parts[i++] } }] })}\n\n`); else { clearInterval(iv); r.end('data: [DONE]\n\n'); } }, 40); return; } const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'text/html' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8817);
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
 // 一份假的模型输出：52 楼，第 3 楼有 5 条楼中楼；own=1 时带自己的模板（贴吧那种左右两栏）
 const TPL = `<page><header class="tb">{{plat}}·{{board}}<script>alert(1)</script></header><h1 class="tt">{{title}}</h1><div class="opb">{{body}}</div><main>{{floors}}</main></page>
@@ -25,7 +27,7 @@ ${Array.from({ length: 52 }, (_, i) => `#${i + 1} 网友${i % 7} | ${['CP粉', '
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => { errs.push('dialog ' + d.message()); d.dismiss(); });
   await p.goto('http://localhost:8817/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms);
-  await E(`(async () => { window.core = await import('/core.js'); window.F = await import('/apps/eye/forum.js'); core.S.lock.on = false; core.S.eye = { intro: false }; core.D().eye = { form: 'manga', role: 'viewer', wall: false, src: 'orig' }; core.S.api.chat.src = 'tavern'; core.save(); core.home(); })()`);
+  await E(`(async () => { window.core = await import('/core.js'); window.F = await import('/apps/eye/forum.js'); core.S.lock.on = false; core.S.eye = { intro: false }; core.D().eye = { form: 'manga', role: 'viewer', wall: false, src: 'orig' }; core.S.api.chat.src = 'tavern'; core.save(); core.home(); ctx.chat = []; })()`);
   let calls = 0, lastPrompt = '';
   await p.exposeFunction('fakeAI', n => fake(n % 2 ? '百度贴吧' : '豆瓣小组', n % 2));
   await E(`SillyTavern.getContext().generateRaw = async o => { window.__calls = (window.__calls || 0) + 1; window.__prompt = o.prompt; await new Promise(r => setTimeout(r, 400)); return fakeAI(window.__calls); }`);
@@ -40,6 +42,9 @@ ${Array.from({ length: 52 }, (_, i) => `#${i + 1} 网友${i % 7} | ${['CP粉', '
   await E(`document.querySelector('.phz[data-x=forum]').click()`); await W(700);
   ok(await E(`!!document.querySelector('.ef-pg .efp .ph') && !!document.querySelector('.efp-go') && !document.querySelector('.holo')`), '点论坛：整页打开，先是猫眼（没有全息屏）');
   await p.screenshot({ path: OUT + '/eyef-entry.png' });
+  await E(`document.querySelector('.efp-go').click()`); await W(300);
+  ok(await E(`!document.querySelector('.efp-ld') && !window.__calls`), '正文里还没剧情：不开始扒');
+  await E(`ctx.chat = [{ name: '灰吕杵志', mes: '雨还在下，他把伞递了过去。', is_system: false }]`);
   await E(`document.querySelector('.efp-go').click()`); await W(150);
   ok(await E(`!!document.querySelector('.efp-ld .ph-scan') && document.querySelectorAll('.efp-seg i').length == 25`), '点凑近看：猫眼开始扫描，25 格进度');
   await p.screenshot({ path: OUT + '/eyef-loading.png' });
@@ -54,6 +59,7 @@ ${Array.from({ length: 52 }, (_, i) => `#${i + 1} 网友${i % 7} | ${['CP粉', '
   await fr().click('#f3 .like'); ok(await fr().$eval('#f3 .like .xf-n', x => x.textContent) == '27', '点赞 +1');
   await p.screenshot({ path: OUT + '/eyef-thread.png' });
   const pr = await E(`window.__prompt`);
+  ok(!/\{\{char\}\}|\{\{user\}\}/.test(pr) && /灰吕杵志/.test(pr) && /只能来自上面的【正文剧情】/.test(pr), '提示词里的 {{char}} {{user}} 换成了名字，要求只用正文里的人和事');
   ok(/漫画/.test(pr) && /画崩/.test(pr) && /漫画家/.test(pr) && /至少 50 楼/.test(pr) && /最近几帖用过：无/.test(pr), '提示词带形态、50 楼、最近用过的平台');
   // 再刷一帖
   await E(`document.querySelector('.ef-h [data-a=efgen]').click()`); await W(1800);
@@ -66,9 +72,22 @@ ${Array.from({ length: 52 }, (_, i) => `#${i + 1} 网友${i % 7} | ${['CP粉', '
   ok(await E(`document.querySelector('.ef-ttl').textContent`) == '百度贴吧 · 少年漫吃瓜专组', '点历史里的旧帖：回到论坛显示那一帖');
   await E(`document.querySelector('.ef-h [data-a=efhist]').click()`); await W(400); await E(`document.querySelectorAll('.efh-l li')[0].click()`); await W(500);
   ok(await p.frames().find(f => f !== p.mainFrame()).$$eval('.fl', x => x.length) == 52, '没带模板的那帖：用默认版式');
+  // 流式：骨架先出来，楼一层层接上；生成中再点 / 退出再进都不会开第二次
+  await E(`Object.assign(core.S.api.chat, { src: 'custom', cur: 'a', eyef: '', list: [{ id: 'a', name: 'x', url: 'http://localhost:8817/v1', key: 'k', model: 'm' }] })`);
+  await E(`document.querySelector('.ef-h [data-a=efgen]').click()`); await W(900);
+  const liveN = await (async () => { const f = p.frames().find(f => f !== p.mainFrame()); return f ? f.$$eval('[data-fl]', x => x.length).catch(() => -1) : -1; })();
+  ok(await E(`!!document.querySelector('.ef-fr.live') && !!document.querySelector('.ef-live')`) && liveN > 0 && liveN < 52, '流式：帖子先出来，楼一层层接上（已到 ' + liveN + ' 楼）');
+  await p.screenshot({ path: OUT + '/eyef-live.png' });
+  await E(`document.querySelector('.ef-h [data-a=efgen]').click()`); await W(100);
+  await E(`document.querySelector('.ef-h [data-a=efback]').click()`); await W(400);
+  await E(`document.querySelector('.phz[data-x=forum]').click()`); await W(600);
+  ok(reqs == 1 && await E(`!!document.querySelector('.ef-fr.live, .efp-ld')`), '生成中再点 / 退出再进：还是那一次，没有开第二次');
+  await W(4500);
+  const f2 = p.frames().find(f => f !== p.mainFrame());
+  ok(reqs == 1 && await E(`core.D().eye.forum.length`) == 3 && await f2.$$eval('[data-fl]', x => x.length) == 52 && await E(`!document.querySelector('.ef-live') && !document.querySelector('.ef-fr.live')`), '扒完：52 楼都接上，进度条收起，存进历史');
   // 换聊天：历史跟着聊天走
   await E(`(core.home(), ctx.chatMetadata = {}, ctx.chatId = 'chatB')`); await W(200);
   ok(await E(`!(core.D().eye?.forum?.length)`), '换个聊天：没有历史');
   ok(errs.length == 0, '没有报错 ' + errs.join(' | '));
-  console.log(`\n${pass} 通过 / ${fail} 失败`); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
+  console.log(`\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
 })();
