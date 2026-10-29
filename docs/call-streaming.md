@@ -117,3 +117,15 @@
 - 用户在 Tauri 里直接对着手机说话，界面写着「在听…」，其实没有任何东西在听（TauriTavern 2.4.0 最新代码仍没有 RECORD_AUDIO）。改成：拿不到麦克风时写「点下面的框，按键盘上的🎤说话」，并在下面说明原因；只有框里有焦点（键盘开着）才写「在听…」；用过一次之后写「点下面的框，接着说」。
 - Tauri 里也先 `getUserMedia` 试一下：以后 TauriTavern 加了录音权限，就直接走模型听，不用再改代码。
 - TA 想的时候显示「N 秒 · 模型思考了 M 字」（onThink）；这一轮没接上（报错 / 空回复 / 2 分钟没动静 / 我点了「不等了」）时，原因留在屏幕上（`A.why`），不只是一闪而过的提示。
+
+## 2026-10-30：参考 evolia（开源安卓 App，dragonstaryuri-sys/evolia）重构「耳朵」
+
+evolia 是原生安卓，自己有录音权限，链路是 录音（AEC3 + 降噪）→ Silero VAD → 识别（系统识别 / 本地 SenseVoice / 在线识别）→ 模型 → TTS。网页里做不了原生的，但同样的思路能搬：
+
+- 拆出 `apps/chat/ear.js`：麦克风 → VAD → 识别，通过事件（start / level / partial / end / final / short / duck / unduck / barge / asrerr）告诉通话界面。`call.js` 只管状态和界面。
+- **识别来源**：`model`（录音交给聊天模型听）/ `sf`（硅基流动免费识别模型，默认 FunAudioLLM/SenseVoiceSmall；evolia 默认 TeleAI/TeleSpeechASR）/ `web`（浏览器识别）/ Tauri 里输入法说。底部开关轮着切。硅基识别的密钥：`S.callAsr.key`，没填就用画图那里的硅基流动密钥，都没有就在通话界面里就地填。
+- **伪流式**（照 evolia OnlineASRProvider）：切片 ≥1 秒且遇到 0.2 秒小停顿就切一段送去认；连着说超过 3 秒、当前这帧不响时强制切；前面认出来的字当 prompt 带上；按顺序排队，说完把最后一段认完再交出整句。说话时字幕边说边出字。
+- **两段式打断**（照 evolia：240ms duck → 520ms interrupt）：TA 说话时连着响 6 帧（约 0.26 秒）先把 TA 音量压到 20%，连着响 14 帧（约 0.6 秒）才打断；中途不响就恢复。TA 在想（没出声）时 11 帧。
+- 预卷 0.5 秒（插话时 1.2 秒），开口前几个字不被吞；回声尾窗从 0.45 秒改成 0.25 秒；垫音「嗯…」从 2.5 秒提前到 2 秒（evolia 的 LISTENER_CUE_DELAY_MS）。
+- **TA 主动挂电话**（照 evolia 的 call_control 工具）：聊完了模型在最后单独写一行 `[挂断]`，放完这句就挂，字幕和记录里不露标记。
+- 在认最后一段的时候（`A.recog`）不听新的，避免把同一句拆成两轮。

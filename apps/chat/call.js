@@ -12,6 +12,7 @@ import { S, D, save, saveD, esc, ui, toast, avOf, meObj, nm, rn, now, llm, sysCt
 import { regMod, mp, NOAI } from '../../mods.js';
 import { lname } from './data.js';
 import { recall } from './recall.js';
+import { makeEar, wav, asrCfg } from './ear.js';
 regMod({ k: 'chat.call', app: '聊天', n: '语音通话', def: '这是在打电话，不是发消息：完全口语，短句，一次只说一两句，像真人那样有停顿、会接话、会追问，可以有「嗯」「啊」「欸」这种语气词。不要动作描写、括号旁白、表情符号、星号。', vars: [['对方', '通话的人'], ['我', '我的网名']] });
 
 const IC = n => new URL(`../../assets/wx/call/${n}.png`, import.meta.url).href;
@@ -43,14 +44,18 @@ export function startCall(ch, kind = 'voice') {
   const c = ch, me = meObj(), A = { ch, kind, st: 'dial', t0: 0, mic: true, spk: kind == 'video', log: [], cap: '', who: '', q: [], ac: null, rec: null, au: null, ring: null, cam: null, typing: false, ttsBad: false, inL: S.callLang || 'zh-CN', outL: undefined, ph: 'dial', thinkAt: 0, lastSaid: null };
   // 走酒馆「当前连接」时拿不到流式：整段想完才开口，所以会慢；在 应用配置 → 语音通话 里选一个「连接配置」或自己的 API 才能一句一句出
   A.raw = !(S.mods?.['chat.call']?.use) && S.api.chat.src == 'tavern' && !stProf(S.api.chat.stp) && !curStream(); // 酒馆当前连接是聊天补全时也能流式（见 core 的 curReq）
-  A.auto = S.callAuto ?? true; A.kbv = false; A.ear = (S.callEar ?? 'model') == 'model' && !!navigator.mediaDevices?.getUserMedia ? 'model' : 'web'; // Tauri 也先试麦克风（以后 TauriTavern 加了录音权限就能直接用），拿不到再换输入法说 // Tauri：用输入法说（输入框常驻，不随重画重建，输入法的语音面板才不会被关掉）
+  A.auto = S.callAuto ?? true; A.kbv = false; A.ear = (w => w == 'web' || !navigator.mediaDevices?.getUserMedia ? 'web' : w)(S.callEar ?? 'model'); // Tauri 也先试麦克风（以后 TauriTavern 加了录音权限就能直接用），拿不到再换输入法说 // Tauri：用输入法说（输入框常驻，不随重画重建，输入法的语音面板才不会被关掉）
   // 播放用的音频时钟：在这次点击里建好（浏览器要求有用户操作才能出声），整通电话共用一个
   // 手机浏览器 / 酒馆 App 的内置网页默认「没点过就不许出声」：这里趁着这次点击，把音频时钟和一个常驻的播放器都先「解锁」（各放一段静音），后面整通电话都用它们
   try { A.ctx = new (globalThis.AudioContext || globalThis.webkitAudioContext)(); A.gain = A.ctx.createGain(); A.gain.gain.value = A.spk ? 1 : .85; A.gain.connect(A.ctx.destination);
     const z = A.ctx.createBufferSource(); z.buffer = A.ctx.createBuffer(1, 1, 22050); z.connect(A.gain); z.start(0); A.ctx.resume?.(); } catch { }
   A.au = new Audio(SILENT); A.au.play().catch(() => { });
-  A.ear == 'model' ? setTimeout(() => earOn(), 0) : TAU() && setTimeout(() => kbMode(), 0); // 趁这次点击开麦克风（第一次会弹权限）；Tauri 里浏览器识别用不了
+  isEar() ? setTimeout(() => { earOn(); A.ear == 'sf' && !asrCfg().key && askKey(); }, 0) : TAU() && setTimeout(() => kbMode(), 0); // 趁这次点击开麦克风（第一次会弹权限）；Tauri 里浏览器识别用不了
   A.lines = []; // 字幕：这通电话里谁说了什么（外语带中文）
+  function isEar() { return A.ear == 'model' || A.ear == 'sf'; } // 自己开麦克风听（不是浏览器识别 / 输入法）
+  const ear = makeEar({ ctx: A.ctx, kind: () => A.ear == 'sf' ? 'sf' : 'model', playing: () => (A.playN || 0) > 0,
+    mode: () => !A.mic || A.st != 'talk' || CALL != A || A.recog || !isEar() || performance.now() < (A.quiet || 0) ? 'off' : A.ph == 'think' || A.ph == 'speak' ? (S.callBarge ?? true) ? 'busy' : 'off' : 'listen' }, (t, v) => earEv(t, v));
+  A.earObj = ear;
   const el = Object.assign(document.createElement('div'), { className: `xc xc-${kind}` }); A.el = el; CALL = A;
   const V = Object.assign(document.createElement('div'), { className: 'xc-v' }); el.append(V); // 每次重画只换这一层
   let KB = null; // 输入法说的输入框（常驻，不随重画重建）
@@ -63,13 +68,13 @@ export function startCall(ch, kind = 'voice') {
     i.oninput = () => { clearTimeout(A.kt); if (A.ph == 'speak' || A.ph == 'think') { A.echo = 1; return; } const v = i.value.trim(); if (v && A.auto) A.kt = setTimeout(() => CALL == A && i.value.trim() == v && send(), KBS); };
     KB.onclick = e => e.stopPropagation(); draw(); }
   const draw = () => {
-    const dial = A.st == 'dial', rec = A.ph == 'rec', cap = A.lines.length || rec ? `<div class="xc-tx">${A.lines.slice(-8).map((x, i, L) => `<p class="${x.f == 'me' ? 'me' : ''} ${i == L.length - 1 && A.ph == 'speak' && x.f != 'me' ? 'now' : ''}"${x.f == 'me' && x.t != '…' ? ` data-k="fix" data-i="${A.lines.length - L.length + i}"` : ''}>${x == A.rv ? `<span class="xc-r">${esc(x.t.slice(0, x.sh))}</span>` : esc(x.t)}${x.tr && x.tr != x.t ? `<em${x == A.rv ? ' class="xc-r2"' : ''}>${esc(x == A.rv ? x.tr.slice(0, Math.ceil(x.tr.length * x.sh / Math.max(1, x.t.length))) : x.tr)}</em>` : ''}</p>`).join('')}${rec ? A.ear == 'model' ? '<p class="me ing xc-lvp"><span class="xc-lv"><i></i><i></i><i></i><i></i><i></i></span></p>' : `<p class="me ing"><span>${esc(A.heard || '')}</span><i class="xc-cur"></i></p><p class="xc-dg">${esc(diag())}</p>` : ''}</div>` : '';
+    const dial = A.st == 'dial', rec = A.ph == 'rec', cap = A.lines.length || rec ? `<div class="xc-tx">${A.lines.slice(-8).map((x, i, L) => `<p class="${x.f == 'me' ? 'me' : ''} ${i == L.length - 1 && A.ph == 'speak' && x.f != 'me' ? 'now' : ''}"${x.f == 'me' && x.t != '…' ? ` data-k="fix" data-i="${A.lines.length - L.length + i}"` : ''}>${x == A.rv ? `<span class="xc-r">${esc(x.t.slice(0, x.sh))}</span>` : esc(x.t)}${x.tr && x.tr != x.t ? `<em${x == A.rv ? ' class="xc-r2"' : ''}>${esc(x == A.rv ? x.tr.slice(0, Math.ceil(x.tr.length * x.sh / Math.max(1, x.t.length))) : x.tr)}</em>` : ''}</p>`).join('')}${rec ? isEar() ? `<p class="me ing xc-lvp"><span class="xc-pt">${esc(A.heard || '')}</span> <span class="xc-lv"><i></i><i></i><i></i><i></i><i></i></span></p>` : `<p class="me ing"><span>${esc(A.heard || '')}</span><i class="xc-cur"></i></p><p class="xc-dg">${esc(diag())}</p>` : ''}</div>` : '';
     const thinkS = A.ph == 'think' ? Math.round((performance.now() - A.thinkAt) / 1e3) : 0;
-    const ph = { idle: A.kbv ? A.kbF ? '在听…' : A.kbU ? '点下面的框，接着说' : '点下面的框，按键盘上的🎤说话' : A.ear == 'model' && A.mic ? A.ms ? '在听…' : '正在打开麦克风…' : A.mic ? A.auto ? '点「点这里说」接着聊' : '点下面「点这里说」，说完点「说完了」' : '麦克风已关', rec: A.auto ? '在听…' : '在听你说… 说完点「说完了」', think: `${esc(nm(c))} 在想…${thinkS >= 5 ? ` <i class="xc-ts">${tsTxt(thinkS)}</i>` : ''}`, speak: `${esc(nm(c))} 正在说`, fail: '这轮没接上，可以再说一遍' }[A.ph] || '';
-    const hint = A.kbv && !A.kbU && A.ph != 'think' && A.ph != 'speak' && !dial ? '<p class="xc-hint">酒馆 App（Tauri）没有给网页麦克风权限，直接对着手机说它听不到；借键盘自带的语音输入说，停一下自动发给 TA</p>' : A.ph == 'fail' && A.why ? `<p class="xc-hint">${esc(A.why)}</p>` : A.ear == 'model' && A.earBad ? `<p class="xc-hint">${esc(A.earBad)}</p>` : A.ph == 'think' && thinkS >= 20 ? `<p class="xc-hint">${A.raw ? '酒馆当前连接是文本补全（或酒馆版本太旧），拿不到流式，要等整段想完才开口。在 设置 → 应用配置 → 聊天 → 语音通话 里选一个「连接配置」或自己的 API，并把「低思考」打开，会快很多' : '模型想得有点久，可能开着深度思考；在 设置 → 应用配置 → 语音通话 里把「低思考」打开会快一些'}</p>` : '';
-    const pill = dial ? '' : (A.kbv || A.ear == 'model') && !(A.ph == 'think' && thinkS >= 20) && A.ph != 'fail' ? '' : rec ? `<div class="xc-talk"><b class="xc-pill go" data-k="done">说完了</b><b class="xc-pill sub" data-k="recx">取消</b></div>`
+    const ph = { idle: A.kbv ? A.kbF ? '在听…' : A.kbU ? '点下面的框，接着说' : '点下面的框，按键盘上的🎤说话' : isEar() && A.mic ? ear.ms ? '在听…' : '正在打开麦克风…' : A.mic ? A.auto ? '点「点这里说」接着聊' : '点下面「点这里说」，说完点「说完了」' : '麦克风已关', rec: A.auto ? '在听…' : '在听你说… 说完点「说完了」', think: A.recog ? '在认你说的话…' : `${esc(nm(c))} 在想…${thinkS >= 5 ? ` <i class="xc-ts">${tsTxt(thinkS)}</i>` : ''}`, speak: `${esc(nm(c))} 正在说`, fail: '这轮没接上，可以再说一遍' }[A.ph] || '';
+    const hint = A.kbv && !A.kbU && A.ph != 'think' && A.ph != 'speak' && !dial ? '<p class="xc-hint">酒馆 App（Tauri）没有给网页麦克风权限，直接对着手机说它听不到；借键盘自带的语音输入说，停一下自动发给 TA</p>' : A.ph == 'fail' && A.why ? `<p class="xc-hint">${esc(A.why)}</p>` : isEar() && A.earBad ? `<p class="xc-hint">${esc(A.earBad)}</p>` : A.ph == 'think' && thinkS >= 20 ? `<p class="xc-hint">${A.raw ? '酒馆当前连接是文本补全（或酒馆版本太旧），拿不到流式，要等整段想完才开口。在 设置 → 应用配置 → 聊天 → 语音通话 里选一个「连接配置」或自己的 API，并把「低思考」打开，会快很多' : '模型想得有点久，可能开着深度思考；在 设置 → 应用配置 → 语音通话 里把「低思考」打开会快一些'}</p>` : '';
+    const pill = dial ? '' : (A.kbv || isEar()) && !(A.ph == 'think' && thinkS >= 20) && A.ph != 'fail' ? '' : rec ? `<div class="xc-talk"><b class="xc-pill go" data-k="done">说完了</b><b class="xc-pill sub" data-k="recx">取消</b></div>`
       : A.ph == 'think' ? `<div class="xc-talk"><b class="xc-pill sub" data-k="stop">${thinkS >= 20 ? '不等了，我再说' : '打断'}</b></div>`
-      : A.ph == 'speak' ? '' : `<div class="xc-talk">${A.typing || A.ear == 'model' ? '' : `<b class="xc-pill ${A.mic ? '' : 'dis'}" data-k="talk">${msk('mic', 'sm')}${A.ph == 'fail' && A.lastSaid ? '再说一遍' : '点这里说'}</b>`}${A.ph == 'fail' && A.lastSaid ? `<b class="xc-pill sub" data-k="retry">重发刚才那句</b>` : ''}</div>`;
+      : A.ph == 'speak' ? '' : `<div class="xc-talk">${A.typing || isEar() ? '' : `<b class="xc-pill ${A.mic ? '' : 'dis'}" data-k="talk">${msk('mic', 'sm')}${A.ph == 'fail' && A.lastSaid ? '再说一遍' : '点这里说'}</b>`}${A.ph == 'fail' && A.lastSaid ? `<b class="xc-pill sub" data-k="retry">重发刚才那句</b>` : ''}</div>`;
     const keep = el.querySelector('.xc-type input')?.value || '';
     V.innerHTML = `<div class="xc-bg" style="background-image:url('${esc(avOf(c))}')"></div><div class="xc-dim"></div>
 <b class="xc-min" data-k="min">${msk('mini')}</b>${kind == 'video' ? `<div class="xc-me">${A.cam ? '<video autoplay muted playsinline></video>' : `<img src="${esc(avOf(me))}">`}</div>` : ''}
@@ -79,7 +84,7 @@ export function startCall(ch, kind = 'voice') {
 <b data-k="mic" class="${A.mic ? 'on' : ''}"><i class="xc-c">${msk('mic', A.mic ? '' : 'off')}</i><small>${A.mic ? '麦克风已开' : '麦克风已关'}</small></b>
 <b data-k="end"><i class="xc-c red">${msk('hang')}</i><small>${dial ? '取消' : '挂断'}</small></b>
 <b data-k="spk" class="${A.spk ? 'on' : ''}"><i class="xc-c">${A.spk ? SPK_ON : msk('spk-off')}</i><small>${A.spk ? '扬声器已开' : '扬声器已关'}</small></b></div>
-${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[0] == A.inL)?.[1] || A.inL)}</b><i></i><b data-k="outl">TA 说 ${esc(outName(A.outL ?? (ch.cfg?.lang || '')))}</b>${A.kbv ? '' : `<i></i><b data-k="ear">${A.ear == 'model' ? '模型听' : '浏览器识别'}</b>`}${A.ear == 'model' ? '' : `<i></i><b data-k="auto">${A.auto ? '自动接话' : '点着说'}</b>`}${A.kbv ? '' : `<i></i><b data-k="kb">${A.typing ? '收起键盘' : '⌨ 打字说'}</b>`}</div>`}</div>`;
+${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[0] == A.inL)?.[1] || A.inL)}</b><i></i><b data-k="outl">TA 说 ${esc(outName(A.outL ?? (ch.cfg?.lang || '')))}</b>${A.kbv ? '' : `<i></i><b data-k="ear">${{ model: '模型听', sf: '硅基识别', web: '浏览器识别' }[A.ear]}</b>`}${isEar() ? '' : `<i></i><b data-k="auto">${A.auto ? '自动接话' : '点着说'}</b>`}${A.kbv ? '' : `<i></i><b data-k="kb">${A.typing ? '收起键盘' : '⌨ 打字说'}</b>`}</div>`}</div>`;
     el.classList.toggle('pl', !!pill);
     if (A.cam) { const v = el.querySelector('video'); v && (v.srcObject = A.cam); }
     const tx = el.querySelector('.xc-tx'); tx && (tx.scrollTop = tx.scrollHeight);
@@ -88,7 +93,8 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   A.draw = draw;
   const tick = setInterval(() => { const t = el.querySelector('.xc-tm'); t && A.t0 && (t.textContent = mmss((now() - A.t0) / 1e3)); const m = el.querySelector('.xc-mt'); m && A.t0 && (m.textContent = mmss((now() - A.t0) / 1e3));
     if (A.ph == 'rec') dg();
-    if (A.ear == 'model' && A.ms && A.st == 'talk' && !A.earBad && performance.now() - A.earAt > 6e3 && (A.vmax || 0) < .002) { A.earBad = '麦克风开着，但一点声音都没进来：如果在录屏并且录了麦克风，录屏会把麦克风占走（录屏时关掉「录制麦克风声音」再试）'; draw(); }
+    if (A.earBad && /一点声音/.test(A.earBad) && ear.vmax > .004) { A.earBad = ''; draw(); }
+    if (isEar() && ear.ms && A.st == 'talk' && !A.earBad && performance.now() - ear.at > 6e3 && ear.vmax < .002) { A.earBad = '麦克风开着，但一点声音都没进来：如果在录屏并且录了麦克风，录屏会把麦克风占走（录屏时关掉「录制麦克风声音」再试）'; draw(); }
     if (A.ph == 'think') { const sN = Math.round((performance.now() - A.thinkAt) / 1e3), ts = el.querySelector('.xc-ts'); ts && (ts.textContent = tsTxt(sN)); (sN == 5 || sN == 20) && draw(); } }, 1000); // 想到 20 秒：换上提示和「不等了」
   const tsTxt = sN => `${sN}s${A.thk ? ` · 模型思考了 ${A.thk} 字` : A.got ? '' : ''}`;
   const sendTyped = () => { clearTimeout(A.kt); const ip = el.querySelector('.xc-type input'), v = ip?.value.trim(); if (!v) return; if (A.ph == 'think') return toast('等 TA 想好，或者先点「打断」'); ip.value = ''; stopRec(); heard(v); }; // 对方思考时不收新的话（不然会叠出两份回答）
@@ -96,7 +102,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     if (el.classList.contains('mini')) { el.classList.remove('mini'); return; }
     if (k == 'min') { el.classList.add('mini'); el.querySelector('.xc-mini')?.remove(); el.insertAdjacentHTML('beforeend', `<div class="xc-mini"><img src="${esc(avOf(c))}"><span class="xc-mt">${A.t0 ? mmss((now() - A.t0) / 1e3) : '等待接听'}</span></div>`); return; }
     if (k == 'end') return hang();
-    if (k == 'mic') { A.mic = !A.mic; A.E && (A.E.on = 0, A.E.buf = []); A.ph == 'rec' && A.ear == 'model' && (A.ph = 'idle'); if (!A.mic && A.ph == 'rec') { stopRec(); A.ph = 'idle'; A.heard = ''; } return draw(); }
+    if (k == 'mic') { A.mic = !A.mic; ear.reset(); A.ph == 'rec' && isEar() && (A.ph = 'idle'); if (!A.mic && A.ph == 'rec') { stopRec(); A.ph = 'idle'; A.heard = ''; } return draw(); }
     if (k == 'talk') { if (!A.mic) return toast('先打开麦克风'); if (A.kbv) { KB.querySelector('input').focus(); return; } return listen(); }
     if (k == 'done') return finishRec();
     if (k == 'recx') { stopRec(); A.heard = ''; A.ph = 'idle'; return draw(); }
@@ -107,7 +113,9 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     if (k == 'outl') return menu(OUT, 'TA 用什么语言回答').then(v => { if (v == null) return; A.outL = v == 'auto' ? undefined : v; draw(); toast('下一句开始生效'); }); // 本轮不变，下一轮才换
     if (k == 'kb') { A.typing = !A.typing; return draw(); }
     if (k == 'auto') { A.auto = S.callAuto = !A.auto; save(); toast(A.auto ? '自动接话：你停下来 TA 就接着说' : '点着说：点「点这里说」开始，点「说完了」才轮到 TA'); if (A.auto && A.ph == 'idle') return listen(); return draw(); }
-    if (k == 'ear') { earOff(); A.ear = S.callEar = A.ear == 'model' ? 'web' : 'model'; save(); A.earBad = ''; if (A.ear == 'model') { earOn(); if (A.ph == 'rec') { stopRec(); A.ph = 'idle'; } toast('模型听：你一开口就在听，停一下自动发给 TA（录音交给模型听，要 Gemini 这类能听音频的模型）'); } else { toast('浏览器识别：要能连上谷歌的识别服务'); if (A.ph == 'idle') return next(); } return draw(); }
+    if (k == 'ear') { const nx = { model: 'sf', sf: 'web', web: 'model' }[A.ear]; earOff(); stopRec(); A.ear = S.callEar = nx; save(); A.earBad = ''; A.ph == 'rec' && (A.ph = 'idle'); // 模型听 → 硅基识别 → 浏览器识别 → …
+      if (isEar()) { earOn(); nx == 'sf' && !asrCfg().key ? askKey() : toast(nx == 'sf' ? '硅基识别：边说边出字，用硅基流动的免费识别模型' : '模型听：录音直接交给聊天模型听（要 Gemini 这类能听音频的模型）'); }
+      else { toast('浏览器识别：要能连上谷歌的识别服务'); if (A.ph == 'idle') return next(); } return draw(); }
     if (k == 'fix') return fixLine(A.lines[+e.target.closest('[data-k]').dataset.i]);
     if (k == 'send') return sendTyped();
     if (k == 'tov') { A.cam?.getTracks().forEach(t => t.stop()); A.cam = null; A.kind = 'voice'; el.className = 'xc xc-voice in'; return draw(); }
@@ -130,7 +138,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   function stopRec() { clearTimeout(A.sil); try { A.rec?.abort(); } catch { } A.rec = null; }
   function interrupt() { A.ac?.abort(); A.ac = null; A.next = 0; A.au?.pause(); if (A.rv) { A.rv.sh = A.rv.t.length; A.rv = null; } }
   // 轮到我：自动接话就马上开麦（半双工：TA 想和说的时候麦是关着的，不会把外放的声音录进去当成我说的）
-  function next() { if (A.kbv) { const i = KB.querySelector('input'); if (A.echo) { i.value = ''; A.echo = 0; } draw(); return; } /* 输入法说：TA 说话时进来的字多半是外放的回声，丢掉 */ if (A.ear == 'model') { A.quiet = performance.now() + 450; return draw(); } /* 模型听：一直开着，TA 刚说完的回声尾巴先不算 */ draw(); if (A.auto && A.mic && CALL == A && (A.ph == 'idle' || A.ph == 'fail')) setTimeout(() => CALL == A && (A.ph == 'idle' || A.ph == 'fail') && listen(), 250); }
+  function next() { if (A.kbv) { const i = KB.querySelector('input'); if (A.echo) { i.value = ''; A.echo = 0; } draw(); return; } /* 输入法说：TA 说话时进来的字多半是外放的回声，丢掉 */ if (isEar()) { A.quiet = performance.now() + 250; return draw(); } /* 自己听：一直开着，TA 刚说完的回声尾巴（约 0.25 秒）先不算 */ draw(); if (A.auto && A.mic && CALL == A && (A.ph == 'idle' || A.ph == 'fail')) setTimeout(() => CALL == A && (A.ph == 'idle' || A.ph == 'fail') && listen(), 250); }
   // 字幕跟着声音一个字一个字出来（照示例）：按这句音频的时长匀速放字，外语下面的中文释义同步按比例出
   function reveal(ln, ms, wait = 0) { const t0 = performance.now() + wait, n = ln.t.length;
     const f = () => { if (A.rv != ln || CALL != A) return; const k = Math.max(0, Math.min(1, (performance.now() - t0) / Math.max(200, ms))); ln.sh = Math.max(1, Math.ceil(n * k));
@@ -145,7 +153,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   A.hang = hang;
   // 点「点这里说」：开始听，话实时写在屏幕上；手机识别常常几秒没声就自己停，那就接着再开，把前面听到的拼起来；点「说完了」才发
   function listen() {
-    if (CALL != A || A.ph == 'think' || A.ph == 'speak') return; A.ctx?.resume?.(); if (A.ear == 'model') return earOn();
+    if (CALL != A || A.ph == 'think' || A.ph == 'speak') return; A.ctx?.resume?.(); if (isEar()) return earOn();
     const R = A.kbv ? null : SR(); if (!R) { if (!A.typing) { A.typing = true; draw(); toast(A.kbv ? '酒馆 App 里网页拿不到麦克风：点输入框，用输入法的🎤说' : '这个浏览器不支持语音识别，可以打字说'); } return; }
     A.ph = 'rec'; A.acc = ''; A.mid = ''; A.heard = ''; A.rs = { t: performance.now(), on: 0, au: 0, snd: 0, sp: 0, res: 0, n: 0, err: '', thr: '' }; draw(); startRec();
   }
@@ -177,42 +185,35 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   function fixLine(x) { if (!x || el.querySelector('.xc-fix')) return; const w = Object.assign(document.createElement('div'), { className: 'xc-fix', innerHTML: `<small>听错了？改成你真正说的</small><input value="${esc(x.t.replace(/^（(没听清|语音)）$/, ''))}" enterkeyhint="done"><div><b data-f="n">取消</b><b data-f="y" class="ok">改好了</b></div>` }); el.append(w);
     const i = w.querySelector('input'), end = ok => { const v = i.value.trim(); if (ok && v) { x.t = v; if (x.lg) x.lg.t = v; else if (!A.log.includes(x)) { x.lg = { f: 'me', t: v }; A.log.push(x.lg); } A.lastSaid = v; } w.remove(); draw(); };
     w.onclick = e => { e.stopPropagation(); const f = e.target.dataset.f; f && end(f == 'y'); }; i.onkeydown = e => e.key == 'Enter' && end(true); setTimeout(() => i.focus(), 30); }
-  // ---- 模型听：麦克风 → 音量判断（开口 / 停下）→ 录音交给模型 ----
-  function earOn() {
-    if (A.ms || A.earP || CALL != A) return; A.earAt = performance.now();
-    A.earP = navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } }).then(st => {
-      A.earP = null; if (CALL != A || A.ear != 'model') return st.getTracks().forEach(t => t.stop());
-      A.ms = st; A.earAt = performance.now(); const X = A.ctx; if (!X) throw Error('这个浏览器没有音频时钟');
-      const src = X.createMediaStreamSource(st), pr = X.createScriptProcessor(2048, 1, 1), z = X.createGain(); z.gain.value = 0; src.connect(pr); pr.connect(z); z.connect(X.destination); // 静音接到输出，处理器才会跑
-      A.earN = { src, pr, z }; A.E = { on: 0, buf: [], pre: [], q: 0, ld: 0, sp: 0, fl: .004 }; pr.onaudioprocess = e => vad(e.inputBuffer.getChannelData(0), X.sampleRate); X.resume?.();
-    }).catch(e => { A.earP = null; if (CALL != A) return; if (TAU()) return kbMode(); const n = e?.name || ''; A.earBad = /NotAllowed|Security/.test(n) ? '没有麦克风权限：浏览器设置里允许这个网页用麦克风（网址要是 https 或 localhost，局域网 IP 打开的 http 网页浏览器不给麦克风）' : /NotReadable|Abort/.test(n) ? '麦克风被别的应用占着（比如录屏在录麦克风），关掉它再试' : /NotFound/.test(n) ? '没找到麦克风' : '麦克风打不开：' + (e?.message || n); A.typing = true; draw(); });
+  // ---- 耳朵（ear.js，照 evolia）：模型听 / 硅基识别都走这个 ----
+  function earOn() { if (ear.ms || A.earP || CALL != A) return; ear.at = performance.now();
+    A.earP = ear.start().then(() => { A.earP = null; if (CALL != A || !isEar()) return ear.stop(); draw(); }).catch(e => { A.earP = null; if (CALL != A) return; if (TAU()) return kbMode(); const n = e?.name || ''; A.earBad = /NotAllowed|Security/.test(n) ? '没有麦克风权限：浏览器设置里允许这个网页用麦克风（网址要是 https 或 localhost，局域网 IP 打开的 http 网页浏览器不给麦克风）' : /NotReadable|Abort/.test(n) ? '麦克风被别的应用占着（比如录屏在录麦克风），关掉它再试' : /NotFound/.test(n) ? '没找到麦克风' : '麦克风打不开：' + (e?.message || n); A.typing = true; draw(); }); }
+  function earOff() { ear.stop(); }
+  // TA 说话时我刚出声：先把 TA 的声音压低（duck），确认我真在说才打断
+  function duck(on) { A.ducked = on; const v = (A.spk ? 1 : .85) * (on ? .2 : 1); try { A.gain?.gain.setTargetAtTime(v, A.ctx.currentTime, .04); } catch { } A.au && (A.au.volume = v); }
+  function earEv(t, v) {
+    if (CALL != A) return;
+    if (t == 'start') { A.ph = 'rec'; A.heard = ''; draw(); }
+    else if (t == 'level') { const lv = el.querySelector('.xc-lv'); lv && lv.style.setProperty('--lv', v.toFixed(2)); }
+    else if (t == 'partial') { A.heard = v; const p = el.querySelector('.xc-tx .ing .xc-pt'); p ? (p.textContent = v) : draw(); } // 硅基识别：边说边出字
+    else if (t == 'end') { A.ph = 'think'; A.recog = 1; A.thinkAt = performance.now(); draw(); } // 说完了，最后一段还在认
+    else if (t == 'short') { if (A.ph == 'rec') { A.ph = 'idle'; draw(); } }
+    else if (t == 'duck') duck(true);
+    else if (t == 'unduck') duck(false);
+    else if (t == 'barge') { // 插话
+      const prev = A.ph == 'think' && A.prevSay; interrupt(); duck(false);
+      if (prev) { A.lines = A.lines.filter(x => x != prev.line); const i = A.log.indexOf(prev.line.lg || prev.line); i >= 0 && A.log.splice(i, 1); A.merge = prev; } // TA 还在想：当成我刚才那句没说完，合起来重新发
+      else { const x = A.lines.findLast(x => x.f != 'me'); x && !/—$/.test(x.t) && (x.t += '—'); A.merge = null; } // TA 的话被我打断：字幕后面加个破折号
+      A.ph = 'rec'; A.heard = ''; draw(); }
+    else if (t == 'final') { A.recog = 0; const m = A.merge; A.merge = null;
+      if (A.ear == 'sf') { let tx = String(v.text || '').trim(); if (m?.text) tx = m.text + (tx ? '，' + tx : ''); if (!tx) { A.ph = 'idle'; draw(); return toast('没听清，再说一遍'); } heard(tx); A.prevSay = { text: tx, line: A.lines.at(-1) }; }
+      else { const ch = m?.chunks ? [...m.chunks, new Float32Array(Math.round(.3 * v.sr)), ...v.chunks] : v.chunks; heardAudio(wav(ch, v.sr)); A.prevSay = { chunks: ch, line: A.hl }; } }
+    else if (t == 'asrerr') { A.recog = 0; if (/密钥/.test(v.message)) askKey(); else toast(v.message); }
   }
-  function earOff() { A.earN && (A.earN.pr.onaudioprocess = null, A.earN.src.disconnect(), A.earN.pr.disconnect(), A.earN.z.disconnect()); A.earN = null; A.ms?.getTracks().forEach(t => t.stop()); A.ms = null; A.E = null; }
-  function vad(d, sr) {
-    const E = A.E; if (!E || CALL != A) return; let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; const rms = Math.sqrt(s / d.length), fr = d.length / sr;
-    A.vmax = Math.max(A.vmax || 0, rms); if (A.earBad && rms > .004 && /一点声音/.test(A.earBad)) { A.earBad = ''; draw(); }
-    const busy = A.ph == 'think' || A.ph == 'speak', open = A.mic && A.st == 'talk' && (A.ph == 'idle' || A.ph == 'fail' || A.ph == 'rec' || busy && (S.callBarge ?? true)) && performance.now() > (A.quiet || 0);
-    if (!open) { if (E.on) { E.on = 0; E.buf = []; } E.pre = []; E.ld = 0; E.bl = 0; return; }
-    const th = Math.max(.012, E.fl * 3.2), f = d.slice(0);
-    // 插话（学 Companion Voice Runtime / PaiVoice）：TA 想 / 说的时候也在听，但门槛高得多——TA 的声音从喇叭出来会被录进去一点，
-    // 所以要比平时响 2.5 倍、连着说够 0.7 秒（TA 在想、没出声时 0.45 秒）才算我真想说话；「嗯」「对」这种附和一声不打断
-    if (busy) { const thB = A.playN ? Math.max(.03, th * 2.5) : th; E.pre.push(f); E.pre.length > Math.ceil(1.2 / fr) && E.pre.shift();
-      E.bl = rms > thB ? (E.bl || 0) + fr : Math.max(0, (E.bl || 0) - fr * .5);
-      if (E.bl < (A.playN ? .7 : .45)) return;
-      const prev = A.ph == 'think' && A.hl && A.lastChunks; interrupt(); // TA 还在想：当成我刚才那句没说完，两段录音合起来重新发
-      if (prev) { A.lines = A.lines.filter(x => x != A.hl); const i = A.log.indexOf(A.hl.lg); i >= 0 && A.log.splice(i, 1); }
-      else { const t = A.lines.findLast(x => x.f != 'me'); t && !/—$/.test(t.t) && (t.t += '—'); } // TA 的话被我打断：字幕后面加个破折号
-      E.on = 1; E.buf = prev ? [...prev, new Float32Array(Math.round(.3 * sr)), ...E.pre] : E.pre; E.pre = []; E.q = 0; E.sp = E.bl + (prev ? 1 : 0); E.bl = 0; A.ph = 'rec'; draw(); return; }
-    E.bl = 0;
-    if (!E.on) { if (rms < th) E.fl = E.fl * .96 + rms * .04; E.pre.push(f); E.pre.length > 8 && E.pre.shift(); E.ld = rms > th ? E.ld + 1 : 0;
-      if (E.ld >= 3) { E.on = 1; E.buf = E.pre; E.pre = []; E.q = 0; E.sp = E.ld * fr; A.ph = 'rec'; draw(); } return; } // 连着 3 帧（约 0.13 秒）够响：开口了
-    E.buf.push(f); rms > th * .7 ? (E.q = 0, E.sp += fr) : (E.q += fr);
-    const lv = el.querySelector('.xc-lv'); lv && lv.style.setProperty('--lv', Math.min(1, rms / (th * 4)).toFixed(2));
-    if (E.q < EAR_END && E.buf.length * fr < EAR_MAX) return;
-    const buf = E.buf.slice(0, Math.max(1, E.buf.length - Math.floor(Math.max(0, E.q - .25) / fr))); E.on = 0; E.buf = []; // 去掉末尾的静音
-    if (E.sp < EAR_MIN) { A.ph = 'idle'; draw(); return; } // 太短：不算说话
-    A.lastChunks = buf; heardAudio(wav(buf, sr));
-  }
+  // 硅基识别要密钥（硅基流动免费注册，识别模型免费）：通话界面里就地填
+  function askKey() { if (el.querySelector('.xc-fix')) return; const c = asrCfg(), w = Object.assign(document.createElement('div'), { className: 'xc-fix', innerHTML: `<small>「硅基识别」用硅基流动的免费识别模型（${esc(c.model)}），要一个硅基流动的 API 密钥（siliconflow.cn 免费注册）。画图那里填过就会自动用</small><input placeholder="sk-…" value="${esc(S.callAsr?.key || '')}" enterkeyhint="done"><div><b data-f="n">先不用</b><b data-f="y" class="ok">保存</b></div>` }); el.append(w);
+    const i = w.querySelector('input'), end = ok => { const v = i.value.trim(); if (ok && v) { (S.callAsr ||= {}).key = v; save(); toast('保存了，开口说话就行'); } else if (!asrCfg().key) { A.ear = 'model'; toast('先用「模型听」'); } w.remove(); draw(); };
+    w.onclick = e => { e.stopPropagation(); const f = e.target.dataset.f; f && end(f == 'y'); }; i.onkeydown = e => e.key == 'Enter' && end(true); setTimeout(() => i.focus(), 30); }
   function heardAudio(url) { interrupt(); const ln = { f: 'me', t: '…' }; A.lines.push(ln); A.hl = ln; turn(null, url, ln); }
   function heard(t) { stopRec(); interrupt(); A.heard = ''; A.lastSaid = t; const e = { f: 'me', t }; A.log.push(e); A.lines.push(e); turn(t); }
   // 对方说：流式拿字 → 按句切 → 每句马上去合成，按顺序播
@@ -222,17 +223,18 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     if (CALL != A) return; A.ph = 'think'; A.thinkAt = performance.now(); A.thk = 0; A.why = ''; draw();
     const ac = new AbortController(), sg = ac.signal; A.ac = ac; const t0 = performance.now(); let first = false;
     // 想超过 2.5 秒还没开口：先垫一句「嗯…」；2 分钟一个字都没来：当这轮失败
-    const fillT = setTimeout(async () => { if (sg.aborted || first || !A.fill) return; const b = await A.fill; if (sg.aborted || first || !b) return; A.filling = playBlob(b, '嗯', sg); }, 2500);
+    const fillT = setTimeout(async () => { if (sg.aborted || first || !A.fill) return; const b = await A.fill; if (sg.aborted || first || !b) return; A.filling = playBlob(b, '嗯', sg); }, 2000);
     const guard = setTimeout(() => { if (!first && !sg.aborted) { ac.abort(); A.ph = 'fail'; A.why = `TA 那边 2 分钟一个字都没出${A.thk ? `（模型一直在思考，想了 ${A.thk} 字）` : ''}，可能模型卡住了；可以在 设置 → 应用配置 → 语音通话 换个模型或把「低思考」打开`; draw(); } }, 120e3);
     const outL = A.outL ?? (ch.cfg?.lang || ''), zh = !outL || /^zh/.test(outL) && outL != 'zh-TW'; // 语言快照
     const P = HEAD() + `${(r => r ? `\n【想起来的旧事】（只当背景）\n${r}` : '')(recall(ch, said || '', 12, 400))}${A.log.length ? `\n【这通电话里说过的】\n${A.log.slice(-16).map(x => `${x.f == 'me' ? me.nick : rn(c)}：${x.t}`).join('\n')}` : ''}\n`
       + (au ? `${me.nick}刚刚说了一句话，就是附带的这段录音（是${me.nick}本人在电话里说的话）。` : said ? `${me.nick}刚刚说：「${said}」\n接着回 TA。` : `电话刚接通（是${me.nick}打给你的），你先开口。`)
       + (zh ? '\n只输出你要说的话，一句一行，不要括号旁白。' : `\n你说${lname(outL)}。每一句都成对输出两行，第一行 SAY: 后面是${lname(outL)}原话，第二行 ZH: 后面是这句的简体中文意思。例：\nSAY: ${outL == 'ja' ? 'もしもし、どうしたの？' : outL == 'ko' ? '여보세요, 무슨 일이야?' : 'Hey, what\'s up?'}\nZH: 喂，怎么了？\n只输出这样成对的行，不要别的。`)
+      + `\n如果这通电话自然聊完了（互相说了再见 / 晚安 / 要去忙了），在最后单独一行写 [挂断]，电话就会挂掉；没聊完不要写。`
       + (au ? `\n第一行必须是 HEARD: 后面照录音写下${me.nick}说的原话（照原来的语言写；笑、叹气、哈欠、哽咽这些声音写在括号里，如「（笑）你好坏」；听不清就写 HEARD: ?），然后另起一行开始回 TA。\n认真听语气：是笑着说、困了、犹豫、撒娇还是不高兴，回答要自然地接住这个语气（不用说出「我听出你…」）。` : '');
     const U = []; let played = -1, done = false; // U：已稳定的句子 { t 台词, tr 释义, b 音频 }
     const synth = () => { for (let k = played + 1; k <= Math.min(U.length - 1, played + 2); k++) { const u = U[k]; if (u.b !== undefined) continue; // 只领先 2 句
       u.b = A.ttsBad ? Promise.resolve(null) : tts(u.t, '', c.sex, sg, { c, blob: 1 }).catch(e => { if (!sg.aborted && !A.ttsBad) { A.ttsBad = true; toast('语音合成不可用，只显示字幕：' + e.message); } return null; }); } };
-    const pub = (t, tr = '') => { t = clean(t); if (!t || sg.aborted) return; U.push({ t, tr: clean(tr) }); synth(); kick(); };
+    const pub = (t, tr = '') => { if (/[\[［]\s*挂断\s*[\]］]/.test(t)) { A.bye = 1; t = t.replace(/[\[［]\s*挂断\s*[\]］]/g, ''); tr = String(tr).replace(/[\[［]\s*挂断\s*[\]］]/g, ''); } /* TA 主动挂电话（学 evolia 的 call_control） */ t = clean(t); if (!t || sg.aborted) return; U.push({ t, tr: clean(tr) }); synth(); kick(); };
     const P1 = zh ? zhUnits(pub) : pairUnits(pub);
     // 模型听：回答前先有一行 HEARD: 我说的原话 → 填进字幕里我那一行、记进通话内容；其余照常切句
     let hd = !au, hb = '';
@@ -256,7 +258,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
       if (!sg.aborted) { const f2 = String(full || ''); f2.length > last.length && P2.feed(f2.slice(last.length)); P2.finish(); }
       done = true; kick(); await player;
     } catch (e) { done = true; kick(); clearTimeout(fillT); clearTimeout(guard); if (sg.aborted) return; A.ph = 'fail'; A.why = '没接上：' + e.message; hl && hl.t == '…' && (hl.t = '（语音）'); next(); toast((au && /audio|inline|mime|unsupport|modalit|HTTP 400/i.test(e.message) ? '这个模型可能听不了录音，可以把底部的「模型听」切成「浏览器识别」：' : '对方没听清：') + e.message); return; } // 失败就结束这一轮，不偷偷再生成一份
-    clearTimeout(fillT); clearTimeout(guard); if (CALL == A && !sg.aborted) { A.ph = U.length ? 'idle' : 'fail'; U.length || (A.why = `模型回了空的内容${A.thk ? `（只思考了 ${A.thk} 字，没写正文）` : ''}，可以再说一遍`); next(); } // 说完了：轮到我（自动接话就直接开麦）
+    clearTimeout(fillT); clearTimeout(guard); if (CALL == A && !sg.aborted) { if (A.bye) { A.ph = 'idle'; draw(); return setTimeout(() => CALL == A && hang(), 900); } A.ph = U.length ? 'idle' : 'fail'; U.length || (A.why = `模型回了空的内容${A.thk ? `（只思考了 ${A.thk} 字，没写正文）` : ''}，可以再说一遍`); next(); } // 说完了：轮到我（自动接话就直接开麦）
   }
   // 播一句：解码后排到同一个 AudioContext 的时间轴上（不每句新建播放器、不靠 setTimeout 接）；解不了码就退回 <audio>；没声音就按字数停一会儿
   async function playBlob(b, t, sg, on) { A.playN = (A.playN || 0) + 1; try { return await playOne(b, t, sg, on); } finally { A.playN--; } }
@@ -273,15 +275,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   }
   return A;
 }
-// 录音 → 16kHz 单声道 16 位 wav（data URL）：模型听用；按块取平均降采样（顺便滤掉高频）
-export function wav(chunks, sr) {
-  const n = chunks.reduce((a, c) => a + c.length, 0), all = new Float32Array(n); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
-  const r = sr / 16000, m = Math.max(1, Math.floor(n / r)), b = new ArrayBuffer(44 + m * 2), d = new DataView(b), w = (p, t) => { for (let i = 0; i < t.length; i++) d.setUint8(p + i, t.charCodeAt(i)); };
-  w(0, 'RIFF'); d.setUint32(4, 36 + m * 2, true); w(8, 'WAVEfmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, 16000, true); d.setUint32(28, 32000, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); w(36, 'data'); d.setUint32(40, m * 2, true);
-  for (let i = 0; i < m; i++) { const a = Math.floor(i * r), z = Math.max(a + 1, Math.floor((i + 1) * r)); let s = 0; for (let j = a; j < z && j < n; j++) s += all[j]; const v = Math.max(-1, Math.min(1, s / (z - a))); d.setInt16(44 + i * 2, v * 0x7fff, true); }
-  const u = new Uint8Array(b); let t = ''; for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
-  return 'data:audio/wav;base64,' + btoa(t);
-}
+export { wav } from './ear.js'; // 测试里用
 // 台词清理：去掉括号旁白、星号动作、包着整句的引号；字幕和合成都用这个
 const clean = t => String(t || '').replace(/[（(][^（）()]*[）)]|\*[^*]*\*|【[^】]*】/g, '').replace(/^[「“"『]|[」”"』]$/g, '').trim();
 // 中文：遇到 。！？… 或换行就是一句；太长（14 字以上）遇到逗号先放出去好早点开口；括号 / 引号还没闭合就不切（等它说完）

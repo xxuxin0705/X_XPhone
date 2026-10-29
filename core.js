@@ -365,7 +365,7 @@ const trim = u => String(u || '').trim().replace(/\/+$/, '');
 const base = u => { u = trim(u).replace(/\/chat\/completions$/, ''); return /\/v\d[^/]*$/.test(u) ? u : u + '/v1'; };
 const chk = async r => { if (!r.ok) throw Error(`HTTP ${r.status} ${(await r.text()).slice(0, 300)}`); return r; };
 // 直连失败（多半是跨域被拦）时自动改走酒馆自带的 CORS 代理 /proxy/（config.yaml 里 enableCorsProxy: true）
-async function xf(url, o = {}) {
+export async function xf(url, o = {}) {
   try { return await fetch(url, o); }
   catch (e) {
     if (o.signal?.aborted || !/^https?:/i.test(url) || url.startsWith(location.origin)) throw e;

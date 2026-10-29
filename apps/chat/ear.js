@@ -1,0 +1,90 @@
+// 小手机 · 通话的「耳朵」：麦克风 → 判断有没有人在说话（VAD）→ 交给识别
+// 照开源 App evolia 的 VoiceCallManager / OnlineASRProvider 拆出来（那边是原生安卓，这里用网页能做到的同样做法）：
+// - 麦克风开回声消除 / 降噪 / 自动增益；噪声底自适应（安静时慢慢学环境有多吵），比它响 3.2 倍才算有人说话
+// - 约 0.5 秒的「预卷」：开口前的那一小段也留着，开头几个字不会被吞
+// - 安静 1 秒算说完；不到 0.35 秒的不算（咳嗽、碰到手机）；一句最长 30 秒
+// - 识别来源可以换：
+//     model：整段录音交给聊天模型听（Gemini 能听音频；不另外调用）
+//     sf：硅基流动的免费识别模型（SenseVoiceSmall / TeleSpeechASR），「伪流式」边说边出字：
+//         切片 ≥1 秒且遇到 0.2 秒的小停顿就切一段送去认，或者连着说超过 3 秒、当前这帧不响时强制切；
+//         前面认出来的字当作 prompt 带上，接得上；说完把剩下的一段认完再交出整句
+// - TA 想 / 说的时候也在听（插话），两段式：连着响 6 帧（约 0.24 秒）先把 TA 的声音压低（duck），
+//   连着响 14 帧（约 0.52 秒）才真的打断；中途不响了就把音量恢复（「嗯」一声不打断）
+import { S, xf } from '../../core.js';
+
+export const EAR = { END: 1.0, MIN: .35, MAX: 30, PRE: .5, DUCK_F: 6, CUT_F: 14, CUT_F_THINK: 11, SLICE_MIN: 1, SLICE_GAP: .2, SLICE_MAX: 3 };
+
+// 硅基流动识别的配置：没单独填就用画图那里填过的硅基流动密钥
+export const asrCfg = () => { const a = S.callAsr ||= {}; return { url: (a.url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''), key: a.key || S.api?.img?.cfg?.sf?.key || '', model: a.model || 'FunAudioLLM/SenseVoiceSmall' }; };
+export async function sfAsr(chunks, sr, prompt = '', sg) {
+  const c = asrCfg(); if (!c.key) throw Error('还没填硅基流动的密钥');
+  const fd = new FormData(); fd.append('file', new Blob([wavBuf(chunks, sr)], { type: 'audio/wav' }), 'say.wav'); fd.append('model', c.model); prompt && fd.append('prompt', prompt.slice(-200));
+  const r = await xf(c.url + '/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + c.key }, body: fd, signal: sg });
+  if (!r.ok) throw Error(`识别失败 HTTP ${r.status} ${(await r.text().catch(() => '')).slice(0, 120)}`);
+  const j = await r.json(); return String(j.text || '').replace(/<\|[^|]*\|>/g, '').trim(); // SenseVoice 有时带 <|zh|><|NEUTRAL|> 这种标记
+}
+
+// 录音 → 16kHz 单声道 16 位 wav：按块取平均降采样（顺便滤掉高频）
+export function wavBuf(chunks, sr) {
+  const n = chunks.reduce((a, c) => a + c.length, 0), all = new Float32Array(n); let o = 0; for (const c of chunks) { all.set(c, o); o += c.length; }
+  const r = sr / 16000, m = Math.max(1, Math.floor(n / r)), b = new ArrayBuffer(44 + m * 2), d = new DataView(b), w = (p, t) => { for (let i = 0; i < t.length; i++) d.setUint8(p + i, t.charCodeAt(i)); };
+  w(0, 'RIFF'); d.setUint32(4, 36 + m * 2, true); w(8, 'WAVEfmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, 16000, true); d.setUint32(28, 32000, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); w(36, 'data'); d.setUint32(40, m * 2, true);
+  for (let i = 0; i < m; i++) { const a = Math.floor(i * r), z = Math.max(a + 1, Math.floor((i + 1) * r)); let s = 0; for (let j = a; j < z && j < n; j++) s += all[j]; d.setInt16(44 + i * 2, Math.max(-1, Math.min(1, s / (z - a))) * 0x7fff, true); }
+  return b;
+}
+export function wav(chunks, sr) { const u = new Uint8Array(wavBuf(chunks, sr)); let t = ''; for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return 'data:audio/wav;base64,' + btoa(t); }
+
+// o.ctx：通话的 AudioContext；o.kind()：'model' | 'sf'；o.mode()：'listen'（轮到我）| 'busy'（TA 在想 / 在说，可以插话）| 'off'；o.playing()：TA 的声音正在放
+// on(type, data)：start（开口了）/ level（音量 0~1）/ partial（边说边认出来的字）/ end（说完了，正在认）/ final（{ text?, chunks, sr }）/ short（太短不算）
+//                 duck / unduck / barge（插话：TA 被打断，开始听我说）/ asrerr（识别出错）
+export function makeEar(o, on) {
+  const E = { ms: null, nodes: null, fl: .004, pre: [], buf: [], on: 0, q: 0, sp: 0, ld: 0, bl: 0, duck: 0, slice: [], parts: [], chain: null, ep: 0, vmax: 0, at: 0, kind: '' };
+  async function start() {
+    if (E.ms) return;
+    const st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    const X = o.ctx; if (!X) { st.getTracks().forEach(t => t.stop()); throw Error('这个浏览器没有音频时钟'); }
+    E.ms = st; E.at = performance.now();
+    const src = X.createMediaStreamSource(st), pr = X.createScriptProcessor(2048, 1, 1), z = X.createGain(); z.gain.value = 0; src.connect(pr); pr.connect(z); z.connect(X.destination); // 静音接到输出，处理器才会跑
+    E.nodes = { src, pr, z }; pr.onaudioprocess = e => frame(e.inputBuffer.getChannelData(0), X.sampleRate); X.resume?.();
+  }
+  function stop() { const n = E.nodes; if (n) { n.pr.onaudioprocess = null; n.src.disconnect(); n.pr.disconnect(); n.z.disconnect(); } E.nodes = null; E.ms?.getTracks().forEach(t => t.stop()); E.ms = null; reset(); }
+  function reset() { E.on = 0; E.buf = []; E.slice = []; E.parts = []; E.pre = []; E.ld = 0; E.bl = 0; E.q = 0; E.sp = 0; if (E.duck) { E.duck = 0; on('unduck'); } E.ep++; }
+  // 开口：预卷 + 这一帧开始记
+  function begin(pre, sp) { E.on = 1; E.buf = pre.slice(); E.slice = pre.slice(); E.parts = []; E.chain = Promise.resolve(); E.q = 0; E.sp = sp; E.kind = o.kind(); E.ep++; on('start'); }
+  // 伪流式：送一段去认，按顺序排队；前面认出来的字当 prompt
+  function sendSlice(sr) {
+    const ch = E.slice, ep = E.ep; E.slice = []; if (!ch.length) return;
+    E.chain = E.chain.then(async () => { if (ep != E.ep) return; try { const t = await sfAsr(ch, sr, E.parts.join('')); if (ep != E.ep) return; if (t) { E.parts.push(t); on('partial', E.parts.join('')); } } catch (e) { ep == E.ep && on('asrerr', e); } });
+  }
+  function end(sr) {
+    const buf = E.buf.slice(0, Math.max(1, E.buf.length - Math.floor(Math.max(0, E.q - .25) / (2048 / sr)))); // 去掉末尾的静音
+    const sp = E.sp, kind = E.kind; E.on = 0; E.buf = [];
+    if (sp < EAR.MIN) { E.slice = []; E.ep++; return on('short'); }
+    if (kind != 'sf') return on('final', { chunks: buf, sr });
+    on('end'); sendSlice(sr); const ep = E.ep; E.chain.then(() => ep == E.ep && on('final', { text: E.parts.join(''), chunks: buf, sr }));
+  }
+  function frame(d, sr) {
+    let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; const rms = Math.sqrt(s / d.length), fr = d.length / sr;
+    E.vmax = Math.max(E.vmax, rms);
+    const m = o.mode(); if (m == 'off') { if (E.on || E.bl || E.duck) reset(); return; }
+    const th = Math.max(.012, E.fl * 3.2), f = d.slice(0);
+    if (m == 'busy') { // 插话：门槛高一些（喇叭会漏进来一点 TA 的声音），两段式
+      if (E.on) { E.on = 0; E.buf = []; E.slice = []; }
+      const play = o.playing(), thB = play ? Math.max(.03, th * 2.5) : th;
+      E.pre.push(f); E.pre.length > Math.ceil(1.2 / fr) && E.pre.shift();
+      E.bl = rms > thB ? E.bl + 1 : Math.max(0, E.bl - 1);
+      if (play && !E.duck && E.bl >= EAR.DUCK_F) { E.duck = 1; on('duck'); }
+      if (E.duck && E.bl == 0) { E.duck = 0; on('unduck'); }
+      if (E.bl >= (play ? EAR.CUT_F : EAR.CUT_F_THINK)) { const pre = E.pre, n = E.bl; E.pre = []; E.bl = 0; E.duck = 0; on('barge'); begin(pre, n * fr); }
+      return;
+    }
+    E.bl = 0; if (E.duck) { E.duck = 0; on('unduck'); }
+    if (!E.on) { if (rms < th) E.fl = E.fl * .96 + rms * .04; E.pre.push(f); E.pre.length > Math.ceil(EAR.PRE / fr) && E.pre.shift(); E.ld = rms > th ? E.ld + 1 : 0;
+      if (E.ld >= 3) { const pre = E.pre; E.pre = []; begin(pre, E.ld * fr); } return; } // 连着 3 帧（约 0.13 秒）够响：开口了
+    E.buf.push(f); E.slice.push(f); rms > th * .7 ? (E.q = 0, E.sp += fr) : (E.q += fr);
+    on('level', Math.min(1, rms / (th * 4)));
+    if (E.kind == 'sf') { const sl = E.slice.length * fr; if ((sl >= EAR.SLICE_MIN && E.q >= EAR.SLICE_GAP) || (sl >= EAR.SLICE_MAX && rms <= th * .7)) sendSlice(sr); }
+    if (E.q >= EAR.END || E.buf.length * fr >= EAR.MAX) end(sr);
+  }
+  return { start, stop, reset, get on() { return !!E.on; }, get ms() { return E.ms; }, get vmax() { return E.vmax; }, set vmax(v) { E.vmax = v; }, get at() { return E.at; }, set at(v) { E.at = v; } };
+}

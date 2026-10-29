@@ -12,7 +12,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar = 'model'; window._P = []; window._loud = 0; window._gum = 0;
     navigator.mediaDevices.getUserMedia = async c => { _gum++; const X = new AudioContext(), o = X.createOscillator(), g = X.createGain(), d = X.createMediaStreamDestination(); o.frequency.value = 220; o.connect(g); g.connect(d); o.start(); g.gain.value = 0; setInterval(() => { g.gain.value = _loud * .5 + .0005; }, 20); window._mic = c; return d.stream; };
-    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); return /先开口/.test(s) ? '喂？' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
+    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); return /先开口/.test(s) ? '喂？' : _mode == 'bye' ? '好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
     delete window.webkitSpeechRecognition;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '五条悟', nick: '五条', fr: 1 })); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
@@ -40,8 +40,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // TA 说话时「嗯」一声：不打断；真的开口说 1 秒以上：TA 停下听我说
   await E(`_mode = 'long'`); await E(`_loud = 1`); await W(1300); await E(`_loud = 0`);
   await p.waitForFunction(`cl.inCall().ph == 'speak'`, null, { timeout: 6000 }).catch(() => { }); await W(300);
-  await E(`_loud = 1`); await W(300); await E(`_loud = 0`); await W(500);
-  ok(await E(`cl.inCall().ph == 'speak'`), 'TA 说话时我「嗯」一声（0.3 秒）：不打断');
+  await E(`_loud = 1`); await W(340); const dk = await E(`cl.inCall().ducked`); await E(`_loud = 0`); await W(700);
+  ok(dk === true && await E(`cl.inCall().ducked`) === false && await E(`cl.inCall().ph == 'speak'`), 'TA 说话时我「嗯」一声（0.34 秒）：先把 TA 的声音压低，没接着说就恢复，不打断');
   ok(/（笑）你猜/.test(await E(`document.querySelector('.xc-tx').innerText`)), '听到的话里留着（笑）');
   const nB = await E(`_P.length`); await E(`_mode = ''; _loud = 1`); await W(1100); await shot('barge');
   ok(await E(`cl.inCall().ph == 'rec' && /—$/.test(cl.inCall().lines.findLast(x => x.f != 'me').t)`), 'TA 说话时我真的开口（1 秒）：TA 停下，字幕后面加「—」，开始听我说');
@@ -52,8 +52,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`JSON.stringify(_P.at(-1)).length`) > a1 + 2000 && await E(`cl.inCall().lines.filter(x => x.t == '…').length`) <= 1, 'TA 在想时我又接着说：前后两段录音合成一段重新发');
   await E(`_mode = ''`); await W(3500);
   // 安静的麦克风（被录屏占着）→ 提示
-  await E(`(() => { const a = cl.inCall(); a.vmax = 0; a.earAt = performance.now() - 7e3; })()`); await W(1300);
-  ok(/一点声音都没进来/.test(await E(`document.querySelector('.xc-hint')?.textContent || ''`)) || await E(`cl.inCall().vmax`) > .002, '麦克风一点声音都没有：提示可能被录屏占着');
+  await E(`(() => { const a = cl.inCall().earObj; a.vmax = 0; a.at = performance.now() - 7e3; })()`); await W(1300);
+  ok(/一点声音都没进来/.test(await E(`document.querySelector('.xc-hint')?.textContent || ''`)) || await E(`cl.inCall().earObj.vmax`) > .002, '麦克风一点声音都没有：提示可能被录屏占着');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   ok(/我是螃蟹/.test(await E(`JSON.stringify(_c.msgs.at(-1).log)`)), '挂断：通话内容里记着我说的话（模型听到的）');
   // Tauri：麦克风拿不到 → 换成输入法说；拿得到（以后 TauriTavern 加了权限）→ 直接模型听
@@ -62,8 +62,25 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`!!document.querySelector('.xc-kb input') && /键盘上的🎤/.test(document.querySelector('.xc-ph').textContent) && !/模型听/.test(document.querySelector('.xc-lang').textContent)`), 'Tauri 拿不到麦克风：自动换成输入法说，并说清楚');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   await E(`navigator.mediaDevices.getUserMedia = _gum0`); await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
-  ok(await E(`!document.querySelector('.xc-kb') && cl.inCall().ear == 'model' && !!cl.inCall().ms`), 'Tauri 拿得到麦克风（以后加了权限）：直接用模型听');
+  ok(await E(`!document.querySelector('.xc-kb') && cl.inCall().ear == 'model' && !!cl.inCall().earObj.ms`), 'Tauri 拿得到麦克风（以后加了权限）：直接用模型听');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.__TAURI__`);
+  // 硅基识别（照 evolia 的伪流式）：边说边切片送去认、字边说边出来；说完整句当文字发给 TA（不带录音）
+  const ASR = []; await ctx.route(/audio\/transcriptions/, async r => { const b = r.request().postDataBuffer()?.toString('utf8') || ''; ASR.push(b); const n = ASR.length; await new Promise(z => setTimeout(z, 150)); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text: n == 1 ? '我是' : '螃蟹' }) }); });
+  await E(`(() => { core.S.callEar = 'sf'; core.S.callAsr = { key: 'sk-test' }; _mode = ''; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
+  ok(/硅基识别/.test(await E(`document.querySelector('.xc-lang').textContent`)) && await E(`cl.inCall().ear == 'sf'`), '底部开关切到「硅基识别」');
+  const n0s = await E(`_P.length`); await E(`_loud = 1`); await W(1300); await E(`_loud = 0`); await W(450); await E(`_loud = 1`); await W(300);
+  const part = await E(`document.querySelector('.xc-tx .ing .xc-pt')?.textContent || ''`); await shot('sf');
+  ok(part == '我是' && await E(`cl.inCall().ph == 'rec'`), '边说边出字：说到一半（停顿 0.2 秒以上）先认出前一段「' + part + '」，还在听');
+  await W(700); await E(`_loud = 0`); await W(2600);
+  ok(ASR.length >= 2 && /name="prompt"[\s\S]*我是/.test(ASR[1]) && /TeleSpeech|SenseVoice/.test(ASR[0]), '每段单独送去认，后一段带着前面认出来的字（prompt 续接） n=' + ASR.length);
+  const lp = await E(`JSON.stringify(_P.at(-1))`);
+  ok(await E(`_P.length`) == n0s + 1 && /我是螃蟹/.test(lp) && !/audio_url/.test(lp), '说完：整句「我是螃蟹」当文字发给 TA，不带录音');
+  ok(/我是螃蟹/.test(await E(`document.querySelector('.xc-tx').innerText`)), '字幕里是认出来的整句');
+  // TA 主动挂电话（学 evolia 的 call_control）：聊完了 TA 在最后写 [挂断]
+  await E(`_mode = 'bye'; core.S.callEar = 'model'`); await E(`(() => { const a = cl.inCall(); a.ear = 'model'; })()`); await W(1500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
+  ok(await E(`!cl.inCall() && _c.msgs.at(-1).t == 'call'`) && !/挂断\]/.test(await E(`JSON.stringify(_c.msgs.at(-1).log)`)), 'TA 说「晚安」后在最后写 [挂断]：电话自己挂了，字幕和记录里不露标记');
+  await E(`cl.inCall()?.hang?.()`); await W(300); await E(`_mode = ''`);
   // wav 编码：48k → 16k，长度和头对
   ok(await E(`(() => { const u = cl.wav([new Float32Array(4800).fill(.5)], 48000), b = atob(u.split(',')[1]); return b.slice(0, 4) == 'RIFF' && b.length == 44 + 1600 * 2; })()`), 'wav：48kHz 0.1 秒 → 16kHz 1600 个采样');
   ok(!errs.length, '没有报错 ' + errs.join(' | '));
