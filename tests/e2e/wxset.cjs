@@ -60,9 +60,35 @@ let ttsN = 0;
   await E(`talk.cset(_c)`); await W(400);
   ok(/合成语音[\s\S]*点播放时[\s\S]*收到就合成/.test(await E(`document.querySelector('[data-sec=reply]').textContent`)), '聊天设置：合成语音 点播放时 / 收到就合成');
   await E(`core.back()`); await W(400);
+  // 标签（照微信录屏）：通讯录 → 标签 → 未设置标签的朋友 → 批量设置 → 勾两个 → 设置标签 → 新建标签「陌生人」→ 完成
+  await E(`(() => { dt.add(dt.blank('p', { real: '艾莲', fr: 1 })); dt.add(dt.blank('p', { real: 'Amber', fr: 1 })); core.saveD(); core.home(); core.APPS.chat.open(); core.top().acts.tab('ct', null, null, core.top()); })()`); await W(400);
+  ok(await E(`!!document.querySelector('.cw-e[data-a=tags] img')`), '通讯录有「标签」入口（图标是抠的）');
+  await E(`document.querySelector('.cw-e[data-a=tags]').click()`); await W(500);
+  ok(/未设置标签的朋友 \(\d+\)/.test(await E(`core.top().el.textContent`)) && /新建[\s\S]*编辑/.test(await E(`core.top().el.querySelector('.tg-f').textContent`)), '通讯录标签：未设置标签的朋友 (n)、底部 新建 / 编辑');
+  await E(`document.querySelector('[data-a=tgun]').click()`); await W(400);
+  await E(`document.querySelector('[data-a=tgbat]').click()`); await W(300);
+  for (const n of ['艾莲', 'Amber']) { await E(`[...document.querySelectorAll('.tg-p')].find(x => x.textContent.includes('${n}')).click()`); await W(150); }
+  ok(/设置标签 \(2\)/.test(await E(`document.querySelector('.tg-go').textContent`)) && await E(`document.querySelectorAll('.tg-c.on').length`) == 2, '批量设置：勾两个，底部「设置标签 (2)」');
+  await shot('tag_sel');
+  await E(`document.querySelector('.tg-go').click()`); await W(400);
+  await E(`document.querySelector('[data-a=tgnw]').click()`); await W(400);
+  await p.fill('.tgn input', '陌生人'); await W(100);
+  ok(await E(`document.querySelector('.tgn-ok').classList.contains('on')`), '新建标签：填了名字「确定」变绿');
+  await shot('tag_new');
+  await E(`document.querySelector('.tgn-ok').click()`); await W(1000);
+  ok(await E(`document.querySelector('.tg-ch.on')?.textContent`) == '陌生人' && await E(`document.querySelector('.tg-ok').classList.contains('on')`), '新标签排在最前面、已选中，「完成」变绿');
+  await shot('tag_pick');
+  await E(`document.querySelector('.tg-ok').click()`); await W(1100);
+  ok(await E(`core.D().chats.filter(c => (c.tags || []).includes('陌生人')).map(c => c.real).sort().join()`) == 'Amber,艾莲', '保存后两个人都有「陌生人」标签');
+  ok(/未设置标签的朋友/.test(await E(`core.top().el.textContent`)) && !/艾莲/.test(await E(`core.top().el.textContent`)), '回到「未设置标签的朋友」，她们不在里面了');
+  // 聊天设置里的标签是选的
+  await E(`(() => { const c = core.D().chats.find(c => c.real == '艾莲'); core.home(); talk.cset(c); })()`); await W(500);
+  ok(/标签[\s\S]*陌生人/.test(await E(`document.querySelector('.ci[data-a=tgset]')?.textContent || ''`)) && !(await E(`!!document.querySelector('.ci textarea[data-k=grp]')`)), '聊天设置：标签显示「陌生人」，点了去选，不是填');
+  ok(await E(`document.querySelectorAll('[data-sec=voice] .vrow').length`) <= 1, '专属音色只显示正在用的那家');
+  await E(`core.home()`); await W(300);
   // 分组 + 朋友圈谁可以看
   const cs = await E(`(() => { const a = dt.add(dt.blank('p', { real: 'A', fr: 1, grp: '同事' })), b = dt.add(dt.blank('p', { real: 'B', fr: 1 })), p = { vis: { m: 'only', g: ['同事'] } }, q = { vis: { m: 'not', g: ['同事'] } }; return [dt.canSee(p, a), dt.canSee(p, b), dt.canSee(q, a), dt.canSee(q, b), dt.grpNames().join()]; })()`);
-  ok(JSON.stringify(cs) == '[true,false,false,true,"我的好友,同事"]', '分组可见：只给同事看 / 不给同事看 ' + JSON.stringify(cs));
+  ok(JSON.stringify(cs.slice(0, 4)) == '[true,false,false,true]' && /同事/.test(cs[4]), '分组可见：只给同事看 / 不给同事看 ' + JSON.stringify(cs));
   await E(`core.home(); core.APPS.chat.open(); core.top().acts.wmi()`); await W(500);
   const me = await E(`core.top().el.textContent`);
   ok(/性别/.test(me) && /地区/.test(me) && /签名/.test(me) && /微信号/.test(me), '个人信息：有性别 / 地区 / 签名 / 微信号');

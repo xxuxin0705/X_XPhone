@@ -7,6 +7,7 @@ import { get, blank, add, upsert, applyDelta, sty, rm, isMe, find, gsz, TN, CN, 
 import { openChat, cset, tT } from './talk.js';
 import { feed, FA, openFeed, feedRight, mountFeed } from './feed.js';
 import { WT, WTN, wxProf, wxMe, WXA, wxTitle } from './wx.js';
+import { tagIcon, tagListPage, pickTags } from './tags.js';
 export { openFeed };
 export { openChat, applyDelta };
 
@@ -250,7 +251,7 @@ async function fromWi() {
 
 /* ---------- 联系人 / 通讯录 ---------- */
 const PY = 'ABCDEFGHJKLMNOPQRSTWXYZ', PB = '阿八嚓哒妸发旮哈讥咔垃痳拏噢妑七呥扨它穵夕丫帀', COL = new Intl.Collator('zh-CN');
-const ini = s => { const c = [...String(s || '#')][0]; if (/[a-z]/i.test(c)) return c.toUpperCase(); if (!/[\u4e00-\u9fa5]/.test(c)) return '#'; let r = '#'; for (let i = 0; i < PB.length && COL.compare(c, PB[i]) >= 0; i++) r = PY[i]; return r; };
+export const ini = s => { const c = [...String(s || '#')][0]; if (/[a-z]/i.test(c)) return c.toUpperCase(); if (!/[\u4e00-\u9fa5]/.test(c)) return '#'; let r = '#'; for (let i = 0; i < PB.length && COL.compare(c, PB[i]) >= 0; i++) r = PY[i]; return r; };
 const SV = (d, f) => `<svg viewBox="0 0 24 24" ${f ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"'}>${d}</svg>`;
 const CI = {
   srch: SV('<circle cx="11" cy="11" r="6.6"/><path d="M20 20l-4.3-4.3"/>'), x: SV('<path d="M7 7l10 10M17 7L7 17"/>'), chev: SV('<path d="M9.5 6l6 6-6 6"/>'),
@@ -276,7 +277,7 @@ function contacts() {
   if (st == 'wx') { // 微信：灰底白行、彩色方块入口、字母分组、右侧索引
     const by = {}; ps.forEach(c => (by[ini(nm(c))] ||= []).push(c)); const ks = Object.keys(by).sort((a, b) => a == '#' ? 1 : b == '#' ? -1 : a < b ? -1 : 1);
     const e = (k, ic, l, a, n = '') => `<div class="cw-e" data-a="${a}"><i class="${k}">${ic}</i><b>${l}</b>${n}</div>`;
-    return `<div class="ct ct-wx">${ctS ? srchBar() : ''}<div class="cw-es ct-hide">${e('o', CI.addpF, '新的朋友', 'newfr', sg.length ? `<em class="rdot">${sg.length}</em>` : '')}${e('g', CI.grpF, '群聊', 'groups')}</div>`
+    return `<div class="ct ct-wx">${ctS ? srchBar() : ''}<div class="cw-es ct-hide">${e('o', CI.addpF, '新的朋友', 'newfr', sg.length ? `<em class="rdot">${sg.length}</em>` : '')}${e('g', CI.grpF, '群聊', 'groups')}${e('t', tagIcon(), '标签', 'tags')}</div>`
       + ks.map(k => `<section data-sec><h6 data-l="${k}">${k}</h6>${by[k].map(c => crow(c)).join('')}</section>`).join('')
       + `<p class="ct-n ct-hide">${ps.length ? ps.length + '个朋友' : '还没有朋友，点「新的朋友」添加'}</p></div><nav class="az">${['↑', '☆', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'].map(k => `<b data-a="jump" data-x="${k}">${k}</b>`).join('')}</nav>`;
   }
@@ -317,7 +318,7 @@ const mayRow = (c, st) => {
 async function addF() { const r = await form('添加好友', [['av', '头像', 'img'], ['nick', '昵称（网名）'], ['real', '真实姓名'], ['remark', '备注'], ['sex', '性别', 'sel', [['', '未知'], ['男', '男'], ['女', '女']]], ['sign', '个性签名']]); r && (r.nick || r.real) && (add(blank('p', r)), saveD(), emit('chat'), toast('已添加')); }
 async function addG() { const r = await form('发起群聊', [['av', '群头像', 'img'], ['name', '群名'], ['notice', '群公告', 'area'], ['members', '选择成员', 'multi', D().chats.filter(c => c.type == 'p').map(c => [c.id, nm(c)])]]); r?.name && (add(blank('g', { ...r, members: r.members || [] })), saveD(), emit('chat'), toast('群聊已创建')); }
 const CTA = {
-  newfr: () => newFr(), groups: () => page({ title: '群聊', cls: 'st-' + S.style, body: () => D().chats.filter(c => c.type == 'g').map(c => crow(c, 'open')).join('') || '<p class="empty">还没有群聊</p>', acts: { open: id => (back(), openChat(id)) } }),
+  newfr: () => newFr(), tags: () => tagListPage(), groups: () => page({ title: '群聊', cls: 'st-' + S.style, body: () => D().chats.filter(c => c.type == 'g').map(c => crow(c, 'open')).join('') || '<p class="empty">还没有群聊</p>', acts: { open: id => (back(), openChat(id)) } }),
   addfr: id => { const c = get(id); if (!c) return; c.fr = 1; added.add(id); saveD(); emit('chat'); toast(`已添加「${nm(c)}」，现在可以私聊了`); },
   nosug: id => { const c = get(id); c && (c.nosug = 1, saveD(), emit('chat')); },
   chat2: id => openChat(id), qtog: (k, t, e, pg) => { const ks = Object.keys(D().chats.filter(c => c.type == 'p' && c.fr !== 0).reduce((a, c) => (a[c.grp || '我的好友'] = 1, a), {})); qst[k] = !(qst[k] ?? ks.length == 1); },
@@ -347,7 +348,7 @@ ${btn('pchat', g ? '进入群聊' : '发消息', '', 'pri')}${g ? '' : btn('pfd'
 /* ---------- 聊天 App ---------- */
 // 多选：长按任意会话进入，点选 / 全选，底部批量置顶、已读、删除；左上角「取消」退出多选
 const mbar = () => { const n = msel.size, L = [...msel].map(get).filter(Boolean), allPin = n && L.every(c => c.pin);
-  return `<nav class="mbar"><button data-a="mpin" class="${n ? '' : 'off'}">${allPin ? '取消置顶' : '置顶'}</button><button data-a="mread" class="${n ? '' : 'off'}">标为已读</button><button data-a="mgrp" class="${L.some(c => c.type == 'p') ? '' : 'off'}">分组</button><button data-a="mdel" class="danger ${n ? '' : 'off'}">删除${n ? `(${n})` : ''}</button></nav>`; };
+  return `<nav class="mbar"><button data-a="mpin" class="${n ? '' : 'off'}">${allPin ? '取消置顶' : '置顶'}</button><button data-a="mread" class="${n ? '' : 'off'}">标为已读</button><button data-a="mgrp" class="${L.some(c => c.type == 'p') ? '' : 'off'}">${S.style == 'wx' ? '标签' : '分组'}</button><button data-a="mdel" class="danger ${n ? '' : 'off'}">删除${n ? `(${n})` : ''}</button></nav>`; };
 const MS = {
   clp: (id, t, e, pg) => { if (msel) return MS.mtog(id, t, e, pg); navigator.vibrate?.(12); msel = new Set([id]); pg.re(); },
   mtog: (id, t, e, pg) => { msel.has(id) ? msel.delete(id) : msel.add(id); pg.re(); },
@@ -358,6 +359,7 @@ const MS = {
   // 分组：选中的联系人放进一个分组（通讯录按分组列、朋友圈可以按分组设谁能看）；群聊没有分组
   mgrp: async () => {
     const L = [...msel].map(get).filter(c => c?.type == 'p'); if (!L.length) return;
+    if (S.style == 'wx') { msel = null; emit('chat'); return pickTags(L, []); } // 微信：选择标签（可以选好几个）
     const gs = grpNames(), k = await menu([...gs.map(g => [g, esc(g)]), ['+', '＋ 新建分组']], `把 ${L.length} 个联系人放到`); if (!k) return;
     let g = k; if (k == '+') { const r = await form('新建分组', [['n', '分组名']], { n: '' }); g = String(r?.n || '').trim(); if (!g) return; }
     L.forEach(c => c.grp = g == '我的好友' ? '' : g); msel = null; saveD(); emit('chat'); toast(`已放到「${g}」`);

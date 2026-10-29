@@ -19,8 +19,8 @@ export function vSec(c, f) {
   return `<div class="vbox"><b>🎙 正在使用 <em>${esc(cur.name)}</em></b><small>${now}</small></div>`
     + (per ? f.sel('tv.pv', '语音服务商', [['', '跟随全局'], ...TTSP]) : '')
     + (/^mmi?$/.test(vo.pv) ? f.sel('tv.lang', '朗读语言', MML) : '') // 只有 MiniMax 能指定朗读语言，用别家就不显示
-    // 每家一行：现在用的音色保存过（有名字）就直接显示名字，点一下可以改名 / 改 ID / 删除；没保存过是输入框 + 保存。下面只列「其他」保存过的，点了换过去
-    + TTSP.map(([k, n]) => { const L = tv.lib?.[k] || [], v = tv.v?.[k] || '', ci = L.findIndex(x => x.id == v), cur = ci >= 0 ? L[ci] : null;
+    // 只显示正在用的那家服务商（换了「语音服务商」就显示换过去的那家）；现在用的音色保存过（有名字）就直接显示名字，点一下可以改名 / 改 ID / 删除；没保存过是输入框 + 保存。下面只列「其他」保存过的，点了换过去
+    + TTSP.filter(([k]) => k == vo.pv).map(([k, n]) => { const L = tv.lib?.[k] || [], v = tv.v?.[k] || '', ci = L.findIndex(x => x.id == v), cur = ci >= 0 ? L[ci] : null;
       return `<div class="col vrow"><span>${esc(n)}${k == vo.pv ? ' <em class="using">使用中</em>' : ''}</span><div class="vin">${cur
         ? `<b class="vnm" data-a="vme" data-x="${k}:${ci}"><span>${esc(cur.n || cur.id)}</span>${cur.n ? `<small>${esc(cur.id)}</small>` : ''}</b>`
         : `<input data-k="tv.v.${k}" value="${esc(v)}" placeholder="${esc(VPH2[k] || '音色 ID')}"><b class="pull" data-a="vsave" data-x="${k}">保存</b>`}</div>`

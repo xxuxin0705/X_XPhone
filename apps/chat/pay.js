@@ -30,7 +30,7 @@ export const WXA = n => new URL(`../../assets/wx/${n}.png`, import.meta.url).hre
 const layer = (cls, html) => { const w = Object.assign(document.createElement('div'), { className: cls }); w.innerHTML = html; ui.scr.append(w); requestAnimationFrame(() => w.classList.add('in')); return w; };
 const unlayer = w => { w.classList.remove('in'); setTimeout(() => w.remove(), 220); };
 // 「微信支付 ···」/「正在加载」小黑框
-async function loading(ms, txt) {
+export async function loading(ms, txt) {
   const w = layer('wxl', `<div class="wxl-b">${txt ? '<i class="wxl-spin"></i>' : `<i class="wxl-i">${WXP}</i>`}<span>${txt || '微信支付'}</span>${txt ? '' : '<em class="wxl-d"><i></i><i></i><i></i></em>'}</div>`);
   await sleep(ms); unlayer(w);
 }

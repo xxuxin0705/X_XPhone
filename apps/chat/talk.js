@@ -6,9 +6,10 @@ regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
-import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref, look, stkAllow } from './data.js';
+import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref, look, stkAllow, grpNames } from './data.js';
 import { openFeed } from './chat.js';
 import { payPage, hbOpen, hbDetail, tfPage } from './pay.js';
+import { tagsOf, pickTags } from './tags.js';
 import { bridge as mzB } from '../music/music-share.js';
 
 const EMO = '❤️ 👍 😂 🥺 😮 😡 🥳 🙏'.split(' ');
@@ -433,7 +434,7 @@ export function cset(ch) {
     body: () => sec('cset', [
       ['info', '基本信息', g ? `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'name', '群名')}${ci(ch, 'no', '群号')}</div></div>` + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
         : `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'remark', '备注')}${ci(ch, 'nick', '昵称（网名）')}</div></div>`
-          + `<div class="ci-l">${ci(ch, 'real', '真实姓名')}${ci(ch, 'wxid', '微信号', '没填就随机生成')}${ci(ch, 'grp', '分组', '我的好友')}${ci(ch, 'sign', '个性签名')}${ci(ch, 'ps', '拍一拍后缀', '如：的小脑袋')}<div class="ci"><span>性别</span>${f.seg('sex', [['', '未知'], ['男', '男'], ['女', '女']])}</div></div>`],
+          + `<div class="ci-l">${ci(ch, 'real', '真实姓名')}${ci(ch, 'wxid', '微信号', '没填就随机生成')}${sty(ch) == 'wx' ? `<div class="ci go" data-a="tgset"><span>标签</span><p class="ci-v ${tagsOf(ch).length ? '' : 'emp'}">${esc(tagsOf(ch).join('，') || '添加标签')}</p></div>` : `<div class="ci go" data-a="grpset"><span>分组</span><p class="ci-v">${esc(ch.grp || '我的好友')}</p></div>`}${ci(ch, 'sign', '个性签名')}${ci(ch, 'ps', '拍一拍后缀', '如：的小脑袋')}<div class="ci"><span>性别</span>${f.seg('sex', [['', '未知'], ['男', '男'], ['女', '女']])}</div></div>`],
       g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}`],
       !g && ['voice', '专属音色', vSec(ch, f)],
       ['tr', '翻译', trSec(ch, f, g)],
@@ -443,7 +444,7 @@ export function cset(ch) {
 <div class="row rng"><span>语音条数</span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
       ['rd', '互动', (sty(ch) == 'wx' ? '' : f.tog('cfg.read', '显示已读 / 未读')) + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
       // 微信样式的美化只留日间 / 夜间和聊天背景（每条消息都带头像、不合并，跟真微信一样）；其他样式照旧
-      ['look', '美化', sty(ch) == 'wx' ? `<div class="row"><span>${ch.cfg.dark ? '夜间' : '日间'}</span><b class="dn ${ch.cfg.dark ? 'on' : ''}" data-a="dntog" role="switch" aria-checked="${!!ch.cfg.dark}"><i class="dn-st"></i><i class="dn-cl"></i><i class="dn-k"><i></i><i></i><i></i></i></b></div>` + f.img('cfg.bg', '聊天背景') : f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
+      ['look', '美化', sty(ch) == 'wx' ? `<div class="row"><span>${ch.cfg.dark ? '夜间' : '日间'}</span><b class="dn ${ch.cfg.dark ? 'on' : ''}" data-a="dntog" role="switch" aria-checked="${!!ch.cfg.dark}"><i class="dn-k"></i></b></div>` + f.img('cfg.bg', '聊天背景') : f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],
       ['link', '正文联动', f.tog('cfg.inj', '整个聊天注入正文') + ``],
@@ -457,6 +458,9 @@ export function cset(ch) {
       impcss: async (x, t, e, pg) => { const fl = await pickFile('.css,text/css'); if (!fl) return; const a = { id: uid(), name: fl.name.replace(/\.\w+$/, ''), css: await fl.text() }; S.assets.bubble.push(a); ch.cfg.bub = a.id; C().saveSettingsDebounced(); saveD(); pg.re(); },
       // 日间 / 夜间开关：太阳滑过去变成月亮，云散开、星星出来；只改这个开关本身，不重画整页（不跳回顶部）
       dntog: (x, t) => { ch.cfg.dark = !ch.cfg.dark; saveD(); t.classList.toggle('on', ch.cfg.dark); t.setAttribute('aria-checked', ch.cfg.dark); t.previousElementSibling.textContent = ch.cfg.dark ? '夜间' : '日间'; },
+      // 标签 / 分组是选的，不是填的：微信进「选择标签」，其他样式从已有分组里挑（或新建）
+      tgset: () => pickTags([ch]),
+      grpset: async (x, t, e, pg) => { const k = await menu([...grpNames().map(g => [g, esc(g)]), ['+', '＋ 新建分组']], '分组'); if (!k) return; let g = k; if (k == '+') { const r = await form('新建分组', [['n', '分组名']], { n: '' }); g = String(r?.n || '').trim(); if (!g) return; } ch.grp = g == '我的好友' ? '' : g; saveD(); pg.re(); },
       stkt: (k, t) => { const off = new Set(ch.cfg.stkOff || []); t.checked ? off.delete(k) : off.add(k); ch.cfg.stkOff = [...off]; saveD(); },
       clr: async () => { if (await ok('清空全部聊天记录？')) { drop(ch.msgs); ch.msgs = []; saveD(); toast('已清空'); } },
       rm: async () => { if (await ok('确定删除？')) { rm(ch); saveD(); back(); back(); } },

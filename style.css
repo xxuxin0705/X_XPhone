@@ -23,10 +23,6 @@ html{min-height:100%;min-height:100dvh}
 #stp textarea:not(:where(.mz-app *,.mz-overlay *,.mz-float *)){max-width:none;width:100%;min-height:84px;text-align:left;white-space:pre-wrap;line-height:1.5}
 #stp select:not(:where(.mz-app *,.mz-overlay *,.mz-float *)){cursor:pointer}
 #stp input[type=range]:not(:where(.mz-app *,.mz-overlay *,.mz-float *)){all:revert;accent-color:var(--ac);width:55%}
-#stp input.sw{appearance:none!important;-webkit-appearance:none!important;all:unset;flex:none;width:48px!important;height:29px!important;border-radius:20px!important;background:rgba(120,120,128,.25)!important;position:relative;cursor:pointer;transition:.25s;margin:0!important;border:0!important}
-#stp input.sw::after{content:'';position:absolute;top:2.5px;left:2.5px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.2);transition:.25s cubic-bezier(.3,1.4,.6,1)}
-#stp input.sw:checked{background:var(--ac)!important}
-#stp input.sw:checked::after{transform:translateX(19px)}
 
 .stp-scr{position:relative;height:100%;border-radius:49px;overflow:hidden;background:var(--wpi);isolation:isolate}
 .sb{position:absolute;inset:0 0 auto;height:var(--sbh);z-index:70;display:flex;align-items:center;justify-content:space-between;padding:4px 30px 0;color:var(--tx);font-weight:600;font-size:13.5px;cursor:grab;transition:color .3s;text-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -1750,17 +1746,6 @@ html{min-height:100%;min-height:100dvh}
 /* 专属音色：现在用的音色保存过 → 显示名字（下面一行小字是 ID） */
 .vnm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:10px;background:rgba(127,127,127,.11);font-weight:500;cursor:pointer}
 .vnm span{font-size:calc(15px*var(--fz,1))}.vnm small{font-size:calc(11.5px*var(--fz,1));font-weight:400;opacity:.5;word-break:break-all}
-/* 日间 / 夜间开关：白天蓝天 + 太阳 + 云，晚上深蓝 + 月亮（坑）+ 星星；太阳滑到右边变月亮 */
-.dn{--d:300ms;position:relative;flex:none;width:64px;height:28px;border-radius:14px;overflow:hidden;cursor:pointer;background:#4aa8e8;box-shadow:inset 0 1px 3px rgba(0,0,0,.22);transition:background var(--d) var(--ease-in-out,ease)}
-.dn.on{background:#1d2442}
-.dn-k{position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#ffc93c;box-shadow:0 0 0 4px rgba(255,255,255,.14),0 0 0 9px rgba(255,255,255,.08),inset -1.5px -2px 2px rgba(214,140,0,.45);transition:transform var(--d) var(--ease-in-out,ease),background var(--d)}
-.dn.on .dn-k{transform:translateX(36px);background:#cfd3dc;box-shadow:0 0 0 4px rgba(255,255,255,.07),0 0 0 9px rgba(255,255,255,.04),inset -1.5px -2px 2px rgba(110,116,136,.5)}
-.dn-k i{position:absolute;border-radius:50%;background:#a7adbb;opacity:0;transition:opacity var(--d)}.dn.on .dn-k i{opacity:1}
-.dn-k i:nth-child(1){left:5px;top:6px;width:6px;height:6px}.dn-k i:nth-child(2){left:12px;top:12px;width:4px;height:4px}.dn-k i:nth-child(3){left:12px;top:4px;width:3px;height:3px}
-.dn-cl{position:absolute;right:6px;bottom:-4px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:-11px 3px 0 -2px #fff,10px 4px 0 1px #eaf4fb,-21px 7px 0 -1px #eaf4fb;transition:transform var(--d) var(--ease-in-out,ease),opacity var(--d)}
-.dn.on .dn-cl{transform:translateY(18px);opacity:0}
-.dn-st{position:absolute;left:10px;top:7px;width:2px;height:2px;border-radius:50%;background:#fff;box-shadow:8px 6px 0 0 #fff,15px -1px 0 .5px #fff,4px 12px 0 -.2px rgba(255,255,255,.8),21px 10px 0 0 rgba(255,255,255,.7);opacity:0;transform:translateY(-8px);transition:transform var(--d) var(--ease-in-out,ease),opacity var(--d)}
-.dn.on .dn-st{opacity:1;transform:none}
 
 /* 语音消息（照真微信录屏，声波图标是抠的 assets/wx/voice-v1~3）：秒数越长气泡越宽；播放时声波一格一格亮，再点一下停 */
 .vc{display:flex;align-items:center;gap:8px;width:var(--vw,72px);max-width:100%;flex-direction:row-reverse;justify-content:flex-end;cursor:pointer;user-select:none;-webkit-user-select:none}
@@ -1771,3 +1756,70 @@ html{min-height:100%;min-height:100dvh}
 .dark .msg:not(.me) .vw{filter:invert(1)}
 .vc.pl .vw{animation:vwv 1s steps(1) infinite}
 @keyframes vwv{0%{background-image:url(assets/wx/voice-v1.png)}33%{background-image:url(assets/wx/voice-v2.png)}66%{background-image:url(assets/wx/voice-v3.png)}}
+
+/* 开关：所有开关同一个尺寸（50×30）。按住时圆钮会被压扁拉宽一点，打开后圆钮里亮一个小对勾 */
+#stp input.sw{appearance:none!important;-webkit-appearance:none!important;all:unset;flex:none;position:relative;width:50px!important;height:30px!important;border-radius:15px!important;background:rgba(120,120,128,.22)!important;cursor:pointer;margin:0!important;border:0!important;transition:background .22s var(--ease-out,ease)}
+#stp input.sw::after{content:'';position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:13px;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.04);transition:transform .26s cubic-bezier(.3,1.3,.5,1),width .16s var(--ease-out,ease)}
+#stp input.sw::before{content:'';position:absolute;z-index:1;top:9px;left:12px;width:4px;height:8px;border:solid var(--ac);border-width:0 2px 2px 0;opacity:0;transform:rotate(45deg) scale(.4);transition:transform .26s cubic-bezier(.3,1.3,.5,1),opacity .16s}
+#stp input.sw:checked{background:var(--ac)!important}
+#stp input.sw:checked::after{transform:translateX(20px)}
+#stp input.sw:checked::before{opacity:1;transform:translateX(20px) rotate(45deg) scale(1)}
+#stp input.sw:active::after{width:32px}#stp input.sw:checked:active::after{transform:translateX(14px)}#stp input.sw:checked:active::before{transform:translateX(17px) rotate(45deg) scale(1)}
+/* 日间 / 夜间：跟其他开关一样大小和手感；白天是浅蓝底 + 圆钮里一个小太阳，晚上是深蓝底 + 小月亮，轨道上冒两颗小星星 */
+.dn{position:relative;flex:none;width:50px;height:30px;border-radius:15px;cursor:pointer;background:#8ccbf5;transition:background .26s var(--ease-out,ease);-webkit-tap-highlight-color:transparent}
+.dn.on{background:#2f3561}
+.dn-k{position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:13px;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.18);transition:transform .26s cubic-bezier(.3,1.3,.5,1),width .16s var(--ease-out,ease)}
+.dn:active .dn-k{width:32px}.dn.on .dn-k{transform:translateX(20px)}.dn.on:active .dn-k{transform:translateX(14px)}
+.dn-k::before{content:'';position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px;border-radius:50%;background:#ffb728;box-shadow:0 0 0 2px rgba(255,183,40,.25);transition:all .26s var(--ease-out,ease)}
+.dn.on .dn-k::before{background:none;box-shadow:inset -3.5px -1.5px 0 0 #f3c845;transform:rotate(-20deg)}
+.dn::before,.dn::after{content:'';position:absolute;width:2.5px;height:2.5px;border-radius:50%;background:#fff;opacity:0;transform:scale(0);transition:opacity .2s .08s,transform .26s .08s cubic-bezier(.3,1.6,.5,1)}
+.dn::before{left:9px;top:8px}.dn::after{left:16px;top:17px;width:2px;height:2px}
+.dn.on::before,.dn.on::after{opacity:1;transform:none}
+/* 专属音色：输入框占满一行，「保存」贴在最右边 */
+#stp .vin input{max-width:none;flex:1;min-width:0}
+.vin .pull{flex:none;margin-left:auto}
+/* 微信「标签」：照真微信录屏（通讯录标签 / 未设置标签的朋友 / 选择标签 / 新建标签）；图标、勾选圈是抠的 assets/wx */
+.cw-e>i.t{background:none}.cw-e>i.t img{width:40px;height:40px;border-radius:5px}
+.tgpg{background:#ededed;color:#191919}.tgpg .pg-h{background:#ededed}.tgpg .pg-back{color:#191919}
+.tgpg .pg-b{padding:0!important;background:none!important}
+.tg-s{display:flex;align-items:center;justify-content:center;gap:6px;height:36px;margin:6px 12px 10px;border-radius:6px;background:#fff;color:#b2b2b2;font-size:calc(16px*var(--fz,1))}
+.tg-s svg{width:18px;height:18px;flex:none}
+#stp .tg-s input{max-width:none;width:5.5em;padding:0;background:none;border-radius:0;text-align:left;color:#191919}#stp .tg-s input:focus{width:100%}
+.tg-g{background:#fff;margin-bottom:8px}
+.tg-r{position:relative;display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer}
+.tg-r+.tg-r::before{content:'';position:absolute;left:16px;right:0;top:0;border-top:.5px solid #e5e5e5}
+.tg-r>div{flex:1;min-width:0}
+.tg-r b{display:block;font-weight:400;font-size:calc(17px*var(--fz,1))}.tg-r b em{font-style:normal;font-size:calc(14.5px*var(--fz,1));color:#b2b2b2}
+.tg-r small{display:block;margin-top:4px;font-size:calc(14px*var(--fz,1));color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tg-minus{flex:none;width:22px;height:22px;border-radius:50%;background:#fa5151;position:relative}.tg-minus::after{content:'';position:absolute;left:5px;right:5px;top:10px;height:2px;border-radius:1px;background:#fff}
+.tg-f{display:flex;justify-content:space-between;padding:12px 20px 22px;background:#f7f7f7;border-top:.5px solid #e5e5e5}.tg-f b{font-weight:400;font-size:calc(15.5px*var(--fz,1));color:#191919;cursor:pointer}
+.tg-l{margin:0;padding:8px 16px 4px;font-size:calc(13px*var(--fz,1));font-weight:400;color:#7f7f7f}
+.tg-p{position:relative;display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;cursor:pointer}
+.tg-p+.tg-p::before{content:'';position:absolute;left:68px;right:0;top:0;border-top:.5px solid #e5e5e5}.tg-p.ck+.tg-p.ck::before{left:104px}
+.tg-p img{width:40px;height:40px;border-radius:4px;object-fit:cover;flex:none}.tg-p span{flex:1;min-width:0;font-size:calc(16.5px*var(--fz,1))}
+.tg-p>b{font-weight:400;font-size:13px;color:#576b95}
+.tg-c{flex:none;width:23px;height:23px;background:url(assets/wx/ck-off.png) center/contain no-repeat}.tg-c.on{background-image:url(assets/wx/ck-on.png)}
+.tg-bat{color:#576b95!important;font-weight:400}
+.tg-add{display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;color:#576b95;cursor:pointer;font-size:calc(16.5px*var(--fz,1))}.tg-add i{display:grid;place-items:center;width:40px;height:40px;border-radius:4px;border:1px dashed #c8c8c8;font-style:normal;font-size:22px;color:#b2b2b2}
+.tg-sb{display:flex;align-items:center;gap:10px;padding:8px 14px 22px;background:#f7f7f7;border-top:.5px solid #e5e5e5}
+.tg-up{flex:none;width:30px;height:30px;border-radius:50%;background:#fff;position:relative}.tg-up::after{content:'';position:absolute;left:11px;top:12px;width:7px;height:7px;border:solid #191919;border-width:1.6px 0 0 1.6px;transform:rotate(45deg)}
+.tg-avs{flex:1;min-width:0;display:flex;gap:8px;overflow-x:auto}.tg-avs img{width:38px;height:38px;border-radius:4px;object-fit:cover;flex:none}
+.tg-go{flex:none;padding:9px 16px;border-radius:6px;background:#e1e1e1;color:#b2b2b2;font-weight:400;font-size:calc(15px*var(--fz,1));cursor:pointer}.tg-go.on{background:#07c160;color:#fff}
+.tg-ok{padding:5px 12px;border-radius:5px;background:#e1e1e1;color:#b2b2b2;font-weight:400;font-size:calc(14px*var(--fz,1))}.tg-ok.on{background:#07c160;color:#fff}
+.tg-mh{display:flex;justify-content:space-between;padding:10px 16px 8px;font-size:calc(13.5px*var(--fz,1));color:#7f7f7f}.tg-mh b{font-weight:400;color:#576b95;cursor:pointer}
+.tgpick .pg-b{background:#fff!important}.tgpick .tg-s{background:#f2f2f2}
+.tg-chips{display:flex;flex-wrap:wrap;gap:10px;padding:0 16px 20px}
+.tg-ch{padding:6px 13px;border-radius:4px;background:#f2f2f2;font-weight:400;font-size:calc(14.5px*var(--fz,1));color:#191919;cursor:pointer;transition:background .15s,color .15s}
+.tg-ch.on{background:#e5f7ed;color:#07c160}.tg-ch.nw{background:none;color:#555;padding-left:4px}
+.tg-e{text-align:center;color:#b2b2b2;padding:40px 0}
+.tgn{position:absolute;inset:0;z-index:75;background:rgba(0,0,0,0);transition:background .2s}.tgn.in{background:rgba(0,0,0,.45)}
+.tgn-s{position:absolute;left:0;right:0;bottom:0;top:22%;border-radius:12px 12px 0 0;background:#f7f7f7;padding:0 16px;transform:translateY(100%);transition:transform .28s var(--ease-drawer,ease)}.tgn.in .tgn-s{transform:none}
+.tgn-h{position:relative;height:52px;display:grid;place-items:center;font-size:calc(17px*var(--fz,1));font-weight:500;color:#191919}
+.tgn-b{position:absolute;left:0;top:14px;width:24px;height:24px;cursor:pointer}.tgn-b::after{content:'';position:absolute;left:8px;top:6px;width:10px;height:10px;border:solid #191919;border-width:0 0 1.8px 1.8px;transform:rotate(45deg)}
+.tgn-i{display:flex;align-items:center;height:44px;padding:0 12px;border-radius:6px;background:#ececec;margin-top:8px}
+#stp .tgn-i input{flex:1;max-width:none;padding:0;background:none;border-radius:0;text-align:left;font-size:calc(16px*var(--fz,1))}
+.tgn-cl{display:none;width:18px;height:18px;border-radius:50%;background:#b2b2b2;position:relative;cursor:pointer}.tgn.has .tgn-cl{display:block}.tgn-cl::before,.tgn-cl::after{content:'';position:absolute;left:4px;right:4px;top:8.2px;height:1.6px;background:#fff;transform:rotate(45deg)}.tgn-cl::after{transform:rotate(-45deg)}
+.tgn-ok{display:grid;place-items:center;width:168px;height:42px;margin:60px auto 0;border-radius:6px;background:#e1e1e1;color:#b2b2b2;font-weight:500;font-size:calc(16px*var(--fz,1));cursor:pointer}.tgn-ok.on{background:#07c160;color:#fff}
+/* 聊天设置里的「标签 / 分组」：是选的，点一下进选择 */
+.ci.go{cursor:pointer}.ci.go::after{content:'';position:absolute;right:20px;top:50%;width:7px;height:7px;border:solid #b2b2b2;border-width:1.5px 1.5px 0 0;transform:rotate(45deg)}
+.ci-v{margin:0!important;font-size:calc(16px*var(--fz,1));line-height:1.45;padding-right:24px;word-break:break-all}.ci-v.emp{opacity:.4}

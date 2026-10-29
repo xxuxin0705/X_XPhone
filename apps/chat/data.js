@@ -36,7 +36,9 @@ export const stkAllow = (ch, all) => { const off = ch?.cfg?.stkOff; return off?.
 export const grpOf = c => c?.grp || '我的好友';
 export const grpNames = () => [...new Set(['我的好友', ...D().chats.filter(c => c.type == 'p' && c.fr !== 0).map(grpOf)])];
 // 我的动态谁能看：p.vis = { m: 'only' 只给这些分组看 / 'not' 不给这些分组看, g: [分组] }
-export const canSee = (p, c) => !p.vis?.g?.length || (p.vis.m == 'not' ? !p.vis.g.includes(grpOf(c)) : p.vis.g.includes(grpOf(c)));
+// 一个人身上的分组 / 标签（微信的标签可以有好几个；旧数据只有 grp）
+const marks = c => [grpOf(c), ...(c?.tags || [])];
+export const canSee = (p, c) => { if (!p.vis?.g?.length) return true; const hit = marks(c).some(g => p.vis.g.includes(g)); return p.vis.m == 'not' ? !hit : hit; };
 export const look = ch => sty(ch) == 'wx' ? { ...ch.cfg, cont: false, showAv: true, shape: '', avs: '', bub: '', frame: '' } : ch.cfg;
 export const who = (ch, f) => f == 'me' ? nm(meObj()) : nm(get(f));
 // 引用：记住被引用那条的 id（没有就现给一个），显示时按 id 取它现在的内容；w / c 是当时的样子，只在那条找不到时兜底
