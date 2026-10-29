@@ -45,7 +45,7 @@ export function startCall(ch, kind = 'voice') {
   A.lines = []; // 字幕：这通电话里谁说了什么（外语带中文）
   const el = Object.assign(document.createElement('div'), { className: `xc xc-${kind}` }); A.el = el; CALL = A;
   const draw = () => {
-    const dial = A.st == 'dial', rec = A.ph == 'rec', cap = A.lines.length || rec ? `<div class="xc-tx">${A.lines.slice(-8).map((x, i, L) => `<p class="${x.f == 'me' ? 'me' : ''} ${i == L.length - 1 && A.ph == 'speak' && x.f != 'me' ? 'now' : ''}">${x == A.rv ? `<span class="xc-r">${esc(x.t.slice(0, x.sh))}</span>` : esc(x.t)}${x.tr && x.tr != x.t ? `<em${x == A.rv ? ' class="xc-r2"' : ''}>${esc(x == A.rv ? x.tr.slice(0, Math.ceil(x.tr.length * x.sh / Math.max(1, x.t.length))) : x.tr)}</em>` : ''}</p>`).join('')}${rec ? `<p class="me ing"><span>${esc(A.heard || '')}</span><i class="xc-cur"></i></p>` : ''}</div>` : '';
+    const dial = A.st == 'dial', rec = A.ph == 'rec', cap = A.lines.length || rec ? `<div class="xc-tx">${A.lines.slice(-8).map((x, i, L) => `<p class="${x.f == 'me' ? 'me' : ''} ${i == L.length - 1 && A.ph == 'speak' && x.f != 'me' ? 'now' : ''}">${x == A.rv ? `<span class="xc-r">${esc(x.t.slice(0, x.sh))}</span>` : esc(x.t)}${x.tr && x.tr != x.t ? `<em${x == A.rv ? ' class="xc-r2"' : ''}>${esc(x == A.rv ? x.tr.slice(0, Math.ceil(x.tr.length * x.sh / Math.max(1, x.t.length))) : x.tr)}</em>` : ''}</p>`).join('')}${rec ? `<p class="me ing"><span>${esc(A.heard || '')}</span><i class="xc-cur"></i></p><p class="xc-dg">${esc(diag())}</p>` : ''}</div>` : '';
     const thinkS = A.ph == 'think' ? Math.round((performance.now() - A.thinkAt) / 1e3) : 0;
     const ph = { idle: A.mic ? A.auto ? '点「点这里说」接着聊' : '点下面「点这里说」，说完点「说完了」' : '麦克风已关', rec: A.auto ? '正在听你说… 停一下 TA 就接话' : '在听你说… 说完点「说完了」', think: `${esc(nm(c))} 正在想… <i class="xc-ts">${thinkS}s</i>`, speak: `${esc(nm(c))} 正在说 · 点屏幕可以打断`, fail: '这轮没接上，可以再说一遍' }[A.ph] || '';
     const hint = A.ph == 'think' && thinkS >= 20 ? `<p class="xc-hint">${A.raw ? '酒馆当前连接是文本补全（或酒馆版本太旧），拿不到流式，要等整段想完才开口。在 设置 → 应用配置 → 聊天 → 语音通话 里选一个「连接配置」或自己的 API，并把「低思考」打开，会快很多' : '模型想得有点久，可能开着深度思考；在 设置 → 应用配置 → 语音通话 里把「低思考」打开会快一些'}</p>` : '';
@@ -67,6 +67,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   };
   A.draw = draw;
   const tick = setInterval(() => { const t = el.querySelector('.xc-tm'); t && A.t0 && (t.textContent = mmss((now() - A.t0) / 1e3)); const m = el.querySelector('.xc-mt'); m && A.t0 && (m.textContent = mmss((now() - A.t0) / 1e3));
+    if (A.ph == 'rec') dg();
     if (A.ph == 'think') { const sN = Math.round((performance.now() - A.thinkAt) / 1e3), ts = el.querySelector('.xc-ts'); ts && (ts.textContent = sN + 's'); (sN == 20) && draw(); } }, 1000); // 想到 20 秒：换上提示和「不等了」
   const sendTyped = () => { const ip = el.querySelector('.xc-type input'), v = ip?.value.trim(); if (!v) return; if (A.ph == 'think') return toast('等 TA 想好，或者先点「打断」'); ip.value = ''; stopRec(); heard(v); }; // 对方思考时不收新的话（不然会叠出两份回答）
   el.onclick = e => { const k = e.target.closest('[data-k]')?.dataset.k;
@@ -122,15 +123,28 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   function listen() {
     if (CALL != A || A.ph == 'think' || A.ph == 'speak') return; A.ctx?.resume?.();
     const R = SR(); if (!R) { if (!A.typing) { A.typing = true; draw(); toast('这个浏览器不支持语音识别，可以打字说'); } return; }
-    A.ph = 'rec'; A.acc = ''; A.mid = ''; A.heard = ''; draw(); startRec();
+    A.ph = 'rec'; A.acc = ''; A.mid = ''; A.heard = ''; A.rs = { t: performance.now(), on: 0, au: 0, snd: 0, sp: 0, res: 0, n: 0, err: '', thr: '' }; draw(); startRec();
   }
+  // 麦克风诊断：识别没出字的时候，直接写出卡在哪一步（开没开起来 / 有没有声音进来 / 认没认出话 / 报了什么错）
+  function diag() { const r = A.rs; if (!r || A.heard) return ''; const s = (performance.now() - r.t) / 1e3;
+    if (r.thr) return `识别启动失败：${r.thr}`;
+    if (r.err && /not-allowed|service-not-allowed/.test(r.err)) return '没有麦克风权限（浏览器或酒馆 App 没允许用麦克风）';
+    if (r.err == 'network') return '识别服务连不上（浏览器自带识别要连谷歌的服务器）';
+    if (s < 3) return r.on ? '麦克风已打开，说吧' : '正在打开麦克风…';
+    if (!r.on) return '语音识别没有启动（这个环境多半不支持浏览器识别，比如 App 里的内置网页），可以点下面「打字说」';
+    if (!r.au) return '识别开起来了，但麦克风没接上（可能被录屏 / 别的应用占着）';
+    if (!r.snd) return `麦克风接上了，但一点声音都没收到（录屏在录麦克风时会把它占走）${r.err ? ' · ' + r.err : ''}`;
+    if (!r.res) return `听到声音了，但没认出字${r.err ? '（' + r.err + '）' : ''}${r.n > 1 ? ` · 已重开 ${r.n} 次` : ''}`;
+    return ''; }
+  const dg = () => { const d = el.querySelector('.xc-dg'); d && (d.textContent = diag()); };
   function startRec() {
     const R = SR(); if (!R || CALL != A || A.ph != 'rec') return;
-    stopRec(); const r = new R(); A.rec = r; r.lang = A.inL; r.interimResults = true; r.continuous = true;
-    r.onresult = e => { let fin = '', mid = ''; for (const x of e.results) (x.isFinal ? (fin += x[0].transcript) : (mid += x[0].transcript)); A.acc = (A.base || '') + fin; A.mid = mid; A.heard = (A.acc + mid).trim(); const p = el.querySelector('.xc-tx .ing span'); p ? (p.textContent = A.heard) : draw(); hush(); };
-    r.onerror = e => { if (/not-allowed|service-not-allowed|audio-capture/.test(e.error)) { A.rec = null; A.ph = 'idle'; A.typing = true; draw(); toast('没有麦克风权限，可以打字说'); } else if (e.error == 'network') { A.rec = null; A.ph = 'idle'; A.typing = true; draw(); toast('语音识别连不上网络，可以打字说'); } };
+    stopRec(); const r = new R(); A.rec = r; r.lang = A.inL; r.interimResults = true; r.continuous = true; const rs = A.rs || (A.rs = { t: performance.now() }); rs.n = (rs.n || 0) + 1;
+    const mark = k => () => { if (A.rec == r) { rs[k] = 1; dg(); } }; r.onstart = mark('on'); r.onaudiostart = mark('au'); r.onsoundstart = mark('snd'); r.onspeechstart = mark('sp');
+    r.onresult = e => { let fin = '', mid = ''; for (const x of e.results) (x.isFinal ? (fin += x[0].transcript) : (mid += x[0].transcript)); A.acc = (A.base || '') + fin; A.mid = mid; rs.res = 1; A.heard = (A.acc + mid).trim(); const p = el.querySelector('.xc-tx .ing span'); p ? (p.textContent = A.heard) : draw(); hush(); };
+    r.onerror = e => { rs.err = e.error || 'error'; dg(); if (/not-allowed|service-not-allowed|audio-capture/.test(e.error)) { A.rec = null; A.ph = 'idle'; A.typing = true; draw(); toast('没有麦克风权限，可以打字说'); } else if (e.error == 'network') { A.rec = null; A.ph = 'idle'; A.typing = true; draw(); toast('语音识别连不上网络，可以打字说'); } };
     r.onend = () => { if (A.rec != r || CALL != A) return; A.rec = null; if (A.ph != 'rec') return; A.base = (A.acc + (A.mid || '')); A.mid = ''; setTimeout(() => A.ph == 'rec' && !A.rec && startRec(), 120); }; // 没按「说完了」就自己停了：接着听
-    try { r.start(); } catch { }
+    try { r.start(); } catch (e) { rs.thr = e?.message || String(e); dg(); }
   }
   // 自动接话：每来一次识别结果就重新计时，安静 1.2 秒（一个字都没变）就当我说完了
   function hush() { clearTimeout(A.sil); if (A.auto && A.heard) A.sil = setTimeout(() => A.ph == 'rec' && CALL == A && finishRec(), SIL); }

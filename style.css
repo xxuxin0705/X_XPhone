@@ -2112,6 +2112,7 @@ html{min-height:100%;min-height:100dvh}
 .xc-pill:active{transform:scale(.96)}.xc-pill.go{background:#07c160;color:#fff}.xc-pill.sub{min-width:0;background:rgba(0,0,0,.35);color:#fff;font-weight:400}.xc-pill.dis{opacity:.45}
 .xc-pill .xc-i.sm{width:20px;height:20px}
 .xc-ts{font-style:normal;font-variant-numeric:tabular-nums;opacity:.9}
+.xc-tx p.xc-dg{margin-top:-4px;align-self:flex-end;text-align:right;font-size:calc(11.5px*var(--fz,1));line-height:1.45;opacity:.65}.xc-tx p.xc-dg:empty{display:none}
 .xc-hint{margin:6px 10px 0;font-size:calc(12px*var(--fz,1));line-height:1.5;opacity:.7}
 .xc-cur{display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-.15em;background:#fff;animation:xc-cur 1s steps(2) infinite}@keyframes xc-cur{to{opacity:0}}
 .xc-tx p.ing{opacity:.95;font-style:normal}

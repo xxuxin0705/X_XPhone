@@ -94,6 +94,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`_busy.every(x => !x)`), '半双工：TA 想的时候麦是关着的（不会把外放的声音录进去）');
   await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /正在听你说/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「正在听你说」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
+  // 麦克风诊断：识别开起来了、麦克风也接上了，但一点声音都没进来（比如录屏占着麦克风）→ 屏幕上直接写出来
+  await E(`(() => { window.webkitSpeechRecognition = class { start() { setTimeout(() => { this.onstart?.(); this.onaudiostart?.(); }, 100); } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async () => '喂？'; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
+  await p.waitForFunction(`/一点声音都没收到/.test(document.querySelector('.xc-dg')?.textContent || '')`, null, { timeout: 15000 }).catch(() => { }); await shot('diag');
+  ok(/一点声音都没收到/.test(await E(`document.querySelector('.xc-dg')?.textContent || ''`)), '没出字时显示卡在哪一步：' + await E(`document.querySelector('.xc-dg')?.textContent || ''`));
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition`);
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);
   ok(await E(`core.D().favs.length == 1 && core.D().favs[0].src == '绷带盐'`), '收藏一条消息（记着来源）');
