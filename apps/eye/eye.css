@@ -1,4 +1,4 @@
-/* 窥探之眼：深夜客厅（assets/eye/room.webp 是整张底图，不另画东西）；电视屏 / 全息屏是前端叠上去的 */
+/* 窥探之眼：全是生成的图（assets/eye/*.webp），不另画东西；电视屏内容、手机图标、全息屏是前端叠上去的 */
 #stp .eye-pg { background: #06070c; color: #dfe8ff; padding-top: 0; }
 #stp .eye-pg .pg-h { display: none; }
 #stp .eye-pg .pg-b { padding: 0 !important; overflow: hidden; position: relative; background: #06070c; }
@@ -12,7 +12,15 @@
 .eye-room { position: absolute; inset: 0; transform-origin: 50% 50%; transform: translate(var(--tx), var(--ty)) scale(var(--s)); transition: transform 1s cubic-bezier(.22, .82, .18, 1); will-change: transform; }
 /* 底图按原比例铺满（cover）：fit 框保持 1024:1466，宽不够就按高撑，所有百分比热区都挂在 fit 上 */
 .eye-room .fit { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%); }
-.eye-room .fit > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.eye-room .fit > img.base { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; opacity: 0; transition: opacity .7s ease; }
+.eye-room .fit > img.in { opacity: 1; }
+.swaps { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%); z-index: 4; pointer-events: none; }
+.swaps > img.swap { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity .6s ease .45s; }
+.swaps > img.swap.in { opacity: 1; }
+.eye-stage.swapped .swaps { pointer-events: auto; }
+/* 换了整张图以后，热区和电视都收起来 */
+.eye-stage.swapped .hz, .eye-stage.swapped .tv-scr, .eye-stage.swapped .led, .eye-stage.swapped .curtain-glow, .eye-stage.swapped .moon-ray { opacity: 0; pointer-events: none; }
+.hz, .tv-scr, .led, .curtain-glow, .moon-ray { transition: opacity .4s; }
 
 /* 热区：平时看不见；点中以后用一圈很淡的流光边框标出来 */
 .hz { position: absolute; display: block; cursor: pointer; border-radius: 6px; }
@@ -23,7 +31,12 @@
 .hz:active { background: rgba(120, 200, 255, .06); }
 
 /* 电视屏：底图上那块空白屏的位置（左 33.6% 上 14.9% 右 78.2% 下 32.5%） */
-.tv-scr { position: absolute; left: 33.6%; top: 14.9%; width: 44.6%; height: 17.6%; overflow: hidden; border-radius: 2px; pointer-events: none; background: #0b1424; }
+.tv-scr { position: absolute; left: 33.6%; top: 14.9%; width: 44.6%; height: 17.6%; overflow: hidden; border-radius: 2px; pointer-events: none; background: #141a2a; z-index: 2; }
+.tv-scr.lit { animation: tv-on .9s ease-out; }
+@keyframes tv-on { 0% { filter: brightness(0) } 30% { filter: brightness(2.2) } 100% { filter: brightness(1) } }
+.tv-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; animation: tv-breathe 6s ease-in-out infinite; }
+@keyframes tv-breathe { 50% { filter: brightness(1.08) } }
+.tv-scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px); pointer-events: none; }
 .tv-pic { position: absolute; inset: 0; background: linear-gradient(180deg, #4a4a9a 0%, #a66aa0 42%, #f3b27a 62%, #ffd9a0 100%); overflow: hidden; }
 .tv-pic.f-manga { background: linear-gradient(180deg, #f4f0e6, #ddd6c6); filter: grayscale(1) contrast(1.15); }
 .tv-pic.f-drama { background: linear-gradient(180deg, #1c2a44 0%, #3a4a66 50%, #6a7a90 100%); }
@@ -58,8 +71,41 @@
 @keyframes glow { 50% { opacity: .55 } }
 /* 推镜后，底图整体压暗一点，被点的那块靠聚光灯提亮 */
 .eye-stage.zoom .eye-room::after { content: ''; position: absolute; inset: 0; background: rgba(4, 6, 12, .35); pointer-events: none; }
-/* 推近电视时全息屏往下让一让，别挡着屏幕 */
+/* 换了整张图（帷幕后 / 周边柜）或推近电视时，全息屏往下让一让，别挡着画面 */
+.eye-stage[data-focus="curtain"] .holo, .eye-stage[data-focus="cab"] .holo, .eye-stage[data-focus="mask"] .holo { top: 70%; }
 .eye-stage[data-focus="tv"] .holo { top: 62%; }
+
+/* 手机特写上的图标：一块 300×300 的网格，用 matrix3d 贴到屏幕那块四边形上 */
+.ph-grid { position: absolute; left: 0; top: 0; width: 300px; height: 300px; transform-origin: 0 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 88px; gap: 10px 6px; padding: 8px 10px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity .5s .5s; z-index: 5; }
+.eye-stage.ph-home .ph-grid { opacity: 1; pointer-events: auto; }
+.ph-grid b { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; color: #e8f0ff; text-shadow: 0 1px 3px #000; cursor: pointer; position: relative; overflow: hidden; border-radius: 12px; padding: 2px 0; }
+.ph-grid .pi { width: 58px; height: 58px; border-radius: 16px; display: grid; place-items: center; box-shadow: 0 6px 14px -6px #000, inset 0 1px 0 rgba(255, 255, 255, .35); }
+.ph-grid .pi svg { width: 32px; height: 32px; }
+.pi.plat { background: linear-gradient(145deg, #ff8a7a, #e8542a); } .pi.plat.manga { background: linear-gradient(145deg, #6fb4ff, #2f6fd6); } .pi.plat.anime { background: linear-gradient(145deg, #ff8fb8, #e8457a); } .pi.plat.drama { background: linear-gradient(145deg, #ffb46a, #e8702a); } .pi.plat.novel { background: linear-gradient(145deg, #ff9a7a, #d6472f); } .pi.plat.game { background: linear-gradient(145deg, #5fe0c8, #1fa88f); }
+.pi.forum { background: linear-gradient(145deg, #6fb8ff, #3a7bd5); } .pi.shop { background: linear-gradient(145deg, #ff9a5a, #e8542a); } .pi.fan { background: linear-gradient(145deg, #ffc05a, #f08a2a); } .pi.line { background: linear-gradient(145deg, #b48aff, #6a4ad6); } .pi.set { background: linear-gradient(145deg, #9aa4b8, #5a6478); }
+.ph-grid b:active .pi { transform: scale(.92); }
+
+/* 引导：五块面板浮在茶几上方（位置照第二张图） */
+.eye-guide { position: absolute; inset: 0; z-index: 6; opacity: 0; pointer-events: none; transition: opacity .6s; }
+.eye-guide.in { opacity: 1; pointer-events: auto; }
+.eye-guide::before { content: ''; position: absolute; inset: 0; background: rgba(2, 4, 10, .45); }
+.gq { position: absolute; left: 0; right: 0; top: 30%; margin: 0; text-align: center; color: #e6f0ff; text-shadow: 0 2px 10px #000; }
+.gq b { display: block; font-size: calc(17px * var(--fz, 1)); letter-spacing: 2px; font-weight: 600; }
+.gq small { display: block; margin-top: 6px; font-size: calc(11.5px * var(--fz, 1)); color: #9fd0ff; letter-spacing: 2px; }
+.gps { position: absolute; left: 10px; right: 10px; top: 42%; display: flex; gap: 6px; align-items: flex-end; }
+.gp { position: relative; flex: 1; cursor: pointer; border-radius: 4px; transform-origin: 50% 100%; animation: gp-float 3.4s ease-in-out infinite; filter: drop-shadow(0 0 10px rgba(120, 200, 255, .55)); transition: transform .5s, opacity .5s, filter .5s; display: flex; flex-direction: column; align-items: center; }
+.gp:nth-child(2) { animation-delay: -.6s } .gp:nth-child(3) { animation-delay: -1.2s } .gp:nth-child(4) { animation-delay: -1.8s } .gp:nth-child(5) { animation-delay: -2.4s }
+@keyframes gp-float { 50% { translate: 0 -4px } }
+.gp > img:first-child { display: block; width: 100%; aspect-ratio: 136 / 104; object-fit: fill; border-radius: 4px; }
+.gp span { display: block; margin-top: 6px; text-align: center; font-size: 11px; color: #cfe8ff; letter-spacing: 2px; text-shadow: 0 1px 4px #000; }
+.gp.pick { transform: scale(1.12); filter: drop-shadow(0 0 18px #9fe0ff) brightness(1.2); z-index: 2; }
+.gp.off { opacity: .15; }
+.gp .gi { width: 44px; height: 44px; mix-blend-mode: screen; margin-top: 2px; }
+.eye-stage.guiding .hz { pointer-events: none; }
+
+/* 最前面那层虚化的沙发：推近时淡出，平时微微跟着镜头反向动 */
+.eye-fg { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%); pointer-events: none; z-index: 3; opacity: .95; transition: opacity .6s, transform 1s cubic-bezier(.22, .82, .18, 1); }
+.eye-stage.zoom .eye-fg, .eye-stage.guiding .eye-fg { opacity: 0; transform: translate(-50%, -46%) scale(1.08); }
 
 /* 灰尘 */
 .eye-fx { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
@@ -96,6 +142,17 @@
 .holo .ho-h small { margin-left: auto; font-size: 9px; opacity: .7; letter-spacing: 1px; }
 .holo .ho-b { padding: 10px 14px 8px; overflow: auto; scrollbar-width: none; flex: 0 1 auto; max-height: 44vh; }
 .holo .ho-t { display: block; font-size: calc(19px * var(--fz, 1)); line-height: 1.3; font-weight: 700; letter-spacing: 1px; color: #fff; text-shadow: 0 0 10px rgba(120, 200, 255, .6); }
+.ho-tabs { display: flex; gap: 6px; margin: 10px 0 2px; }
+.ho-tabs b { padding: 4px 10px; border-radius: 12px; font-size: calc(11.5px * var(--fz, 1)); border: 1px solid rgba(140, 210, 255, .3); opacity: .7; }
+.ho-tabs b.on { background: rgba(120, 200, 255, .25); border-color: #9fe0ff; opacity: 1; }
+.ho-goods { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; }
+.ho-goods div { border-radius: 8px; padding: 8px; background: rgba(140, 210, 255, .08); border: 1px solid rgba(140, 210, 255, .18); display: flex; flex-direction: column; gap: 4px; font-size: calc(12px * var(--fz, 1)); }
+.ho-goods i { display: block; height: 52px; border-radius: 6px; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 80%, #fff), var(--c)); }
+.ho-goods b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ho-goods span { display: flex; justify-content: space-between; color: #ffb0c0; }
+.ho-goods em { font-style: normal; color: #ffd45a; }
+.ho-forms b img { width: 26px; height: 26px; mix-blend-mode: screen; vertical-align: middle; margin-right: 4px; }
+.ho-forms b { display: inline-flex; align-items: center; }
 .holo .ho-m { display: block; font-style: normal; font-size: calc(11.5px * var(--fz, 1)); color: rgba(216, 236, 255, .7); margin-top: 4px; }
 .holo p { margin: 10px 0 4px; font-size: calc(13px * var(--fz, 1)); line-height: 1.65; color: rgba(230, 242, 255, .92); }
 .ho-list { list-style: none; margin: 10px 0 2px; padding: 0; }
