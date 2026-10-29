@@ -10,7 +10,7 @@ import { S, $, $$, page, reg, toast, save, esc, openApp } from '../../core.js';
 const CSS = new URL('./eye.css?v=3', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
-const ST = () => (S.eye ||= { form: '', role: 'viewer', wall: false, src: 'orig', intro: 0 });
+const ST = () => { const e = (S.eye ||= { form: '', role: 'viewer', wall: false, src: 'orig', intro: true }); if (typeof e.intro != 'boolean') e.intro = true; return e; };
 
 /* ---------- 形态 ---------- */
 const FORMS = [['manga', '漫画'], ['game', '游戏'], ['novel', '小说'], ['drama', '电视剧'], ['anime', '动画']];
@@ -77,7 +77,7 @@ const H = {
   fan: () => ({ k: 'FANWORKS · 同人圈', t: '本周产出 64', m: '图 41 · 文 19 · cos 4 · 高维度的粉丝们', grid: [['#5a6a9a', '雨夜'], ['#8a5a6a', '借伞'], ['#4a6a5a', '屋檐下'], ['#6a5a8a', '回头'], ['#8a7a4a', '扉页'], ['#4a5a7a', '三人']], list: [['太太A', '《等雨停的人》 · 短篇 · 3.2k 字', '热 890'], ['画手B', '屋檐下 · 彩图', '412']], acts: [['看全部', 'fanall']] }),
   line: () => ST().src == 'fan' ? { k: 'ORIGINAL · 原著线', t: '原著里的他们', m: '原著角色看这条线的剧情', body: '原著里那把伞他没借出去。所以当原著的他看到这条线里的自己坐在屋檐下等雨停，沉默了很久。', list: [['原著 · 他', '……我不会把伞借出去的。但这个我，好像比我更像我。', ''], [' 原著 · 她', '这条线里他居然会等人，笑死，原著他连雨都不躲。', '']], acts: [['切换到 IF 线（原创作品）', 'srcorig']] }
     : { k: 'IF · 另一条线', t: '如果那天他没借伞', m: 'IF 线 · 同一批人，另一个选择', body: '这部作品没有原著，所以另一条线是「IF 线」：同一个故事，在某个岔路口走了另一条路。那边的他们，隔着线看这边。', list: [['IF 线 · 他', '我把伞留下了。然后我在屋檐下等了一整晚，雨也没停。', ''], ['IF 线 · 她', '这边的我没去找他。所以看见那边的我去了，有点想哭。', '']], acts: [['切换到原著线（同人作品）', 'srcfan']] },
-  set: () => ({ k: 'SETTINGS', t: '作品档案', m: `${FN[ST().form]} · ${FM[ST().form].unit}`, forms: 1, acts: [['重新选择作品', 'reguide'], ['重看片头', 'replay']] }),
+  set: () => ({ k: 'SETTINGS', t: '作品档案', m: `${FN[ST().form]} · ${FM[ST().form].unit}`, forms: 1, acts: [['重新选择作品', 'reguide']] }),
   tv: () => { const f = FM[ST().form]; return { k: `${FN[ST().form]} · 本期`, t: '雨停之前', m: `${f.where} · ${f.unit}`, body: '这一' + f.ep + '里，万事屋的雨一直没停。他把最后一把伞借给了来委托的人，自己在屋檐下坐到天黑。', dm: ['前方高能！！', '泪目了', '这一集神作', '打卡', '伞！！！'], acts: [['弹幕 · 实时', 'dm'], ['刷新本期', 'gen']] }; },
   mask: () => ({ k: 'IDENTITY · 身份', t: ST().role == 'author' ? '作者' : '观众席', m: ST().role == 'author' ? '以作者本人的身份发言 · 读者会认出你' : '以普通读者的身份逛论坛 · 用自己的马甲发帖', body: ST().role == 'author' ? '面具戴上了。从现在起，你的每一句话都会被当成官方发言。' : '面具还挂在墙上。你只是观众席里的一个人。', acts: [[ST().role == 'author' ? '摘下面具 · 回到观众席' : '戴上面具 · 成为作者', 'role']] }),
   curtain: () => { const f = FM[ST().form]; return { k: `BACKSTAGE · ${f.bs}`, t: f.who, m: `本${f.ep} · 2 条`, body: ST().form == 'manga' || ST().form == 'novel' ? '这一话画到最后一页的时候外面真的在下雨。借伞那个分镜改了四次，责编说第一版太温柔了，不像他。' : '录屋檐下那段戏的时候，导演让我什么都别说，只呼吸。后来回放，我自己也沉默了很久。', acts: [['看全文', 'bs']] }; },
@@ -140,15 +140,30 @@ function focus(el, k, push = true) {
 }
 const back = el => { if (stack.length) focus(el, stack.pop(), false); else focus(el, ''); };
 
-/* ---------- 片头：第一次进来 ---------- */
+/* ---------- 片头：每次进来都放（主题 → 应用 → 窥探之眼 里可以关） ---------- */
 const INTRO = [['如果这个世界，', ''], ['是一部', '漫画'], ['一本', '小说'], ['一部', '电视剧'], ['一个', '游戏'], ['一个', '动漫']];
-function introHtml() { return `<div class="eye-intro" data-a="iskip"><div class="il">${INTRO.map(([a, b], i) => `<p style="--i:${i}">${esc(a)}${b ? `<b>${esc(b)}</b>…` : ''}</p>`).join('')}</div><div class="ie"><img src="${IMG('logo')}" alt=""><i class="lid t"></i><i class="lid b"></i><i class="slit"></i></div><i class="iflash"></i></div>`; }
+function introHtml() { return `<div class="eye-intro"><i class="istars"></i><canvas class="ipx"></canvas><b class="iskip" data-a="iskip">跳过</b><div class="ie"><i class="orb o1"></i><i class="orb o2"></i><img src="${IMG('logo')}" alt=""><i class="lid t"></i><i class="lid b"></i><i class="slit"></i></div><i class="iwipe"></i><i class="iflash"></i></div>`; }
+// 像素打字：字先画在很小的 canvas 上，再放大三倍、关掉平滑，就成了像素字；一个字一个字出来，后面跟一个闪的方块光标
+function pxType(cv, lines, done) {
+  const SC = 3, W = 128, LH = 17, PAD = 10; cv.width = W; cv.height = PAD * 2 + LH * lines.length; cv.style.width = W * SC + 'px'; cv.style.height = cv.height * SC + 'px';
+  const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; let li = 0, ci = 0, cur = 1, t = [], stop = false;
+  const paint = () => {
+    g.clearRect(0, 0, cv.width, cv.height); g.font = '11px "PingFang SC","HarmonyOS Sans SC","MiSans","Noto Sans CJK SC",sans-serif'; g.textBaseline = 'top';
+    for (let i = 0; i <= Math.min(li, lines.length - 1); i++) {
+      const [a, b] = lines[i], y = PAD + i * LH, full = a + (b ? b + '…' : ''), n = i < li ? full.length : ci, txt = full.slice(0, n); let x = PAD;
+      for (let k = 0; k < txt.length; k++) { const ch = txt[k], red = k >= a.length && k < a.length + b.length; g.fillStyle = i == 0 ? '#9a9a9a' : red ? '#ff2a2a' : '#e8e8e8'; g.fillText(ch, x, y); x += g.measureText(ch).width; }
+      if (i == li && cur) { g.fillStyle = '#ff2a2a'; g.fillRect(x + 1, y + 1, 6, 12); }
+    }
+  };
+  const step = () => { if (stop) return; const [a, b] = lines[li], full = a + (b ? b + '…' : ''); if (ci < full.length) { ci++; paint(); t.push(setTimeout(step, /[，…]/.test(full[ci - 1]) ? 260 : 95)); } else if (li < lines.length - 1) { li++; ci = 0; paint(); t.push(setTimeout(step, 420)); } else { paint(); t.push(setTimeout(done, 900)); } };
+  const blink = setInterval(() => { cur ^= 1; paint(); }, 420); paint(); t.push(setTimeout(step, 500));
+  return () => { stop = true; t.forEach(clearTimeout); clearInterval(blink); };
+}
 function intro(el) {
-  const it = $('.eye-intro', el); if (!it) return; let t = [];
-  const at = (ms, f) => t.push(setTimeout(f, ms));
-  const eye = () => { it.classList.add('eye'); at(900, () => it.classList.add('open')); at(2100, () => it.classList.add('flash')); at(2500, () => { it.classList.add('out'); guide(el, true); }); at(3300, () => it.remove()); };
-  at(INTRO.length * 650 + 1400, eye);
-  it._skip = () => { if (it.classList.contains('eye')) return; t.forEach(clearTimeout); t = []; it.classList.add('fast'); eye(); };
+  const it = $('.eye-intro', el); if (!it) return; let t = []; const at = (ms, f) => t.push(setTimeout(f, ms));
+  const eye = () => { it.classList.add('eye'); at(1400, () => it.classList.add('open')); at(2300, () => it.classList.add('glance')); at(3000, () => it.classList.add('flash')); at(3400, () => { it.classList.add('out'); if (!ST().form) guide(el, true); }); at(4300, () => it.remove()); };
+  const cancel = pxType($('.ipx', it), INTRO, () => { it.classList.add('wipe'); at(700, eye); });
+  it._skip = () => { cancel(); t.forEach(clearTimeout); t = []; it.classList.add('out'); if (!ST().form) guide(el, true); setTimeout(() => it.remove(), 500); };
 }
 
 /* ---------- 引导：第一次进来先选作品 ---------- */
@@ -166,7 +181,7 @@ function mount(el) {
   st.addEventListener('pointerup', e => { if (y0 && e.clientY - y0 > 48) back(el); y0 = 0; });
   st.addEventListener('click', e => { if (st.classList.contains('guiding')) return; if (e.target.closest('.holo,[data-a],.ph-grid')) return; if (focused) back(el); });
   st.addEventListener('pointerdown', e => { const b = e.target.closest('button,.hz,.ph-grid b,.ho-forms b,.gp'); if (!b) return; const r = b.getBoundingClientRect(), i = document.createElement('i'); i.className = 'rip'; i.style.left = e.clientX - r.left + 'px'; i.style.top = e.clientY - r.top + 'px'; b.append(i); setTimeout(() => i.remove(), 700); });
-  if (!ST().form) { if (ST().intro) guide(el, true); else { ST().intro = 1; save(); intro(el); } }
+  if (ST().intro) intro(el); else if (!ST().form) guide(el, true);
 }
 
 const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="--mx:50%;--my:50%">
@@ -181,7 +196,7 @@ ${Object.entries(ZONES).map(([k, z]) => `<b class="hz hz-${k}" data-a="ez" data-
 <div class="swaps">${Object.entries(SWAP).map(([k, f]) => `<img class="swap" data-k="${f}" src="${IMG(f)}" draggable="false" alt="">`).join('')}<div class="ph-grid" data-a="noop">${has ? phoneGrid().replace(/^<div class="ph-grid">|<\/div>$/g, '') : ''}</div></div>
 <img class="eye-fg" src="${IMG('fg')}" draggable="false" alt="">
 <div class="eye-fx"><i class="dust d1"></i><i class="dust d2"></i><i class="dust d3"></i><i class="dust d4"></i><i class="dust d5"></i><i class="dust d6"></i></div>
-${!st.form && !st.intro ? introHtml() : ''}
+${st.intro ? introHtml() : ''}
 <div class="eye-top"><b class="eye-back ${focused ? 'show' : ''}" data-a="eback">‹ 回到客厅</b><span class="eye-brand"><i></i>窥探之眼<small>${has ? esc(FN[st.form]) + ' · ' + esc(FM[st.form].unit) : '选一部作品'}</small></span></div>
 </div>`; };
 
@@ -202,7 +217,6 @@ reg({
       if (a == 'wall') { st.wall = !st.wall; save(); $('.eye-stage', pg.el).classList.toggle('wall', st.wall); $('.tv-scr', pg.el).innerHTML = tvScreen(); focus(pg.el, 'cctv', false); return; }
       if (a == 'srcfan' || a == 'srcorig') { st.src = a == 'srcfan' ? 'fan' : 'orig'; save(); focus(pg.el, 'phone:line', false); return; }
       if (a == 'reguide') { st.form = ''; save(); pg.re(); return; }
-      if (a == 'replay') { st.form = ''; st.intro = 0; save(); pg.re(); return; }
       if (a == 'shop') { focus(pg.el, 'phone:shop'); return; }
       if (a == 'street') { openApp('street'); return; }
       toast('还没接上，先看样子');

@@ -188,29 +188,41 @@
 .rip { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: rgba(160, 220, 255, .45); pointer-events: none; animation: rip .7s ease-out forwards; }
 @keyframes rip { to { transform: scale(26); opacity: 0 } }
 
-/* ===== 片头：黑底，一行行红字，然后那只眼睛闭着 → 睁开 → 客厅 ===== */
-.eye-intro { position: absolute; inset: 0; z-index: 20; background: #000; display: grid; place-items: center; cursor: pointer; transition: opacity .8s; }
+/* ===== 片头：黑底星雨 → 像素字一个个打出来 → 红色斜切 → 眼睛闭着 → 睁开 → 客厅 ===== */
+.eye-intro { position: absolute; inset: 0; z-index: 20; background: #000; overflow: hidden; transition: opacity .7s; }
 .eye-intro.out { opacity: 0; pointer-events: none; }
-.il { display: flex; flex-direction: column; gap: 10px; padding: 0 36px; font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif; color: #d8d8d8; transition: opacity .6s; }
-.il p { margin: 0; font-size: calc(21px * var(--fz, 1)); letter-spacing: 3px; line-height: 1.5; opacity: 0; transform: translateY(8px); filter: blur(6px); animation: il-in .9s cubic-bezier(.22, .82, .18, 1) forwards; animation-delay: calc(.5s + var(--i) * .65s); }
-.il p:first-child { font-size: calc(17px * var(--fz, 1)); color: #9a9a9a; margin-bottom: 6px; }
-.il b { color: #ff2a2a; font-weight: 700; font-size: 1.25em; text-shadow: 0 0 14px rgba(255, 42, 42, .55); letter-spacing: 4px; }
-@keyframes il-in { to { opacity: 1; transform: none; filter: blur(0) } }
-.eye-intro.fast .il p { animation-duration: .2s; animation-delay: 0s; }
-.eye-intro.eye .il { opacity: 0; }
-.ie { position: absolute; left: 50%; top: 50%; width: min(70vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%) scale(.9); opacity: 0; transition: opacity .6s, transform .9s cubic-bezier(.22, .82, .18, 1); }
+/* 星雨：细细的光线往下落 */
+.istars { position: absolute; inset: -20% 0 0; pointer-events: none; opacity: .55; background: radial-gradient(1px 1px at 12% 20%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 48% 8%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 80% 30%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 30% 60%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 66% 72%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 90% 85%, #fff 50%, transparent 51%), repeating-linear-gradient(180deg, transparent 0 140px, rgba(255, 255, 255, .0) 140px 141px), linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .22) 100%) 10% 0 / 1px 120px no-repeat, linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .18) 100%) 35% 0 / 1px 160px no-repeat, linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .2) 100%) 58% 0 / 1px 100px no-repeat, linear-gradient(180deg, transparent 60%, rgba(255, 255, 255, .16) 100%) 82% 0 / 1px 180px no-repeat; animation: istars 6s linear infinite; }
+@keyframes istars { to { transform: translateY(20%) } }
+.ipx { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); image-rendering: pixelated; image-rendering: crisp-edges; }
+.eye-intro.wipe .ipx, .eye-intro.wipe .istars { transition: opacity .3s; opacity: 0; }
+.iskip { position: absolute; right: 14px; top: calc(var(--sbh) * .68 + 12px); padding: 4px 10px; font-size: calc(11px * var(--fz, 1)); letter-spacing: 3px; color: rgba(255, 255, 255, .55); border: 1px solid rgba(255, 255, 255, .25); border-radius: 2px; cursor: pointer; z-index: 3; }
+.iskip:active { color: #ff2a2a; border-color: #ff2a2a; }
+/* 红色斜切：从右下扫到左上再退掉，像翻了一页 */
+.iwipe { position: absolute; inset: -40%; background: #c8102e; transform: translateX(120%) rotate(-24deg); pointer-events: none; }
+.eye-intro.wipe .iwipe { animation: iwipe .9s cubic-bezier(.7, 0, .2, 1) forwards; }
+@keyframes iwipe { 0% { transform: translateX(120%) rotate(-24deg) } 45% { transform: translateX(0) rotate(-24deg) } 100% { transform: translateX(-130%) rotate(-24deg) } }
+.ie { position: absolute; left: 50%; top: 50%; width: min(70vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%) scale(.92); opacity: 0; transition: opacity .5s, transform 1s cubic-bezier(.22, .82, .18, 1); }
 .eye-intro.eye .ie { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-.ie img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-/* 眼皮：两块黑色从中间合上；睁开 = 往上下退开 */
-.ie .lid { position: absolute; left: -2%; right: -2%; height: 51%; background: #000; transition: transform 1s cubic-bezier(.7, 0, .2, 1); }
-.ie .lid.t { top: 0; transform-origin: 50% 0; }
-.ie .lid.b { bottom: 0; transform-origin: 50% 100%; }
-.eye-intro.open .lid.t { transform: translateY(-100%); }
-.eye-intro.open .lid.b { transform: translateY(100%); }
-.ie .slit { position: absolute; left: 14%; right: 14%; top: 50%; height: 3px; margin-top: -1.5px; background: #ff2a2a; box-shadow: 0 0 10px #ff2a2a; border-radius: 2px; transition: opacity .4s .3s; }
+.ie img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: transform .35s cubic-bezier(.5, 0, .3, 1); }
+/* 睁开以后瞄一眼左边再回来 */
+.eye-intro.glance .ie img { animation: glance 1s cubic-bezier(.5, 0, .3, 1); }
+@keyframes glance { 30% { transform: translateX(-4%) } 65% { transform: translateX(3%) } 100% { transform: none } }
+/* 眼皮 */
+.ie .lid { position: absolute; left: -2%; right: -2%; height: 51%; background: #000; transition: transform 1s cubic-bezier(.7, 0, .2, 1); z-index: 2; }
+.ie .lid.t { top: 0; } .ie .lid.b { bottom: 0; }
+.eye-intro.open .lid.t { transform: translateY(-100%); } .eye-intro.open .lid.b { transform: translateY(100%); }
+.ie .slit { position: absolute; left: 14%; right: 14%; top: 50%; height: 3px; margin-top: -1.5px; background: #ff2a2a; box-shadow: 0 0 10px #ff2a2a; border-radius: 2px; transition: opacity .4s .3s; z-index: 3; animation: slit 1.2s ease-in-out infinite; }
+@keyframes slit { 50% { box-shadow: 0 0 18px #ff2a2a, 0 0 30px rgba(255, 42, 42, .5) } }
 .eye-intro.open .slit { opacity: 0; }
+/* 闭着的时候，两道细细的红色轨道绕着转，像在扫描 */
+.ie .orb { position: absolute; left: 50%; top: 50%; width: 120%; height: 120%; margin: -60% 0 0 -60%; border: 1px solid rgba(255, 42, 42, .55); border-radius: 50%; transform: rotateX(72deg) rotateZ(0deg); animation: orb 4s linear infinite; pointer-events: none; transition: opacity .5s; }
+.ie .orb.o2 { width: 136%; height: 136%; margin: -68% 0 0 -68%; transform: rotateX(72deg) rotateY(40deg); animation-duration: 6s; animation-direction: reverse; border-color: rgba(255, 42, 42, .3); }
+@keyframes orb { to { transform: rotateX(72deg) rotateZ(360deg) } }
+.eye-intro.open .orb { opacity: 0; }
 .eye-intro.open .ie img { animation: ie-glow 1.4s ease-out .5s both; }
 @keyframes ie-glow { 30% { filter: brightness(1.8) drop-shadow(0 0 30px #ff2a2a) } 100% { filter: brightness(1) } }
 .iflash { position: absolute; inset: 0; background: #ff2a2a; opacity: 0; pointer-events: none; }
 .eye-intro.flash .iflash { animation: iflash .5s ease-out forwards; }
 @keyframes iflash { 0% { opacity: .85 } 100% { opacity: 0 } }
+#stp.lite .istars, #stp.lite .orb { display: none; }

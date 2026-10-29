@@ -113,13 +113,14 @@ const AST = {
   music: { n: '音乐', list: [['', '默认', ['#f5f5f7', '#ffffff', '#f0f0f3', '#fc3d49']]] },
   isle: { n: '心屿', list: [['', '默认', ['#f6f3e9', '#f6f3e9', '#e4e9dc', '#456b5e']]] },
   street: { n: '商业街', list: [['', '默认', ['#fbf3e6', '#fbf3e6', '#fff7ec', '#d9483f']]] },
+  eye: { n: '窥探之眼', list: [['', '默认', ['#06070c', '#06070c', '#141a2a', '#ff2a2a']]], opts: f => f.tog('eye.intro', '开场动画') },
 };
 const mock = ([h, pg, inB, outB]) => `<span class="ast-mock" style="background:${pg}"><i style="background:${h}"></i><i style="background:${inB}"></i><i style="background:${outB}"></i></span>`;
 const astCur = k => { const a = AST[k]; return a.key ? S[a.key] || a.list[0][0] : ''; };
 const astName = k => AST[k].list.find(x => x[0] == astCur(k))?.[1] || AST[k].list[0][1];
 function appStyle(k) {
   const a = AST[k], pg = page({ title: a.n, cls: 'thm', body: () => `<div class="card ast-g">${a.list.map(([v, n, c]) => `<div class="ast ${astCur(k) == v ? 'on' : ''}" data-a="astpick" data-x="${v}">${mock(c)}<em>${esc(n)}</em></div>`).join('')}</div>`
-    + (k == 'chat' ? `<div class="card"><div class="row go" data-a="asticon"><span><i class="ico mini a-chat">${APPS.chat.icon}</i>图标</span><small>${esc(APPS.chat.name)}</small></div></div>` + sec('ast-chat', [['bubble', `气泡样式 · ${S.assets.bubble.length}`, `<div class="ag">${S.assets.bubble.map(x => `<div class="ai" data-a="ae" data-x="bubble:${x.id}" data-lp="ad"><b>${esc(x.name.slice(0, 2))}</b><small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="bubble">＋</div></div>${btn('af', '导入文件', 'bubble')}`]]) : ''),
+    + (a.opts ? `<div class="card">${a.opts(fx(S))}</div>` : '') + (k == 'chat' ? `<div class="card"><div class="row go" data-a="asticon"><span><i class="ico mini a-chat">${APPS.chat.icon}</i>图标</span><small>${esc(APPS.chat.name)}</small></div></div>` + sec('ast-chat', [['bubble', `气泡样式 · ${S.assets.bubble.length}`, `<div class="ag">${S.assets.bubble.map(x => `<div class="ai" data-a="ae" data-x="bubble:${x.id}" data-lp="ad"><b>${esc(x.name.slice(0, 2))}</b><small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="bubble">＋</div></div>${btn('af', '导入文件', 'bubble')}`]]) : ''),
     acts: { astpick: v => { if (!a.key) return; S[a.key] = v; save(); emit('chat'); renderDesk(); pg.re(); },
       asticon: async () => { const id = 'chat.' + (S.style || 'wx'), v = await pickImg(256, 'icon'), old = S.icons[id]; if (v == null) return; v ? (S.icons[id] = v) : delete S.icons[id]; save(); drop(old); renderDesk(); pg.re(); }, aa: k2 => edit(k2), ae: x => { const [k2, id] = x.split(':'); edit(k2, S.assets[k2].find(y => y.id == id)); },
       ad: async x => { const [k2, id] = x.split(':'), l = S.assets[k2], it = l.find(y => y.id == id); if (await menu([['x', '删除', 'danger']], esc(it.name)) == 'x') { drop(l.splice(l.indexOf(it), 1)); save(); pg.re(); } },
