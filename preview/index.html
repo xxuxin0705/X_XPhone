@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- 小手机 · 预览页：不进酒馆，直接在浏览器里玩最新版的小手机。
+     这里假装成一个酒馆（SillyTavern.getContext），设置和手机数据存在这台浏览器的 localStorage 里；
+     没有酒馆就不能用酒馆连接调模型，想试 AI 功能就在 设置 → API 里填自定义接口（接口要允许跨域）。 -->
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#111"><title>小手机 · 预览</title>
+<link rel="stylesheet" href="../style.css">
+<style>html,body{margin:0;height:100%;background:#16161a;overscroll-behavior:none}</style>
+</head><body>
+<script>
+(() => {
+  const K = 'xp_preview_v1', load = () => { try { return JSON.parse(localStorage[K] || '{}'); } catch { return {}; } };
+  const db = load(), st = db.st || {}, meta = db.meta || {};
+  let t; const keep = () => { clearTimeout(t); t = setTimeout(() => { try { localStorage[K] = JSON.stringify({ st: ctx.extensionSettings, meta: ctx.chatMetadata }); } catch (e) { console.warn('预览页存不下了', e); } }, 400); };
+  const name1 = '我', name2 = '预览角色';
+  const ctx = {
+    extensionSettings: st, chatMetadata: meta, name1, name2, characterId: 0, chatId: 'preview', getCurrentChatId() { return this.chatId; },
+    characters: [{ name: name2, description: `${name2}是预览页里的示例角色。`, personality: '' }],
+    chat: [
+      { name: name1, is_user: true, mes: '下雨了，你带伞了吗？' },
+      { name: name2, mes: '带了一把。……给你吧，我跑回去就行。' },
+      { name: name1, is_user: true, mes: '那你呢？' },
+      { name: name2, mes: '我在屋檐下等雨停。' },
+    ],
+    powerUserSettings: { persona_description: '' },
+    saveSettingsDebounced: keep, saveMetadataDebounced: keep, saveMetadata: keep, setExtensionPrompt() {},
+    substituteParams: s => String(s ?? '').replaceAll('{{char}}', name2).replaceAll('{{user}}', name1),
+    getRequestHeaders: () => ({}),
+    generateRaw: async () => { throw Error('预览页没有连着酒馆：设置 → API 里改成「自定义 API」再试'); },
+    eventSource: { h: {}, on(e, f) { (this.h[e] ||= []).push(f); }, emit(e, ...a) { (this.h[e] || []).forEach(f => f(...a)); } },
+    eventTypes: { CHAT_CHANGED: 'chat_changed', MESSAGE_RECEIVED: 'message_received', CHAT_DELETED: 'chat_deleted' },
+  };
+  window.SillyTavern = { getContext: () => ctx };
+})();
+</script>
+<script type="module">
+import '../index.js';
+// 进来直接把手机打开（模拟点一下悬浮窗）
+const open = () => { const b = document.getElementById('stp-ball'), r = document.getElementById('stp'); if (!b || !r) return setTimeout(open, 100); if (r.classList.contains('on')) return;
+  b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 1, clientY: 1 })); dispatchEvent(new PointerEvent('pointerup', { clientX: 1, clientY: 1 })); };
+setTimeout(open, 300);
+</script>
+</body></html>
