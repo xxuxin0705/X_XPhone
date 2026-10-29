@@ -41,20 +41,20 @@ export function favPage(send) {
       fvlp: async id => { if (await menu([['d', '删除', 'danger']]) != 'd') return; D().favs = favs().filter(x => x.id != id); saveD(); P.re(); },
     } });
 }
-const favCard = f => kindOf(f) == 'img' ? `<img class="sd-im" src="${esc(f.url || f.img || '')}">` : `<p class="sd-t">${esc(textOf(f)).slice(0, 80)}</p>`;
+const favCard = f => kindOf(f) == 'img' ? `<img class="xsd-im" src="${esc(f.url || f.img || '')}">` : `<p class="xsd-t">${esc(textOf(f)).slice(0, 80)}</p>`;
 
 // 「发送给」确认框（照录屏）：发送给 + 对方头像名字、要发的东西、留言框、取消 / 发送；返回 false 或 { note }
 export function sendTo(ch, preview) {
   return new Promise(done => {
-    const w = Object.assign(document.createElement('div'), { className: 'sd' });
-    w.innerHTML = `<div class="sd-b"><p class="sd-h">发送给：</p><div class="sd-to"><img src="${esc(avOf(ch))}"><b>${esc(nm(ch))}</b><i>›</i></div><div class="sd-pv">${preview}</div><input class="sd-in" placeholder="发消息"><div class="sd-bt"><b data-k="n">取消</b><b data-k="y" class="ok">发送</b></div></div>`;
+    const w = Object.assign(document.createElement('div'), { className: 'xsd' });
+    w.innerHTML = `<div class="xsd-b"><p class="xsd-h">发送给：</p><div class="xsd-to"><img src="${esc(avOf(ch))}"><b>${esc(nm(ch))}</b><i>›</i></div><div class="xsd-pv">${preview}</div><input class="xsd-in" placeholder="发消息"><div class="xsd-bt"><b data-k="n">取消</b><b data-k="y" class="ok">发送</b></div></div>`;
     ui.scr.append(w); requestAnimationFrame(() => w.classList.add('in'));
     const end = v => { w.classList.remove('in'); setTimeout(() => w.remove(), 200); done(v); };
-    w.onclick = e => { const k = e.target.dataset.k; if (e.target == w || k == 'n') return end(false); if (k == 'y') { end({ note: w.querySelector('.sd-in').value.trim() }); } };
+    w.onclick = e => { const k = e.target.dataset.k; if (e.target == w || k == 'n') return end(false); if (k == 'y') { end({ note: w.querySelector('.xsd-in').value.trim() }); } };
   });
 }
 // 发完：底部一个黑色小条「✓ 已发送」
-export const sentTip = () => { const t = Object.assign(document.createElement('div'), { className: 'sd-ok', innerHTML: '<i>✓</i>已发送' }); ui.scr.append(t); setTimeout(() => t.classList.add('out'), 1300); setTimeout(() => t.remove(), 1600); };
+export const sentTip = () => { const t = Object.assign(document.createElement('div'), { className: 'xsd-ok', innerHTML: '<i>✓</i>已发送' }); ui.scr.append(t); setTimeout(() => t.classList.add('out'), 1300); setTimeout(() => t.remove(), 1600); };
 
 // 个人名片：选择联系人（搜索 + 按字母排）→ 发送给
 const COL = new Intl.Collator('zh-Hans-CN-u-co-pinyin');

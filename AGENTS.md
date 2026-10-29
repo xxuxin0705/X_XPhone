@@ -163,3 +163,8 @@ tests/           测试（见第五节）
 - 截图输出在 `tests/out/`（不提交）。
 - 测试跑的是电脑上的 Chromium，作者真机是安卓 WebView：动画、`backdrop-filter`、新 CSS 选择器在真机上可能不一样，改了这些要提醒作者真机看一眼。
 - 检查语法用 `node --experimental-default-type=module --check 文件`（普通 `node --check` 对 ES 模块查不出括号错）。
+
+## 样式撞名（吃过两次亏，必须遵守）
+- `style.css` 是整个酒馆网页共用的。小手机的类名要么带前缀（`xc-`、`xsd-`、`fv-`…），要么规则里有一节是小手机自己的类 / `#stp`；不能写只用通用短名的规则（`.row`、`.tags`、`.sd`、`.cl`…），会选中酒馆自己的元素。
+- 出过的事：`.cl` 撞了微信聊天列表；`.sd` 撞了酒馆「图像生成」扩展给 `<body>` 加的 `sd` 类，整页布局乱掉、什么都点不了。
+- 改了 `style.css` 就跑 `node tests/run.cjs cssname`（1 秒）。它拿 `tests/st-classes.txt`（SillyTavern 1.18.0 用到的类名）比对；撞了就在选择器前加 `:where(#stp)`（`node tests/e2e/cssname.cjs --fix` 可以自动加），或者换个带前缀的类名。

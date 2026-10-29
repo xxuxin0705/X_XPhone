@@ -117,13 +117,13 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pfav]').click()`); await W(400); await shot('fav');
   ok(await E(`core.top().title == '发送收藏' && /在吗/.test(document.querySelector('.fv-l').textContent) && document.querySelectorAll('.fv-tabs b').length == 4`), '发送收藏：搜索、四个分类、收藏的内容');
   await E(`document.querySelector('.fv-tabs [data-x=voice]').click()`); await W(200); ok(/无筛选结果/.test(await E(`document.querySelector('.fv-l').textContent`)), '选「语音」：无筛选结果'); await E(`document.querySelector('.fv-tabs [data-x=voice]').click()`); await W(200);
-  await E(`document.querySelector('.fv-it').click()`); await W(300); await shot('sendto'); ok(await E(`!!document.querySelector('.sd.in') && /发送给/.test(document.querySelector('.sd').textContent)`), '点一条：「发送给」确认框');
-  await E(`document.querySelector('.sd [data-k=y]').click()`); await W(500); ok(await E(`_c.msgs.at(-1).c == '在吗' && _c.msgs.at(-1).f == 'me'`), '发送：收藏的内容发到聊天里');
+  await E(`document.querySelector('.fv-it').click()`); await W(300); await shot('sendto'); ok(await E(`!!document.querySelector('.xsd.in') && /发送给/.test(document.querySelector('.xsd').textContent)`), '点一条：「发送给」确认框');
+  await E(`document.querySelector('.xsd [data-k=y]').click()`); await W(500); ok(await E(`_c.msgs.at(-1).c == '在吗' && _c.msgs.at(-1).f == 'me'`), '发送：收藏的内容发到聊天里');
   // 个人名片
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcard]').click()`); await W(400); await shot('pick');
   ok(await E(`core.top().title == '选择联系人' && /Kiki/.test(document.querySelector('.cp-list').textContent) && !/绷带盐/.test(document.querySelector('.cp-list').textContent)`), '个人名片：选择联系人（不列当前聊天的人）');
-  await E(`document.querySelector('.cp-r').click()`); await W(300); await E(`document.querySelector('.sd-in').value = '这是我朋友'; document.querySelector('.sd [data-k=y]').click()`); await W(600); await shot('card');
-  ok(await E(`_c.msgs.at(-2).t == 'card' && _c.msgs.at(-2).cid == _k.id && _c.msgs.at(-1).c == '这是我朋友' && !!document.querySelector('.bub.b-card .cdb') && !!document.querySelector('.sd-ok')`), '发出名片 + 留言，底部「✓ 已发送」');
+  await E(`document.querySelector('.cp-r').click()`); await W(300); await E(`document.querySelector('.xsd-in').value = '这是我朋友'; document.querySelector('.xsd [data-k=y]').click()`); await W(600); await shot('card');
+  ok(await E(`_c.msgs.at(-2).t == 'card' && _c.msgs.at(-2).cid == _k.id && _c.msgs.at(-1).c == '这是我朋友' && !!document.querySelector('.bub.b-card .cdb') && !!document.querySelector('.xsd-ok')`), '发出名片 + 留言，底部「✓ 已发送」');
   ok(/推荐了一张个人名片：Kiki/.test(await E(`core.say(_c.msgs.at(-2))`)), '对方能看到是谁的名片');
   await E(`document.querySelector('.bub.b-card .cdb').click()`); await W(400); ok(await E(`core.top().el.classList.contains('wxprof')`), '点名片：打开 TA 的资料页');
   ok(!errs.length, '没有报错 ' + errs.join(' | '));
