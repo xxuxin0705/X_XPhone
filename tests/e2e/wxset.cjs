@@ -101,6 +101,35 @@ let ttsN = 0;
   // 顶部状态栏按应用隐藏
   const sb = await E(`(() => { core.S.sbHide = ['chat']; core.openApp('chat'); const a = core.ui.scr.classList.contains('nosb'); core.home(); const b = core.ui.scr.classList.contains('nosb'); core.openApp('settings'); const c = core.ui.scr.classList.contains('nosb'); core.home(); core.S.sbHide = []; return [a, b, c]; })()`);
   ok(JSON.stringify(sb) == '[true,false,false]', '主题里关掉「消息」的状态栏：打开聊天没有状态栏，回桌面 / 打开别的应用有 ' + JSON.stringify(sb));
+  // 标签第二版：标签详情（添加 / 移出）、管理标签（清理）
+  await E(`(() => { core.home(); core.APPS.chat.open(); core.top().acts.tab('ct', null, null, core.top()); document.querySelector('.cw-e[data-a=tags]').click(); })()`); await W(500);
+  await shot('tag_list');
+  await E(`document.querySelector('[data-a=tgo][data-x="陌生人"]').click()`); await W(400);
+  ok(/陌生人\(2\)/.test(await E(`core.top().el.querySelector('.pg-t').textContent`)) && /添加[\s\S]*移出/.test(await E(`core.top().el.querySelector('.tg-f').textContent`)), '标签详情：陌生人(2)，底部 添加 / 移出');
+  await E(`document.querySelector('[data-a=tgrm]').click()`); await W(300);
+  await E(`[...document.querySelectorAll('.tg-p')].find(x => x.textContent.includes('Amber')).click()`); await W(200);
+  ok(/移出\(1\)/.test(await E(`document.querySelector('.tg-go').textContent`)) && await E(`!!document.querySelector('.pg-t .tg-x')`), '移出：勾一个，左上角 ×，底部 移出(1)');
+  await E(`document.querySelector('.tg-go').click()`); await W(400); await E(`document.querySelector('.sheet.mnu .mi.danger').click()`); await W(900);
+  ok(await E(`core.D().chats.filter(c => (c.tags || []).includes('陌生人')).length`) == 1, '确认「从标签中移出联系人」后只剩 1 个');
+  await E(`document.querySelector('[data-a=tgadd]').click()`); await W(400);
+  ok(/导入群聊中的朋友[\s\S]*导入标签中的朋友/.test(await E(`core.top().el.textContent`)), '添加 → 选择朋友：导入群聊 / 导入标签');
+  await E(`[...document.querySelectorAll('.tg-p')].find(x => x.textContent.includes('Amber')).click()`); await W(200); await E(`document.querySelector('[data-a=cpok]').click()`); await W(900);
+  ok(await E(`core.D().chats.filter(c => (c.tags || []).includes('陌生人')).length`) == 2, '选了 Amber 点添加，又是 2 个');
+  await E(`core.back(); core.back(); (async () => { const t = await import('/apps/chat/tags.js'); t.manageTags(); })()`); await W(500);
+  await E(`document.querySelector('[data-a=mgpk][data-x="陌生人"]').click()`); await W(200);
+  ok(/清理 \(1\)/.test(await E(`document.querySelector('.tg-cl').textContent`)) && await E(`!!document.querySelector('.tg-dr')`), '管理标签：勾一个，清理 (1)，右边有拖动把手');
+  await shot('tag_mg');
+  await E(`document.querySelector('[data-a=mgdel]').click()`); await W(400); await E(`document.querySelector('.sheet.mnu .mi.danger').click()`); await W(900);
+  ok(!(await E(`core.D().tags.includes('陌生人')`)) && await E(`core.D().chats.every(c => !(c.tags || []).includes('陌生人'))`), '清理：标签删掉，人还在');
+  await E(`core.home()`); await W(300);
+  // 朋友圈：查看翻译是原地换成中文；中文评论没有翻译；别人的评论没有删除
+  const fd = await E(`(async () => { core.D().posts.unshift({ id: 'p1', a: _c.id, c: 'こんにちは', tr: '你好', ts: Date.now(), likes: [], cm: [{ f: core.nm(_c), c: '哈哈好的', tr: '哈哈好的' }] }); core.saveD(); const f = await import('/apps/chat/feed.js'); core.APPS.chat.open(); core.top().acts.tab('feed', null, null, core.top()); await new Promise(r => setTimeout(r, 400)); const t = () => document.querySelector('.wxm .mo-t').textContent; const a = t(); document.querySelector('.wxm .mo-t .f-tl').click(); await new Promise(r => setTimeout(r, 300)); return [a, t(), document.querySelector('.wxm .f-c').textContent]; })()`);
+  ok(fd[0] == 'こんにちは 查看翻译' && fd[1] == '你好 显示原文' && !/查看翻译|删除/.test(fd[2]), '朋友圈：查看翻译 → 原文换成中文；中文评论没有翻译、别人的评论没有删除 ' + JSON.stringify(fd));
+  await E(`document.querySelector('.wxm .mo-ab').click()`); await W(400);
+  ok(/赞[\s\S]*评论/.test(await E(`document.querySelector('.wxp')?.textContent || ''`)), '点 ··：滑出「赞 | 评论」小条'); await shot('feed_pill');
+  await E(`document.querySelector('.wxp [data-k=cmt]').click()`); await W(400);
+  ok(await E(`!!document.querySelector('.wxcb input')`), '评论：底部评论框'); await shot('feed_cb');
+  await E(`document.querySelector('.wxcb').click()`); await W(300); await E(`core.home()`); await W(300);
   // 分组 + 朋友圈谁可以看
   const cs = await E(`(() => { const a = dt.add(dt.blank('p', { real: 'A', fr: 1, grp: '同事' })), b = dt.add(dt.blank('p', { real: 'B', fr: 1 })), p = { vis: { m: 'only', g: ['同事'] } }, q = { vis: { m: 'not', g: ['同事'] } }; return [dt.canSee(p, a), dt.canSee(p, b), dt.canSee(q, a), dt.canSee(q, b), dt.grpNames().join()]; })()`);
   ok(JSON.stringify(cs.slice(0, 4)) == '[true,false,false,true]' && /同事/.test(cs[4]), '分组可见：只给同事看 / 不给同事看 ' + JSON.stringify(cs));

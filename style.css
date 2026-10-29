@@ -1852,3 +1852,30 @@ html{min-height:100%;min-height:100dvh}
 .sb-h small{opacity:.55}.sb-r span{display:flex;align-items:center;gap:10px}
 .sb-c{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(127,127,127,.45);box-sizing:border-box;position:relative}.sb-c.on{border:0;background:var(--ac)}.sb-c.on::after{content:'';position:absolute;left:8px;top:4px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
 .sb-ops{display:flex;gap:10px;padding:10px 16px 14px}.sb-ops b{flex:1;text-align:center;padding:10px 0;border-radius:12px;background:rgba(127,127,127,.1);font-weight:500;cursor:pointer}.sb-ops b.off{opacity:.4;pointer-events:none}
+/* 朋友圈（照真微信录屏）：封面高度、自己的动态时间后面「删除」、赞 | 评论小条、底部评论框 */
+.feed.mz-wx .mo-cv{height:290px}
+.mo-del{margin-left:12px;font-size:calc(13px*var(--fz,1));color:#576b95;cursor:pointer}
+.mo-f{position:relative}.mo-f .mo-ab{margin-left:auto}
+.wxp{position:absolute;right:calc(100% + 8px);top:50%;z-index:5;display:flex;align-items:center;height:38px;border-radius:5px;background:#4b4b4b;overflow:hidden;white-space:nowrap;transform:translateY(-50%);clip-path:inset(0 0 0 100%);transition:clip-path .2s var(--ease-out,ease)}
+.wxp.in{clip-path:inset(0 0 0 0)}
+.wxp b{display:flex;align-items:center;gap:6px;height:100%;padding:0 22px;font-weight:400;font-size:calc(14px*var(--fz,1));color:#fff;cursor:pointer}.wxp b:active{background:rgba(255,255,255,.08)}
+.wxp img{width:16px;height:15px;object-fit:contain}.wxp i{width:.5px;height:20px;background:rgba(255,255,255,.18)}
+.wxcb{position:absolute;inset:0;z-index:72}
+.wxcb-b{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:10px;padding:8px 10px 26px;background:#f7f7f7;border-top:.5px solid #e5e5e5;transform:translateY(100%);transition:transform .22s var(--ease-drawer,ease)}.wxcb.in .wxcb-b{transform:none}
+#stp .wxcb-b input{flex:1;max-width:none;height:38px;padding:0 10px;border-radius:5px;background:#fff;text-align:left;font-size:calc(16px*var(--fz,1))}
+.wxcb-b img{flex:none;width:27px;height:27px;object-fit:contain}
+.wxcb-s{flex:none;padding:8px 13px;border-radius:5px;background:#e9e9e9;color:#b2b2b2;font-weight:400;font-size:calc(15px*var(--fz,1));cursor:pointer}.wxcb-s.on{background:#07c160;color:#fff}
+/* 标签（第二版，照录屏）：搜索框真正居中；未设置标签的朋友一行两层；管理标签 / 移出 / 选择朋友 */
+#stp .tg-s input{width:2.4em}#stp .tg-s input:focus{width:100%}
+.pg-h:has(.tg-x){position:relative}
+.tg-x{position:absolute;left:14px;top:50%;width:22px;height:22px;margin-top:-11px;cursor:pointer}.tg-x::before,.tg-x::after{content:'';position:absolute;left:1px;right:1px;top:10px;height:1.8px;border-radius:1px;background:#191919;transform:rotate(45deg)}.tg-x::after{transform:rotate(-45deg)}
+.tg-dots{color:#191919}.tg-dots svg{display:block;width:24px;height:24px}
+.tg-f .lk{color:#576b95}.tg-f .rd{color:#fa5151}
+.tg-go.red.on{background:#fa5151;color:#fff}
+.tg-sb.end{justify-content:flex-end}
+.tg-c.dis{opacity:.45}
+.tg-r.mg{padding:0 16px;height:52px}.tg-r.mg b{font-size:calc(16.5px*var(--fz,1))}
+.tg-dr{flex:none;width:24px;height:24px;margin-right:-4px;background:url(assets/wx/drag.png) center/18px no-repeat;cursor:grab;touch-action:none}
+.tg-r.drag{position:relative;z-index:3;background:#f7f7f7;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.tg-cl{padding:14px 0 24px;background:#f7f7f7;border-top:.5px solid #e5e5e5;text-align:center}.tg-cl b{font-weight:400;font-size:calc(16px*var(--fz,1));color:#b2b2b2;cursor:pointer}.tg-cl b.on{color:#fa5151}
+.tgn-b.x::after{border:0;left:2px;right:2px;top:11px;width:auto;height:1.8px;background:#191919;transform:rotate(-45deg)}.tgn-b.x::before{content:'';position:absolute;left:2px;right:2px;top:11px;height:1.8px;background:#191919;transform:rotate(45deg)}

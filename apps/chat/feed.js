@@ -5,7 +5,7 @@ regMod({ k: 'chat.feed', app: '聊天', n: '动态', def: MOMENTS_CORE, vars: [[
 regMod({ k: 'chat.cmt', app: '聊天', n: '动态评论', def: '评论和点赞的人要符合各自人设和与发帖人的亲疏；评论口语、简短，像真人随手回复，可以互相接话、玩梗、拌嘴。' });
 // 聊天 · 动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）+ 个人相册 + 生成动态弹窗
 // 角色的动态和评论在同一次生成里带上 [翻译]（tr），点「查看翻译」展开；不额外调用
-import { S, D, saveD, esc, uid, page, sheet, menu, form, toast, nm, rn, avOf, meObj, now, llm, json, sysCtx, task, emit, drop, pickImg, ok, genImg } from '../../core.js';
+import { S, D, saveD, esc, uid, page, sheet, menu, form, toast, nm, rn, avOf, meObj, now, llm, json, sysCtx, task, emit, drop, pickImg, ok, genImg, ui } from '../../core.js';
 import { get, find, isMe, sty, FS, FN, lname, grpNames, canSee } from './data.js';
 import { allTags } from './tags.js';
 
@@ -37,9 +37,12 @@ const auOf = p => p.a == 'me' ? meObj() : get(p.a) || { nick: '已删除' };
 const ago = ts => { const s = (now() - ts) / 6e4, d = new Date(ts); return s < 1 ? '刚刚' : s < 60 ? (s | 0) + '分钟前' : d.toDateString() == now().toDateString() ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : `${d.getMonth() + 1}月${d.getDate()}日`; };
 const OPEN = new Set(); // 点开了「查看翻译」的
 // 正文 / 评论文字：有译文就在后面放「查看翻译」，点开在下面多一行中文；这个人的私聊关了自动翻译就直接显示中文
-const tx = (t, tr, k, au) => { if (tr && au?.cfg?.trAuto === false) return esc(tr); const o = OPEN.has(k); return esc(t || '') + (tr ? ` <a class="f-tl" data-a="ftr" data-x="${k}">${o ? '收起翻译' : '查看翻译'}</a>${o ? `<span class="f-tz">${esc(tr)}</span>` : ''}` : ''); };
+// 本来就是中文的（没有假名 / 韩文 / 俄文 / 泰文，也不是整段英文）不算外语，不放「查看翻译」
+const foreign = t => /[぀-ヿ가-힯Ѐ-ӿ฀-๿]/.test(t) || /[A-Za-z]{3,}/.test(t) && !/[一-鿿]/.test(t);
+// 点「查看翻译」：原文直接换成中文（不是在下面多一行），再点「显示原文」换回去
+const tx = (t, tr, k, au) => { if (!tr || tr == t || !foreign(t || '')) return esc(t || ''); if (au?.cfg?.trAuto === false) return esc(tr); const o = OPEN.has(k); return esc(o ? tr : t || '') + ` <a class="f-tl" data-a="ftr" data-x="${k}">${o ? '显示原文' : '查看翻译'}</a>`; };
 const liked = p => p.likes.includes(nm(meObj()));
-const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))} <a class="f-r" data-a="crep" data-x="${p.id}|${i}">回复</a> <a class="f-r" data-a="fcdel" data-x="${p.id}|${i}">删除</a></div>`).join('');
+const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${tx(c.c, c.tr, p.id + ':' + i, who(c.f))} <a class="f-r" data-a="crep" data-x="${p.id}|${i}">回复</a>${isMe(c.f) ? ` <a class="f-r" data-a="fcdel" data-x="${p.id}|${i}">删除</a>` : ''}</div>`).join(''); // 别人的评论只能回复，不能删
 
 /* ---------- 三种样式的一条动态 ---------- */
 export const postImages = p => p.images?.length ? p.images : p.url ? [{url:p.url}] : p.imgd ? [{description:p.imgd}] : [];
@@ -49,7 +52,7 @@ const cmBox = p => p.likes.length || p.cm.length ? `<div class="mo-ia">${p.likes
 function postWx(p) { // 微信朋友圈：白底列表，蓝名字，右下 ·· 按钮，灰底点赞评论区
   const au = auOf(p);
   return `<article class="mo wxm"><img class="av" src="${esc(avOf(au))}" data-a="pfeed" data-x="${p.a}"><div class="mo-m"><b class="mo-n" data-a="pfeed" data-x="${p.a}">${esc(nm(au))}</b>${p.c ? `<p class="mo-t">${tx(p.c, p.tr, p.id, au)}</p>` : ''}${imgs(p)}
-<div class="mo-f"><time>${ago(p.ts)}</time><b class="mo-ab" data-a="pmore" data-x="${p.id}"><svg viewBox="0 0 24 24" fill="#576b95"><circle cx="8.3" cy="12" r="2.1"/><circle cx="15.7" cy="12" r="2.1"/></svg></b></div>${cmBox(p)}</div></article>`;
+<div class="mo-f"><time>${ago(p.ts)}</time>${p.a == 'me' ? `<a class="mo-del" data-a="pdel" data-x="${p.id}">删除</a>` : ''}<b class="mo-ab" data-a="pmore" data-lp="pmlp" data-x="${p.id}"><svg viewBox="0 0 24 24" fill="#576b95"><circle cx="8.3" cy="12" r="2.1"/><circle cx="15.7" cy="12" r="2.1"/></svg></b></div>${cmBox(p)}</div></article>`;
 }
 function postQq(p) { // QQ空间：圆头像 + 名字，正文，时间和 赞 / 评论 / 分享 同一行，下面“说点什么吧...”
   const au = auOf(p), me = meObj();
@@ -146,6 +149,27 @@ function genCmt(p, why) {
   });
 }
 
+/* ---------- 微信：赞 / 评论小条、底部评论框（照录屏） ---------- */
+const WXI = n => new URL(`../../assets/wx/${n}.png`, import.meta.url).href;
+function wxPill(p, t) {
+  const old = t.querySelector('.wxp'); document.querySelectorAll('.wxp').forEach(n => n.remove()); if (old) return;
+  const w = Object.assign(document.createElement('span'), { className: 'wxp' });
+  w.innerHTML = `<b data-k="like"><img src="${WXI('mo-like')}">${liked(p) ? '取消' : '赞'}</b><i></i><b data-k="cmt"><img src="${WXI('mo-cmt')}">评论</b>`;
+  t.append(w); requestAnimationFrame(() => w.classList.add('in'));
+  w.onclick = e => { e.stopPropagation(); const k = e.target.closest('[data-k]')?.dataset.k; if (!k) return; w.remove(); FA[k](p.id); };
+  setTimeout(() => document.addEventListener('click', e => { w.contains(e.target) || w.remove(); }, { once: true }), 0);
+}
+// 底部评论框：「评论」/「回复XX:」，右边 表情（抠图）、图片（抠图）、发送（有字才变绿）；点外面收起
+function cmtBar(ph) {
+  return new Promise(done => {
+    const w = Object.assign(document.createElement('div'), { className: 'wxcb' });
+    w.innerHTML = `<div class="wxcb-b"><input placeholder="${esc(ph)}:"><img src="${WXI('cmt-emo')}"><img src="${WXI('cmt-img')}"><b class="wxcb-s">发送</b></div>`;
+    ui.scr.append(w); const ip = w.querySelector('input'), sb = w.querySelector('.wxcb-s'); requestAnimationFrame(() => { w.classList.add('in'); ip.focus(); });
+    const end = v => { w.classList.remove('in'); setTimeout(() => w.remove(), 200); done(v); };
+    ip.oninput = () => sb.classList.toggle('on', !!ip.value.trim()); ip.onkeydown = e => e.key == 'Enter' && ip.value.trim() && end(ip.value.trim());
+    w.onclick = e => { if (e.target == w) return end(''); if (e.target == sb && ip.value.trim()) end(ip.value.trim()); };
+  });
+}
 /* ---------- 操作 ---------- */
 const share = async p => { const to = await menu(D().chats.filter(c => c.fr !== 0 || c.type == 'g').map(c => [c.id, esc(nm(c))]), '分享到…'); const T = to && get(to); if (!T) return; const n = nm(auOf(p)); T.msgs.push({ f: 'me', t: 'rec', c: `${n}的${FN[S.style]}`, rec: [{ n, c: p.c + (p.tr ? `（${p.tr}）` : '') }], ts: +now() }); saveD(); emit('chat'); toast(`已分享给 ${nm(T)}`); };
 export function mountFeed(el) {
@@ -168,15 +192,17 @@ export const FA = {
   fmore: async () => { const k = await menu([['cov', '换封面'], ['bg', '换动态背景']]); if (!k) return; const v = await pickImg(1080, 'cover'); if (v == null) return; const m = D().me, f = k == 'cov' ? 'cover' : 'fbg'; drop(m[f]); m[f] = v; saveD(); emit('chat'); },
   ftr: k => { OPEN.has(k) ? OPEN.delete(k) : OPEN.add(k); emit('chat'); },
   like: id => { const p = P(id), me = nm(meObj()); if (!p) return; p.likes = p.likes.includes(me) ? p.likes.filter(x => x != me) : [...p.likes, me]; saveD(); emit('chat'); },
-  cmt: async id => { const p = P(id); if (!p) return; const r = await form('评论', [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c }); saveD(); emit('chat'); p.a != 'me' && genCmt(p, `请生成${rn(auOf(p))}（以及可能路过的联系人）对${meObj().nick}这条评论的回复 1-2 条。`); },
-  crep: async x => { const [id, i] = x.split('|'), p = P(id), c = p?.cm[+i]; if (!c) return; const r = await form(`回复 ${nm(who(c.f))}`, [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c, to: c.f }); saveD(); emit('chat'); isMe(c.f) || genCmt(p, `${meObj().nick}回复了${nm(who(c.f))}，请生成${nm(who(c.f))}（以及可能的其他人）的回应 1-2 条。`); },
-  pmore: (id,t) => {const p=P(id);if(!p)return;const existing=t?.querySelector('.feed-action-popup');document.querySelectorAll('.feed-action-popup').forEach(n=>n.remove());if(existing || !t)return;
+  cmt: async id => { const p = P(id); if (!p) return; const r = S.style == 'wx' ? { c: await cmtBar('发表评论') } : await form('评论', [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c }); saveD(); emit('chat'); p.a != 'me' && genCmt(p, `请生成${rn(auOf(p))}（以及可能路过的联系人）对${meObj().nick}这条评论的回复 1-2 条。`); },
+  crep: async x => { const [id, i] = x.split('|'), p = P(id), c = p?.cm[+i]; if (!c) return; const r = S.style == 'wx' ? { c: await cmtBar(`回复${nm(who(c.f))}`) } : await form(`回复 ${nm(who(c.f))}`, [['c', '说点什么吧...']]); if (!r?.c) return; p.cm.push({ f: nm(meObj()), c: r.c, to: c.f }); saveD(); emit('chat'); isMe(c.f) || genCmt(p, `${meObj().nick}回复了${nm(who(c.f))}，请生成${nm(who(c.f))}（以及可能的其他人）的回应 1-2 条。`); },
+  // 微信：点 ·· 从左边滑出深色小条「赞 | 评论」（照录屏，图标是抠的）；长按 ·· 是 好友互动 / 编辑 / 分享
+  pmore: (id,t) => {const p=P(id);if(!p)return;if(t?.closest('.wxm'))return wxPill(p,t);const existing=t?.querySelector('.feed-action-popup');document.querySelectorAll('.feed-action-popup').forEach(n=>n.remove());if(existing || !t)return;
     const popup=document.createElement('span');popup.className='feed-action-popup';
     const actions=[['like',liked(p)?'取消赞':'赞',liked(p)?FI.heartF:FI.heart],['cmt','评论',FI.cmt],['pshare','分享',FI.share],['pgc','好友互动',FI.wand],['pedit','编辑',FI.edit],['pdel','删除',FI.del]];
     popup.innerHTML=actions.map(([key,label,icon])=>`<button type="button" aria-label="${label}" title="${label}" data-feed-act="${key}">${icon}</button>`).join('');
     popup.onclick=e=>{e.stopPropagation();const action=e.target.closest('[data-feed-act]');if(action){popup.remove();FA[action.dataset.feedAct](id);}};t.append(popup);
     const dismiss=e=>{if(!popup.contains(e.target)&&!t.contains(e.target))popup.remove();};setTimeout(()=>document.addEventListener('click',dismiss,{once:true}),0);
   },
+  pmlp: async id => { const k = await menu([['pgc', '好友互动'], ['pedit', '编辑'], ['pshare', '分享']]); k && FA[k](id); },
   pshare: id => { const p = P(id); p && share(p); },
   pgc: id => { const p = P(id); p && genCmt(p, '请让联系人们按人设给这条动态点赞、评论，评论之间可以互相回复，2-4 条。'); },
   pedit: async id => { const p = P(id); if (!p) return; const r = await form('编辑动态', [['c', '正文', 'area'], ...(p.tr ? [['tr', '中文译文', 'area']] : [])], { c: p.c, tr: p.tr }); if (!r) return; p.c = r.c || ''; p.tr != null && (p.tr = r.tr || ''); saveD(); emit('chat'); },
