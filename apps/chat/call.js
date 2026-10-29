@@ -55,7 +55,7 @@ export function startCall(ch, kind = 'voice') {
   const V = Object.assign(document.createElement('div'), { className: 'xc-v' }); el.append(V); // 每次重画只换这一层
   const KB = A.kbv ? Object.assign(document.createElement('label'), { className: 'xc-kb', innerHTML: '<input enterkeyhint="send" autocomplete="off" placeholder="点这里，用输入法的🎤说话">' }) : null; KB && el.append(KB);
   const draw = () => {
-    const dial = A.st == 'dial', rec = A.ph == 'rec', cap = A.lines.length || rec ? `<div class="xc-tx">${A.lines.slice(-8).map((x, i, L) => `<p class="${x.f == 'me' ? 'me' : ''} ${i == L.length - 1 && A.ph == 'speak' && x.f != 'me' ? 'now' : ''}">${x == A.rv ? `<span class="xc-r">${esc(x.t.slice(0, x.sh))}</span>` : esc(x.t)}${x.tr && x.tr != x.t ? `<em${x == A.rv ? ' class="xc-r2"' : ''}>${esc(x == A.rv ? x.tr.slice(0, Math.ceil(x.tr.length * x.sh / Math.max(1, x.t.length))) : x.tr)}</em>` : ''}</p>`).join('')}${rec ? A.ear == 'model' ? '<p class="me ing xc-lvp"><span class="xc-lv"><i></i><i></i><i></i><i></i><i></i></span></p>' : `<p class="me ing"><span>${esc(A.heard || '')}</span><i class="xc-cur"></i></p><p class="xc-dg">${esc(diag())}</p>` : ''}</div>` : '';
+    const dial = A.st == 'dial', rec = A.ph == 'rec', cap = A.lines.length || rec ? `<div class="xc-tx">${A.lines.slice(-8).map((x, i, L) => `<p class="${x.f == 'me' ? 'me' : ''} ${i == L.length - 1 && A.ph == 'speak' && x.f != 'me' ? 'now' : ''}"${x.f == 'me' && x.t != '…' ? ` data-k="fix" data-i="${A.lines.length - L.length + i}"` : ''}>${x == A.rv ? `<span class="xc-r">${esc(x.t.slice(0, x.sh))}</span>` : esc(x.t)}${x.tr && x.tr != x.t ? `<em${x == A.rv ? ' class="xc-r2"' : ''}>${esc(x == A.rv ? x.tr.slice(0, Math.ceil(x.tr.length * x.sh / Math.max(1, x.t.length))) : x.tr)}</em>` : ''}</p>`).join('')}${rec ? A.ear == 'model' ? '<p class="me ing xc-lvp"><span class="xc-lv"><i></i><i></i><i></i><i></i><i></i></span></p>' : `<p class="me ing"><span>${esc(A.heard || '')}</span><i class="xc-cur"></i></p><p class="xc-dg">${esc(diag())}</p>` : ''}</div>` : '';
     const thinkS = A.ph == 'think' ? Math.round((performance.now() - A.thinkAt) / 1e3) : 0;
     const ph = { idle: A.kbv || A.ear == 'model' && A.mic ? '在听…' : A.mic ? A.auto ? '点「点这里说」接着聊' : '点下面「点这里说」，说完点「说完了」' : '麦克风已关', rec: A.auto ? '在听…' : '在听你说… 说完点「说完了」', think: `${esc(nm(c))} 在想…${thinkS >= 5 ? ` <i class="xc-ts">${thinkS}s</i>` : ''}`, speak: `${esc(nm(c))} 正在说`, fail: '这轮没接上，可以再说一遍' }[A.ph] || '';
     const hint = A.ear == 'model' && A.earBad ? `<p class="xc-hint">${esc(A.earBad)}</p>` : A.ph == 'think' && thinkS >= 20 ? `<p class="xc-hint">${A.raw ? '酒馆当前连接是文本补全（或酒馆版本太旧），拿不到流式，要等整段想完才开口。在 设置 → 应用配置 → 聊天 → 语音通话 里选一个「连接配置」或自己的 API，并把「低思考」打开，会快很多' : '模型想得有点久，可能开着深度思考；在 设置 → 应用配置 → 语音通话 里把「低思考」打开会快一些'}</p>` : '';
@@ -104,6 +104,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     if (k == 'kb') { A.typing = !A.typing; return draw(); }
     if (k == 'auto') { A.auto = S.callAuto = !A.auto; save(); toast(A.auto ? '自动接话：你停下来 TA 就接着说' : '点着说：点「点这里说」开始，点「说完了」才轮到 TA'); if (A.auto && A.ph == 'idle') return listen(); return draw(); }
     if (k == 'ear') { earOff(); A.ear = S.callEar = A.ear == 'model' ? 'web' : 'model'; save(); A.earBad = ''; if (A.ear == 'model') { earOn(); if (A.ph == 'rec') { stopRec(); A.ph = 'idle'; } toast('模型听：你一开口就在听，停一下自动发给 TA（录音交给模型听，要 Gemini 这类能听音频的模型）'); } else { toast('浏览器识别：要能连上谷歌的识别服务'); if (A.ph == 'idle') return next(); } return draw(); }
+    if (k == 'fix') return fixLine(A.lines[+e.target.closest('[data-k]').dataset.i]);
     if (k == 'send') return sendTyped();
     if (k == 'tov') { A.cam?.getTracks().forEach(t => t.stop()); A.cam = null; A.kind = 'voice'; el.className = 'xc xc-voice in'; return draw(); }
     A.ctx?.state == 'suspended' && A.ctx.resume(); // 随便点一下也顺手把声音唤醒
@@ -168,6 +169,10 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   // 自动接话：每来一次识别结果就重新计时，安静 1.2 秒（一个字都没变）就当我说完了
   function hush() { clearTimeout(A.sil); if (A.auto && A.heard) A.sil = setTimeout(() => A.ph == 'rec' && CALL == A && finishRec(), SIL); }
   function finishRec() { clearTimeout(A.sil); const t = (A.heard || '').trim(); stopRec(); A.base = ''; A.heard = ''; if (!t) { A.ph = 'idle'; draw(); return toast('没听到你说话，再试一次'); } heard(t); }
+  // 听错了能改（学 Companion Voice Runtime）：点字幕里我说的那句，就地改字；通话内容跟着改，TA 之后按改过的理解
+  function fixLine(x) { if (!x || el.querySelector('.xc-fix')) return; const w = Object.assign(document.createElement('div'), { className: 'xc-fix', innerHTML: `<small>听错了？改成你真正说的</small><input value="${esc(x.t.replace(/^（(没听清|语音)）$/, ''))}" enterkeyhint="done"><div><b data-f="n">取消</b><b data-f="y" class="ok">改好了</b></div>` }); el.append(w);
+    const i = w.querySelector('input'), end = ok => { const v = i.value.trim(); if (ok && v) { x.t = v; if (x.lg) x.lg.t = v; else if (!A.log.includes(x)) { x.lg = { f: 'me', t: v }; A.log.push(x.lg); } A.lastSaid = v; } w.remove(); draw(); };
+    w.onclick = e => { e.stopPropagation(); const f = e.target.dataset.f; f && end(f == 'y'); }; i.onkeydown = e => e.key == 'Enter' && end(true); setTimeout(() => i.focus(), 30); }
   // ---- 模型听：麦克风 → 音量判断（开口 / 停下）→ 录音交给模型 ----
   function earOn() {
     if (A.ms || A.earP || CALL != A) return; A.earAt = performance.now();
@@ -182,9 +187,19 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   function vad(d, sr) {
     const E = A.E; if (!E || CALL != A) return; let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; const rms = Math.sqrt(s / d.length), fr = d.length / sr;
     A.vmax = Math.max(A.vmax || 0, rms); if (A.earBad && rms > .004 && /一点声音/.test(A.earBad)) { A.earBad = ''; draw(); }
-    const open = A.mic && A.st == 'talk' && (A.ph == 'idle' || A.ph == 'fail' || A.ph == 'rec') && performance.now() > (A.quiet || 0); // 半双工：TA 想 / 说的时候不听
-    if (!open) { if (E.on) { E.on = 0; E.buf = []; } E.pre = []; E.ld = 0; return; }
+    const busy = A.ph == 'think' || A.ph == 'speak', open = A.mic && A.st == 'talk' && (A.ph == 'idle' || A.ph == 'fail' || A.ph == 'rec' || busy && (S.callBarge ?? true)) && performance.now() > (A.quiet || 0);
+    if (!open) { if (E.on) { E.on = 0; E.buf = []; } E.pre = []; E.ld = 0; E.bl = 0; return; }
     const th = Math.max(.012, E.fl * 3.2), f = d.slice(0);
+    // 插话（学 Companion Voice Runtime / PaiVoice）：TA 想 / 说的时候也在听，但门槛高得多——TA 的声音从喇叭出来会被录进去一点，
+    // 所以要比平时响 2.5 倍、连着说够 0.7 秒（TA 在想、没出声时 0.45 秒）才算我真想说话；「嗯」「对」这种附和一声不打断
+    if (busy) { const thB = A.playN ? Math.max(.03, th * 2.5) : th; E.pre.push(f); E.pre.length > Math.ceil(1.2 / fr) && E.pre.shift();
+      E.bl = rms > thB ? (E.bl || 0) + fr : Math.max(0, (E.bl || 0) - fr * .5);
+      if (E.bl < (A.playN ? .7 : .45)) return;
+      const prev = A.ph == 'think' && A.hl && A.lastChunks; interrupt(); // TA 还在想：当成我刚才那句没说完，两段录音合起来重新发
+      if (prev) { A.lines = A.lines.filter(x => x != A.hl); const i = A.log.indexOf(A.hl.lg); i >= 0 && A.log.splice(i, 1); }
+      else { const t = A.lines.findLast(x => x.f != 'me'); t && !/—$/.test(t.t) && (t.t += '—'); } // TA 的话被我打断：字幕后面加个破折号
+      E.on = 1; E.buf = prev ? [...prev, new Float32Array(Math.round(.3 * sr)), ...E.pre] : E.pre; E.pre = []; E.q = 0; E.sp = E.bl + (prev ? 1 : 0); E.bl = 0; A.ph = 'rec'; draw(); return; }
+    E.bl = 0;
     if (!E.on) { if (rms < th) E.fl = E.fl * .96 + rms * .04; E.pre.push(f); E.pre.length > 8 && E.pre.shift(); E.ld = rms > th ? E.ld + 1 : 0;
       if (E.ld >= 3) { E.on = 1; E.buf = E.pre; E.pre = []; E.q = 0; E.sp = E.ld * fr; A.ph = 'rec'; draw(); } return; } // 连着 3 帧（约 0.13 秒）够响：开口了
     E.buf.push(f); rms > th * .7 ? (E.q = 0, E.sp += fr) : (E.q += fr);
@@ -192,10 +207,10 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     if (E.q < EAR_END && E.buf.length * fr < EAR_MAX) return;
     const buf = E.buf.slice(0, Math.max(1, E.buf.length - Math.floor(Math.max(0, E.q - .25) / fr))); E.on = 0; E.buf = []; // 去掉末尾的静音
     if (E.sp < EAR_MIN) { A.ph = 'idle'; draw(); return; } // 太短：不算说话
-    heardAudio(wav(buf, sr));
+    A.lastChunks = buf; heardAudio(wav(buf, sr));
   }
-  function heardAudio(url) { interrupt(); const ln = { f: 'me', t: '…' }; A.lines.push(ln); turn(null, url, ln); }
-  function heard(t) { stopRec(); interrupt(); A.heard = ''; A.lastSaid = t; A.log.push({ f: 'me', t }); A.lines.push({ f: 'me', t }); turn(t); }
+  function heardAudio(url) { interrupt(); const ln = { f: 'me', t: '…' }; A.lines.push(ln); A.hl = ln; turn(null, url, ln); }
+  function heard(t) { stopRec(); interrupt(); A.heard = ''; A.lastSaid = t; const e = { f: 'me', t }; A.log.push(e); A.lines.push(e); turn(t); }
   // 对方说：流式拿字 → 按句切 → 每句马上去合成，按顺序播
   // 对方说（照 StarHub 教程）：流式拿字 → 只放出「已经稳定」的整句（括号、引号没闭合的尾巴先留着）→ 每句合成 → 排在同一条音频时间轴上无缝播放
   // 背压：最多比正在播的领先 2 句去合成；本轮开始时把语言设置拍个快照，中途切换只影响下一轮；挂断 / 打断后，迟到的文字和音频一律丢掉
@@ -209,7 +224,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     const P = HEAD() + `${(r => r ? `\n【想起来的旧事】（只当背景）\n${r}` : '')(recall(ch, said || '', 12, 400))}${A.log.length ? `\n【这通电话里说过的】\n${A.log.slice(-16).map(x => `${x.f == 'me' ? me.nick : rn(c)}：${x.t}`).join('\n')}` : ''}\n`
       + (au ? `${me.nick}刚刚说了一句话，就是附带的这段录音（是${me.nick}本人在电话里说的话）。` : said ? `${me.nick}刚刚说：「${said}」\n接着回 TA。` : `电话刚接通（是${me.nick}打给你的），你先开口。`)
       + (zh ? '\n只输出你要说的话，一句一行，不要括号旁白。' : `\n你说${lname(outL)}。每一句都成对输出两行，第一行 SAY: 后面是${lname(outL)}原话，第二行 ZH: 后面是这句的简体中文意思。例：\nSAY: ${outL == 'ja' ? 'もしもし、どうしたの？' : outL == 'ko' ? '여보세요, 무슨 일이야?' : 'Hey, what\'s up?'}\nZH: 喂，怎么了？\n只输出这样成对的行，不要别的。`)
-      + (au ? `\n第一行必须是 HEARD: 后面照录音写下${me.nick}说的原话（照原来的语言写，听不清就写 HEARD: ?），然后另起一行开始回 TA。` : '');
+      + (au ? `\n第一行必须是 HEARD: 后面照录音写下${me.nick}说的原话（照原来的语言写；笑、叹气、哈欠、哽咽这些声音写在括号里，如「（笑）你好坏」；听不清就写 HEARD: ?），然后另起一行开始回 TA。\n认真听语气：是笑着说、困了、犹豫、撒娇还是不高兴，回答要自然地接住这个语气（不用说出「我听出你…」）。` : '');
     const U = []; let played = -1, done = false; // U：已稳定的句子 { t 台词, tr 释义, b 音频 }
     const synth = () => { for (let k = played + 1; k <= Math.min(U.length - 1, played + 2); k++) { const u = U[k]; if (u.b !== undefined) continue; // 只领先 2 句
       u.b = A.ttsBad ? Promise.resolve(null) : tts(u.t, '', c.sex, sg, { c, blob: 1 }).catch(e => { if (!sg.aborted && !A.ttsBad) { A.ttsBad = true; toast('语音合成不可用，只显示字幕：' + e.message); } return null; }); } };
@@ -217,7 +232,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     const P1 = zh ? zhUnits(pub) : pairUnits(pub);
     // 模型听：回答前先有一行 HEARD: 我说的原话 → 填进字幕里我那一行、记进通话内容；其余照常切句
     let hd = !au, hb = '';
-    const gotHeard = t => { t = clean(t).replace(/^[「“"]|[」”"]$/g, ''); if (!hl) return; if (!t || /^[?？]+$/.test(t)) { hl.t = '（没听清）'; } else { hl.t = t; A.lastSaid = t; A.log.push({ f: 'me', t }); } draw(); };
+    const gotHeard = t => { t = String(t || '').replace(/\*[^*]*\*|【[^】]*】/g, '').trim().replace(/^[「“"]|[」”"]$/g, ''); if (!hl) return; if (!t || /^[?？]+$/.test(t)) { hl.t = '（没听清）'; } else { hl.t = t; A.lastSaid = t; hl.lg = { f: 'me', t }; A.log.push(hl.lg); } draw(); }; // 听到的话里（笑）（叹气）要留着
     const P2 = { feed: d => { if (hd) return P1.feed(d); hb += d; const i = hb.indexOf('\n'); if (i < 0 && hb.length < 300) return; const l = i < 0 ? hb : hb.slice(0, i), m = l.match(/^\s*HEARD\s*[:：]\s*(.*)$/i); hd = true;
         if (m) { gotHeard(m[1]); P1.feed(i < 0 ? '' : hb.slice(i + 1)); } else { hl && (hl.t = '（语音）'); P1.feed(hb); } hb = ''; },
       finish: () => { if (!hd) { hd = true; const m = hb.match(/^\s*HEARD\s*[:：]\s*(.*)$/i); if (m) gotHeard(m[1]); else { hl && (hl.t = '（语音）'); P1.feed(hb); } hb = ''; } P1.finish(); } };
@@ -240,7 +255,8 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     clearTimeout(fillT); clearTimeout(guard); if (CALL == A && !sg.aborted) { A.ph = U.length ? 'idle' : 'fail'; next(); } // 说完了：轮到我（自动接话就直接开麦）
   }
   // 播一句：解码后排到同一个 AudioContext 的时间轴上（不每句新建播放器、不靠 setTimeout 接）；解不了码就退回 <audio>；没声音就按字数停一会儿
-  async function playBlob(b, t, sg, on) {
+  async function playBlob(b, t, sg, on) { A.playN = (A.playN || 0) + 1; try { return await playOne(b, t, sg, on); } finally { A.playN--; } }
+  async function playOne(b, t, sg, on) {
     if (!(b instanceof Blob)) return new Promise(r => { on?.(400 + t.length * 160, 0); const tm = setTimeout(r, 400 + t.length * 160); sg.addEventListener('abort', () => (clearTimeout(tm), r()), { once: true }); });
     const X = A.ctx; if (X) try { X.state != 'running' && await Promise.race([X.resume(), new Promise(r => setTimeout(r, 300))]);
       if (X.state == 'running') { const buf = await X.decodeAudioData(await b.arrayBuffer()); if (sg.aborted) return;

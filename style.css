@@ -2128,3 +2128,9 @@ html{min-height:100%;min-height:100dvh}
 .xc-lv{display:inline-flex;gap:4px;align-items:center;height:18px;--lv:.2}
 .xc-lv i{width:3px;border-radius:2px;background:#fff;height:calc(4px + 14px * var(--lv));transition:height .08s}
 .xc-lv i:nth-child(2),.xc-lv i:nth-child(4){height:calc(4px + 10px * var(--lv))}.xc-lv i:nth-child(1),.xc-lv i:nth-child(5){height:calc(3px + 6px * var(--lv))}
+/* 通话 · 改听错的字 */
+.xc-tx p.me[data-k=fix]{cursor:pointer}
+.xc-fix{position:absolute;left:20px;right:20px;top:38%;z-index:3;padding:14px;border-radius:14px;background:rgba(30,30,34,.92);display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.xc-fix small{opacity:.65;font-size:calc(12px*var(--fz,1))}
+#stp .xc-fix input{width:100%;max-width:none;box-sizing:border-box;padding:9px 12px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;text-align:left;font-size:calc(15px*var(--fz,1))}
+.xc-fix div{display:flex;justify-content:flex-end;gap:10px}.xc-fix b{padding:6px 14px;border-radius:16px;background:rgba(255,255,255,.14);cursor:pointer;font-weight:500}.xc-fix b.ok{background:#07c160}
