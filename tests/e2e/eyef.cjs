@@ -54,7 +54,7 @@ ${Array.from({ length: 52 }, (_, i) => `#${i + 1} 网友${i % 7} | ${['CP粉', '
   await fr().click('#f3 .like'); ok(await fr().$eval('#f3 .like .xf-n', x => x.textContent) == '27', '点赞 +1');
   await p.screenshot({ path: OUT + '/eyef-thread.png' });
   const pr = await E(`window.__prompt`);
-  ok(/漫画/.test(pr) && /至少 50 楼/.test(pr) && /最近几帖用过：无/.test(pr), '提示词带形态、50 楼、最近用过的平台');
+  ok(/漫画/.test(pr) && /画崩/.test(pr) && /漫画家/.test(pr) && /至少 50 楼/.test(pr) && /最近几帖用过：无/.test(pr), '提示词带形态、50 楼、最近用过的平台');
   // 再刷一帖
   await E(`document.querySelector('.ef-h [data-a=efgen]').click()`); await W(1800);
   ok(await E(`core.D().eye.forum.length`) == 2 && /最近几帖用过：百度贴吧/.test(await E(`window.__prompt`)), '再生成一帖：历史 2 条，提示词避开上次的平台');
