@@ -1,18 +1,20 @@
 // 小手机 · 窥探之眼：从更高一层往下看——这段剧情在「那个世界」里是一部漫画 / 动画 / 电视剧 / 小说 / 游戏
 // 画面全是生成的图（assets/eye/*.webp），一笔不画：
-//   room / room_author  客厅（面具挂在墙上 / 戴在他脸上）   phone  他手里的手机特写（图标就是图里的，点哪个开哪个）
+//   room / room_author  客厅（面具挂在墙上 / 戴在他脸上）   phone_*  他手里的手机特写，每种形态一张：只留那一个官方平台，其余七个往前挪成两排
 //   backstage  帷幕后面   cabinet  周边柜特写   fg  最前面一层虚化的沙发   tv_*  五种形态在电视上放的画面   guide  选作品时的客厅（茶几上方五块面板）   gi_*  小图标
-// 第一次进来先选「这段剧情是一部什么」：整间屋子是暗的，五块面板浮在茶几上方，点哪块哪块亮、电视跟着亮；选过以后再进来就不用选了
+// 每个聊天窗口第一次进来先选「这段剧情是一部什么」（存在这个聊天里，换个聊天要重新选）：整间屋子是暗的，五块面板浮在茶几上方，点哪块哪块亮、电视跟着亮
 // 手机上的 App：官方平台（随形态换，五选一）/ 论坛 / 周边店 / 同人圈 / 另一条线（同人作品是原著线，原创作品是 IF 线）
 // 内容都是样例；生成之后接
-import { S, $, $$, page, reg, toast, save, esc, openApp } from '../../core.js';
+import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
 
 const CSS = new URL('./eye.css?v=5', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
 let pxReady; const pxFont = () => pxReady ||= (async () => { try { const f = new FontFace('xp-px', `url("${PXF}") format("woff")`); await f.load(); document.fonts.add(f); } catch {} })();
-const ST = () => { const e = (S.eye ||= { form: '', role: 'viewer', wall: false, src: 'orig', intro: true }); if (typeof e.intro != 'boolean') e.intro = true; if (e.v != 2) { e.v = 2; e.form = ''; save(); } return e; };
+// 作品形态 / 身份 / 第四面墙 / 原著线 跟着聊天走（每个聊天是一个新的故事）；片头开关是全局设置
+const ST = () => D().eye ||= { form: '', role: 'viewer', wall: false, src: 'orig' };
+const INTRO_ON = () => (S.eye ||= {}).intro !== false;
 
 /* ---------- 形态 ---------- */
 const FORMS = [['manga', '漫画'], ['game', '游戏'], ['novel', '小说'], ['drama', '电视剧'], ['anime', '动画']];
@@ -34,11 +36,11 @@ const ZONES = { tv: [33.5, 14.5, 78.5, 43.5], phone: [38, 56, 50, 67], mask: [16
 const CAMS = { tv: 1.5, phone: 1.9, mask: 2.4, cab: 2.2, curtain: 1.9, cctv: 2.6, table: 1.7 };
 // 点了以后整张换成另一张图的：手机特写 / 帷幕后面 / 周边柜
 const SWAP = { phone: 'phone', curtain: 'backstage', cab: 'cabinet' };
-// 手机特写图里每个图标的中心（百分比）。五个官方平台只有当前形态那个能点，其余压暗
-const PH = [['plat', 45.2, 34.3, 'novel'], ['plat', 53.0, 35.4, 'game'], ['plat', 60.5, 36.6, 'drama'], ['plat', 68.3, 37.7, 'anime'],
-  ['plat', 42.5, 41.5, 'manga'], ['shop', 50.3, 42.8], ['fan', 57.9, 44.0], ['line', 65.5, 45.2],
-  ['forum', 39.7, 48.8], ['cloud', 47.5, 50.0], ['mask', 55.4, 51.4], ['set', 63.0, 52.7]];
-const phz = () => PH.map(([k, x, y, f]) => `<b class="phz ${f && f != ST().form ? 'dim' : ''}" data-a="hopen" data-x="${k}" ${f ? `data-f="${f}"` : ''} style="left:${x}%;top:${y}%"></b>`).join('');
+const SWIMG = k => IMG(k == 'phone' ? 'phone_' + (ST().form || 'manga') : k);
+// 手机特写上两排图标的中心（百分比）：官方平台 / 淘宝 / 同人圈 / 原著 · 论坛 / 云盘 / 创作 / 设置
+const PH = [['plat', 45.2, 34.3], ['shop', 53.0, 35.4], ['fan', 60.5, 36.6], ['line', 68.3, 37.7],
+  ['forum', 42.5, 41.5], ['cloud', 50.3, 42.8], ['mask', 57.9, 44.0], ['set', 65.5, 45.2]];
+const phz = () => PH.map(([k, x, y]) => `<b class="phz" data-a="hopen" data-x="${k}" style="left:${x}%;top:${y}%"></b>`).join('');
 
 /* ---------- 电视里的画面 ---------- */
 function tvScreen() {
@@ -161,11 +163,11 @@ ${FORMS.map(([k]) => `<b class="gh" data-a="gpick" data-x="${k}" style="${pct(GH
 }
 function pickForm(el, k) {
   const g = $('.eye-guide', el); if (!g || g.classList.contains('picked')) return;
-  const st = ST(); st.form = k; save(); g.classList.add('picked');
+  const st = ST(); st.form = k; saveD(); g.classList.add('picked');
   $$('.gcol', g).forEach(c => c.classList.toggle('on', c.dataset.x == k));
   const tv = $('.gtv', g); tv.insertAdjacentHTML('beforeend', `<img class="tv-img" src="${IMG('tv_' + FM[k].tv)}" alt=""><i class="tv-scan"></i>`); tv.classList.add('lit');
   $('.tv-scr', el).innerHTML = tvScreen(); $('.tv-scr', el).classList.add('lit'); $('.eye-brand small', el).textContent = `${FN[k]} · ${FM[k].unit}`;
-  $$('.phz[data-f]', el).forEach(z => z.classList.toggle('dim', z.dataset.f != k));
+  const ph = $('.swap[data-k="phone"]', el); if (ph) ph.src = SWIMG('phone');
   setTimeout(() => guide(el, false), 1700);
 }
 
@@ -175,7 +177,7 @@ function mount(el) {
   let y0 = 0; st.addEventListener('pointerdown', e => { const c = e.target.closest('.holo'); y0 = c ? e.clientY : 0; });
   st.addEventListener('pointerup', e => { if (y0 && e.clientY - y0 > 48) back(el); y0 = 0; });
   st.addEventListener('click', e => { if (st.classList.contains('guiding')) return; if (e.target.closest('.holo,[data-a]')) return; if (focused) back(el); });
-  if (ST().intro && !played) { played = true; intro(el); } else if (!ST().form) guide(el, true);
+  if (INTRO_ON() && !played) { played = true; intro(el); } else if (!ST().form) guide(el, true);
 }
 
 const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="--mx:50%;--my:50%">
@@ -186,30 +188,30 @@ const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-s
 ${Object.entries(ZONES).map(([k, z]) => `<b class="hz hz-${k}" data-a="ez" data-x="${k}" style="left:${z[0]}%;top:${z[1]}%;width:${z[2] - z[0]}%;height:${z[3] - z[1]}%"></b>`).join('')}
 </div></div>
 ${guideHtml()}
-<div class="swaps">${Object.entries(SWAP).map(([k, f]) => `<img class="swap" data-k="${f}" src="${IMG(f)}" draggable="false" alt="">`).join('')}<div class="phzs">${phz()}</div></div>
+<div class="swaps">${Object.entries(SWAP).map(([k, f]) => `<img class="swap" data-k="${f}" src="${SWIMG(f)}" draggable="false" alt="">`).join('')}<div class="phzs">${phz()}</div></div>
 <img class="eye-fg" src="${IMG('fg')}" draggable="false" alt="">
 <div class="eye-fx"><i class="dust d1"></i><i class="dust d2"></i><i class="dust d3"></i><i class="dust d4"></i><i class="dust d5"></i><i class="dust d6"></i></div>
-${st.intro && !played ? introHtml() : ''}
+${INTRO_ON() && !played ? introHtml() : ''}
 <div class="eye-top"><b class="eye-back ${focused ? 'show' : ''}" data-a="eback">‹ 回到客厅</b><span class="eye-brand"><i></i>窥探之眼<small>${has ? esc(FN[st.form]) + ' · ' + esc(FM[st.form].unit) : '选一部作品'}</small></span></div>
 </div>`; };
 
 reg({
   id: 'eye', name: '窥探之眼',
   icon: `<img src="${IMG('icon')}" alt="">`,
-  open: async () => { await css(); pxFont(); ['guide', ...Object.values(SWAP)].forEach(f => { const i = new Image(); i.src = IMG(f); i.decode?.().catch(() => {}); }); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
+  open: async () => { await css(); pxFont(); ['guide', ...Object.values(SWAP)].forEach(f => { const i = new Image(); i.src = SWIMG(f); i.decode?.().catch(() => {}); }); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
     ez: (k, t, e, pg) => { if (!ST().form) return; focus(pg.el, k == focused ? '' : k); },
     eback: (x, t, e, pg) => back(pg.el),
     gpick: (k, t, e, pg) => pickForm(pg.el, k),
     noop: () => {},
     iskip: (x, t, e, pg) => $('.eye-intro', pg.el)?._skip?.(),
-    hopen: (k, t, e, pg) => { if (e.target.closest('.dim')) return; if (k == 'cloud') return toast('还没接上，先看样子'); focus(pg.el, 'phone:' + k); },
-    eform: (k, t, e, pg) => { ST().form = k; save(); pg.re(); },
+    hopen: (k, t, e, pg) => { if (k == 'cloud') return toast('还没接上，先看样子'); focus(pg.el, 'phone:' + k); },
+    eform: (k, t, e, pg) => { ST().form = k; saveD(); pg.re(); },
     hact: (a, t, e, pg) => {
       const st = ST();
-      if (a == 'role') { st.role = st.role == 'author' ? 'viewer' : 'author'; save(); $$('.base', pg.el).forEach((i, n) => i.classList.toggle('in', (n == 1) == (st.role == 'author'))); focus(pg.el, 'mask', false); return; }
-      if (a == 'wall') { st.wall = !st.wall; save(); $('.eye-stage', pg.el).classList.toggle('wall', st.wall); $('.tv-scr', pg.el).innerHTML = tvScreen(); focus(pg.el, 'cctv', false); return; }
-      if (a == 'srcfan' || a == 'srcorig') { st.src = a == 'srcfan' ? 'fan' : 'orig'; save(); focus(pg.el, 'phone:line', false); return; }
-      if (a == 'reguide') { st.form = ''; save(); pg.re(); return; }
+      if (a == 'role') { st.role = st.role == 'author' ? 'viewer' : 'author'; saveD(); $$('.base', pg.el).forEach((i, n) => i.classList.toggle('in', (n == 1) == (st.role == 'author'))); focus(pg.el, 'mask', false); return; }
+      if (a == 'wall') { st.wall = !st.wall; saveD(); $('.eye-stage', pg.el).classList.toggle('wall', st.wall); $('.tv-scr', pg.el).innerHTML = tvScreen(); focus(pg.el, 'cctv', false); return; }
+      if (a == 'srcfan' || a == 'srcorig') { st.src = a == 'srcfan' ? 'fan' : 'orig'; saveD(); focus(pg.el, 'phone:line', false); return; }
+      if (a == 'reguide') { st.form = ''; saveD(); pg.re(); return; }
       if (a == 'shop') { focus(pg.el, 'phone:shop'); return; }
       if (a == 'street') { openApp('street'); return; }
       toast('还没接上，先看样子');

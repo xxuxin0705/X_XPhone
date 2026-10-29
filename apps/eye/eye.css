@@ -80,9 +80,7 @@
 .phzs { position: absolute; inset: 0; pointer-events: none; }
 .eye-stage.ph-home .phzs { pointer-events: auto; }
 .phz { position: absolute; width: 7.6%; height: 6.4%; transform: translate(-50%, -42%) rotate(11deg); border-radius: 22%; cursor: pointer; }
-.phz.dim::before { content: ''; position: absolute; left: 9%; top: 0; width: 82%; height: 74%; border-radius: 24%; background: rgba(4, 8, 20, .72); opacity: 0; transition: opacity .5s .5s; }
-.eye-stage.ph-home .phz.dim::before { opacity: 1; }
-.phz:not(.dim):active { background: rgba(160, 210, 255, .18); }
+.phz:active { background: rgba(160, 210, 255, .18); }
 
 /* 选作品：整间屋子压暗，五块面板一闪一闪地等你点；点中的那一列亮起来，电视跟着亮，然后淡回客厅 */
 .eye-guide { position: absolute; inset: 0; z-index: 6; opacity: 0; pointer-events: none; transition: opacity .9s; background: #06070c; overflow: hidden; }
