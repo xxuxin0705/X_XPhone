@@ -2054,7 +2054,7 @@ html{min-height:100%;min-height:100dvh}
 @keyframes cl-dot{30%{opacity:1}}
 .xc-ph{margin:0;font-size:calc(12.5px*var(--fz,1));opacity:.55}
 .xc-cap{margin:18px 0 0;max-width:100%;font-size:calc(16px*var(--fz,1));line-height:1.5;text-shadow:0 1px 4px rgba(0,0,0,.3)}.xc-cap small{display:block;font-size:calc(12px*var(--fz,1));opacity:.6}.xc-cap em{display:block;margin-top:4px;font-style:normal;font-size:calc(13.5px*var(--fz,1));opacity:.75}
-.xc-type{position:absolute;left:16px;right:16px;bottom:calc(178px + env(safe-area-inset-bottom));display:flex;gap:8px}
+.xc-type{align-self:stretch;margin:0 16px;display:flex;gap:8px}
 #stp .xc-type input{flex:1;max-width:none;padding:10px 14px;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;text-align:left}#stp .xc-type input::placeholder{color:rgba(255,255,255,.55)}
 .xc-type b{display:grid;place-items:center;padding:0 16px;border-radius:20px;background:#07c160;cursor:pointer}
 .xc-ctl{position:absolute;left:0;right:0;bottom:calc(30px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:14px}

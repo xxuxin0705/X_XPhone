@@ -77,3 +77,10 @@
 - **自动接话（默认）**：TA 说完马上开麦，我停下 1.2 秒（识别结果不再变化）就自动轮到 TA；TA 想和说的时候麦是关着的（半双工，防外放自答）。底部「自动接话 / 点着说」可以切，设置存在 `S.callAuto`。
 - **字幕逐字出**：每句按这句音频的时长匀速放字，外语下面的中文释义按比例同步出；打断或播完就整句显示。
 - 还没做：语音合成按小块流式（教程里的 PCM 分块 + 0.5 秒起播缓冲）。现在是一句合成完再播，第一句短的话差别不大；要做得看各家语音接口支不支持分块返回。
+
+## 2026-10-30：TauriTavern 里为什么录不进声音
+
+- 查了 TauriTavern 的安卓源码（Darkatse/TauriTavern，2.4.0）：`AndroidManifest.xml` 没有声明 `RECORD_AUDIO`，网页要麦克风时它会去申请这个权限，但没声明的权限系统直接拒绝 → 网页里 getUserMedia、浏览器语音识别都拿不到声音。安卓内置网页本身也不提供浏览器语音识别。这不是插件能绕过去的。
+- TauriTavern 的 `/api/backends/chat-completions/generate` 支持流式（ai-routes.js 里的 createChatCompletionStreamResponse），所以 curReq 在 Tauri 里也能一句一句出；请求带 `type: 'quiet'`，不当成正文生成。
+- 做法：在 Tauri 里（有 `__TAURI_INTERNALS__` / `__TAURI__`）不开浏览器识别，轮到我就弹出输入框，用手机输入法自带的语音输入（键盘上的话筒；输入法有自己的麦克风权限）。自动接话开着时，框里的字 1.8 秒不再变就自动发出去。
+- 以后如果 TauriTavern 加上了 RECORD_AUDIO：可以用 getUserMedia 录音，把音频跟本轮请求一起发给 Gemini（它能听音频），让模型先写出听到的话再回答，不多调一次模型。

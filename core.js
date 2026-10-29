@@ -421,7 +421,7 @@ async function stReq(id, sys, user, sig, cx, o) {
 export const curStream = () => { try { const c = C(); return c.mainApi == 'openai' && !!c.ChatCompletionService?.processRequest && !!c.chatCompletionSettings?.chat_completion_source; } catch { return false; } };
 async function curReq(sys, user, sig, cx, o) {
   const c = C(), s = c.chatCompletionSettings, src = s.chat_completion_source, sub = x => x && c.substituteParams ? c.substituteParams(x) : x;
-  const d = { stream: true, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], model: c.getChatCompletionModel?.() || s.openai_model, chat_completion_source: src,
+  const d = { type: 'quiet', stream: true, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], model: c.getChatCompletionModel?.() || s.openai_model, chat_completion_source: src,
     max_tokens: +s.openai_max_tokens || 1024, temperature: +s.temp_openai || .9, include_reasoning: false, custom_prompt_post_processing: s.custom_prompt_post_processing, use_sysprompt: s.use_sysprompt,
     ...(o.fast ? { reasoning_effort: 'min' } : s.reasoning_effort && { reasoning_effort: s.reasoning_effort }), // 低思考：Gemini / Claude / OpenAI 推理模型都按最小思考预算
     ...(s.reverse_proxy && { reverse_proxy: s.reverse_proxy, proxy_password: s.proxy_password }),

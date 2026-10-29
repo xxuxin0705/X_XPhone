@@ -100,6 +100,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.waitForFunction(`/一点声音都没收到/.test(document.querySelector('.xc-dg')?.textContent || '')`, null, { timeout: 15000 }).catch(() => { }); await shot('diag');
   ok(/一点声音都没收到/.test(await E(`document.querySelector('.xc-dg')?.textContent || ''`)), '没出字时显示卡在哪一步：' + await E(`document.querySelector('.xc-dg')?.textContent || ''`));
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition`);
+  // TauriTavern：App 没有录音权限 → 不开浏览器识别，轮到我就弹出输入框，用输入法的话筒说；字停 1.8 秒自动发
+  await E(`(() => { window.__TAURI__ = {}; window._srN = 0; window.webkitSpeechRecognition = class { start() { _srN++; } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return '喂？'; }; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500); await shot('tauri');
+  ok(await E(`/输入法/.test(document.querySelector('.xc-type input')?.placeholder || '') && /输入法/.test(document.querySelector('.xc-ph').textContent) && _srN == 0`), 'Tauri：不开浏览器识别，直接弹出输入框（按输入法的🎤说）');
+  await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '我在吃火锅'; i.dispatchEvent(new Event('input')); })()`); await W(900);
+  ok(!/我在吃火锅/.test(await E(`_P.at(-1)`)), '输入法还在写字时不发');
+  await W(1500); ok(/我在吃火锅/.test(await E(`_P.at(-1)`)), '字停 1.8 秒自动发给 TA（不用点「说」）');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition; delete window.__TAURI__`);
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);
   ok(await E(`core.D().favs.length == 1 && core.D().favs[0].src == '绷带盐'`), '收藏一条消息（记着来源）');
