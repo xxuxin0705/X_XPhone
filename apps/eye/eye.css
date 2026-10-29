@@ -109,8 +109,17 @@
 /* 电视：关着的屏，上面一行像素字问你 */
 .gtv { position: absolute; left: 33.6%; top: 14.9%; width: 44.6%; height: 17.6%; overflow: hidden; background: #04060c; display: grid; place-items: center; box-shadow: inset 0 0 20px rgba(0, 0, 0, .9); }
 .gtv::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .25) 0 1px, transparent 1px 3px); pointer-events: none; }
-.gq { margin: 0; font-family: "xp-px", sans-serif; font-size: 12px; line-height: 20px; letter-spacing: 1px; text-align: center; color: #bfe2ff; text-shadow: 0 0 6px rgba(120, 200, 255, .8); -webkit-font-smoothing: none; animation: gq 2.4s steps(2) infinite; transition: opacity .3s; }
-@keyframes gq { 50% { opacity: .75 } }
+.gq { position: relative; margin: 0; padding: 0 6px; font-family: "xp-px", sans-serif; font-size: 16px; line-height: 26px; letter-spacing: 1px; white-space: nowrap; text-align: left; color: #d6f0ff; -webkit-font-smoothing: none; transition: opacity .3s;
+  text-shadow: 0 0 6px rgba(90, 200, 255, .9), 0 0 16px rgba(60, 160, 255, .55); animation: gq-glitch 4.2s steps(1) infinite; }
+/* 偶尔「咔」一下：红蓝错位 + 横向抖 */
+@keyframes gq-glitch { 0%, 86%, 100% { transform: none; text-shadow: 0 0 6px rgba(90, 200, 255, .9), 0 0 16px rgba(60, 160, 255, .55) }
+  88% { transform: translateX(-2px) skewX(-6deg); text-shadow: 2px 0 #ff2a5a, -2px 0 #2af0ff, 0 0 10px rgba(90, 200, 255, .9) }
+  90% { transform: translateX(2px); text-shadow: -3px 0 #ff2a5a, 3px 0 #2af0ff }
+  92% { transform: none; opacity: .6 } 94% { opacity: 1 } }
+.gcur { display: inline-block; width: 9px; height: 15px; margin-left: 3px; vertical-align: -2px; background: #7fd8ff; box-shadow: 0 0 8px #5ad0ff; animation: gcur .8s steps(1) infinite; }
+@keyframes gcur { 50% { opacity: 0 } }
+/* 屏幕上一道慢慢往下刷的亮条 */
+.gtv::before { content: ''; position: absolute; left: 0; right: 0; height: 30%; top: -30%; background: linear-gradient(180deg, transparent, rgba(120, 200, 255, .08), transparent); animation: crt 3.6s linear infinite; pointer-events: none; z-index: 1; }
 .gtv .tv-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .gtv.lit .gq { opacity: 0; }
 .gtv.lit { animation: tv-on .9s ease-out; }

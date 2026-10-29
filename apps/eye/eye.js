@@ -8,7 +8,7 @@
 // 内容都是样例；生成之后接
 import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
 
-const CSS = new URL('./eye.css?v=8', import.meta.url).href;
+const CSS = new URL('./eye.css?v=9', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
@@ -30,9 +30,9 @@ const FM = {
   game: { ep: '章', unit: '第 4 章 · 雨夜', where: '游戏库 · 已发售', plat: '游戏库', bs: '开发者日志', who: '制作组', tv: 'game' },
 };
 // 茶几上五样东西 / 整列（面板 + 线 + 图标 + 东西）都是从 guide 图里按发光的轮廓抠出来的透明图：go_* / gc_*，下面是它们在图上的范围
-const GOBJ = { manga: [38.57, 55.93, 55.66, 65.14], game: [50.29, 60.71, 70.31, 69.58], novel: [61.04, 54.91, 77.15, 64.8], drama: [73.24, 59.69, 84.96, 70.6], anime: [84.96, 54.57, 96.19, 63.1] };
+const GOBJ = { manga: [37.21, 54.98, 57.03, 66.1], game: [48.93, 59.75, 71.68, 70.53], novel: [59.67, 53.96, 78.52, 65.76], drama: [71.88, 58.73, 86.33, 71.56], anime: [83.59, 53.62, 97.56, 64.05] };
 // 选作品那张图上，每一列（面板 + 小图标 + 茶几上对应的东西）的范围，百分比：左 上 右 下
-const GCOL = { manga: [36.13, 40.25, 54.69, 64.8], game: [49.32, 40.25, 68.85, 68.89], novel: [61.52, 40.25, 76.66, 64.46], drama: [73.73, 40.25, 87.4, 70.26], anime: [85.45, 40.25, 99.61, 63.1] };
+const GCOL = { manga: [34.77, 39.29, 56.05, 65.76], game: [47.95, 39.29, 70.21, 69.85], novel: [60.16, 39.29, 78.03, 65.42], drama: [72.36, 39.29, 88.77, 71.21], anime: [84.08, 39.29, 100.98, 64.05] };
 const GHIT = { manga: [36, 40, 50, 68], game: [50, 40, 64, 68], novel: [64, 40, 75.5, 68], drama: [75.5, 40, 86.5, 70], anime: [86.5, 40, 99.5, 68] };
 const pct = ([l, t, r, b]) => `left:${l}%;top:${t}%;width:${r - l}%;height:${b - t}%`;
 
@@ -158,11 +158,17 @@ function intro(el) {
 }
 
 /* ---------- 引导：第一次进来先选作品 ---------- */
-function guide(el, on) { const g = $('.eye-guide', el); if (!g) return; g.classList.toggle('in', on); $('.eye-stage', el).classList.toggle('guiding', on); }
+function guide(el, on) { const g = $('.eye-guide', el); if (!g) return; g.classList.toggle('in', on); $('.eye-stage', el).classList.toggle('guiding', on); if (on) typeQ($('.gq', g)); }
+// 电视上的问句：一个字一个字打出来，末尾一个闪的方块
+function typeQ(q) {
+  if (!q || q._typed) return; q._typed = 1; const t = q.dataset.t; let n = 0;
+  const tick = () => { n++; const s = t.slice(0, n); q.innerHTML = s.split('|').map(esc).join('<br>') + '<i class="gcur"></i>'; if (n < t.length) setTimeout(tick, /[，…|]/.test(t[n - 1]) ? 240 : 90); };
+  setTimeout(tick, 350);
+}
 function guideHtml() {
   const g = IMG('guide');
   return `<div class="eye-guide ${ST().form ? '' : 'in'}"><img class="bleed" src="${g}" alt=""><div class="gfit"><img class="gbase" src="${g}" draggable="false" alt="">
-<div class="gtv"><p class="gq">在那个世界里，<br>这段剧情是一部……</p></div>
+<div class="gtv"><p class="gq" data-t="在那个世界里，|这段剧情是一部……"></p></div>
 ${FORMS.map(([k], i) => `<img class="gobj" data-x="${k}" src="${IMG('go_' + k)}" style="${pct(GOBJ[k])};--i:${i}" alt=""><img class="gcol" data-x="${k}" src="${IMG('gc_' + k)}" style="${pct(GCOL[k])}" alt="">`).join('')}
 ${FORMS.map(([k, n]) => `<b class="gh" data-a="gpick" data-x="${k}" style="${pct(GHIT[k])}"></b><span class="gl" data-x="${k}" style="left:${(GCOL[k][0] + GCOL[k][2]) / 2}%">${n}</span>`).join('')}</div>
 <b class="gok" data-a="gok">确 认</b></div>`;

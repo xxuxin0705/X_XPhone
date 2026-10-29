@@ -156,6 +156,19 @@ function drag(e, id, longPress = false) {
   place(e);hold();gh.style.scale='1.08';gh.animate([{scale:'1'},{scale:'1.08'}],{duration:160,easing:'ease-out'});R.setPointerCapture?.(pointer);
   R.addEventListener('pointermove',mv);R.addEventListener('pointerup',finish);R.addEventListener('pointercancel',finish);R.addEventListener('lostpointercapture',finish);
 }
+// 点应用图标：抬手就开，不等 click——手机上按下到抬起之间手指轻微挪动、桌面局部重画，都可能让 click 不触发，看着就是「点了没反应」
+let tapOpen = 0;
+function deskTap(e) {
+  if (edit || dragging || e.button > 0 || e.isPrimary === false) return;
+  const el = e.target.closest('.it[data-it]'); if (!el) return;
+  const id = e.pointerId, x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), key = el.dataset.it;
+  const off = () => { removeEventListener('pointerup', up, true); removeEventListener('pointercancel', off, true); };
+  const up = ev => { if (ev.pointerId !== id) return; off();
+    if (edit || dragging || Math.hypot(ev.clientX - x0, ev.clientY - y0) > 12 || Date.now() - t0 > 550 || moved > t0) return;
+    const [l, i] = find(key), it = l[i]; if (!it || it.t != 'app') return;
+    tapOpen = Date.now(); openApp(it.app); };
+  addEventListener('pointerup', up, true); addEventListener('pointercancel', off, true);
+}
 // 平时：手指左右滑翻页（一次一页，跟手）；竖着滑、点、长按都照常
 function deskSwipe(e) {
   if (edit || dragging || e.button > 0 || e.isPrimary === false || e.target.closest('.phone-gesture-control,input,textarea,select,.dots,.dock')) return;
@@ -253,7 +266,7 @@ Object.assign(G, {
   dlp: (_, t, e) => { if (edit) return; edit = 1; ui.desk.classList.add('edit'); t.dataset.it && drag(e, t.dataset.it, true); },
   edDone: () => { edit = 0; ui.desk.classList.remove('edit'); clean(); },
   go: i => goPage(+i),
-  tap: (_, t) => { if (dragging || Date.now() - moved < 350) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder' && !edit) return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); }, // 组件仅在长按进入编辑模式后可修改；普通点击不打开上传菜单。
+  tap: (_, t) => { if (dragging || Date.now() - moved < 350 || Date.now() - tapOpen < 600) return; const [l, i] = find(t.dataset.it), it = l[i]; if (!it) return; if (it.t == 'folder' && !edit) return folder(it); if (edit) return it.t == 'w' && editW(it); it.t == 'app' && openApp(it.app); }, // 组件仅在长按进入编辑模式后可修改；普通点击不打开上传菜单。
   del: id => { const [l, i] = find(id), it = l[i]; dropMedia(it); it.t == 'folder' && S.desk.pages[cur].push(...it.apps.map(A)); l.splice(i, 1); clean(); },
   wAdd: () => wAddSheet(),
   edTheme: () => APPS.theme?.open(),
@@ -271,7 +284,7 @@ export function initDesk() {
   if (!S.deskEye) { S.deskEye = 1; [...S.desk.pages.flat(), ...S.desk.dock].some(x => x.app == 'eye' || x.apps?.includes('eye')) || placeItem(S.desk.pages, A('eye'), 0); } // 新增的窥探之眼
   if (!S.deskMusic) { S.deskMusic = 1; const has = [...S.desk.pages.flat(), ...S.desk.dock].some(x => x.app == 'music' || x.apps?.includes('music')); has || (S.desk.dock.length < 4 ? S.desk.dock.splice(1, 0, A('music')) : placeItem(S.desk.pages, A('music'), 0)); } // 新增的音乐 App：老桌面也放一个
   S.desk.pages = fitPages(S.desk.pages); save(); renderDesk();
-  ui.desk.addEventListener('pointerdown', editGesture); ui.desk.addEventListener('pointerdown', deskSwipe);
+  ui.desk.addEventListener('pointerdown', editGesture); ui.desk.addEventListener('pointerdown', deskSwipe); ui.desk.addEventListener('pointerdown', deskTap);
 }
 
 
