@@ -56,6 +56,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/一点声音都没进来/.test(await E(`document.querySelector('.xc-hint')?.textContent || ''`)) || await E(`cl.inCall().vmax`) > .002, '麦克风一点声音都没有：提示可能被录屏占着');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   ok(/我是螃蟹/.test(await E(`JSON.stringify(_c.msgs.at(-1).log)`)), '挂断：通话内容里记着我说的话（模型听到的）');
+  // Tauri：麦克风拿不到 → 换成输入法说；拿得到（以后 TauriTavern 加了权限）→ 直接模型听
+  await E(`(() => { window.__TAURI__ = {}; window._gum0 = navigator.mediaDevices.getUserMedia; navigator.mediaDevices.getUserMedia = async () => { throw Object.assign(new Error('denied'), { name: 'NotAllowedError' }); }; _mode = ''; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
+  ok(await E(`!!document.querySelector('.xc-kb input') && /键盘上的🎤/.test(document.querySelector('.xc-ph').textContent) && !/模型听/.test(document.querySelector('.xc-lang').textContent)`), 'Tauri 拿不到麦克风：自动换成输入法说，并说清楚');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
+  await E(`navigator.mediaDevices.getUserMedia = _gum0`); await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
+  ok(await E(`!document.querySelector('.xc-kb') && cl.inCall().ear == 'model' && !!cl.inCall().ms`), 'Tauri 拿得到麦克风（以后加了权限）：直接用模型听');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.__TAURI__`);
   // wav 编码：48k → 16k，长度和头对
   ok(await E(`(() => { const u = cl.wav([new Float32Array(4800).fill(.5)], 48000), b = atob(u.split(',')[1]); return b.slice(0, 4) == 'RIFF' && b.length == 44 + 1600 * 2; })()`), 'wav：48kHz 0.1 秒 → 16kHz 1600 个采样');
   ok(!errs.length, '没有报错 ' + errs.join(' | '));

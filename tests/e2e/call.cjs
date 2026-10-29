@@ -103,8 +103,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // TauriTavern：App 没有录音权限 → 不开浏览器识别，轮到我就弹出输入框，用输入法的话筒说；字停 1.8 秒自动发
   await E(`(() => { window.__TAURI__ = {}; window._srN = 0; window.webkitSpeechRecognition = class { start() { _srN++; } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return '喂？'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500); await shot('tauri');
-  ok(await E(`/输入法/.test(document.querySelector('.xc-kb input')?.placeholder || '') && document.querySelector('.xc-ph').textContent == '在听…' && !/轮到/.test(document.querySelector('.xc').textContent) && !document.querySelector('.xc-pill') && _srN == 0`), 'Tauri：不开浏览器识别；状态只写「在听…」，没有「轮到你了」、没有按钮，字幕位置就是输入法写字的地方');
-  await E(`window._kb = document.querySelector('.xc-kb input'); _kb.focus()`);
+  ok(await E(`/键盘上的🎤/.test(document.querySelector('.xc-kb input')?.placeholder || '') && /键盘上的🎤/.test(document.querySelector('.xc-ph').textContent) && /没有给网页麦克风权限/.test(document.querySelector('.xc-hint')?.textContent || '') && !document.querySelector('.xc-pill') && _srN == 0`), 'Tauri：拿不到麦克风 → 说实话：「点下面的框，按键盘上的🎤说话」，并说明为什么（不写「在听…」骗人）');
+  await E(`window._kb = document.querySelector('.xc-kb input'); _kb.focus()`); await W(100);
+  ok(await E(`document.querySelector('.xc-ph').textContent == '在听…'`), '框里有焦点（键盘开着）才显示「在听…」');
   await E(`(() => { const i = document.querySelector('.xc-kb input'); i.value = '我在吃火锅'; i.dispatchEvent(new Event('input')); })()`); await W(900);
   ok(!/我在吃火锅/.test(await E(`_P.at(-1)`)), '输入法还在写字时不发');
   await W(1500); ok(/我在吃火锅/.test(await E(`_P.at(-1)`)), '字停 1.8 秒自动发给 TA（不用点「说」）');
