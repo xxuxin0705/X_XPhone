@@ -4,11 +4,12 @@
 //   backstage  帷幕后面   cabinet  周边柜特写   fg  最前面一层虚化的沙发   tv_*  五种形态在电视上放的画面   guide  选作品时的客厅（茶几上方五块面板）   gi_*  小图标
 // 每个聊天窗口第一次进来先选「这段剧情是一部什么」（存在这个聊天里，换个聊天要重新选）：整间屋子是暗的，五块面板浮在茶几上方，每块下面写着是什么；
 // 点一块 = 预览（那一列亮、电视放对应画面），可以来回换；按「确认」才定下来
-// 手机上的 App：官方平台（随形态换，五选一）/ 论坛 / 周边店 / 同人圈 / 另一条线（同人作品是原著线，原创作品是 IF 线）
+// 手机上的 App：官方平台（随形态换，五选一）/ 论坛（forum.js，整页、真的生成）/ 周边店 / 同人圈 / 另一条线（同人作品是原著线，原创作品是 IF 线）
 // 内容都是样例；生成之后接
 import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
+import { openForum } from './forum.js';
 
-const CSS = new URL('./eye.css?v=10', import.meta.url).href;
+const CSS = new URL('./eye.css?v=12', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
@@ -60,8 +61,6 @@ function tvScreen() {
 /* ---------- 全息屏：每个入口一页，点进去还有下一层 ---------- */
 const H = {
   plat: () => { const f = FM[ST().form]; return { k: `${f.plat} · 官方`, t: '雨停之前', m: `${f.where} · ${f.unit} · 今天更新`, body: '这一' + f.ep + '里，万事屋的雨一直没停。他把最后一把伞借给了来委托的人，自己在屋檐下坐到天黑。有人问他在等谁，他说在等雨停。', dm: ['前方高能！！', '泪目了', '这一集神作', '打卡', '伞！！！'], acts: [['本' + f.ep + '评论 · 2,418', 'cmts'], ['刷新本期', 'gen']] }; },
-  forum: () => ({ k: 'FORUM · 追更区', t: '今日 128 帖', m: '热帖 3 · 新回复 41', tabs: [['热帖', 1], ['热搜', 0], ['投票', 0], ['评分', 0]], list: [['伞党', '第 27 话那把伞到底借给谁了？细节考据', '热 218'], ['路过的编辑', '这周作画是不是崩了，作者在赶稿吧', '56'], ['雨停了吗', '三人同框！！我宣布这是本季最佳', '热 501'], ['考据组', '扉页右下角那只眼睛……是我想多了吗', '89'], ['夜班读者', '每周四就靠这个撑着了', '33']], go: 'post', acts: [['我也发一帖', 'post']] }),
-  post: () => ({ k: 'FORUM · 第 27 话', t: '那把伞到底借给谁了？', m: '伞党 · 2 小时前 · 218 楼', body: '扉页里那把伞的伞骨是七根，但第 19 话他拿的是八根的那把。要么是作画失误，要么借出去的根本不是同一把伞。\n\n另外右下角那只眼睛，连续三话都出现在同一个位置了，不可能是巧合。', list: [['2 楼 · 雨停了吗', '七根！！我数了三遍', '12'], ['3 楼 · 路过的编辑', '作画失误，别想太多', '4'], ['4 楼 · 考据组', '那只眼睛我也注意到了', '31']], acts: [['回复这一楼', 'reply']] }),
   shop: () => ({ k: 'STORE · 官方周边店', t: '雨停之前 官方店', m: '关注 12.4 万 · 本期上新 6 件', goods: [['#d88aa6', '伞 · 亚克力立牌', '¥48', '4.9'], ['#8ab0e6', '万事屋 吧唧 3 枚', '¥35', '4.8'], ['#e6c46a', '第 3 卷 特装版', '¥128', '5.0'], ['#9a8ae6', '雨夜 挂画', '¥88', '4.7']], list: [['买家 · 伞党', '立牌做工比想的好，伞骨真的是七根', '★★★★★'], ['买家 · 夜班读者', '吧唧背面有那只眼睛，细节满分', '★★★★★'], ['买家 · 路过的编辑', '挂画偏暗，但挂在床头很对味', '★★★★☆']], acts: [['去商业街抽一番赏', 'street']] }),
   fan: () => ({ k: 'FANWORKS · 同人圈', t: '本周产出 64', m: '图 41 · 文 19 · cos 4 · 高维度的粉丝们', grid: [['#5a6a9a', '雨夜'], ['#8a5a6a', '借伞'], ['#4a6a5a', '屋檐下'], ['#6a5a8a', '回头'], ['#8a7a4a', '扉页'], ['#4a5a7a', '三人']], list: [['太太A', '《等雨停的人》 · 短篇 · 3.2k 字', '热 890'], ['画手B', '屋檐下 · 彩图', '412']], acts: [['看全部', 'fanall']] }),
   line: () => ST().src == 'fan' ? { k: 'ORIGINAL · 原著线', t: '原著里的他们', m: '原著角色看这条线的剧情', body: '原著里那把伞他没借出去。所以当原著的他看到这条线里的自己坐在屋檐下等雨停，沉默了很久。', list: [['原著 · 他', '……我不会把伞借出去的。但这个我，好像比我更像我。', ''], [' 原著 · 她', '这条线里他居然会等人，笑死，原著他连雨都不躲。', '']], acts: [['切换到 IF 线（原创作品）', 'srcorig']] }
@@ -228,7 +227,7 @@ reg({
     gok: (x, t, e, pg) => confirmForm(pg.el),
     noop: () => {},
     iskip: (x, t, e, pg) => $('.eye-intro', pg.el)?._skip?.(),
-    hopen: (k, t, e, pg) => { if (k == 'cloud') return toast('还没接上，先看样子'); focus(pg.el, 'phone:' + k); },
+    hopen: (k, t, e, pg) => { if (k == 'cloud') return toast('还没接上，先看样子'); if (k == 'forum') { const st = ST(); return openForum({ form: st.form, fname: FN[st.form] || '动画', ep: FM[st.form]?.ep || '集', role: st.role }); } focus(pg.el, 'phone:' + k); },
     eform: (k, t, e, pg) => { ST().form = k; saveD(); pg.re(); },
     hact: (a, t, e, pg) => {
       const st = ST();
