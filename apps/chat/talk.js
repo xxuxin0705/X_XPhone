@@ -6,6 +6,7 @@ regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { callSheet, callBub } from './call.js';
+import { recall } from './recall.js';
 import { addFav, favPage, cardPick, cardH } from './fav.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref, look, stkAllow, grpNames } from './data.js';
@@ -99,7 +100,7 @@ function replyP(ch, patNow) {
     snap?.lyric ? `现在唱到：${snap.lyric}${snap.lyricTranslation ? `（${snap.lyricTranslation}）` : ''}` : '', snap?.lyricWindow?.length ? `接下来的歌词：${snap.lyricWindow.slice(0, 6).join(' / ')}` : '',
     snap?.favoriteSongs?.length ? `${me}红心歌单里的歌：${snap.favoriteSongs.slice(0, 12).join('；')}` : '', '回复时要知道你们正在一起听这首歌，可以自然地聊到歌、歌手、歌词或者放到哪了，别复述这段说明。'].filter(Boolean).join('\n') + '\n' : '';
   return `${lsP}【当前聊天】${g ? `群聊「${ch.name}」 群主:${ch.owner ? rn(get(ch.owner)) : me} 管理员:${ch.admins.map(i => rn(get(i))).join('、') || '无'}\n成员：${ch.members.map(i => { const c = get(i); return `${rn(c)}(网名${c.nick}${ch.titles[i] ? '，头衔' + ch.titles[i] : ''})`; }).join('、')}${ch.notice ? '\n群公告：' + ch.notice : ''}` : `与${rn(ch)}（网名${ch.nick}）的私聊`}
-【聊天记录】\n${hist || '（空）'}
+${(r => r ? `【想起来的旧事】（更早的聊天里，和现在说到的事有关的几句。只当背景：自然想起来可以提，不要翻旧账、不要逐字复述）\n${r}\n` : '')(recall(ch))}【聊天记录】\n${hist || '（空）'}
 
 请继续这段手机聊天${g ? '' : `，你扮演${rn(ch)}回复${me}`}。这一轮一共 ${rn0 == rn1 ? rn0 : `${rn0}-${rn1}`} 条（文字、图片、语音、表情各算一条）${vn1 ? `，其中语音 ${vn0 == vn1 ? vn0 : `${vn0}-${vn1}`} 条` : '，不发语音'}。
 ${mp(g ? 'chat.reply.g' : 'chat.reply.p', { 对方: rn(ch), 我: me })}
@@ -309,7 +310,7 @@ export function openChat(id) {
     smile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><circle cx="12" cy="12" r="10.25"/><circle cx="8.7" cy="9.4" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.3" cy="9.4" r="1.15" fill="currentColor" stroke="none"/><path d="M7.4 12.9h9.2a4.6 4.6 0 0 1-9.2 0Z"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10.25"/><path d="M12 7v10M7 12h10"/></svg>' };
   // 「＋」面板的图标：从微信录屏里抠的黑色实心图标（assets/wx/call/p-*.png，用 mask 上色，夜间也能变白）
-  const pIc = n => `<i class="cl-i pic-i" style="--ci:url('${new URL(`../../assets/wx/call/p-${n}.png`, import.meta.url).href}')"></i>`;
+  const pIc = n => `<i class="xc-i pic-i" style="--ci:url('${new URL(`../../assets/wx/call/p-${n}.png`, import.meta.url).href}')"></i>`;
   const WXI = { pcall: pIc('video'), phb: pIc('hb'), ptf: pIc('tf'), pfav: pIc('fav'), pcard: pIc('card') };
   const panHtml = k => k == 'stk' ? pbar() + `<div class="pbody">${pgrid()}</div>`
     : `<div class="pgrid tools">${[...(ch.type == 'p' ? [['pcall', sty(ch) == 'wx' ? '视频通话' : '通话', '📞']] : []), ['phb', '红包', '🧧'], ['ptf', '转账', '¥'], ['pfav', '收藏', '⭐'], ['pcard', '个人名片', '👤']].map(([a, l, i]) => `<div class="tl" data-a="${a}"><i>${sty(ch) == 'wx' ? WXI[a] : i}</i>${l}</div>`).join('')}</div>`;

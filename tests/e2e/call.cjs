@@ -13,26 +13,28 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
     SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '喂？怎么突然打电话过来。' : '哈哈，真的吗。那你明天几点到？我去接你。'; };
     delete window.SpeechRecognition; delete window.webkitSpeechRecognition;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '徐鑫', nick: '绷带盐', fr: 1 })); window._k = dt.add(dt.blank('p', { real: 'Kiki', fr: 1 })); _c.msgs.push({ f: _c.id, t: 'text', c: '在吗', ts: Date.now() - 6e4 }); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
+  // 回归：通话界面的样式名不能和聊天列表的 .cl 撞（之前撞了：列表整个看不见、点哪都进第一个人的聊天）
+  await E(`core.home(); core.APPS.chat.open()`); await W(500); ok(await E(`(() => { const r = document.querySelector('.chatapp .cl'), s = r && getComputedStyle(r); return !!r && s.opacity == '1' && s.position != 'absolute' && r.getBoundingClientRect().height < 120; })()`), '聊天列表正常显示（样式名不和通话撞）'); await E(`talk.openChat(_c.id)`); await W(500);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(300); await shot('panel');
   ok(await E(`[...document.querySelectorAll('.pan .tl')].map(t => t.textContent).join()`) == '视频通话,红包,转账,收藏,个人名片', '「＋」面板：视频通话 / 红包 / 转账 / 收藏 / 个人名片（图标抠自录屏）');
   await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(400);
   ok(/视频通话/.test(await E(`document.querySelector('.sheet.in').textContent`)) && /语音通话/.test(await E(`document.querySelector('.sheet.in').textContent`)), '点视频通话：底部弹出 视频通话 / 语音通话 / 取消');
   await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(400); await shot('dial');
-  ok(await E(`!!document.querySelector('.cl .cl-dots') && /取消/.test(document.querySelector('.cl-ctl').textContent) && /麦克风已开/.test(document.querySelector('.cl-ctl').textContent)`), '拨号中：头像名字、三个点，下面 麦克风已开 / 取消 / 扬声器已关');
+  ok(await E(`!!document.querySelector('.xc .xc-dots') && /取消/.test(document.querySelector('.xc-ctl').textContent) && /麦克风已开/.test(document.querySelector('.xc-ctl').textContent)`), '拨号中：头像名字、三个点，下面 麦克风已开 / 取消 / 扬声器已关');
   await W(4200); await shot('talk');
-  ok(await E(`!!document.querySelector('.cl .cl-tm') && /挂断/.test(document.querySelector('.cl-ctl').textContent)`), '接通：显示通话时长，按钮变「挂断」');
-  ok(/怎么突然打电话/.test(await E(`document.querySelector('.cl').textContent`)) || /怎么突然打电话/.test(await E(`JSON.stringify(core.inCall?.() || '')`)) || await E(`_P.length`) >= 1, '接通后对方先开口（流式切句、字幕）');
+  ok(await E(`!!document.querySelector('.xc .xc-tm') && /挂断/.test(document.querySelector('.xc-ctl').textContent)`), '接通：显示通话时长，按钮变「挂断」');
+  ok(/怎么突然打电话/.test(await E(`document.querySelector('.xc').textContent`)) || /怎么突然打电话/.test(await E(`JSON.stringify(core.inCall?.() || '')`)) || await E(`_P.length`) >= 1, '接通后对方先开口（流式切句、字幕）');
   await W(2500);
-  ok(await E(`!!document.querySelector('.cl-type input')`), '没有语音识别：自动打开「打字说」');
-  await E(`(() => { const i = document.querySelector('.cl-type input'); i.value = '我明天回来'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(3500);
+  ok(await E(`!!document.querySelector('.xc-type input')`), '没有语音识别：自动打开「打字说」');
+  await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '我明天回来'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(3500);
   ok(/我明天回来/.test(await E(`_P.at(-1)`)) && /打电话/.test(await E(`_P.at(-1)`)), '我打字说的话发给对方（提示词里写明在打电话）');
-  await E(`document.querySelector('.cl [data-k=min]').click()`); await W(300); ok(await E(`document.querySelector('.cl').classList.contains('mini')`), '左上角缩小成小窗'); await shot('mini');
-  await E(`document.querySelector('.cl').click()`); await W(200); await E(`document.querySelector('.cl [data-k=end]').click()`); await W(500);
+  await E(`document.querySelector('.xc [data-k=min]').click()`); await W(300); ok(await E(`document.querySelector('.xc').classList.contains('mini')`), '左上角缩小成小窗'); await shot('mini');
+  await E(`document.querySelector('.xc').click()`); await W(200); await E(`document.querySelector('.xc [data-k=end]').click()`); await W(500);
   const m = await E(`JSON.stringify(_c.msgs.at(-1))`); ok(/"t":"call"/.test(m) && /通话时长 00:\d\d/.test(m) && /我明天回来/.test(m), '挂断：聊天里一条「通话时长 00:0x」，存着通话内容 ' + m.slice(0, 90));
   ok(/电话里聊了/.test(await E(`core.say(_c.msgs.at(-1))`)), '之后回复时，上下文里带着电话里聊了什么');
   await shot('bubble');
   // 再打一次、拨号时取消
-  await E(`document.querySelector('.clb').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=video]').click()`); await W(300); await E(`document.querySelector('.cl [data-k=end]').click()`); await W(400);
+  await E(`document.querySelector('.clb').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=video]').click()`); await W(300); await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   ok(await E(`_c.msgs.at(-1).c == '已取消' && _c.msgs.at(-1).kind == 'video'`), '视频通话拨号时取消：「已取消」');
   // 切句（照 StarHub 验收条件 01）：标点、括号、SAY/ZH 标记切在任意网络块之间，放出来的句子都完整，括号旁白不念
   const cuts = await E(`(async () => { const m = await import('/apps/chat/call.js'), run = (mk, txt, n) => { const out = [], P = mk((t, tr) => out.push(tr ? t + '|' + tr : t)); for (let i = 0; i < txt.length; i += n) P.feed(txt.slice(i, i + n)); P.finish(); return out.map(x => x.replace(/[（(][^）)]*[）)]/g, '').trim()); };
@@ -40,6 +42,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
     const pr = 'SAY: Take your time.\\nZH: 慢慢来。\\nSAY: I am listening.\\nZH: 我在听。';
     return JSON.stringify([1, 2, 3, 7].map(n => [run(m.zhUnits, zh, n), run(m.pairUnits, pr, n)])); })()`);
   ok(JSON.parse(cuts).every(([a, b]) => JSON.stringify(a) == JSON.stringify(['喂？', '怎么突然打电话过来。', '你那边下雨了吗，我这边刚停「真的」！', '最后一句没标点']) && JSON.stringify(b) == JSON.stringify(['Take your time.|慢慢来。', 'I am listening.|我在听。'])), '流式切句：每次只来 1 / 2 / 3 / 7 个字，切出来的句子都一样完整；外语原话和中文释义成对 ' + cuts.slice(0, 160));
+  // 磁铁召回（学 StarHub 记忆教程，不调用模型）：更早的聊天里提过「蛋白粉」，现在又说到 → 那几句被吸上来；没说到就整块不出现（变异对照）
+  const rc = await E(`(async () => { const r = await import('/apps/chat/recall.js'), ch = { msgs: [] }, t = Date.now() - 864e5 * 20;
+    ch.msgs.push({ f: _c.id, t: 'text', c: '我最近在喝那个巧克力味的蛋白粉', ts: t }, { f: 'me', t: 'text', c: '好喝吗', ts: t + 1 });
+    for (let i = 0; i < 40; i++) ch.msgs.push({ f: i % 2 ? 'me' : _c.id, t: 'text', c: '嗯嗯 好的 第' + i + '句闲聊', ts: t + 1e5 * i });
+    ch.msgs.at(-1).c = '你那个蛋白粉还有吗'; const a = r.recall(ch); ch.msgs.at(-1).c = '晚上吃什么'; const b = r.recall(ch); return JSON.stringify([a, b]); })()`);
+  ok(/巧克力味的蛋白粉/.test(JSON.parse(rc)[0]) && JSON.parse(rc)[1] === '', '磁铁召回：说到「蛋白粉」想起 20 天前那句；没说到就不出现 ' + rc.slice(0, 80));
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);
   ok(await E(`core.D().favs.length == 1 && core.D().favs[0].src == '绷带盐'`), '收藏一条消息（记着来源）');
