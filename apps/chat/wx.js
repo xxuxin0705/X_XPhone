@@ -4,6 +4,8 @@ import { openFeed, FA, postImages } from './feed.js';
 import { get, sty } from './data.js';
 import { openChat, cset } from './talk.js';
 import { minePage } from './sticker.js';
+import { mePills, SA, stOf, stIco, stView, stLabel } from './status.js';
+import { mapPick } from './map.js';
 
 const O = d => `<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const F = d => `<svg viewBox="0 0 28 28" fill="currentColor">${d}</svg>`;
@@ -31,23 +33,23 @@ const IC = {
 const row = (a, ic, l, r = '') => `<div class="wx-r" data-a="${a}"><i class="wx-i">${ic}</i><b>${l}</b><span>${r}</span>${CH}</div>`;
 const wxid = m => m.wxid || (m.wxid = 'wxid_' + Math.random().toString(36).slice(2, 12), saveD(), m.wxid);
 
-// 我：头像、名字、微信号、二维码，下面一组组入口
+// 我：头像、名字、微信号，下面「＋ 状态」和朋友的状态；再下面一组组入口（没有二维码、没有设置）
 export function wxMe() {
   const m = meObj(), me = D().me;
-  return `<div class="wm-h" data-a="wmi"><img class="av" src="${esc(avOf(m))}"><div class="wm-t"><b>${esc(m.nick)}</b><small>微信号：${esc(wxid(me))}</small><div class="wm-ps"><span class="wm-st" data-a="wst">${me.sign ? esc(me.sign) : '＋ 状态'}</span></div></div>${IC.qr}${CH}</div>`
-    + `<div class="wx-g">${row('wsv', IC.sv, '服务')}</div><div class="wx-g">${row('myfeed', IC.al, '朋友圈')}${row('wstk', IC.em, '表情')}</div><div class="wx-g">${row('wset', IC.st, '设置')}</div>`;
+  return `<div class="wm-h" data-a="wmi"><img class="av" src="${esc(avOf(m))}"><div class="wm-t"><b>${esc(m.nick)}</b><small>微信号：${esc(wxid(me))}</small>${mePills()}</div>${CH}</div>`
+    + `<div class="wx-g">${row('wsv', IC.sv, '服务')}</div><div class="wx-g">${row('myfeed', IC.al, '朋友圈')}${row('wstk', IC.em, '表情')}</div>`;
 }
 const sub = (title, body) => page({ title, cls: 'wxpg', model: () => D().me, body, acts: WXA });
-export const WXA = {
+export const WXA = { ...SA,
   myfeed: () => openFeed('me'),
-  wst: async (x, t, e) => { e?.stopPropagation(); const r = await form('设置状态', [['sign', '状态']], { sign: D().me.sign || '' }); if (r) { D().me.sign = String(r.sign || '').trim(); saveD(); emit('chat'); } },
   // 个人信息（照微信「个人资料」）：一行一项，右边是内容（长了就换行，整段显示），点一下改
   wmi: () => sub('个人信息', () => { const me = D().me, m = meObj(), r = (k, l, v, ph = '') => `<div class="wx-r wxi" data-a="wme" data-x="${k}"><b>${l}</b><span class="${v ? '' : 'emp'}">${esc(v || ph)}</span>${CH}</div>`;
     return `<div class="wx-g"><div class="wx-r" data-a="img" data-x="av"><b>头像</b><span><img class="av" src="${esc(avOf(m))}"></span>${CH}</div>${r('nick', '名字', m.nick)}${r('real', '真实姓名', me.real, C().name1 || '')}${r('sex', '性别', me.sex)}${r('region', '地区', me.region)}${r('wxid', '微信号', wxid(me))}${r('ps', '拍一拍', me.ps)}${r('bio', '签名', me.bio)}</div>
-<div class="wx-g">${r('sign', '状态', me.sign)}</div>`; }),
-  wme: async (k, t, e, pg) => { const me = D().me;
-    if (k == 'sex') { const v = await menu([['男', '男'], ['女', '女'], ['n', '不显示']], '性别'); if (!v) return; me.sex = v == 'n' ? '' : v; }
-    else { const L = { nick: '名字', real: '真实姓名', region: '地区', wxid: '微信号', ps: '拍一拍', bio: '签名', sign: '状态' }[k], r = await form(L, [[k, L, k == 'bio' ? 'area' : 'text', { ps: '如：的小脑袋', region: '如：日本 横滨市', wxid: '6-20 位字母、数字、下划线或减号' }[k] || '']], { [k]: me[k] || '' }); if (!r) return;
+<div class="wx-g"><div class="wx-r wxi" data-a="stme"><b>状态</b><span class="${stOf(me) ? '' : 'emp'}">${stOf(me) ? stIco(me.st.k) + esc(stLabel(me.st)) : ''}</span>${CH}</div></div>`; }),
+  wme: async (k, t, e, pg) => { const me = D().me, m = meObj();
+    if (k == 'region') { const r = await mapPick({ title: '地区', area: me.region, lat: me.geo?.[0], lng: me.geo?.[1] }); if (!r) return; me.region = r.area; me.geo = [r.lat, r.lng]; } // 地区：地图上选点 / 搜地点
+    else if (k == 'sex') { const v = await menu([['男', '男'], ['女', '女'], ['n', '不显示']], '性别'); if (!v) return; me.sex = v == 'n' ? '' : v; }
+    else { const L = { nick: '名字', real: '真实姓名', region: '地区', wxid: '微信号', ps: '拍一拍', bio: '签名', sign: '状态' }[k], r = await form(L, [[k, L, k == 'bio' ? 'area' : 'text', { ps: '如：的小脑袋', wxid: '6-20 位字母、数字、下划线或减号' }[k] || '']], { [k]: k == 'nick' || k == 'real' ? m[k] || '' : k == 'wxid' ? wxid(me) : me[k] || '' }); if (!r) return; // 现在显示的是什么，编辑框里就先填好什么
       let v = String(r[k] ?? '').trim(); if (k != 'bio') v = v.replace(/\s*\n\s*/g, ' ');
       if (k == 'wxid') { if (!/^[A-Za-z0-9_-]{6,20}$/.test(v)) return toast('微信号要 6-20 位，只能用字母、数字、下划线或减号'); }
       if (k == 'nick' && !v) return toast('名字不能为空');
@@ -63,14 +65,14 @@ export const wxTitle = tab => { if (tab != 'list') return WTN[tab]; const u = D(
 // 朋友的资料页（照微信）：头像名字微信号 → 朋友资料 → 朋友圈缩略图 → 发消息
 export function wxProf(id) {
   const c = get(id); if (!c) return;
-  const sx = c.sex == '女' ? '<i class="wp-sx f">♀</i>' : c.sex == '男' ? '<i class="wp-sx m">♂</i>' : '';
   const th = () => { const ps = D().posts.filter(p => p.a == id).sort((a, b) => b.ts - a.ts), L = ps.flatMap(p => postImages(p)).slice(0, 4);
     return L.length ? L.map(v => v.url ? `<img src="${esc(v.url)}">` : '<i class="wp-ph"></i>').join('') : ps[0] ? `<em>${esc(ps[0].c || '')}</em>` : ''; };
-  page({ title: '', cls: 'wxprof', live: 1, body: () => `<div class="wp-h"><img class="av" src="${esc(avOf(c))}"><div><b>${esc(nm(c))}${sx}</b>${c.remark && c.nick ? `<small>昵称：${esc(c.nick)}</small>` : ''}<small>微信号：${esc(wxid(c))}</small></div></div>`
+  page({ title: '', cls: 'wxprof', live: 1, body: () => `<div class="wp-h"><img class="av" src="${esc(avOf(c))}"><div><b>${esc(nm(c))}</b>${c.remark && c.nick ? `<small>昵称：${esc(c.nick)}</small>` : ''}<small>微信号：${esc(wxid(c))}</small>${c.region ? `<small>地区：${esc(c.region)}</small>` : ''}</div></div>`
+    + (stOf(c) ? `<div class="wp-st" data-a="wpst"><p>${esc(c.st.t || (c.st.k == 'qt' ? c.st.l : ''))}</p><span>${stIco(c.st.k)}${esc(stLabel(c.st))}</span></div>` : '')
     + `<div class="wx-g"><div class="wx-r wp-fr" data-a="wpset"><div><b>朋友资料</b><small>添加朋友的备注名、电话、标签、备忘、照片等，并设置朋友权限。</small></div>${CH}</div></div>`
     + `<div class="wx-g"><div class="wx-r" data-a="wpfd"><b class="wp-l">朋友圈</b><span class="wp-th">${th()}</span>${CH}</div></div>`
     + `<div class="wx-g wp-b"><div data-a="wpchat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4.5c-4.7 0-8.5 3.1-8.5 7 0 2 1 3.9 2.7 5.1l-.6 2.9 3.3-1.7c1 .3 2 .5 3.1.5 4.7 0 8.5-3.1 8.5-6.9s-3.8-6.9-8.5-6.9z"/></svg>发消息</div></div>`,
-    acts: { wpset: () => cset(c), wpfd: () => openFeed(id), wpchat: () => { back(); openChat(id); } } });
+    acts: { wpst: () => stView(id), wpset: () => cset(c), wpfd: () => openFeed(id), wpchat: () => { back(); openChat(id); } } });
 }
 // 朋友圈里点头像 / 名字：微信样式先进资料页
 const pf0 = FA.pfeed; FA.pfeed = (id, ...r) => id && id != 'me' && get(id)?.type == 'p' && sty(get(id)) == 'wx' ? wxProf(id) : pf0(id, ...r);

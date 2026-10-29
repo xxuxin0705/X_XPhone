@@ -45,15 +45,17 @@ const tx = (t, tr, k, au) => { if (!tr || tr == t || !foreign(t || '')) return e
 // 微信小黄脸：文字里的 [微笑] 换成表情图（评论框里点表情插进去的就是这个）
 let FM; const faceMap = () => FM ||= new Map(wxFaces().map(x => [x.l, x]));
 const faces = h => h.replace(/\[([^\[\]<>]{1,6})\]/g, (m, l) => faceMap().has(l) ? imgH(faceMap().get(l), 'f-emo', ` alt="${esc(m)}"`) : m);
+// 照微信：点赞、评论只看得到「共同好友」的（我自己 + 我的好友）；不认识的人点的赞 / 写的评论不显示
+const mutual = n => !n || n == 'me' || isMe(n) || (x => !!x && x.fr !== 0)(find(n, 'p'));
 const liked = p => p.likes.includes(nm(meObj()));
 // 评论（照微信）：后面不放「回复」「删除」，只有查看翻译 / 显示原文；点别人的评论就是回复 TA，点自己的评论弹出删除
-const cms = (p, tw) => p.cm.map((c, i) => `<div class="f-c" data-a="${isMe(c.f) ? 'fcme' : 'crep'}" data-x="${p.id}|${i}"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${faces(tx(noAt(c.c), noAt(c.tr), p.id + ':' + i, who(c.f)))}${c.img ? `<img class="f-ci" src="${esc(c.img)}" data-a="fcimg" data-x="${p.id}|${i}" loading="lazy">` : ''}</div>`).join('');
+const cms = (p, tw) => p.cm.map((c, i) => !mutual(c.f) || c.to && !mutual(c.to) ? '' : `<div class="f-c" data-a="${isMe(c.f) ? 'fcme' : 'crep'}" data-x="${p.id}|${i}"><b class="f-n">${dn(c.f)}</b>${c.to ? ` 回复 <b class="f-n">${dn(c.to)}</b>` : ''}：${faces(tx(noAt(c.c), noAt(c.tr), p.id + ':' + i, who(c.f)))}${c.img ? `<img class="f-ci" src="${esc(c.img)}" data-a="fcimg" data-x="${p.id}|${i}" loading="lazy">` : ''}</div>`).join('');
 
 /* ---------- 三种样式的一条动态 ---------- */
 export const postImages = p => p.images?.length ? p.images : p.url ? [{url:p.url}] : p.imgd ? [(d=>({description:d.zh||d.en,prompt:d.en}))(imgDesc(p.imgd))] : [];
 const imgs = p => { const list=postImages(p); return list.length ? `<div class="mo-images n${list.length}">${list.map((v,i)=>`<button type="button" class="mo-photo" data-a="fphoto" ${v.url ? 'data-lp="fplp" ' : ''}data-x="${p.id}|${i}">${v.url ? `<img src="${esc(v.url)}" loading="lazy" alt="${esc(v.description || '动态配图')}">` : `<span>${FI.img}<small>${esc(v.description || imgDesc(v.prompt).zh || v.prompt)}</small></span>`}</button>`).join('')}</div>${p.location ? `<div class="mo-location">${esc(p.location)}</div>` : ''}` : p.location ? `<div class="mo-location">${esc(p.location)}</div>` : ''; };
 
-const cmBox = p => p.likes.length || p.cm.length ? `<div class="mo-ia">${p.likes.length ? `<div class="mo-lk">${FI.heart}<span>${p.likes.map(dn).join('，')}</span></div>` : ''}${p.cm.length ? `<div class="mo-cs">${cms(p)}</div>` : ''}</div>` : '';
+const cmBox = p => { const lk = p.likes.filter(mutual), cm = cms(p); return lk.length || cm ? `<div class="mo-ia">${lk.length ? `<div class="mo-lk">${FI.heart}<span>${lk.map(dn).join('，')}</span></div>` : ''}${cm ? `<div class="mo-cs">${cm}</div>` : ''}</div>` : ''; };
 function postWx(p) { // 微信朋友圈：白底列表，蓝名字，右下 ·· 按钮，灰底点赞评论区
   const au = auOf(p);
   return `<article class="mo wxm"><img class="av" src="${esc(avOf(au))}" data-a="pfeed" data-x="${p.a}"><div class="mo-m"><b class="mo-n" data-a="pfeed" data-x="${p.a}">${esc(nm(au))}</b>${p.c ? `<p class="mo-t">${faces(tx(p.c, p.tr, p.id, au))}</p>` : ''}${imgs(p)}
@@ -98,7 +100,7 @@ function album(u, aid, ps, cov) {
     if (!ims.length) return `<div class="al-p" data-a="apost" data-x="${p.id}"><p>${t}</p></div>`;
     const n = Math.min(9, ims.length), k = n >= 5 ? 9 : n;
     return `<div class="al-p im" data-a="apost" data-x="${p.id}"><div class="al-g n${k}">${ims.slice(0, n).map(v => v.url ? `<img src="${esc(v.url)}" loading="lazy" alt="">` : `<i class="al-ph">${FI.img}</i>`).join('')}</div>${t ? `<p>${t}</p>` : ''}</div>`; };
-  return `<div class="album"><div class="al-cv" data-a="fcov" data-x="${aid}" ${bg(cov)}><b>${esc(nm(u))}</b><img class="av" src="${esc(avOf(u))}"></div><p class="al-sg">${esc(u?.sign || '这个人很神秘，什么也没留下~')}</p>
+  return `<div class="album"><div class="al-cv" data-a="fcov" data-x="${aid}" ${bg(cov)}><b>${esc(nm(u))}</b><img class="av" src="${esc(avOf(u))}"></div><p class="al-sg">${esc((aid == 'me' ? D().me.bio || u?.sign : u?.sign) || '这个人很神秘，什么也没留下~')}</p>
 ${days.map(g => `<div class="al-d"><div class="al-t"><b>${g.d[0]}</b>${g.d[1] ? `<small>${g.d[1]}</small>` : ''}</div><div class="al-l">${g.ps.map(it).join('')}</div></div>`).join('') || `<p class="al-e">${aid == 'me' ? '你' : 'TA'} 还没有发过朋友圈</p>`}</div>`;
 }
 // 顶栏右边：生成（魔法棒）+ 发动态（相机）

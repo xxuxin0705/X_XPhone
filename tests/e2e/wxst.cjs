@@ -1,0 +1,22 @@
+const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),http=require('http');
+// 微信「状态」+ 个人信息：我页的状态胶囊、状态列表分组、全屏看状态、设个状态 → 写 → 就这样；改名字时回显；地区用地图选点（假的地点服务）
+const root=path.resolve(__dirname,'../..'),SP=path.join(root,'tests/out');let pass=0,fail=0;const ok=(c,m)=>{c?pass++:fail++;console.log((c?'  ✓ ':'  ✗ ')+m);};fs.mkdirSync(SP,{recursive:true});const srv=http.createServer((q,r)=>{try{const f=path.join(root,q.url==='/'?'tests/e2e/st.html':q.url.split('?')[0]);r.setHeader('content-type',f.endsWith('.js')?'text/javascript':f.endsWith('.css')?'text/css':f.endsWith('.png')?'image/png':'text/html');r.end(fs.readFileSync(f));}catch{r.writeHead(404);r.end();}}).listen(8822);
+(async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:390,height:844}});const errs=[];p.on('pageerror',e=>errs.push(e.message));await p.goto('http://localhost:8822');await p.waitForFunction('window.booted');await p.click('#stp-ball');
+const E=s=>p.evaluate(s),W=ms=>p.waitForTimeout(ms),shot=n=>p.screenshot({path:SP+'/wxst_'+n+'.png'});
+await E(`(async()=>{window.c=await import('/core.js');window.st=await import('/apps/chat/status.js');window.mp=await import('/apps/chat/map.js');const d=await import('/apps/chat/data.js');c.S.lock.on=false;c.S.style='wx';
+window.a=d.add(d.blank('p',{real:'坂田银时',remark:'天然卷',fr:1}));window.z=d.add(d.blank('p',{real:'志村新八',fr:1}));a.st={k:'zhai',t:'家里蹲',ts:+c.now()-36e5};z.st={k:'qt',l:'想睡觉',t:'',ts:+c.now()};c.D().me.bio='天天开心';
+c.APPS.chat.open();})()`);await W(400);
+await E(`document.querySelector('[data-a=tab][data-x=me]').click()`);await W(300);await shot('s1');ok(!(await E(`!!document.querySelector('.wm-qr,[data-a=wset]')`))&&/2个朋友/.test(await E(`document.querySelector('.wm-fr').textContent`)),'我页：没有二维码和设置；有「2个朋友」的状态入口');
+await E(`document.querySelector('[data-a=stlist]').click()`);await W(400);await shot('s2');ok(await E(`[...document.querySelectorAll('.sl-r h6')].map(h=>h.textContent).join('|')`)=='1个朋友在宅|1个朋友在想睡觉','状态列表按状态分组');
+await E(`document.querySelector('.sl-p[data-x="'+a.id+'"]').click()`);await W(500);await shot('s3');ok(/家里蹲/.test(await E(`document.querySelector('.sv-h').textContent`))&&!!(await E(`document.querySelector('.sv-big')`)),'全屏看朋友的状态');
+await E(`c.back()`);await W(300);await E(`document.querySelector('[data-a=stnew]').click()`);await W(400);await shot('s4');
+await E(`document.querySelector('[data-a=stpick][data-x=my]').click()`);await W(400);await shot('s5');
+await E(`document.querySelector('.sc-t').value='摸鱼中';document.querySelector('.sc-t').dispatchEvent(new Event('input'));document.querySelector('[data-a=scok]').click()`);await W(500);
+ok(await E(`JSON.stringify([c.D().me.st?.k,c.D().me.st?.t,c.top().el.className])`)=='["my","摸鱼中","pg stpg in"]'&&/我在摸鱼/.test(await E(`document.querySelector('.sl-g').textContent`)),'设个状态：选「摸鱼」写一句 → 就这样，回到列表，「我在摸鱼」');await shot('s6');
+await E(`c.home();c.APPS.chat.open()`);await W(300);await E(`document.querySelector('[data-a=tab][data-x=me]').click()`);await W(300);await E(`document.querySelector('.wm-h').click()`);await W(300);await shot('s7');
+await E(`document.querySelector('[data-a=wme][data-x=nick]').click()`);await W(400);ok(await E(`document.querySelector('.sheet.in input')?.value`)=='徐照临','改名字：编辑框里先填好现在的名字');await E(`c.ui.sheets.querySelector('.sheet.in')&&c.ui.sheets.click()`);await W(400);
+await E(`mp.mapHook.geo={search:async q=>[{lat:35.44,lng:139.64,name:'横滨',full:'横滨市, 神奈川县, 日本',area:'日本 横滨市'}],rev:async()=>({area:'日本 横滨市'})};document.querySelector('[data-a=wme][data-x=region]').click()`);await W(600);
+await E(`document.querySelector('.mp-q').value='横滨';document.querySelector('[data-a=mpq]').click()`);await W(300);await shot('s8');await E(`document.querySelector('[data-a=mpgo]').click()`);await W(200);await E(`document.querySelector('[data-a=mpok]').click()`);await W(400);
+ok(await E(`c.D().me.region`)=='日本 横滨市','地区：搜「横滨」→ 点结果 → 确定');
+ok(!errs.length,'没有报错 '+errs.join());console.log(`\n${pass} passed, ${fail} failed`);
+await b.close();srv.close();process.exit(fail?1:0);})();
