@@ -92,7 +92,7 @@
 .gobj, .gcol { position: absolute; display: block; pointer-events: none; }
 .gobj { animation: gobj 3s ease-in-out infinite; animation-delay: calc(var(--i) * -.6s); transition: opacity .35s; }
 @keyframes gobj { 50% { opacity: .6 } }
-.eye-guide.picked .gobj { animation: none; opacity: 0; }
+.eye-guide.picked .gobj { animation: none; opacity: 1; }
 .gcol { opacity: 0; transition: opacity .35s; filter: brightness(1.15); }
 .gcol.on { animation: glit .8s steps(1) forwards; }
 @keyframes glit { 0% { opacity: .2 } 15% { opacity: 1 } 25% { opacity: .35 } 40%, 100% { opacity: 1 } }
