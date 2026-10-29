@@ -10,7 +10,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'callear_' + n + '.png') });
   // 假麦克风：一个持续的「嗡」声，音量由 window._loud 控制（0 = 安静，1 = 在说话）
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js');
-    core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar = 'model'; window._P = []; window._loud = 0; window._gum = 0;
+    core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar = 'model'; core.S.callNudge = false; window._P = []; window._loud = 0; window._gum = 0;
     navigator.mediaDevices.getUserMedia = async c => { _gum++; const X = new AudioContext(), o = X.createOscillator(), g = X.createGain(), d = X.createMediaStreamDestination(); o.frequency.value = 220; o.connect(g); g.connect(d); o.start(); g.gain.value = 0; setInterval(() => { g.gain.value = _loud * .5 + .0005; }, 20); window._mic = c; return d.stream; };
     window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); return /先开口/.test(s) ? '喂？' : _mode == 'bye' ? '好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
     delete window.webkitSpeechRecognition;
@@ -81,6 +81,19 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`_mode = 'bye'; core.S.callEar = 'model'`); await E(`(() => { const a = cl.inCall(); a.ear = 'model'; })()`); await W(1500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
   ok(await E(`!cl.inCall() && _c.msgs.at(-1).t == 'call'`) && !/挂断\]/.test(await E(`JSON.stringify(_c.msgs.at(-1).log)`)), 'TA 说「晚安」后在最后写 [挂断]：电话自己挂了，字幕和记录里不露标记');
   await E(`cl.inCall()?.hang?.()`); await W(300); await E(`_mode = ''`);
+  // 说完等多久可以调：设成 1.6 秒，停 1.2 秒还不算说完，停够才发
+  await E(`(() => { core.S.callEar = 'model'; core.S.callGap = 1.6; _mode = ''; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
+  const g0 = await E(`_P.length`); await E(`_loud = 1`); await W(800); await E(`_loud = 0`); await W(1250);
+  ok(await E(`_P.length`) == g0 && await E(`cl.inCall().ph == 'rec'`), '说完等 1.6 秒：停了 1.2 秒还在听（不抢话）');
+  await W(1200); ok(await E(`_P.length`) == g0 + 1, '停够 1.6 秒：发出去');
+  // 追问：TA 说完我一直不出声，TA 问一句「还在吗」，最多两次
+  await W(3000); await E(`(() => { core.S.callNudge = true; core.S.callGap = 1; const a = cl.inCall(); a.idleAt = performance.now() - 9e3; })()`); await W(1600);
+  ok(/没出声了/.test(await E(`JSON.stringify(_P.at(-1))`)) && await E(`cl.inCall().nudge`) == 1, '我 8 秒没出声：TA 追问一句');
+  await W(3000); await E(`cl.inCall().idleAt = performance.now() - 9e3`); await W(1600); await W(3000); await E(`cl.inCall().idleAt = performance.now() - 9e3`); await W(1600);
+  ok(await E(`cl.inCall().nudge`) == 2, '最多追问两次 n=' + await E(`cl.inCall().nudge`));
+  await E(`core.S.callNudge = false; cl.inCall()?.hang?.()`); await W(400);
+  ok(await E(`(() => { const t = core.S && window.cl; return true; })()`) && await E(`(async () => { const e = await import('/apps/chat/ear.js'); const q = new Float32Array(48000).fill(.01); return e.toneOf([q], .3, 1).includes('声音偏轻') && e.toneOf([q], .3, 1).includes('停顿稍多'); })()`), '听语气：声音很轻、停顿多 → 「声音偏轻、停顿稍多」');
   // wav 编码：48k → 16k，长度和头对
   ok(await E(`(() => { const u = cl.wav([new Float32Array(4800).fill(.5)], 48000), b = atob(u.split(',')[1]); return b.slice(0, 4) == 'RIFF' && b.length == 44 + 1600 * 2; })()`), 'wav：48kHz 0.1 秒 → 16kHz 1600 个采样');
   ok(!errs.length, '没有报错 ' + errs.join(' | '));

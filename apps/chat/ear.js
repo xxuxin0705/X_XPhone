@@ -2,7 +2,7 @@
 // 照开源 App evolia 的 VoiceCallManager / OnlineASRProvider 拆出来（那边是原生安卓，这里用网页能做到的同样做法）：
 // - 麦克风开回声消除 / 降噪 / 自动增益；噪声底自适应（安静时慢慢学环境有多吵），比它响 3.2 倍才算有人说话
 // - 约 0.5 秒的「预卷」：开口前的那一小段也留着，开头几个字不会被吞
-// - 安静 1 秒算说完；不到 0.35 秒的不算（咳嗽、碰到手机）；一句最长 30 秒
+// - 安静多久算说完可以调（S.callGap，默认 1 秒）；说得长（超过 2.5 秒）再多等 0.5 秒，免得我想一下就被抢话（学 voice-call-demo 的 AdaptiveEndpoint）；不到 0.35 秒的不算（咳嗽、碰到手机）；一句最长 30 秒
 // - 识别来源可以换：
 //     model：整段录音交给聊天模型听（Gemini 能听音频；不另外调用）
 //     sf：硅基流动的免费识别模型（SenseVoiceSmall / TeleSpeechASR），「伪流式」边说边出字：
@@ -12,7 +12,7 @@
 //   连着响 14 帧（约 0.52 秒）才真的打断；中途不响了就把音量恢复（「嗯」一声不打断）
 import { S, xf } from '../../core.js';
 
-export const EAR = { END: 1.0, MIN: .35, MAX: 30, PRE: .5, DUCK_F: 6, CUT_F: 14, CUT_F_THINK: 11, SLICE_MIN: 1, SLICE_GAP: .2, SLICE_MAX: 3 };
+export const EAR = { END: 1.0, LONG: 2.5, LONG_ADD: .5, MIN: .35, MAX: 30, PRE: .5, DUCK_F: 6, CUT_F: 14, CUT_F_THINK: 11, SLICE_MIN: 1, SLICE_GAP: .2, SLICE_MAX: 3 };
 
 // 硅基流动识别的配置：没单独填就用画图那里填过的硅基流动密钥
 export const asrCfg = () => { const a = S.callAsr ||= {}; return { url: (a.url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''), key: a.key || S.api?.img?.cfg?.sf?.key || '', model: a.model || 'FunAudioLLM/SenseVoiceSmall' }; };
@@ -34,6 +34,11 @@ export function wavBuf(chunks, sr) {
 }
 export function wav(chunks, sr) { const u = new Uint8Array(wavBuf(chunks, sr)); let t = ''; for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return 'data:audio/wav;base64,' + btoa(t); }
 
+// 听语气（学 voice-call-demo 的 ToneAccumulator）：按音量和停顿给这句话贴一两个标签，只交文字的识别方式靠它让 TA 知道语气
+export function toneOf(chunks, speak, total) { let q = 0, n = 0, pk = 0; for (const c of chunks) for (let i = 0; i < c.length; i += 4) { const v = c[i]; q += v * v; n++; const a = Math.abs(v); a > pk && (pk = a); }
+  const rms = n ? Math.sqrt(q / n) : 0, pause = total ? 1 - speak / total : 0, L = [];
+  if (rms > 0 && rms < .025 && pk < .18) L.push('声音偏轻'); if (rms >= .075 || pk >= .65) L.push('声音比较有力'); if (pause >= .42) L.push('停顿稍多'); else if (speak / Math.max(total, .01) >= .78 && rms >= .045) L.push('说得很连贯');
+  return L.slice(0, 2).join('、'); }
 // o.ctx：通话的 AudioContext；o.kind()：'model' | 'sf'；o.mode()：'listen'（轮到我）| 'busy'（TA 在想 / 在说，可以插话）| 'off'；o.playing()：TA 的声音正在放
 // on(type, data)：start（开口了）/ level（音量 0~1）/ partial（边说边认出来的字）/ end（说完了，正在认）/ final（{ text?, chunks, sr }）/ short（太短不算）
 //                 duck / unduck / barge（插话：TA 被打断，开始听我说）/ asrerr（识别出错）
@@ -60,8 +65,9 @@ export function makeEar(o, on) {
     const buf = E.buf.slice(0, Math.max(1, E.buf.length - Math.floor(Math.max(0, E.q - .25) / (2048 / sr)))); // 去掉末尾的静音
     const sp = E.sp, kind = E.kind; E.on = 0; E.buf = [];
     if (sp < EAR.MIN) { E.slice = []; E.ep++; return on('short'); }
-    if (kind != 'sf') return on('final', { chunks: buf, sr });
-    on('end'); sendSlice(sr); const ep = E.ep; E.chain.then(() => ep == E.ep && on('final', { text: E.parts.join(''), chunks: buf, sr }));
+    const tone = toneOf(buf, sp, buf.length * (2048 / sr));
+    if (kind != 'sf') return on('final', { chunks: buf, sr, tone });
+    on('end'); sendSlice(sr); const ep = E.ep; E.chain.then(() => ep == E.ep && on('final', { text: E.parts.join(''), chunks: buf, sr, tone }));
   }
   function frame(d, sr) {
     let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; const rms = Math.sqrt(s / d.length), fr = d.length / sr;
@@ -84,7 +90,7 @@ export function makeEar(o, on) {
     E.buf.push(f); E.slice.push(f); rms > th * .7 ? (E.q = 0, E.sp += fr) : (E.q += fr);
     on('level', Math.min(1, rms / (th * 4)));
     if (E.kind == 'sf') { const sl = E.slice.length * fr; if ((sl >= EAR.SLICE_MIN && E.q >= EAR.SLICE_GAP) || (sl >= EAR.SLICE_MAX && rms <= th * .7)) sendSlice(sr); }
-    if (E.q >= EAR.END || E.buf.length * fr >= EAR.MAX) end(sr);
+    if (E.q >= (+S.callGap || EAR.END) + (E.sp > EAR.LONG ? EAR.LONG_ADD : 0) || E.buf.length * fr >= EAR.MAX) end(sr);
   }
   return { start, stop, reset, get on() { return !!E.on; }, get ms() { return E.ms; }, get vmax() { return E.vmax; }, set vmax(v) { E.vmax = v; }, get at() { return E.at; }, set at(v) { E.at = v; } };
 }
