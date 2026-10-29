@@ -86,6 +86,21 @@ let ttsN = 0;
   ok(/标签[\s\S]*陌生人/.test(await E(`document.querySelector('.ci[data-a=tgset]')?.textContent || ''`)) && !(await E(`!!document.querySelector('.ci textarea[data-k=grp]')`)), '聊天设置：标签显示「陌生人」，点了去选，不是填');
   ok(await E(`document.querySelectorAll('[data-sec=voice] .vrow').length`) <= 1, '专属音色只显示正在用的那家');
   await E(`core.home()`); await W(300);
+  // 聊天设置：区间滑块、性别胶囊、清空 / 删除在最下面
+  await E(`(() => { const c = core.D().chats.find(c => c.real == '艾莲'); core.home(); talk.cset(c); window._e = c; })()`); await W(500);
+  ok(await E(`document.querySelectorAll('[data-sec=reply] .r2').length`) == 2 && !(await E(`!!document.querySelector('[data-sec=reply] input[type=number]')`)), '回复条数 / 语音条数是区间滑块，没有数字框');
+  await E(`(() => { const y = document.querySelector('[data-r2=r] input[data-r2k=rmax]'); y.value = 8; y.dispatchEvent(new Event('input', { bubbles: true })); y.dispatchEvent(new Event('change', { bubbles: true })); })()`); await W(200);
+  ok(await E(`_e.cfg.rmax`) == 8 && /1 – 8 条/.test(await E(`document.querySelector('[data-r2=r] .r2-h b').textContent`)), '拉右边圆钮到 8：回复 1 – 8 条');
+  await E(`document.querySelector('.sexp [data-x="女"]').click()`); await W(500);
+  ok(await E(`_e.sex`) == '女' && await E(`!!document.querySelector('.sexp .sx2.on')`), '性别胶囊点「女」');
+  ok(await E(`!document.querySelector('[data-sec=dz]') && !!document.querySelector('.cs-dz [data-a=clr]') && !!document.querySelector('.cs-dz [data-a=rm]')`), '清空聊天记录 / 删除联系人在最下面，不在「更多」里');
+  await E(`document.querySelector('[data-sec=reply]').scrollIntoView()`); await W(200); await shot('cset2'); await E(`document.querySelector('.sexp').scrollIntoView({ block: 'center' })`); await W(200); await shot('cset3');
+  // 语音转文字：下面另起一个框，原文 + 译文
+  await E(`(() => { core.home(); _e.msgs.push({ f: _e.id, t: 'voice', c: 'こんにちは', tr: '你好', stt: 1, ts: Date.now() }); core.saveD(); talk.openChat(_e.id); })()`); await W(500);
+  ok(await E(`[...document.querySelectorAll('.chat .vtx')].at(-1)?.textContent`) == 'こんにちは你好' && !(await E(`!!document.querySelector('.chat .bub .vt')`)), '转文字：语音下面一个框，原文 + 译文');
+  // 顶部状态栏按应用隐藏
+  const sb = await E(`(() => { core.S.sbHide = ['chat']; core.openApp('chat'); const a = core.ui.scr.classList.contains('nosb'); core.home(); const b = core.ui.scr.classList.contains('nosb'); core.openApp('settings'); const c = core.ui.scr.classList.contains('nosb'); core.home(); core.S.sbHide = []; return [a, b, c]; })()`);
+  ok(JSON.stringify(sb) == '[true,false,false]', '主题里关掉「消息」的状态栏：打开聊天没有状态栏，回桌面 / 打开别的应用有 ' + JSON.stringify(sb));
   // 分组 + 朋友圈谁可以看
   const cs = await E(`(() => { const a = dt.add(dt.blank('p', { real: 'A', fr: 1, grp: '同事' })), b = dt.add(dt.blank('p', { real: 'B', fr: 1 })), p = { vis: { m: 'only', g: ['同事'] } }, q = { vis: { m: 'not', g: ['同事'] } }; return [dt.canSee(p, a), dt.canSee(p, b), dt.canSee(q, a), dt.canSee(q, b), dt.grpNames().join()]; })()`);
   ok(JSON.stringify(cs.slice(0, 4)) == '[true,false,false,true]' && /同事/.test(cs[4]), '分组可见：只给同事看 / 不给同事看 ' + JSON.stringify(cs));

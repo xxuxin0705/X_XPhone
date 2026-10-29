@@ -6,7 +6,9 @@ export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => `&#${c.charCode
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 export const ui = {}, G = {}, APPS = {};
-export const reg = a => (APPS[a.id] = a);
+// 顶部状态栏（时间、信号、电量）：主题 → 应用美化 里可以按应用关掉（S.sbHide = [应用 id]）；打开哪个应用就看哪个应用的设置
+export const sbApply = id => ui.scr?.classList.toggle('nosb', !!id && (S.sbHide || []).includes(id));
+export const reg = a => { const o = a.open; a.open = (...x) => { ui.scr && (ui.scr.dataset.app = a.id); sbApply(a.id); return o(...x); }; return (APPS[a.id] = a); };
 const bus = new EventTarget();
 export const on = (e, f) => bus.addEventListener(e, x => f(x.detail));
 export const emit = (e, d) => bus.dispatchEvent(new CustomEvent(e, { detail: d }));
@@ -93,7 +95,7 @@ function mk(o, cls, box) {
 const close = o => { o.el.classList.remove('in'); o.onClose?.(); setTimeout(() => o.el.remove(), 330); };
 export const page = o => (stack.push(o), ui.scr?.classList.add('app-open'), mk(o, 'pg', ui.stack));
 export const top = () => stack.at(-1);
-export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); ui.scr?.classList.toggle('app-open', stack.length > 0); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
+export const back = force => { if (force !== true && stack.at(-1)?.onBack?.()) return; const o = stack.pop(); ui.scr?.classList.toggle('app-open', stack.length > 0); stack.length || sbApply(''); o && close(o); o && !stack.length && setTimeout(() => !stack.length && emit('home'), 0); }; // 回到桌面（随机壁纸用）
 export const home = () => { while (stack.length) back(true); };
 export const sheet = o => { o.close = () => close(o); return mk(o, 'sheet', ui.sheets); };
 export const openApp = id => { home(); APPS[id]?.open(); };

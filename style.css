@@ -1823,3 +1823,32 @@ html{min-height:100%;min-height:100dvh}
 /* 聊天设置里的「标签 / 分组」：是选的，点一下进选择 */
 .ci.go{cursor:pointer}.ci.go::after{content:'';position:absolute;right:20px;top:50%;width:7px;height:7px;border:solid #b2b2b2;border-width:1.5px 1.5px 0 0;transform:rotate(45deg)}
 .ci-v{margin:0!important;font-size:calc(16px*var(--fz,1));line-height:1.45;padding-right:24px;word-break:break-all}.ci-v.emp{opacity:.4}
+/* 回复条数 / 语音条数：区间滑块（两个圆钮，中间一段着色），下面一排刻度 */
+.r2{padding:12px 16px 10px;position:relative}.r2+.r2::before{content:'';position:absolute;left:16px;right:16px;top:0;border-top:.5px solid var(--ln,rgba(127,127,127,.16))}
+.r2-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}.r2-h b{font-weight:600;color:var(--ac);font-variant-numeric:tabular-nums}
+.r2-t{position:relative;height:30px;margin:0 4px}
+.r2-t>i{position:absolute;left:13px;right:13px;top:13px;height:4px;border-radius:2px;background:rgba(120,120,128,.18)}
+.r2-t>i::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--a) * 100%);right:calc((1 - var(--b)) * 100%);border-radius:2px;background:var(--ac)}
+#stp .r2-t input[type=range]{all:unset;-webkit-appearance:none;appearance:none;position:absolute;inset:0;width:100%;max-width:none;height:30px;padding:0;margin:0;background:none;pointer-events:none}
+#stp .r2-t input[type=range]::-webkit-slider-runnable-track{background:none;height:30px}
+#stp .r2-t input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:26px;height:26px;margin-top:2px;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.22),0 0 0 .5px rgba(0,0,0,.05);cursor:grab;transition:transform .15s var(--ease-out,ease)}
+#stp .r2-t input[type=range]:active::-webkit-slider-thumb{transform:scale(1.12);cursor:grabbing}
+#stp .r2-t input[type=range]::-moz-range-thumb{pointer-events:auto;width:26px;height:26px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.22)}
+.r2-s{display:flex;justify-content:space-between;padding:0 10px;margin-top:2px}.r2-s small{width:14px;text-align:center;font-size:calc(11px*var(--fz,1));opacity:.4;font-variant-numeric:tabular-nums}
+/* 性别：三个胶囊，白块滑到选中的那个；男蓝、女粉 */
+.sexr{padding:10px 16px}
+.sexp{position:relative;display:grid;grid-template-columns:repeat(3,64px);padding:3px;border-radius:17px;background:rgba(120,120,128,.12)}
+.sexp-i{position:absolute;top:3px;left:3px;width:64px;height:calc(100% - 6px);border-radius:14px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12);transform:translateX(calc(var(--i) * 64px));transition:transform .26s cubic-bezier(.3,1.25,.5,1)}
+.sexp b{position:relative;z-index:1;height:28px;display:grid;place-items:center;font-weight:500;font-size:calc(14px*var(--fz,1));opacity:.55;cursor:pointer;transition:opacity .2s,color .2s}
+.sexp b.on{opacity:1}.sexp b.sx1.on{color:#3d8bf2}.sexp b.sx2.on{color:#f2609a}
+/* 聊天设置最下面的清空 / 删除 */
+.cs-dz{display:flex;flex-direction:column;gap:10px;padding:4px 0 24px}
+/* 语音转文字：语音下面另起一个小框（照微信），译文淡一点 */
+.vtx{max-width:240px;margin-top:6px;padding:8px 11px;border-radius:6px;background:var(--b1,#fff);color:var(--t1,#191919);font-size:calc(15px*var(--fz,1));line-height:1.5;align-self:flex-start}
+.me .vtx{align-self:flex-end}.vtx p{margin:0!important}.vtx .vtx-t{margin-top:4px!important;padding-top:4px;border-top:.5px solid rgba(127,127,127,.18);opacity:.6;font-size:calc(13.5px*var(--fz,1))}
+.dark .vtx{background:#2c2c2e;color:#fff}
+/* 按应用隐藏顶部状态栏（主题 → 应用美化 → 顶部状态栏） */
+.stp-scr.nosb>.sb{display:none}.stp-scr.nosb .stack>.pg{padding-top:10px}
+.sb-h small{opacity:.55}.sb-r span{display:flex;align-items:center;gap:10px}
+.sb-c{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(127,127,127,.45);box-sizing:border-box;position:relative}.sb-c.on{border:0;background:var(--ac)}.sb-c.on::after{content:'';position:absolute;left:8px;top:4px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sb-ops{display:flex;gap:10px;padding:10px 16px 14px}.sb-ops b{flex:1;text-align:center;padding:10px 0;border-radius:12px;background:rgba(127,127,127,.1);font-weight:500;cursor:pointer}.sb-ops b.off{opacity:.4;pointer-events:none}

@@ -118,6 +118,15 @@ const AST = {
 const mock = ([h, pg, inB, outB]) => `<span class="ast-mock" style="background:${pg}"><i style="background:${h}"></i><i style="background:${inB}"></i><i style="background:${outB}"></i></span>`;
 const astCur = k => { const a = AST[k]; return a.key ? S[a.key] || a.list[0][0] : ''; };
 const astName = k => AST[k].list.find(x => x[0] == astCur(k))?.[1] || AST[k].list[0][1];
+let sbSel = null;
+const sbApps = () => Object.values(APPS);
+function sbSec() {
+  const H = S.sbHide || [], L = sbApps();
+  return `<div class="row sb-h"><small>${sbSel ? `已选 ${sbSel.size} 个` : `${L.length - L.filter(a => H.includes(a.id)).length} 个显示`}</small><b class="lnk" data-a="sbbat">${sbSel ? '取消' : '批量选择'}</b></div>`
+    + L.map(a => sbSel ? `<div class="row sb-r" data-a="sbpk" data-x="${a.id}"><span><i class="ico mini a-${a.id}">${icon(a.id)}</i>${esc(a.name)}</span><i class="sb-c ${sbSel.has(a.id) ? 'on' : ''}"></i></div>`
+      : `<label class="row sb-r"><span><i class="ico mini a-${a.id}">${icon(a.id)}</i>${esc(a.name)}</span><input type="checkbox" class="sw" data-a="sbt" data-x="${a.id}" ${H.includes(a.id) ? '' : 'checked'}></label>`).join('')
+    + (sbSel ? `<div class="sb-ops"><b data-a="sball">${sbSel.size == L.length ? '全不选' : '全选'}</b><b data-a="sbdo" data-x="show" class="${sbSel.size ? '' : 'off'}">显示</b><b data-a="sbdo" data-x="hide" class="${sbSel.size ? '' : 'off'}">隐藏</b></div>` : '');
+}
 function appStyle(k) {
   const a = AST[k], pg = page({ title: a.n, cls: 'thm', body: () => `<div class="card ast-g">${a.list.map(([v, n, c]) => `<div class="ast ${astCur(k) == v ? 'on' : ''}" data-a="astpick" data-x="${v}">${mock(c)}<em>${esc(n)}</em></div>`).join('')}</div>`
     + (a.opts ? `<div class="card">${a.opts(fx(S))}</div>` : '') + (k == 'chat' ? `<div class="card"><div class="row go" data-a="asticon"><span><i class="ico mini a-chat">${APPS.chat.icon}</i>图标</span><small>${esc(APPS.chat.name)}</small></div></div>` + sec('ast-chat', [['bubble', `气泡样式 · ${S.assets.bubble.length}`, `<div class="ag">${S.assets.bubble.map(x => `<div class="ai" data-a="ae" data-x="bubble:${x.id}" data-lp="ad"><b>${esc(x.name.slice(0, 2))}</b><small>${esc(x.name)}</small></div>`).join('')}<div class="ai add" data-a="aa" data-x="bubble">＋</div></div>${btn('af', '导入文件', 'bubble')}`]]) : ''),
@@ -150,7 +159,7 @@ reg({
     title: '主题美化', cls: 'thm',
     after: el => mountPv(el, top()), onClose: () => (pv.forEach(h => h.stop()), pv = []),
     body: () => { const f = fx(S), categories = `<div class="thm-categories" role="tablist" aria-label="美化分类">${[['global','全局美化'],['apps','应用美化']].map(([key,label])=>`<button type="button" role="tab" aria-selected="${themeScope === key}" class="${themeScope === key ? 'on' : ''}" data-a="themeScope" data-x="${key}">${label}</button>`).join('')}</div>`;
-      if (themeScope === 'apps') return categories + sec('thm-apps', [['apps', '应用美化', Object.entries(AST).map(([k, a]) => `<div class="row go" data-a="astopen" data-x="${k}"><span><i class="ico mini a-${k}">${icon(k)}</i>${esc(a.n)}</span><small>${esc(astName(k))}</small></div>`).join('')]]);
+      if (themeScope === 'apps') return categories + sec('thm-apps', [['apps', '应用美化', Object.entries(AST).map(([k, a]) => `<div class="row go" data-a="astopen" data-x="${k}"><span><i class="ico mini a-${k}">${icon(k)}</i>${esc(a.n)}</span><small>${esc(astName(k))}</small></div>`).join('')], ['sb', '顶部状态栏', sbSec()]]);
       return categories + `<div class="thm-g">${Object.entries(THEMES).map(([k, t]) => `<div class="tc ${S.theme == k ? 'on' : ''}" data-a="th" data-x="${k}"><div class="tc-p" style="background:${t.v['--wp']}"><i style="background:${t.v['--ac']}"></i><i></i><i></i><i></i><b style="background:${t.v['--gl'] || BASE['--gl']}"></b></div><span>${t.n}</span></div>`).join('')}</div>` + sec('thm', [
       ['ball', '悬浮窗图标', ballGrid()],
       ['lk', '锁屏壁纸 · 动态', lockSec()],
@@ -174,6 +183,12 @@ reg({
       clkset: (x, el) => { const k = el.dataset.k2; lockClk()[k] = k == 'h12' ? !!x : x; save(); reClk(); },
       clkf: k => { lockClk().font = k; S.lock.clk.wt = ''; save(); reClk(); }, clkp: k => { lockClk().pos = k; save(); reClk(); },
       astopen: k => appStyle(k),
+      // 顶部状态栏：每个应用一个开关；「批量选择」后勾几个，一起显示 / 隐藏
+      sbt: (id, t) => { const H = new Set(S.sbHide || []); t.checked ? H.delete(id) : H.add(id); S.sbHide = [...H]; save(); },
+      sbbat: (x, t, e, pg) => { sbSel = sbSel ? null : new Set(); pg.re(); },
+      sbpk: (id, t, e, pg) => { sbSel.has(id) ? sbSel.delete(id) : sbSel.add(id); pg.re(); },
+      sball: (x, t, e, pg) => { const all = sbApps().map(a => a.id); sbSel = sbSel.size == all.length ? new Set() : new Set(all); pg.re(); },
+      sbdo: (x, t, e, pg) => { if (!sbSel.size) return; const H = new Set(S.sbHide || []); sbSel.forEach(id => x == 'hide' ? H.add(id) : H.delete(id)); S.sbHide = [...H]; save(); toast(`${sbSel.size} 个应用${x == 'hide' ? '隐藏' : '显示'}顶部状态栏`); sbSel = null; pg.re(); },
       th: (k, t, e, pg) => { S.theme = k; save(); applyTheme(); renderDesk(); pg.re(); },
       aa: k => edit(k), ae: x => { const [k, id] = x.split(':'); edit(k, S.assets[k].find(a => a.id == id)); },
       ad: async x => {
