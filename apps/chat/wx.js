@@ -28,6 +28,7 @@ const IC = {
   al: '<svg viewBox="0 0 24 24" fill="none" stroke="#2f7de1" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="1.5"/><path d="M3.5 17l5.2-5.4 4 4 2.6-2.6 5.2 5"/><circle cx="16" cy="9" r="1.4"/></svg>',
   em: '<svg viewBox="0 0 24 24" fill="none" stroke="#f2b632" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r=".6" fill="#f2b632"/><circle cx="15" cy="10" r=".6" fill="#f2b632"/><path d="M7.8 13.5c.9 2 2.4 3 4.2 3s3.3-1 4.2-3"/></svg>',
   st: '<svg viewBox="0 0 24 24" fill="none" stroke="#2f7de1" stroke-width="1.8" stroke-linejoin="round"><path d="M10.3 3h3.4l.5 2.4 1.7.9 2.3-.9 1.7 2.9-1.8 1.6v2.2l1.8 1.6-1.7 2.9-2.3-.9-1.7.9-.5 2.4h-3.4l-.5-2.4-1.7-.9-2.3.9-1.7-2.9 1.8-1.6v-2.2L4.1 8.3l1.7-2.9 2.3.9 1.7-.9z"/><circle cx="12" cy="12" r="2.8"/></svg>',
+  fv: `<i class="cl-i" style="--ci:url('${new URL('../../assets/wx/call/p-fav.png', import.meta.url).href}');color:#f2b632;width:22px;height:22px"></i>`,
   qr: '<svg class="wm-qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><path d="M13.5 13.5h3v3h-3zM18.5 18.5h2v2h-2zM13.5 18.5h2.5M18.5 13.5h2"/></svg>',
 };
 const row = (a, ic, l, r = '') => `<div class="wx-r" data-a="${a}"><i class="wx-i">${ic}</i><b>${l}</b><span>${r}</span>${CH}</div>`;
@@ -37,11 +38,12 @@ const wxid = m => m.wxid || (m.wxid = 'wxid_' + Math.random().toString(36).slice
 export function wxMe() {
   const m = meObj(), me = D().me;
   return `<div class="wm-h" data-a="wmi"><img class="av" src="${esc(avOf(m))}"><div class="wm-t"><b>${esc(m.nick)}</b><small>微信号：${esc(wxid(me))}</small>${mePills()}</div>${CH}</div>`
-    + `<div class="wx-g">${row('wsv', IC.sv, '服务')}</div><div class="wx-g">${row('myfeed', IC.al, '朋友圈')}${row('wstk', IC.em, '表情')}</div>`;
+    + `<div class="wx-g">${row('wsv', IC.sv, '服务')}</div><div class="wx-g">${row('wfav', IC.fv, '收藏')}${row('myfeed', IC.al, '朋友圈')}${row('wstk', IC.em, '表情')}</div>`;
 }
 const sub = (title, body) => page({ title, cls: 'wxpg', model: () => D().me, body, acts: WXA });
 export const WXA = { ...SA,
   myfeed: () => openFeed('me'),
+  wfav: () => import('./fav.js').then(f => f.favPage()),
   // 个人信息（照微信「个人资料」）：一行一项，右边是内容（长了就换行，整段显示），点一下改
   wmi: () => sub('个人信息', () => { const me = D().me, m = meObj(), r = (k, l, v, ph = '') => `<div class="wx-r wxi" data-a="wme" data-x="${k}"><b>${l}</b><span class="${v ? '' : 'emp'}">${esc(v || ph)}</span>${CH}</div>`;
     return `<div class="wx-g"><div class="wx-r" data-a="img" data-x="av"><b>头像</b><span><img class="av" src="${esc(avOf(m))}"></span>${CH}</div>${r('nick', '名字', m.nick)}${r('real', '真实姓名', me.real, C().name1 || '')}${r('sex', '性别', me.sex)}${r('region', '地区', me.region)}${r('wxid', '微信号', wxid(me))}${r('ps', '拍一拍', me.ps)}${r('bio', '签名', me.bio)}</div>

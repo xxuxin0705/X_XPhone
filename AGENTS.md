@@ -65,6 +65,8 @@ apps/chat/       聊天 App
   tags.js          微信「标签」（照录屏）：通讯录标签、未设置标签的朋友 → 批量设置、选择标签 / 新建标签；c.tags 多个标签，D().tags 存标签名，c.grp 跟第一个标签走（QQ 分组用）
   pay.js           转账 / 红包（照真机录屏）：发红包页 / 转账页（自带数字键盘，红包单个 ≤200）→ 微信支付弹层 → 转账支付成功页；拆红包「開」→ 红包详情页；转账详情（待你收款 → 你已收款，回执消息 rcpt）
   feed.js          动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）、个人相册、生成动态弹窗（条数 / 必定出现的人）
+  call.js          语音 / 视频通话（照微信录屏）：浏览器语音识别听我说（不支持就打字）→ 模型流式回 → 按句切、边合成边播；挂断存一条 t:'call' 消息（log 是通话内容，say() 带摘录给后面的回复）；做法记在 docs/call-streaming.md
+  fav.js           收藏（D().favs，长按消息收藏、我 → 收藏、＋ → 发送收藏）和个人名片（t:'card'，cid）；「发送给」确认框 sendTo
   status.js        微信「状态」（照录屏）：我页状态胶囊、状态列表、全屏看状态、设个状态 / 写状态；c.st / D().me.st = { k 图标, l 自定义名, t, tr, tp 话题, bg, loc, ts }，24 小时过期；图标抠在 assets/wx/st/
   map.js           地图选点（Leaflet 从 CDN 懒加载；国内高德瓦片、国外 OSM；Nominatim 搜索 / 反查，不走用户 API）：地区、状态位置
   wx.js            微信样式外壳：底栏（微信/通讯录/发现/我）图标、「我」页及个人信息/服务/设置子页、朋友资料页（发现 = 直接进朋友圈；点头像 → 资料 → 朋友圈相册）
@@ -88,7 +90,7 @@ apps/street/     商业街：横着滑的马卡龙色小街（SVG 插画，线�
   mats.js          程序化材质：噪声 GLSL 注进 three.js 的 PBR 材质（草、岩、木、瓦、金属…），不用贴图；
                    所有实体表面共用一个着色器程序（uSurf 选表面）——手机上编译着色器最慢，别再按表面拆成多个程序
   parts.js         零件累加器（按材质合并几何）
-assets/wx/       从真微信截图 / 录屏里抠的小图（红包、转账、拆开的红包、系统提示小红包、表情加号、红包封面、朋友圈下拉彩色光圈 mo-spin……）
+assets/wx/       从真微信截图 / 录屏里抠的小图（st/ 状态图标、call/ 通话按钮和「＋」面板图标；红包、转账、拆开的红包、系统提示小红包、表情加号、红包封面、朋友圈下拉彩色光圈 mo-spin……）
 assets/three/    three.js r170（MIT，带 LICENSE），只有心屿用
 apps/theme/      主题：壁纸、图标、气泡、小组件（时钟 clock、CCD 相机、吧唧 badge、画图相框）
 apps/settings/   设置：API、联动模式、时间、世界书、显示、日志、数据
@@ -152,7 +154,7 @@ tests/           测试（见第五节）
 
 - `node tests/run.cjs music isle` 按改动范围选择测试组，不默认运行全量测试。修改部分及直接受影响流程测试通过后推送；只有用户要求时才运行 `node tests/run.cjs` 全量测试。
 - `tests/unit/*.mjs`：纯逻辑（Node 直接跑）。`tests/e2e/*.cjs`：Playwright + 模拟酒馆 `tests/e2e/st.html`，外网接口一律 `page.route` 模拟。
-- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8822，新文件用 8823 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
+- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8823，新文件用 8824 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
 - 模拟 AI：`core.S.api.chat.src = 'tavern'` 后替换 `SillyTavern.getContext().generateRaw`。
 - 模拟开机前已有的设置：`page.addInitScript(() => { window.__preset = { st_phone: {…} } })`。
 - 截图输出在 `tests/out/`（不提交）。

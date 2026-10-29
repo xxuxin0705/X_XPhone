@@ -48,13 +48,13 @@ export const defAv = n => { n = String(n || '?'); return 'data:image/svg+xml,' +
 export const meObj = () => { const d = D().me; return { ...d, id: 'me', nick: d.nick || C().name1, real: d.real || C().name1 }; }; // nick＝网名，real＝真实姓名（默认酒馆里的名字）
 export const byId = id => D().chats.find(c => c.id == id);
 export function avOf(c) { if (!c) return defAv('?'); if (c.av) return c.av; const x = C(), ch = x.characters?.[x.characterId]; return (ch && c.real && c.real == x.name2 && x.getThumbnailUrl?.('avatar', ch.avatar)) || defAv(nm(c)); }
-export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : m.t == 'song' ? `[分享音乐]《${m.song?.name || ''}》` : m.t == 'listen' ? '[一起听歌]' : m.t == 'minv' ? `[音乐邀请]《${m.song?.name || ''}》` : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', transfer: `[转账¥${m.amt}]`, hb: `[红包¥${m.amt}]` }[m.t] || '') + (m.c || '');
+export const brief = m => m.t == 'rec' ? '[聊天记录]' + (m.c || '') : m.t == 'song' ? `[分享音乐]《${m.song?.name || ''}》` : m.t == 'listen' ? '[一起听歌]' : m.t == 'minv' ? `[音乐邀请]《${m.song?.name || ''}》` : ({ sticker: '[表情]', img: '[图片]', voice: '[语音]', card: '[个人名片]', call: '[通话]', transfer: `[转账¥${m.amt}]`, hb: `[红包¥${m.amt}]` }[m.t] || '') + (m.c || '');
 // 给模型看的：表情包要写清楚是什么意思（名字 + 说明 + 哪一组），不然对方看不懂你发了个啥
 const mzSay = m => { const s = m.song || {}, t = `《${s.name || '未知歌曲'}》${s.artist ? ' - ' + s.artist : ''}`;
   if (m.t == 'song') return `[分享音乐] 分享了歌曲${t}${m.ex?.length ? `，摘录的歌词：「${m.ex.map(l => l.txt).join(' / ')}」` : ''}${m.note ? `，附言：${m.note}` : ''}`;
   if (m.t == 'listen') return m.st == 'ended' ? `[一起听歌] 发起过一起听${t}，现在已经结束了` : `[一起听歌] 邀请一起听${t}`;
   return { accepted: `[音乐邀请] 邀请一起听${t}，对方接受了，正在一起听`, rejected: `[音乐邀请] 邀请一起听${t}，对方拒绝了`, ended: `[音乐邀请] 邀请一起听${t}，一起听已经结束` }[m.st] || `[音乐邀请] 邀请一起听${t}，等对方接受`; };
-export const say = m => { if (/^(song|listen|minv)$/.test(m.t)) return mzSay(m); if (m.t == 'rec') return `[转发了一段聊天记录「${m.c}」：${(m.rec || []).map(r => `${r.n}: ${r.c}`).join(' / ')}]`; if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
+export const say = m => { if (/^(song|listen|minv)$/.test(m.t)) return mzSay(m); if (m.t == 'card') return `[推荐了一张个人名片：${m.c}]`; if (m.t == 'call') return `[${m.kind == 'video' ? '视频' : '语音'}通话 · ${m.c}${m.log?.length ? `；电话里聊了：${m.log.slice(-12).map(x => `${x.f == 'me' ? '我' : 'TA'}：${x.tr || x.t}`).join(' / ').slice(0, 400)}` : ''}]`; if (m.t == 'rec') return `[转发了一段聊天记录「${m.c}」：${(m.rec || []).map(r => `${r.n}: ${r.c}`).join(' / ')}]`; if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
   if (!n && !d && m.img) { const x = S.stk?.mine?.flatMap(p => p.items).find(x => x.img == m.img) || S.assets.sticker.find(x => x.img == m.img); x && (n = x.l || x.name || '', d = x.d && x.d != n ? x.d : ''); } // 之前发的、后来才起名字的表情
   return `[表情包：${[n, d && `（${d}）`].join('') || '一个表情'}${m.pk ? `，「${m.pk}」里的` : ''}]`; };
 
