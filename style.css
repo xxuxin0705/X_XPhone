@@ -2101,3 +2101,8 @@ html{min-height:100%;min-height:100dvh}
 .tl i i.xc-i,.st-wx .tl i i.xc-i{width:28px;height:28px;border-radius:0;background:currentColor;font-size:0}
 .wx-i i.xc-i{display:block}
 .xc-lang{display:flex;align-items:center;gap:10px;font-size:calc(12px*var(--fz,1))}.xc-lang i{width:1px;height:10px;background:rgba(255,255,255,.35)}.xc-lang b{font-weight:400;opacity:.65;cursor:pointer}
+/* 通话字幕：这通电话里说过的话，最新的在最下面；外语下面一行中文 */
+.xc-tx{width:100%;max-height:30vh;margin-top:14px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;text-align:left;-webkit-mask:linear-gradient(transparent,#000 22%);mask:linear-gradient(transparent,#000 22%);scrollbar-width:none}
+.xc-tx p{margin:0;max-width:86%;align-self:flex-start;font-size:calc(15px*var(--fz,1));line-height:1.45;opacity:.6;text-shadow:0 1px 4px rgba(0,0,0,.3);transition:opacity .2s}
+.xc-tx p.now,.xc-tx p:last-child{opacity:1}.xc-tx p.me{align-self:flex-end;text-align:right;opacity:.55}.xc-tx p.ing{font-style:italic;opacity:.75}
+.xc-tx em{display:block;margin-top:2px;font-style:normal;font-size:calc(13px*var(--fz,1));opacity:.75}

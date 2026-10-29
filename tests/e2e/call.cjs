@@ -3,8 +3,9 @@ const { chromium } = require('playwright'); const fs = require('fs'), path = req
 const root = path.resolve(__dirname, '../..'), here = __dirname, OUT = path.join(__dirname, '../out'); fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.html': 'text/html' };
 const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (MIME[path.extname(f)] || 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8823);
+const wav = () => { const n = 4800, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(24000, 24); b.writeUInt32LE(48000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; };
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
-(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort());
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort()); let ttsN = 0; await ctx.route(/api\.fish\.audio/, r => { ttsN++; r.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'access-control-allow-origin': '*' }, body: wav() }); });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8823/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'call_' + n + '.png') });
@@ -48,6 +49,23 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
     for (let i = 0; i < 40; i++) ch.msgs.push({ f: i % 2 ? 'me' : _c.id, t: 'text', c: '嗯嗯 好的 第' + i + '句闲聊', ts: t + 1e5 * i });
     ch.msgs.at(-1).c = '你那个蛋白粉还有吗'; const a = r.recall(ch); ch.msgs.at(-1).c = '晚上吃什么'; const b = r.recall(ch); return JSON.stringify([a, b]); })()`);
   ok(/巧克力味的蛋白粉/.test(JSON.parse(rc)[0]) && JSON.parse(rc)[1] === '', '磁铁召回：说到「蛋白粉」想起 20 天前那句；没说到就不出现 ' + rc.slice(0, 80));
+  // 日语角色：真的出声（每句都送去合成并播放）、字幕里是日语 + 中文
+  await E(`(() => { core.S.api.tts = { src: 'custom', pv: 'fish', cfg: { fish: { key: 'fk', model: 's1' } } }; _c.tv = { v: { fish: 'vid' } }; _c.cfg.lang = 'ja'; window._play = 0;
+    const st = AudioBufferSourceNode.prototype.start; AudioBufferSourceNode.prototype.start = function (...a) { _play++; return st.apply(this, a); };
+    const pl = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { /^blob:/.test(this.src) && _play++; return pl.call(this); };
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return 'SAY: もしもし、どうしたの？\\nZH: 喂，怎么了？\\nSAY: 今ちょうど暇だよ。\\nZH: 我现在正好有空。'; }; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(7000); await shot('ja');
+  const tx = await E(`document.querySelector('.xc-tx')?.innerText || ''`);
+  ok(/もしもし/.test(tx) && /喂，怎么了/.test(tx) && /今ちょうど暇だよ/.test(tx) && /我现在正好有空/.test(tx), '字幕：日语原话 + 下面的中文 ' + JSON.stringify(tx).slice(0, 80));
+  ok(await E(`_play`) >= 2, '两句都真的播放了（不是只显示字） play=' + await E(`_play`));
+  ok(!/もしもし.*ZH|SAY:/.test(tx), '字幕里没有 SAY / ZH 标记');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''; core.S.api.tts = {}`);
+  // 有的手机识别完只给「中间结果」不给「最终结果」：也要当成我说了这句（以前会被丢掉，对方一直不回）
+  await E(`(() => { window._srN = 0; window.webkitSpeechRecognition = class { start() { const me = this; _srN++; if (_srN > 1) return; setTimeout(() => { me.onresult?.({ results: [Object.assign([{ transcript: '你在干嘛' }], { isFinal: false })] }); me.onend?.(); }, 300); } abort() {} stop() {} };
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return '在发呆呢。'; }; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500);
+  ok(/你在干嘛/.test(await E(`_P.at(-1)`)) && /你在干嘛/.test(await E(`document.querySelector('.xc-tx')?.innerText || ''`)), '识别只给中间结果也算我说了：发给对方，字幕里有');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition`);
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);
   ok(await E(`core.D().favs.length == 1 && core.D().favs[0].src == '绷带盐'`), '收藏一条消息（记着来源）');
