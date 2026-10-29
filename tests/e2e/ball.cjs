@@ -8,7 +8,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8793/'); await p.waitForFunction('window.booted');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms);
-  ok(await E(`(() => { const i = document.querySelector('#stp-ball img'); return !!i && /ball\\/sprout\\.webp/.test(i.src); })()`), '悬浮窗默认是「森林小芽」造型');
+  ok(await E(`(() => { const i = document.querySelector('#stp-ball img'); return !!i && /ball\\/iphone\\.webp/.test(i.src); })()`), '悬浮窗默认是「iPhone」造型');
   await W(500); ok(await E(`document.querySelector('#stp-ball img').naturalWidth`) > 100, '图片加载出来了');
   // 放在跟酒馆一样的深色背景上：透明、不大
   await E(`document.body.style.background = '#1e1e1e'`); await W(200);

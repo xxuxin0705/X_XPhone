@@ -48,7 +48,7 @@ const lite = () => S.perf == 'lite' || (S.perf != 'full' && WEAK);
 function show() {
   ui.root.classList.toggle('lite', lite());
   $('#stp-ball').hidden = S.show != 'float'; applyBall(); $('#stp-wand')?.remove(); ui.root.style.setProperty('--sc', 1); ui.root.style.setProperty('--fz', .92 * (S.fzp ?? 100) / 100); // 字体：100% = 原来的默认大小
-  if (S.show != 'wand') return;
+  // 魔法棒里一直放一个入口：悬浮窗被拖丢、被别的弹窗挡住时还能从这里打开
   $('#extensionsMenu')?.insertAdjacentHTML('beforeend', '<div id="stp-wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0"><div class="fa-solid fa-mobile-screen-button extensionsMenuExtensionButton"></div><span>小手机</span></div>');
   $('#stp-wand')?.addEventListener('click', () => toggle());
 }

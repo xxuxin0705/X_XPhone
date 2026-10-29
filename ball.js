@@ -2,7 +2,7 @@
 import { S, save, esc, sheet, toast } from './core.js';
 export const BALLS = [['sprout', '森林小芽'], ['candy', '糖果'], ['ocean', '海洋'], ['sunny', '向日葵'], ['neon', '霓虹'], ['iphone', 'iPhone'],
   ['palace', '古风'], ['jade', '仙侠'], ['witch', '魔法'], ['steam', '蒸汽朋克'], ['retro', '复古游戏机'], ['autumn', '秋日']];
-export const ballKey = () => BALLS.some(b => b[0] == S.ball) ? S.ball : BALLS[0][0];
+export const ballKey = () => BALLS.some(b => b[0] == S.ball) ? S.ball : 'iphone'; // 没选过：默认 iPhone
 export const ballName = (k = ballKey()) => BALLS.find(b => b[0] == k)?.[1] || '';
 export const ballUrl = (k = ballKey()) => new URL(`./assets/ball/${k}.webp`, import.meta.url).href;
 // 换悬浮窗上的图
