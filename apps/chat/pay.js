@@ -16,13 +16,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const DEL = '<svg viewBox="0 0 24 24"><path d="M8.6 5h10.9A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5H8.6a1.5 1.5 0 0 1-1.1-.5L2.6 12l4.9-6.5a1.5 1.5 0 0 1 1.1-.5Z" fill="currentColor"/><path d="m11.5 9.5 5 5m0-5-5 5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>';
 const WXP = '<svg viewBox="0 0 40 40"><path d="M20 6C11.2 6 4 11.9 4 19.2c0 4 2.1 7.6 5.5 10l-1.3 4.3 5-2.6c2.1.6 4.4 1 6.8 1 8.8 0 16-5.9 16-13.2S28.8 6 20 6Z" fill="currentColor"/><path d="m13 19.5 4.6 4.3L28 14.5" fill="none" stroke="var(--wxpb,#4c4c4c)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const SMP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20.5 12a8.5 8.5 0 1 1-6-8.1"/><path d="M8.5 14.5c1 1.4 2.2 2 3.5 2s2.5-.6 3.5-2"/><circle cx="9" cy="10" r=".6" fill="currentColor"/><circle cx="15" cy="10" r=".6" fill="currentColor"/><path d="M19 3v5M16.5 5.5h5"/></svg>';
 const CLOCK = '<svg viewBox="0 0 48 48" fill="none" stroke="#10adfd" stroke-width="2.6" stroke-linecap="round"><circle cx="24" cy="24" r="20"/><path d="M24 12v12.5l7.5 5"/></svg>';
 const CHECK = '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#06c05f"/><path d="m14 24.5 7 6.8L34.5 17" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const CHK_S = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#06c05f"/><path d="m6.8 12.3 3.5 3.4L17.4 8.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const SMILE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M8.3 14c.9 1.4 2.2 2.1 3.7 2.1s2.8-.7 3.7-2.1" stroke-linecap="round"/><circle cx="9" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r=".9" fill="currentColor" stroke="none"/></svg>';
 const GEM = '<svg viewBox="0 0 32 32"><path d="M9 6h14l5 7-12 13L4 13z" fill="#ffc21a"/><path d="M4 13h24M12 6l-2 7 6 13 6-13-2-7" fill="none" stroke="#f0a800" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 const COIN = '<i class="wxp-coin"></i>';
+const DOTS = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>';
+// 从真微信截图 / 录屏里抠下来的小图（assets/wx），不自己画
+export const WXA = n => new URL(`../../assets/wx/${n}.png`, import.meta.url).href;
 
 /* ---------- 浮层（不进页面栈）：加载提示 / 支付弹层 ---------- */
 const layer = (cls, html) => { const w = Object.assign(document.createElement('div'), { className: cls }); w.innerHTML = html; ui.scr.append(w); requestAnimationFrame(() => w.classList.add('in')); return w; };
@@ -58,7 +60,7 @@ function paySheet(title, amt) {
 /* ---------- 发红包 / 转账 ---------- */
 // kind: 'tf' 转账 / 'hb' 红包；to：收款人（红包是当前聊天）；done({ amt, c, si, sn }) 付完钱后回调
 export function payPage(to, kind, done) {
-  let v = '', note = '', stk = null, kb = true; const hb = kind == 'hb';
+  let v = '', note = '', stk = null, kb = kind != 'hb'; const hb = kind == 'hb'; // 发红包：跟真微信一样，点了金额栏才弹键盘
   const num = () => +v || 0, over = () => hb && num() > HB_MAX;
   const key = k => {
     if (k == 'del') v = v.slice(0, -1);
@@ -84,12 +86,12 @@ export function payPage(to, kind, done) {
   const keys = `<div class="pay-k">${['1', '2', '3', 'del', '4', '5', '6', '7', '8', '9', '0', '.'].map(k => `<b data-a="pk" data-x="${k}" class="${k == 'del' ? 'del' : k == '0' ? 'zero' : ''}">${k == 'del' ? DEL : k}</b>`).join('')}<b class="pay-go dis" data-a="${hb ? 'pkok' : 'pgo'}">${hb ? '确定' : '转账'}</b></div>`;
   const hbBody = () => `<div class="hbs"><p class="pay-err">单个红包金额不可超过${HB_MAX}元</p>
 <div class="hbs-r" data-a="pfocus"><span>金额</span><b class="pay-n emp">¥0.00</b><em class="pay-cur"></em></div>
-<div class="hbs-c"><div class="hbs-r nt"><input class="hbs-in" maxlength="25" placeholder="恭喜发财，大吉大利" value="${esc(note)}"><b class="hbs-sk" data-a="psk">${stk ? `<img src="${esc(stk.img)}">` : SMP}</b></div></div>
+<div class="hbs-c"><div class="hbs-r nt"><input class="hbs-in" maxlength="25" placeholder="恭喜发财，大吉大利" value="${esc(note)}"><b class="hbs-sk" data-a="psk">${stk ? `<img src="${esc(stk.img)}">` : `<img class="hbs-smi" src="${WXA('smile-add')}">`}</b></div></div>
 <div class="hbs-c"><div class="hbs-r go"><span>红包封面</span><i class="hbs-ar"></i></div>${note ? '<div class="hbs-r sub go"><span>根据祝福语推荐</span><i class="hbs-cv"></i><i class="hbs-ar"></i></div>' : ''}</div>
-<div class="hbs-big"><i>¥</i>0.00</div><b class="hbs-go pay-go dis" data-a="pgo">塞钱进红包</b><p class="hbs-tip">未领取的红包，将于24小时后发起退款</p></div>`;
+<div class="hbs-big"><i>¥</i>0.00</div><b class="hbs-go pay-go dis" data-a="pgo">塞钱进红包</b><p class="hbs-tip">可直接使用收到的零钱发红包</p></div>`;
   const tfBody = () => `<div class="pay"><div class="pay-h"><div><b>转账给 ${esc(nm(to))}${mask(to) ? ' ' + esc(mask(to)) : ''}</b><small>微信号：${esc(wxid(to))}</small></div><img src="${esc(avOf(to))}"></div><div class="pay-c"><small>转账金额</small><div class="pay-a" data-a="pfocus"><i>¥</i><span class="pay-n"></span><em class="pay-cur"></em></div><p class="pay-note" data-a="pnote">添加转账说明</p></div></div>`;
   page({
-    title: hb ? '<b>发红包</b>' : '', right: () => hb ? '<b class="pay-more">···</b>' : '', cls: `paypg ${hb ? 'hbpg' : ''}`, body: hb ? hbBody : tfBody, foot: () => keys,
+    title: hb ? '发红包' : '', right: () => hb ? `<b class="pay-more">${DOTS}</b>` : '', cls: `paypg ${hb ? 'hbpg' : ''}`, body: hb ? hbBody : tfBody, foot: () => keys,
     after: el => {
       sync(el); const ip = $('.hbs-in', el);
       ip && (ip.onfocus = () => { kb = false; sync(el); }, ip.oninput = () => { const had = !!note; note = ip.value.trim(); had != !!note && redraw(el); });
@@ -161,7 +163,7 @@ export function hbOpen(m, from, onOpen, reply) {
 // 红包详情：红色弧形顶 + 「X的红包」+ 祝福语 + 表情 + 金额（金色）+ 已存入零钱 + 回复表情到聊天；我发出的显示领取情况
 export function hbDetail(m, from, reply) {
   const mine = m.f == 'me';
-  page({ title: '', cls: 'hbd', onClose: reEmit, right: () => '<b class="pay-more">···</b>', body: () => `${hbHead(from, m)}<p class="hbd-n">${esc(m.c || '恭喜发财，大吉大利')}</p>${m.si ? `<img class="hbd-sk" src="${esc(m.si)}">` : ''}
+  page({ title: '', cls: 'hbd', onClose: reEmit, right: () => `<b class="pay-more">${DOTS}</b>`, body: () => `${hbHead(from, m)}<p class="hbd-n">${esc(m.c || '恭喜发财，大吉大利')}</p>${m.si ? `<img class="hbd-sk" src="${esc(m.si)}">` : ''}
 ${mine ? `<p class="hbd-st">${m.st ? `1个红包共${yuan(m.amt)}元，已被领取` : `红包金额${yuan(m.amt)}元，等待对方领取`}</p>` : `<div class="hbd-a">${yuan(m.amt)}<small>元</small></div><p class="hbd-s"><i></i>已存入零钱，可转入零钱通赚收益<em>›</em></p><b class="hbd-r" data-a="hbrp">${SMILE}回复表情到聊天</b>`}`,
     acts: { hbrp: () => { back(); reply?.(); } } });
 }

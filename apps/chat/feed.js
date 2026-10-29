@@ -6,7 +6,7 @@ regMod({ k: 'chat.cmt', app: '聊天', n: '动态评论', def: '评论和点赞�
 // 聊天 · 动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）+ 个人相册 + 生成动态弹窗
 // 角色的动态和评论在同一次生成里带上 [翻译]（tr），点「查看翻译」展开；不额外调用
 import { S, D, saveD, esc, uid, page, sheet, menu, form, toast, nm, rn, avOf, meObj, now, llm, json, sysCtx, task, emit, drop, pickImg, ok, genImg } from '../../core.js';
-import { get, find, isMe, sty, FS, FN, lname } from './data.js';
+import { get, find, isMe, sty, FS, FN, lname, grpNames, canSee } from './data.js';
 
 export const FI = {
   wand: FEED_ICONS['wand-magic-sparkles'],
@@ -133,7 +133,7 @@ function genFeed(st) {
 // 给一条动态生成 / 续写评论（我评论后、或点魔法棒）
 function genCmt(p, why) {
   if (pendingComments.has(p.id)) return toast('正在生成评论');
-  const data = D(), au = auOf(p), L = friends();
+  const data = D(), au = auOf(p), L = friends().filter(c => p.a != 'me' || canSee(p, c)); // 我设了分组可见：看不到的人不会来评论 / 点赞
   pendingComments.add(p.id);
   return task('正在生成评论', async sg => {
     try {
@@ -181,7 +181,10 @@ export const FA = {
   pedit: async id => { const p = P(id); if (!p) return; const r = await form('编辑动态', [['c', '正文', 'area'], ...(p.tr ? [['tr', '中文译文', 'area']] : [])], { c: p.c, tr: p.tr }); if (!r) return; p.c = r.c || ''; p.tr != null && (p.tr = r.tr || ''); saveD(); emit('chat'); },
   pdel: async id => { if (!await ok('删除这条动态？')) return; drop(D().posts.filter(p => p.id == id)); D().posts = D().posts.filter(p => p.id != id); saveD(); emit('chat'); },
   pfeed: id => openFeed(id), myfeed: () => openFeed('me'),
-  post: async x => { const r = await form('发表动态', [['c', '这一刻的想法...', 'area'], ['url', '配图', 'img']]); if (!r?.c && !r?.url) return; D().posts.unshift({ id: uid(), a: 'me', c: r.c || '', url: r.url, ts: +now(), likes: [], cm: [] }); saveD(); emit('chat'); },
+  // 发动态：谁可以看（公开 / 部分可见 / 不给谁看 + 选分组）；评论和点赞只会来自看得到的人
+  post: async x => { const gs = grpNames().map(g => [g, g]); const r = await form('发表动态', m => [['c', '这一刻的想法...', 'area'], ['url', '配图', 'img'], ['vm', '谁可以看', 'sel', [['', '公开'], ['only', '部分可见'], ['not', '不给谁看']]], ...(m.vm ? [['vg', m.vm == 'only' ? '选中的分组可见' : '选中的分组不可见', 'multi', gs]] : [])], { vm: '', vg: [] }, {}, (k, v, m, sh) => k == 'vm' && sh.re());
+    if (!r?.c && !r?.url) return; const vis = r.vm && r.vg?.length ? { m: r.vm, g: r.vg } : null;
+    D().posts.unshift({ id: uid(), a: 'me', c: r.c || '', url: r.url, ts: +now(), likes: [], cm: [], ...(vis && { vis }) }); saveD(); emit('chat'); },
   fgen: (x, t, e, pg) => genDlg(pg?.aid && pg.aid != 'me' ? pg.aid : ''),
   apost: id => { const p = P(id); p && page({ title: '详情', live: 1, cls: 'feedpg', body: () => P(id) ? `<div class="feed mz-wx one">${postWx(P(id))}</div>` : '<p class="mo-e">已删除</p>', acts: FA }); },
   amore: async (x, t, e, pg) => { const k = await menu(pg.aid == 'me' ? [['post', '发朋友圈'], ['fgen', '生成动态']] : [['fgen', `让${esc(nm(get(pg.aid)))}发条朋友圈`]]); k && FA[k](x, t, e, pg); },

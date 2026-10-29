@@ -110,7 +110,10 @@ const SYN = [['开心', '高兴', '快乐', '哈哈', '笑', '嘻嘻', '乐', '�
 const syn = q => [...new Set(SYN.filter(g => g.some(w => q.includes(w) || w.includes(q))).flat())].filter(w => w != q);
 const score = (l, q, sy) => { if (!l) return 0; if (l == q) return 120; if (l.includes(q)) return 100 + 20 * q.length / l.length; if (sy.some(w => w.length > 1 ? l.includes(w) : l == w)) return 60; const cs = [...new Set(q)], hit = cs.filter(c => l.includes(c)).length; return q.length > 1 && hit / cs.length >= .6 ? 30 * hit / cs.length : 0; };
 const bonus = id => (id == 'fav' ? 40 : has(id) ? 30 : 0) + (id.startsWith('f-') ? 6 : 0) + ((i => i < 0 ? 0 : CUR[i][3] == 1 ? 20 - i * .25 : 4 - i * .05)(CUR.findIndex(c => c[0] == id)));
-export async function localSearch(q, n = 80) {
+// 表情的来源：fav = 我喜欢的表情，我添加的组 = 组 id，其余（没添加的库）= lib
+export const srcOf = k => k == 'fav' ? 'fav' : S.stk.packs.includes(k) || mine(k) ? k : 'lib';
+// allow：只在这些来源里找（聊天设置 · 角色能用的表情包）；不传 = 全部
+export async function localSearch(q, n = 80, allow) {
   q = String(q || '').trim(); if (!q) return [];
   const sy = syn(q), pool = [];
   for (const d of Object.keys(FL)) pool.push(...flItems(d));
@@ -118,7 +121,7 @@ export async function localSearch(q, n = 80) {
   for (const p of S.stk.mine) pool.push(...p.items.map(x => ({ ...x, k: p.id })));
   for (const x of S.assets.sticker) pool.push({ l: x.name, img: x.img, k: 'fav' });
   try { const b = await loadBqb(); for (const id in b) pool.push(...b[id].items); } catch { /* 表情库连不上时只搜内置的 */ }
-  return pool.map(x => ({ x, s: Math.max(score(x.l, q, sy), x.d ? score(x.d, q, sy) * .85 : 0) })).filter(o => o.s > 0).map(o => ({ ...o, s: o.s + bonus(o.x.k) + (o.x.sm ? -8 : 0) + (o.x.a ? 2 : 0) }))
+  return pool.filter(x => !allow || allow.has(srcOf(x.k))).map(x => ({ x, s: Math.max(score(x.l, q, sy), x.d ? score(x.d, q, sy) * .85 : 0) })).filter(o => o.s > 0).map(o => ({ ...o, s: o.s + bonus(o.x.k) + (o.x.sm ? -8 : 0) + (o.x.a ? 2 : 0) }))
     .sort((a, b) => b.s - a.s).slice(0, n).map(o => ({ ...o.x, sc: o.s }));
 }
 // 搜表情包组：名字对上，或者组里有对上的表情
@@ -130,9 +133,9 @@ export async function packSearch(q) {
 }
 
 // AI 发的 [表情包:关键词]：在表情库里找（你添加的组 > 可爱精选 > 其他）；结果存进消息，之后不会变
-export async function stkFind(q) {
+export async function stkFind(q, allow) {
   q = String(q || '').replace(/[（()）【】\[\]「」"“”]/g, '').trim(); if (!q) return '';
-  const L = (await localSearch(q, 6)).filter(x => x.sc >= 75);
+  const L = (await localSearch(q, 6, allow)).filter(x => x.sc >= 75);
   if (L.length) return msgOf(L[Math.random() * Math.min(3, L.length) | 0], q);
   return '';
 }

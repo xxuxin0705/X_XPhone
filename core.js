@@ -227,7 +227,9 @@ export function bind(R) {
   let lp, lpd, swp = 0;
   // 右滑返回：任意页面横向右滑，跟手移动，松手超过30%宽度或快速滑动即返回上一级
   R.addEventListener('pointerdown', e => {
-    const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('input,textarea,select,.cpk,.cpr,.phone-gesture-control,[data-no-swipe-back]')) return;
+    const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('.cpk,.cpr,.phone-gesture-control,[data-no-swipe-back]')) return;
+    // 输入框：正在输入（有焦点）、下拉框、滑块才不让右滑；没点进去的输入框上照样能右滑返回（聊天设置下半页全是输入框）
+    const fd = e.target.closest('input,textarea,select'); if (fd && (fd == document.activeElement || fd.tagName == 'SELECT' || fd.type == 'range')) return;
     const x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), w = pg.el.offsetWidth, sc = pg.el.getBoundingClientRect().width / w || 1; let on = 0, dx = 0;
     const end = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
     const mv = ev => {

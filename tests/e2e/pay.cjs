@@ -14,7 +14,7 @@ const IMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w
     core.S.lock.on = false; core.S.style = 'wx'; core.S.assets.sticker = [{ id: 's1', name: '被拿捏', img: '${IMG}' }]; core.D().me.wallet = 1000;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '徐鑫', nick: '绷带盐', fr: 1 })); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
   // 发红包
-  await E(`core.top().acts.phb()`); await W(500);
+  await E(`core.top().acts.phb()`); await W(500); await shot('hb_open0'); await p.click('.hbs-r[data-a=pfocus]'); await W(150);
   ok(/金额/.test(await E(`document.querySelector('.hbs').textContent`)) && await E(`!document.querySelector('.paypg .pg-f').classList.contains('off')`), '发红包页：金额 / 祝福语 / 红包封面，数字键盘弹着');
   for (const k of ['1', '2', '3']) await key(k);
   ok(await E(`document.querySelector('.hbs-r .pay-n').textContent`) == '¥123' && /123\.00/.test(await E(`document.querySelector('.hbs-big').textContent`)), '输入 123：金额栏 ¥123，大字 ¥123.00');

@@ -300,13 +300,12 @@ html{min-height:100%;min-height:100dvh}
 .st-wx .tl{color:#666}.st-wx.dark .tl{color:#aaa}
 .st-wx .tl i{width:58px;height:58px;border-radius:12px;color:#191919}.st-wx .tl i svg{width:27px;height:27px}.st-wx.dark .tl i{color:#e6e6e6}
 .st-wx .tf{position:relative;box-sizing:border-box;width:240px;max-width:100%;min-height:88px;padding:13px 12px 26px 62px;border-radius:4px;background:var(--wxtf)}
-.st-wx .tf::before{content:'';position:absolute;left:12px;top:13px;width:40px;height:40px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='20' cy='20' r='17'/%3E%3Cpath d='M12 16h15l-4-4M28 24H13l4 4'/%3E%3C/svg%3E") center/contain no-repeat}
+.st-wx .tf::before{content:'';position:absolute;left:10px;top:11px;width:43px;height:43px;background:url(assets/wx/tf.png) center/contain no-repeat}
 .st-wx .tf::after{content:'';position:absolute;top:14px;left:-5px;border:6px solid transparent;border-left:0;border-right-color:var(--wxtf)}
 .st-wx .me .tf::after{left:auto;right:-5px;border-right:0;border-left:6px solid var(--wxtf)}
 .st-wx .tf b{font-size:calc(17px*var(--fz,1));line-height:23px;font-weight:500}
 .st-wx .tf small{display:block;font-size:calc(13px*var(--fz,1));line-height:18px;opacity:.94;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st-wx .tf i{position:absolute;left:12px;right:12px;bottom:5px;margin:0;padding-top:4px;border-top:.5px solid rgba(255,255,255,.35);font-size:calc(11px*var(--fz,1));opacity:.8}
-.st-wx .tf.done{--wxtf:#fbd2a2}
+.st-wx .tf i{position:absolute;left:12px;right:12px;bottom:7px;margin:0;font-size:calc(12px*var(--fz,1));opacity:.85}
 .st-wx .cl-m b{font-weight:400;font-size:calc(16px*var(--fz,1))}
 .st-wx .tabs{background:var(--ibg)}
 
@@ -444,7 +443,6 @@ html{min-height:100%;min-height:100dvh}
 /* 红包消息 + 拆红包卡片 */
 .tf.hbk small:empty{display:none}
 .st-wx .tf.hbk{padding-top:22px}
-.st-wx .tf.hbk::before{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='7' y='3' width='26' height='34' rx='3' fill='%23f25542'/%3E%3Cpath d='M7 12c4 3.5 8.3 5 13 5s9-1.5 13-5' fill='none' stroke='%23d8412f' stroke-width='1.6'/%3E%3Ccircle cx='20' cy='17' r='4.2' fill='%23fcd77b'/%3E%3C/svg%3E") center/contain no-repeat}
 .st-wx .tf.hbk b{font-size:calc(15.5px*var(--fz,1));font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 
 /* ---------- 聊天设置 ---------- */
@@ -1611,10 +1609,7 @@ html{min-height:100%;min-height:100dvh}
 #stp button,#stp-ball{-webkit-user-select:none;user-select:none}
 
 /* ---------- 转账 / 红包（仿微信录屏） ---------- */
-.st-wx .tf.done:not(.hbk)::before{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='20' cy='20' r='17'/%3E%3Cpath d='m12.5 20.5 5 5 10-10.5'/%3E%3C/svg%3E") center/contain no-repeat}
 .st-wx .tf.ret::before{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='20' cy='20' r='17'/%3E%3Cpath d='M15 13l-4 4 4 4M11 17h11a5.5 5.5 0 0 1 0 11h-5'/%3E%3C/svg%3E") center/contain no-repeat}
-.st-wx .tf.hbk.done::before{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='7' y='9' width='26' height='28' rx='3' fill='%23fde5d6'/%3E%3Cpath d='M7 12c0-5 2-8 5-8h16c3 0 5 3 5 8-4 4-8.3 6-13 6s-9-2-13-6Z' fill='%23fff4ec'/%3E%3Ccircle cx='20' cy='18' r='4' fill='%23f7c27a'/%3E%3C/svg%3E") center/contain no-repeat}
-.st-wx .tf.done{--wxtf:#fccb9c}
 .sys .hbic{display:inline-block;width:11px;height:14px;margin-right:5px;vertical-align:-2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 30'%3E%3Crect width='24' height='30' rx='2.5' fill='%23f25542'/%3E%3Cpath d='M0 8c3.6 3 7.6 4.5 12 4.5S20.4 11 24 8' fill='none' stroke='%23d8412f' stroke-width='1.4'/%3E%3Ccircle cx='12' cy='12.5' r='3.2' fill='%23fcd77b'/%3E%3C/svg%3E") center/contain no-repeat}.sys em{font-style:normal;color:#fa9d3b}
 .cl-m .cl-pay{font-style:normal;color:#fa5151}
 /* 小黑框：微信支付 ··· / 正在加载 */
@@ -1728,3 +1723,30 @@ html{min-height:100%;min-height:100dvh}
 /* 发红包 / 转账页：长按不选字（安卓会弹出圆形放大镜），输入框照常 */
 .paypg .pg-b,.paypg .pg-f{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #stp .paypg .hbs-in{-webkit-user-select:text;user-select:text}
+
+/* 微信转账 / 红包气泡：图标是从真微信截图里抠的（assets/wx），底色跟抠图的底色一致；下面的「微信红包 / 转账」没有分隔线 */
+.st-wx{--wxtf:#fa9d3c}.st-wx .tf.done{--wxtf:#ffcc95}
+.st-wx .tf.hbk::before{left:14px;top:11px;width:35px;height:43px;background-image:url(assets/wx/hb.png)}
+.st-wx .tf.hbk.done::before{background-image:url(assets/wx/hb-open.png)}
+.st-wx .tf.done:not(.hbk)::before{background-image:url(assets/wx/tf-done.png)}
+/* 「你领取了 X 的红包」：抠下来的小红包 + 灰字，「红包」两个字橙色，跟真微信一样 */
+.sys .hbic{width:16px;height:19px;margin-right:6px;vertical-align:-4px;background:url(assets/wx/sys-hb.png) center/contain no-repeat}
+.sys:has(.hbic){font-size:calc(13.5px*var(--fz,1));color:#959595}.sys .hbic~em,.sys em{color:#f28d21}
+/* 发红包页：照真微信截图（2026-10）量的尺寸 */
+.hbpg .pg-t{font-weight:400;font-size:calc(17px*var(--fz,1))}
+.paypg .pay-more svg{display:block;width:24px;height:24px}
+.hbs{padding:5px 16px 0}
+.hbs-r,.hbs-c{margin-top:16px}.hbs>.hbs-r:first-of-type{margin-top:16px}
+.hbs-r{height:54px;font-size:calc(16.5px*var(--fz,1))}
+.hbs-c .hbs-r.nt{height:70px}.hbs-c .hbs-r.go:not(.sub){height:62px}
+.hbs-r .pay-n{font:400 calc(16.5px*var(--fz,1))/1 -apple-system,'Helvetica Neue',sans-serif}.hbs-r .pay-n.emp{color:#b0b0b0}
+.hbs-sk{width:auto;height:auto;margin:0}.hbs-smi{width:25px;height:20px;object-fit:contain}
+.hbs-cv{width:22px;height:34px;background:url(assets/wx/cover.png) center/contain no-repeat}
+.hbs-big{margin-top:86px;font:600 47px/1 -apple-system,'Helvetica Neue',sans-serif}.hbs-big i{font-size:36px;margin-right:12px}
+.hbs-go{margin-top:30px;width:179px;height:46px;border-radius:8px;background:#fa5251;font-size:calc(17px*var(--fz,1));font-weight:400}.hbs-go.dis{background:#fa5251}
+.hbpg .pay-k .pay-go.dis{background:#f25542}
+.hbs-tip{bottom:24px;font-size:calc(15px*var(--fz,1));color:#7f7f7f}
+#stp .hbs-in{max-width:none}
+.hbs-sk img.hbs-smi{width:25px;height:20px;border-radius:0;object-fit:contain}
+.st-wx .tf i{border-top:0;padding-top:0}
+.hbs-big i{font-size:40px;margin-right:8px}

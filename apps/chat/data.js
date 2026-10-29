@@ -30,6 +30,13 @@ export const member = (g, n) => { const c = upsert({ real: n, fr: 0 }); g.member
 export const viewing = id => top()?.chat == id && ui.root.classList.contains('on');
 export const sty = c => c?.cfg?.style || S.style;
 // 实际生效的外观：微信样式只能调日间 / 夜间和背景，其余（合并连续消息、隐藏头像、气泡、头像形状、头像框）都按真微信来
+// 这个角色能用哪些表情包（聊天设置里勾的）：cfg.stkOff 里是关掉的来源（lib 自己搜索 / fav 我喜欢的表情 / 表情包组 id）；返回 null = 全部能用
+export const stkAllow = (ch, all) => { const off = ch?.cfg?.stkOff; return off?.length ? new Set(all.filter(k => !off.includes(k))) : null; };
+// 联系人分组（通讯录、朋友圈谁可以看都用）：没设分组的算「我的好友」
+export const grpOf = c => c?.grp || '我的好友';
+export const grpNames = () => [...new Set(['我的好友', ...D().chats.filter(c => c.type == 'p' && c.fr !== 0).map(grpOf)])];
+// 我的动态谁能看：p.vis = { m: 'only' 只给这些分组看 / 'not' 不给这些分组看, g: [分组] }
+export const canSee = (p, c) => !p.vis?.g?.length || (p.vis.m == 'not' ? !p.vis.g.includes(grpOf(c)) : p.vis.g.includes(grpOf(c)));
 export const look = ch => sty(ch) == 'wx' ? { ...ch.cfg, cont: false, showAv: true, shape: '', avs: '', bub: '', frame: '' } : ch.cfg;
 export const who = (ch, f) => f == 'me' ? nm(meObj()) : nm(get(f));
 // 引用：记住被引用那条的 id（没有就现给一个），显示时按 id 取它现在的内容；w / c 是当时的样子，只在那条找不到时兜底
@@ -56,7 +63,7 @@ export function addMsg(ch, m) {
   const x = { f, t, c: t == 'pat' ? patC(ch, name, m.text) : t == 'hb' ? String(m.text || '恭喜发财，大吉大利') : String(m.text ?? ''), tr: m.tr || '', amt: t == 'hb' ? Math.min(200, +m.amount || 0) : +m.amount || 0, ts: +now() };
   const q = near(m.quote); q && (x.q = qref(ch, q));
   t == 'minv' && Object.assign(x, { song: { name: x.c, artist: String(m.artist || '').trim(), pic: '' }, st: 'pending', c: `[音乐]《${x.c}》${m.artist ? ' - ' + m.artist : ''}` }); // 角色邀请一起听
-  t == 'sticker' && (x.img = stk(x.c)); ch.msgs.push(x); t == 'pat' && shake();
+  t == 'sticker' && (x.img = m.img || stk(x.c), m.alt && (x.alt = m.alt), m.sz && (x.sz = m.sz)); ch.msgs.push(x); t == 'pat' && shake();
   f != 'me' && !viewing(ch.id) && (ch.unread = (ch.unread || 0) + 1);
   t == 'img' && S.api.img.auto && genImg(x.c, undefined, 'chat').then(u => { x.url = u; saveD(); emit('chat'); }).catch(e => fail('自动生图失败：' + e.message));
   return f == 'me' ? null : x;

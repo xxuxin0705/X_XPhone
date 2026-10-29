@@ -1,12 +1,12 @@
 // 聊天 · 聊天窗口：回复协议 / 生成 / 翻译 / 拍一拍 / 表情包 / 表情回应 / 引用 / 撤回 / 聊天设置
-import { stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
+import { srcOf, stkFind, stkPage, storePage, packPage, minePage, pack, packMeta, coverNow, imgH, msgOf, warm, stkMig, mine, rmPack, rmMine, renItem } from './sticker.js';
 import { voiceOf, pickVoice, ttsCfg, TTSP, prof, task } from '../../core.js';
 import { regMod, mp, NOAI } from '../../mods.js';
 regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '在回复的人'], ['我', '我的网名']] });
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
-import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref, look } from './data.js';
+import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref, look, stkAllow } from './data.js';
 import { openFeed } from './chat.js';
 import { payPage, hbOpen, hbDetail, tfPage } from './pay.js';
 import { bridge as mzB } from '../music/music-share.js';
@@ -35,8 +35,11 @@ const EMOJI = [...'😀😁😂🤣😊😇🙂😉😍🥰😘😚😋😛😜�
 
 /* ---------- 回复协议：一行一条消息「名字: 内容」，功能用方括号标签（比 JSON 短、生成更快、不怕格式错） ---------- */
 const TAGS = '表情包|语音|图片|转账|收款|表情回应|引用|撤回|拍一拍|翻译|音乐|补译|红包|领红包';
+// 角色能用的表情来源（聊天设置 · 表情包）：lib 自己搜索 / fav 我喜欢的表情 / 我添加的每个表情包组
+const STK_ALL = () => ['lib', 'fav', ...S.stk.packs.filter(id => packMeta(id))];
+export const stkOf = ch => stkAllow(ch, STK_ALL());
 export function parseReply(raw, ch) {
-  raw = String(raw ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/【/g, '[').replace(/】/g, ']').replace(/\[(表情|贴纸|sticker)(?=[:：])/gi, '[表情包'); // 模型偶尔写成 [表情:xx]
+  raw = String(raw ?? '').replace(/<think(ing)?>[\s\S]*?<\/think(ing)?>/g, '').replace(/【/g, '[').replace(/】/g, ']').replace(/\[\s*(表情|贴纸|sticker|stamp|emoji|絵文字|スタンプ|ステッカー|이모티콘|이모지|스티커)(?=\s*[:：])/gi, '[表情包'); // 模型偶尔写成 [表情:xx]
   if (/^\s*[[{]/.test(raw) && /"(msgs|from)"/.test(raw)) { const d = json(raw), a = d?.msgs || (Array.isArray(d) && d); if (a) return a; } // 兼容模型仍输出 JSON
   const ppl = ch.type == 'g' ? ch.members.map(get).filter(Boolean) : [ch], out = []; let last = ch.type == 'g' ? '' : rn(ch);
   for (let l of raw.split('\n')) {
@@ -46,6 +49,7 @@ export function parseReply(raw, ch) {
     const from = ch.type == 'p' ? '' : last || rn(ppl[0]); if (ch.type == 'g' ? isMe(from) : isMe(mm?.[1])) continue; // 不让 AI 替用户说话
     const tg = {}, grab = re => (l = l.replace(re, (_, k, v = '') => (tg[k] = v.trim(), '')).trim());
     grab(/\[(翻译)[:：]([^[\]]*)\]/g); grab(new RegExp(`\\[(${TAGS})(?:[:：]([^\\]]*))?\\]`, 'g')); // 先取出译文（可能嵌在语音标签里）
+    { const z = String(tg.翻译 || '').match(/^\[?\s*表情包\s*[:：]\s*([^\]]+)/); z && ('表情包' in tg) && (tg.表情包 = z[1].trim(), delete tg.翻译); } // 模型把表情标签也翻成了外语、中文关键词写在译文里：用中文去搜
     const b = { from, tr: tg.翻译 && tg.翻译 != l ? tg.翻译 : '' };
     if ('表情回应' in tg) { const [e, frag] = tg.表情回应.split('|'); out.push({ ...b, type: 'react', text: e.trim(), frag: frag?.trim() }); }
     if ('撤回' in tg) out.push({ ...b, type: 'recall' });
@@ -60,12 +64,13 @@ export function parseReply(raw, ch) {
     if ('领红包' in tg) out.push({ ...b, type: 'hbopen' });
     if ('补译' in tg) { const [k, f, z] = tg.补译.split('|'); f?.trim() && out.push({ type: 'bt', k: parseInt(String(k).replace(/\D/g, '')), text: f.trim(), tr: (z || '').trim() }); continue; }
     if (/^[\s[\]()（）「」]*$/.test(l)) { l = ''; b.tr && !Object.keys(tg).some(k => k != '翻译') && out.at(-1) && !out.at(-1).tr && /text|voice/.test(out.at(-1).type) && (out.at(-1).tr = b.tr); } // 标签拆完只剩个「]」之类的碎片：丢掉；单独一行的 [翻译] 补给上一条
+    l = l.replace(/\[\s*(翻译|补译)?\s*[:：]?\s*\]/g, '').trim(); // 标签拆完剩下的空壳「[翻译:]」之类：丢掉
     l && out.push({ ...b, type: 'text', text: l, quote: tg.引用 });
   }
   return out;
 }
 function replyP(ch, patNow) {
-  const g = ch.type == 'g', me = meObj().nick, sk = [...new Set([...S.assets.sticker.map(s => s.name), ...S.stk.mine.flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
+  const g = ch.type == 'g', me = meObj().nick, al = stkOf(ch), sk = [...new Set([...(!al || al.has('fav') ? S.assets.sticker.map(s => s.name) : []), ...S.stk.mine.filter(p => !al || al.has(srcOf(p.id))).flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
   const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${qShow(ch, m.q).c}）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? m.rcpt ? `（这条是${m.st == '已退还' ? '退还' : '收下'}对方那笔转账的回执）` : `（${m.st}）` : ''}`).join('\n');
   const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg;
   const rn0 = Math.max(1, +cf.rmin || 1), rn1 = Math.max(rn0, +cf.rmax || 5), vn0 = Math.max(0, +cf.vmin || 0), vn1 = Math.max(vn0, cf.vmax == null ? 1 : +cf.vmax);
@@ -152,7 +157,9 @@ export async function gen(ch) {
     const lastR = ch.msgs.findLastIndex(m => m.f != 'me' && !/sys|pat/.test(m.t)), see = S.stk.see !== false ? ch.msgs.slice(lastR + 1).filter(m => m.f == 'me' && m.t == 'sticker' && m.img).slice(-3) : [];
     const P = replyP(ch, ch.cfg.pat && Math.random() < .3) + (see.length ? `\n\n【表情包图片】附上了${meObj().nick}刚发的 ${see.length} 个表情包的图片，按顺序对应上面最后 ${see.length} 个「[表情包：…]」。先看图弄懂${meObj().nick}想表达的情绪和意思，再自然地回应。` : '');
     const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img), mod: ch.type == 'g' ? 'chat.reply.g' : 'chat.reply.p' }), ch);
-    for (const m of ms.filter(m => m.type != 'bt')) { if (ac.signal.aborted) break; const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
+    for (const m of ms.filter(m => m.type != 'bt')) { if (ac.signal.aborted) break;
+      if (m.type == 'sticker') { const r = await stkFind(m.text, stkOf(ch)).catch(() => ''); if (!r) continue; Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }); } // 在能用的表情里搜不到：这条不发
+      const x = addMsg(ch, m); saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
   } catch (e) { ac.signal.aborted ? toast('已停止回复') : fail(`${nm(ch)} · 回复失败：${e.message}`); }
   finally { busy = 0; CTL = null; emit('chat'); goSync(); retrans(ch); if (ch._again && !ac.signal.aborted) { ch._again = 0; later(ch, 600); } } // 等回复期间又发了消息：接着再回
 }
@@ -168,7 +175,9 @@ on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('
 export const tT = ts => { const d = new Date(ts); return (d.toDateString() == now().toDateString() ? '' : `${d.getMonth() + 1}月${d.getDate()}日 `) + hm(d); };
 const avH = (c, ch, id) => { const fr = S.assets.frame.find(a => a.id == look(ch).frame)?.img; return `<div class="avw" data-a="avc" data-x="${id}"><img class="av" src="${esc(avOf(c))}">${fr ? `<img class="frm" src="${esc(fr)}">` : ''}</div>`; };
 // 表情包消息没有图（AI 发的、库里没有）：先在免费表情库里找，找不到再上网搜一张补上；每条只找一次
-const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !S.stk.auto || !m.c) return; stkTry.add(m); stkFind(m.c).then(r => { stkDone.add(m); r ? Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }) : r === '' && (m.sk = 1); saveD(); emit('chat'); }); };
+// 正文联动里带过来的表情（没图）：在这个角色能用的表情里找；找不到就把这条删掉（不发「[关键词]」这种半截消息），我自己发的照旧显示文字
+const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !m.c) return; stkTry.add(m); const ch = D().chats.find(c => c.msgs.includes(m));
+  stkFind(m.c, stkOf(ch)).then(r => { stkDone.add(m); if (r) Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }); else if (r === '' && ch && m.f != 'me') ch.msgs.splice(ch.msgs.indexOf(m), 1); else if (r === '') m.sk = 1; saveD(); emit('chat'); }); };
 // 表情包图找不到 / 加载失败：像普通文字消息一样显示「[关键词]」，不再单独占一大块
 const stk0 = (m, ld) => `<div class="stk0 ${ld ? 'ld' : ''}">[${esc(m.c)}]</div>`;
 // 翻译：正文后面一个小「文」字按钮，点开在下面多一行译文 / 原文（两边样式一样，最多两行内容；不重画整个聊天，不会跳到最下面）
@@ -398,6 +407,7 @@ export function cset(ch) {
       g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}`],
       !g && ['voice', '专属音色', vSec(ch, f)],
       ['tr', '翻译', trSec(ch, f, g)],
+      ['stk', '表情包', `<div class="stks">${STK_ALL().map(k => `<label class="row"><span>${esc(k == 'lib' ? '自己搜索' : k == 'fav' ? '我喜欢的表情' : packMeta(k)?.name || k)}</span><input type="checkbox" class="sw" data-a="stkt" data-x="${esc(k)}" ${(ch.cfg.stkOff || []).includes(k) ? '' : 'checked'}></label>`).join('')}</div>`],
       ['reply', '回复设置', `<div class="row rng"><span>回复条数</span><i>最少</i><input type="number" min="1" data-k="cfg.rmin" value="${esc(ch.cfg.rmin ?? 1)}"><i>最多</i><input type="number" min="1" data-k="cfg.rmax" value="${esc(ch.cfg.rmax ?? 5)}"></div>
 <div class="row rng"><span>语音条数</span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
       ['rd', '互动', (sty(ch) == 'wx' ? '' : f.tog('cfg.read', '显示已读 / 未读')) + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
@@ -414,6 +424,7 @@ export function cset(ch) {
       mdel: (i, t, e, pg) => { ch.members = ch.members.filter(x => x != i); ch.admins = ch.admins.filter(x => x != i); saveD(); pg.re(); },
       madd: async (x, t, e, pg) => { const k = await menu(D().chats.filter(c => c.type == 'p' && !ch.members.includes(c.id)).map(c => [c.id, esc(nm(c))]), '邀请成员'); if (!k) return; ch.members.push(k); ch.msgs.push({ f: 'sys', t: 'sys', c: `“${nm(meObj())}”邀请“${nm(get(k))}”加入了群聊`, ts: +now() }); saveD(); pg.re(); },
       impcss: async (x, t, e, pg) => { const fl = await pickFile('.css,text/css'); if (!fl) return; const a = { id: uid(), name: fl.name.replace(/\.\w+$/, ''), css: await fl.text() }; S.assets.bubble.push(a); ch.cfg.bub = a.id; C().saveSettingsDebounced(); saveD(); pg.re(); },
+      stkt: (k, t) => { const off = new Set(ch.cfg.stkOff || []); t.checked ? off.delete(k) : off.add(k); ch.cfg.stkOff = [...off]; saveD(); },
       clr: async () => { if (await ok('清空全部聊天记录？')) { drop(ch.msgs); ch.msgs = []; saveD(); toast('已清空'); } },
       rm: async () => { if (await ok('确定删除？')) { rm(ch); saveD(); back(); back(); } },
     },

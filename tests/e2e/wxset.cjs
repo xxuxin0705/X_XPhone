@@ -9,7 +9,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.goto('http://localhost:8821/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'wxset_' + n + '.png') });
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js');
-    core.S.lock.on = false; core.S.style = 'wx'; core.APPS.chat.open();
+    core.S.lock.on = false; core.S.style = 'wx'; core.S.assets.sticker = [{ id: 's1', name: '被拿捏', img: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' }]; core.APPS.chat.open();
     window._c = dt.add(dt.blank('p', { real: '坂田银时', nick: '草莓牛奶中毒中', remark: '天然卷白毛卷毛怪🍓', sign: 'JUMP周刊发售日别烦我', ps: '的钱包并发现只有一枚一円硬币和半张过期的优惠券', fr: 1 }));
     Object.assign(_c.cfg, { cont: true, showAv: false }); _c.msgs.push({ f: _c.id, t: 'text', c: 'a', ts: 1 }, { f: _c.id, t: 'text', c: 'b', ts: 2 }); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
   ok(await E(`document.querySelectorAll('.chat .msg .avw').length == 2 && [...document.querySelectorAll('.chat .msg .avw')].every(a => getComputedStyle(a).visibility != 'hidden') && !document.querySelector('.chat.cont, .chat.noav')`), '微信样式：旧设置里开着合并 / 隐藏头像也不生效，每条都带头像');
@@ -23,6 +23,22 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await shot('info');
   await E(`(() => { const t = document.querySelector('.ci textarea[data-k=wxid]'); t.value = 'gintoki_0110'; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true })); })()`); await W(200);
   ok(await E(`_c.wxid`) == 'gintoki_0110', '联系人的微信号也能改');
+  // 下半页全是输入框：在没点进去的输入框上右滑也能返回
+  ok(/自己搜索[\s\S]*我喜欢的表情/.test(await E(`document.querySelector('[data-sec=stk]')?.textContent || ''`)), '聊天设置有「表情包」：自己搜索 / 我喜欢的表情 / 我添加的组');
+  await E(`document.querySelector('[data-sec=stk] [data-x=fav]').click()`); await W(200);
+  ok(await E(`JSON.stringify(_c.cfg.stkOff)`) == '["fav"]', '取消勾选「我喜欢的表情」');
+  await E(`document.activeElement?.blur(); document.querySelector('.ci textarea[data-k=ps]').scrollIntoView({ block: 'center' })`); await W(200);
+  const bx = await E(`(() => { const r = document.querySelector('.ci textarea[data-k=ps]').getBoundingClientRect(); return [r.left + 20, r.top + r.height / 2]; })()`);
+  await p.mouse.move(...bx); await p.mouse.down(); for (let i = 1; i <= 10; i++) await p.mouse.move(bx[0] + i * 28, bx[1]); await p.mouse.up(); await W(600);
+  ok(await E(`!!core.top()?.chat`), '在拍一拍后缀（输入框）上右滑：返回到聊天');
+  // 表情：外语写的表情标签也认成表情包，翻译里的中文当关键词；拆剩的空壳不发
+  const pr = await E(`JSON.stringify(talk.parseReply('[絵文字: 金持ちになる] [翻译:[表情包:发财]]', _c).map(m => m.type + ':' + m.text))`);
+  ok(pr == '["sticker:发财"]', '「[絵文字: …] [翻译:[表情包:发财]]」→ 一个表情包「发财」，没有半截文字 ' + pr);
+  const sk = await E(`(async () => { const s = await import('/apps/chat/sticker.js'); return [await s.stkFind('完全不存在的东西qwxz'), !!(await s.stkFind('被拿捏', new Set(['fav']))), !!(await s.stkFind('被拿捏', new Set(['lib'])))]; })()`);
+  ok(sk[0] === '' && sk[1] && !sk[2], '搜不到就不发；只勾「我喜欢的表情」时只在里面找 ' + JSON.stringify(sk));
+  // 分组 + 朋友圈谁可以看
+  const cs = await E(`(() => { const a = dt.add(dt.blank('p', { real: 'A', fr: 1, grp: '同事' })), b = dt.add(dt.blank('p', { real: 'B', fr: 1 })), p = { vis: { m: 'only', g: ['同事'] } }, q = { vis: { m: 'not', g: ['同事'] } }; return [dt.canSee(p, a), dt.canSee(p, b), dt.canSee(q, a), dt.canSee(q, b), dt.grpNames().join()]; })()`);
+  ok(JSON.stringify(cs) == '[true,false,false,true,"我的好友,同事"]', '分组可见：只给同事看 / 不给同事看 ' + JSON.stringify(cs));
   await E(`core.home(); core.APPS.chat.open(); core.top().acts.wmi()`); await W(500);
   const me = await E(`core.top().el.textContent`);
   ok(/性别/.test(me) && /地区/.test(me) && /签名/.test(me) && /微信号/.test(me), '个人信息：有性别 / 地区 / 签名 / 微信号');
