@@ -172,7 +172,7 @@ ${PLATS.map(([n, d]) => `- ${n}：${d}`).join('\n')}
 /* ---------- 页面 ---------- */
 // 进来 / 加载：一个门上的猫眼。里面是模糊的帖子在往上滚，扒到的楼一条条从猫眼里漂过去；红色的圈在扫描
 const MSG = ['正在接入高维网络', '正在穿过第四面墙', '正在找到那个帖子', '正在扒楼'];
-const hole = (lines = '') => `<div class="ph"><div class="ph-in"><div class="ph-roll">${(lines || '<i></i>'.repeat(14)).repeat(2)}</div></div><i class="ph-scan"></i><i class="ph-glare"></i></div>`;
+const hole = (lines = '') => `<div class="eye-ph"><div class="ph-in"><div class="ph-roll">${(lines || '<i></i>'.repeat(14)).repeat(2)}</div></div><i class="ph-scan"></i><i class="ph-glare"></i></div>`;
 const entry = () => `<div class="efp">${hole()}<button class="efp-go" data-a="efgen">凑近看</button></div>`;
 const loading = () => `<div class="efp efp-ld"><b class="efp-x" data-a="efx">×</b>${hole()}<p class="efp-st"><span>${MSG[0]}</span><i class="efp-cur"></i></p><div class="efp-seg">${'<i></i>'.repeat(25)}</div></div>`;
 

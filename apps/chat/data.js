@@ -29,6 +29,8 @@ export const upsert = ({ lang, ...o }) => { const n = o.real || o.nick; let c = 
 export const member = (g, n) => { const c = upsert({ real: n, fr: 0 }); g.members.includes(c.id) || g.members.push(c.id); return c.id; };
 export const viewing = id => top()?.chat == id && ui.root.classList.contains('on');
 export const sty = c => c?.cfg?.style || S.style;
+// 实际生效的外观：微信样式只能调日间 / 夜间和背景，其余（合并连续消息、隐藏头像、气泡、头像形状、头像框）都按真微信来
+export const look = ch => sty(ch) == 'wx' ? { ...ch.cfg, cont: false, showAv: true, shape: '', avs: '', bub: '', frame: '' } : ch.cfg;
 export const who = (ch, f) => f == 'me' ? nm(meObj()) : nm(get(f));
 // 引用：记住被引用那条的 id（没有就现给一个），显示时按 id 取它现在的内容；w / c 是当时的样子，只在那条找不到时兜底
 export const qref = (ch, m) => ({ id: m.id ||= uid(), w: who(ch, m.f), c: brief(m).slice(0, 40) });

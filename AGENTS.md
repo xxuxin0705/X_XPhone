@@ -147,7 +147,7 @@ tests/           测试（见第五节）
 
 - `node tests/run.cjs music isle` 按改动范围选择测试组，不默认运行全量测试。修改部分及直接受影响流程测试通过后推送；只有用户要求时才运行 `node tests/run.cjs` 全量测试。
 - `tests/unit/*.mjs`：纯逻辑（Node 直接跑）。`tests/e2e/*.cjs`：Playwright + 模拟酒馆 `tests/e2e/st.html`，外网接口一律 `page.route` 模拟。
-- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8820，新文件用 8821 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
+- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8821，新文件用 8822 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
 - 模拟 AI：`core.S.api.chat.src = 'tavern'` 后替换 `SillyTavern.getContext().generateRaw`。
 - 模拟开机前已有的设置：`page.addInitScript(() => { window.__preset = { st_phone: {…} } })`。
 - 截图输出在 `tests/out/`（不提交）。

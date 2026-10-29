@@ -1,5 +1,5 @@
 // 消息 · 微信样式的外壳：底栏（微信 / 通讯录 / 发现 / 我）、发现页、「我」页，照着现在的微信来
-import { S, D, saveD, esc, page, fx, form, toast, avOf, meObj, emit, C, nm, back } from '../../core.js';
+import { S, D, saveD, esc, page, fx, form, toast, avOf, meObj, emit, C, nm, back, menu } from '../../core.js';
 import { openFeed, FA, postImages } from './feed.js';
 import { get, sty } from './data.js';
 import { openChat, cset } from './talk.js';
@@ -41,7 +41,18 @@ const sub = (title, body) => page({ title, cls: 'wxpg', model: () => D().me, bod
 export const WXA = {
   myfeed: () => openFeed('me'),
   wst: async (x, t, e) => { e?.stopPropagation(); const r = await form('设置状态', [['sign', '状态']], { sign: D().me.sign || '' }); if (r) { D().me.sign = String(r.sign || '').trim(); saveD(); emit('chat'); } },
-  wmi: () => sub('个人信息', () => { const f = fx(D().me), m = meObj(); return `<div class="wx-g"><div class="wx-r" data-a="img" data-x="av"><b>头像</b><span><img class="av" src="${esc(avOf(m))}"></span>${CH}</div>${f.inp('nick', '名字')}${f.inp('real', '真实姓名', 'text', C().name1 + '（默认酒馆里的名字）')}<div class="wx-r"><b>微信号</b><span>${esc(wxid(D().me))}</span></div></div><div class="wx-g">${f.inp('sign', '状态')}${f.inp('ps', '拍一拍', 'text', '如：的小脑袋')}</div>`; }),
+  // 个人信息（照微信「个人资料」）：一行一项，右边是内容（长了就换行，整段显示），点一下改
+  wmi: () => sub('个人信息', () => { const me = D().me, m = meObj(), r = (k, l, v, ph = '') => `<div class="wx-r wxi" data-a="wme" data-x="${k}"><b>${l}</b><span class="${v ? '' : 'emp'}">${esc(v || ph)}</span>${CH}</div>`;
+    return `<div class="wx-g"><div class="wx-r" data-a="img" data-x="av"><b>头像</b><span><img class="av" src="${esc(avOf(m))}"></span>${CH}</div>${r('nick', '名字', m.nick)}${r('real', '真实姓名', me.real, C().name1 || '')}${r('sex', '性别', me.sex)}${r('region', '地区', me.region)}${r('wxid', '微信号', wxid(me))}${r('ps', '拍一拍', me.ps)}${r('bio', '签名', me.bio)}</div>
+<div class="wx-g">${r('sign', '状态', me.sign)}</div>`; }),
+  wme: async (k, t, e, pg) => { const me = D().me;
+    if (k == 'sex') { const v = await menu([['男', '男'], ['女', '女'], ['n', '不显示']], '性别'); if (!v) return; me.sex = v == 'n' ? '' : v; }
+    else { const L = { nick: '名字', real: '真实姓名', region: '地区', wxid: '微信号', ps: '拍一拍', bio: '签名', sign: '状态' }[k], r = await form(L, [[k, L, k == 'bio' ? 'area' : 'text', { ps: '如：的小脑袋', region: '如：日本 横滨市', wxid: '6-20 位字母、数字、下划线或减号' }[k] || '']], { [k]: me[k] || '' }); if (!r) return;
+      let v = String(r[k] ?? '').trim(); if (k != 'bio') v = v.replace(/\s*\n\s*/g, ' ');
+      if (k == 'wxid') { if (!/^[A-Za-z0-9_-]{6,20}$/.test(v)) return toast('微信号要 6-20 位，只能用字母、数字、下划线或减号'); }
+      if (k == 'nick' && !v) return toast('名字不能为空');
+      me[k] = v; }
+    saveD(); emit('chat'); pg.re(); },
   wsv: () => sub('服务', () => `<div class="wsv"><div data-a="wwal"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M15.5 14.5h2.5"/></svg><b>钱包</b><small>¥${(+D().me.wallet || 0).toFixed(2)}</small></div></div>`),
   wwal: async (x, t, e, pg) => { const r = await form('零钱余额', [['w', '余额', 'number']], { w: D().me.wallet || 0 }); if (r && r.w !== '' && !isNaN(+r.w)) { D().me.wallet = +r.w; saveD(); pg.re(); toast('已修改'); } },
   wstk: () => minePage(),

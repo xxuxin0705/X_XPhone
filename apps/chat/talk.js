@@ -6,7 +6,7 @@ regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
-import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref } from './data.js';
+import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref, look } from './data.js';
 import { openFeed } from './chat.js';
 import { payPage, hbOpen, hbDetail, tfPage } from './pay.js';
 import { bridge as mzB } from '../music/music-share.js';
@@ -166,7 +166,7 @@ on('chat', () => { const t = top(); if (!t?.live) return; t.chat ? (t.reb(), $('
 
 /* ---------- 渲染 ---------- */
 export const tT = ts => { const d = new Date(ts); return (d.toDateString() == now().toDateString() ? '' : `${d.getMonth() + 1}月${d.getDate()}日 `) + hm(d); };
-const avH = (c, ch, id) => { const fr = S.assets.frame.find(a => a.id == ch.cfg.frame)?.img; return `<div class="avw" data-a="avc" data-x="${id}"><img class="av" src="${esc(avOf(c))}">${fr ? `<img class="frm" src="${esc(fr)}">` : ''}</div>`; };
+const avH = (c, ch, id) => { const fr = S.assets.frame.find(a => a.id == look(ch).frame)?.img; return `<div class="avw" data-a="avc" data-x="${id}"><img class="av" src="${esc(avOf(c))}">${fr ? `<img class="frm" src="${esc(fr)}">` : ''}</div>`; };
 // 表情包消息没有图（AI 发的、库里没有）：先在免费表情库里找，找不到再上网搜一张补上；每条只找一次
 const stkTry = new WeakSet(), stkDone = new WeakSet(), stkFill = m => { if (m.sk || stkTry.has(m) || !S.stk.auto || !m.c) return; stkTry.add(m); stkFind(m.c).then(r => { stkDone.add(m); r ? Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }) : r === '' && (m.sk = 1); saveD(); emit('chat'); }); };
 // 表情包图找不到 / 加载失败：像普通文字消息一样显示「[关键词]」，不再单独占一大块
@@ -210,7 +210,7 @@ const patShow = c => { const ps = (D().me.ps || '').trim(); c = String(c);
   if (/拍了拍(我|你)/.test(c)) return c.replace(/拍了拍(我|你).*$/, '拍了拍你' + ps);
   return /拍了拍/.test(c) ? c : c.replace(/^(“[^”]*”).*$/, `$1 拍了拍你${ps}`); };
 function msgs(ch, sel) {
-  let p, o = ''; const cf = ch.cfg, g = ch.type == 'g', me = meObj(), bub = S.assets.bubble.find(a => a.id == cf.bub);
+  let p, o = ''; const cf = look(ch), g = ch.type == 'g', me = meObj(), bub = S.assets.bubble.find(a => a.id == cf.bub);
   ch.msgs.forEach((m, i) => {
     const gap = !p || m.ts - p.ts > 3e5; gap && (o += `<div class="tm">${tT(m.ts)}</div>`);
     if (m.t == 'pat' || m.t == 'sys') o += `<div class="sys ${m.t} ${sel?.has(i) ? 'on' : ''}" ${sel ? 'data-a="msel"' : 'data-lp="slp"'} data-x="${i}">${sel ? '<i class="mck"></i>' : ''}${m.hb ? `<i class="hbic"></i>${esc(m.c).replace(/红包$/, '<em>红包</em>')}` : esc(m.t == 'pat' ? patShow(m.c) : m.c)}${m.old != null && m.f == 'me' ? ` <b data-a="redit" data-x="${i}">重新编辑</b>` : ''}</div>`;
@@ -229,7 +229,7 @@ function msgs(ch, sel) {
 let avL, avT;
 export function openChat(id) {
   const ch = get(id); if (!ch) return; if (top()?.cls != 'chatapp') { home(); APPS.chat.open(); } ch.unread = 0; saveD(); qFix(ch);
-  const cf = ch.cfg, cls = () => `chat st-${sty(ch)} ${ch.type == 'g' ? 'grp' : ''} ${cf.dark ? 'dark' : ''} sh-${cf.shape || 'def'} av-${cf.avs || 'def'} ${cf.showAv ? '' : 'noav'} ${cf.cont ? 'cont' : ''}`;
+  const cf = ch.cfg, cls = () => { const L = look(ch); return `chat st-${sty(ch)} ${ch.type == 'g' ? 'grp' : ''} ${L.dark ? 'dark' : ''} sh-${L.shape || 'def'} av-${L.avs || 'def'} ${L.showAv ? '' : 'noav'} ${L.cont ? 'cont' : ''}`; };
   let ptab = null, q = null; const pkC = {};
   let sel = null; // 多选时是选中消息下标的 Set
   const selable = () => ch.msgs.map((m, k) => k);
@@ -383,21 +383,26 @@ function trSec(ch, f, g) {
   return f.tog('cfg.trFollow', `成员消息跟随各自私聊的翻译设置${c.trFollow !== false && ms ? `<small>${ms}</small>` : ''}`)
     + (c.trFollow === false ? f.sel('cfg.lang', '成员消息统一翻译为', LANGS) : '') + auto + mine;
 }
+// 聊天设置 · 基本信息：标签在上、内容在下占满一行，写多长都整段显示（自动长高，不截成省略号）；回车不换行
+const ci = (o, k, l, ph = '') => `<label class="ci"><span>${l}</span><textarea rows="1" data-k="${k}" data-one placeholder="${esc(ph)}">${esc(o[k] ?? '')}</textarea></label>`;
+export const ciGrow = el => el.querySelectorAll('textarea[data-one]').forEach(t => { const g = () => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }; requestAnimationFrame(g); t.addEventListener('input', g); t.onkeydown = e => e.key == 'Enter' && e.preventDefault(); });
 export function cset(ch) {
   const f = fx(ch), g = ch.type == 'g', mem = () => ch.members.map(i => [i, nm(get(i))]);
   page({
-    title: g ? '群聊设置' : '聊天设置', model: () => ch, onClose: () => setTimeout(() => top()?.re()),
+    title: g ? '群聊设置' : '聊天设置', model: () => ch, onClose: () => setTimeout(() => top()?.re()), after: ciGrow,
     onChange: k => (/^cfg\.(lang|trFollow|trAuto|trMine|trTo)$/.test(k) && D().chats.forEach(retrans), /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; })),
     body: () => sec('cset', [
-      ['info', '基本信息', g ? f.img('av', '群头像') + f.inp('name', '群名') + f.inp('no', '群号') + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
-        : f.img('av', '头像') + f.inp('nick', '昵称（网名）') + f.inp('real', '真实姓名') + f.inp('remark', '备注') + f.inp('sign', '个性签名') + f.inp('grp', '分组', 'text', '我的好友') + f.inp('ps', '拍一拍后缀', 'text', '如：的小脑袋') + f.sel('sex', '性别', [['', '未知'], ['男', '男'], ['女', '女']])],
+      ['info', '基本信息', g ? `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'name', '群名')}${ci(ch, 'no', '群号')}</div></div>` + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
+        : `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'remark', '备注')}${ci(ch, 'nick', '昵称（网名）')}</div></div>`
+          + `<div class="ci-l">${ci(ch, 'real', '真实姓名')}${ci(ch, 'wxid', '微信号', '没填就随机生成')}${ci(ch, 'grp', '分组', '我的好友')}${ci(ch, 'sign', '个性签名')}${ci(ch, 'ps', '拍一拍后缀', '如：的小脑袋')}<div class="ci"><span>性别</span>${f.seg('sex', [['', '未知'], ['男', '男'], ['女', '女']])}</div></div>`],
       g && ['mem', `群成员 · ${gsz(ch)}`, `<div class="mems">${ch.members.map(i => `<div class="mem"><img class="av" src="${esc(avOf(get(i)))}"><b>${esc(nm(get(i)))}${get(i)?.cfg?.lang ? ` <small>${lname(get(i).cfg.lang)}</small>` : ''}</b>${get(i)?.fr === 0 ? `<em class="mfr" data-a="mfr" data-x="${i}">加好友</em>` : ''}<input data-k="titles.${i}" value="${esc(ch.titles[i] || '')}" placeholder="群头衔"><i data-a="mdel" data-x="${i}">×</i></div>`).join('')}</div>${gsz(ch) > ch.members.length + 1 ? `<p class="tip">还有 ${gsz(ch) - ch.members.length - 1} 位群成员没在剧情里出现，已折叠</p>` : ''}${f.inp('size', '群人数', 'number', String(ch.members.length + 1))}${btn('madd', '＋ 邀请成员')}`],
       !g && ['voice', '专属音色', vSec(ch, f)],
       ['tr', '翻译', trSec(ch, f, g)],
       ['reply', '回复设置', `<div class="row rng"><span>回复条数</span><i>最少</i><input type="number" min="1" data-k="cfg.rmin" value="${esc(ch.cfg.rmin ?? 1)}"><i>最多</i><input type="number" min="1" data-k="cfg.rmax" value="${esc(ch.cfg.rmax ?? 5)}"></div>
 <div class="row rng"><span>语音条数</span><i>最少</i><input type="number" min="0" data-k="cfg.vmin" value="${esc(ch.cfg.vmin ?? 0)}"><i>最多</i><input type="number" min="0" data-k="cfg.vmax" value="${esc(ch.cfg.vmax ?? 1)}"></div>`],
       ['rd', '互动', (sty(ch) == 'wx' ? '' : f.tog('cfg.read', '显示已读 / 未读')) + f.tog('cfg.pat', g ? '允许群成员拍一拍我' : '允许对方拍一拍我') + ''],
-      ['look', '美化', f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
+      // 微信样式的美化只留日间 / 夜间和聊天背景（每条消息都带头像、不合并，跟真微信一样）；其他样式照旧
+      ['look', '美化', sty(ch) == 'wx' ? `<div class="row"><span>显示</span>${f.seg('cfg.dark', [['', '日间'], ['1', '夜间']])}</div>` + f.img('cfg.bg', '聊天背景') : f.sel('cfg.style', '风格', [['', '跟随默认'], ...STY]) + f.sel('cfg.bub', '气泡样式', [['', '默认'], ...S.assets.bubble.map(a => [a.id, a.name])]) + '<div class="col"><span>气泡形状</span>' + f.seg('cfg.shape', [['', '默认'], ['round', '圆润'], ['sq', '方形'], ['tail', '尖角']]) + '</div><div class="col"><span>头像形状</span>' + f.seg('cfg.avs', [['', '默认'], ['ci', '圆形'], ['sq', '方形']]) + '</div>'
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],
       ['link', '正文联动', f.tog('cfg.inj', '整个聊天注入正文') + ``],

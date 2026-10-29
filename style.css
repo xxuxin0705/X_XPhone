@@ -1645,7 +1645,7 @@ html{min-height:100%;min-height:100dvh}
 .hbs .pay-err{position:static;margin:-6px -12px 6px}
 .hbs-r,.hbs-c{background:#fff;border-radius:8px;margin-top:12px}.hbs-c .hbs-r{margin:0}
 .hbs-r{display:flex;align-items:center;gap:6px;height:56px;padding:0 16px;font-size:calc(16px*var(--fz,1));color:#191919;cursor:pointer}
-.hbs-r>span{flex:1}.hbs-r .pay-n{font:500 16px/1 -apple-system,sans-serif}.hbs-r .pay-n.ph{color:#c8c8c8;font-weight:400}
+.hbs-r>span{flex:1}.hbs-r .pay-n{font:500 16px/1 -apple-system,sans-serif}.hbs-r .pay-n.emp{color:#c8c8c8;font-weight:400}
 .hbs .pay-cur{width:1.5px;height:20px;margin-left:-4px;background:#07c160;opacity:0}.hbs .pay-cur.on{opacity:1;animation:paycur 1s steps(1) infinite}
 .hbs-r.nt{cursor:auto}.hbs-in{flex:1;min-width:0;border:0!important;outline:0;background:none!important;padding:0!important;font-size:calc(16px*var(--fz,1));color:#191919;box-shadow:none!important}.hbs-in::placeholder{color:#b2b2b2}
 .hbs-sk{display:grid;place-items:center;width:40px;height:40px;margin-right:-6px;cursor:pointer}.hbs-sk svg{width:24px;height:24px;color:#555}.hbs-sk img{width:40px;height:40px;border-radius:4px;object-fit:cover}
@@ -1710,3 +1710,21 @@ html{min-height:100%;min-height:100dvh}
 
 .wxtp .pg-back,.paypg .pg-back,.paypg .pay-more{color:#191919}.hbd .pay-more{color:#fff}
 .hbs-in{text-align:left!important;flex:1 1 0!important;width:0!important}
+/* 聊天设置 · 基本信息：头像 + 备注 / 昵称一组，其余标签在上、内容在下，整段显示不截断 */
+.ci-top{display:flex;align-items:center;gap:14px;padding:4px 16px 8px}
+.ci-av{flex:none;cursor:pointer}.ci-av img{display:block;width:64px;height:64px;border-radius:14px;object-fit:cover}
+.ci-nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.ci{display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:11px 16px;position:relative;cursor:text}
+.ci-l .ci+.ci::before,.ci-l::before{content:'';position:absolute;left:16px;right:16px;top:0;border-top:.5px solid rgba(127,127,127,.16)}.ci-l{position:relative}
+.ci-nm .ci{padding:7px 0}.ci-nm .ci+.ci{border-top:.5px solid rgba(127,127,127,.16)}
+.ci>span{font-size:calc(12.5px*var(--fz,1));opacity:.5}
+#stp .ci textarea{max-width:none;width:100%;min-height:0;padding:0;border-radius:0;background:none;text-align:left;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-all;font-size:calc(16px*var(--fz,1));line-height:1.45}
+#stp .ci textarea::placeholder{opacity:.4}
+#stp .ci-nm .ci:first-child textarea{font-size:calc(18px*var(--fz,1));font-weight:600}
+.ci .seg{align-self:flex-start;margin-top:2px}
+/* 微信「个人信息」：右边内容长了换行，整段显示 */
+.wx-r.wxi>b{flex:1 0 auto}
+.wx-r.wxi>span{flex:0 1 auto;max-width:64%;justify-content:flex-end;padding:16px 0;text-align:right;white-space:normal;word-break:break-all;line-height:1.4}.wx-r.wxi>span.emp{color:#b2b2b2}
+/* 发红包 / 转账页：长按不选字（安卓会弹出圆形放大镜），输入框照常 */
+.paypg .pg-b,.paypg .pg-f{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#stp .paypg .hbs-in{-webkit-user-select:text;user-select:text}

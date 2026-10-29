@@ -66,7 +66,7 @@ export function payPage(to, kind, done) {
     else { if (/\.\d\d$/.test(v) || v.replace(/\..*/, '').length >= 6 && !v.includes('.')) return; v = v == '0' ? k : v + k; }
   };
   const sync = el => {
-    const n = $('.pay-n', el); n.textContent = hb ? (v ? '¥' + v : '¥0.00') : v; n.classList.toggle('ph', hb && !v);
+    const n = $('.pay-n', el); n.textContent = hb ? (v ? '¥' + v : '¥0.00') : v; n.classList.toggle('emp', hb && !v);
     $('.pay-cur', el)?.classList.toggle('on', kb);
     hb ? $('.hbs-big', el).innerHTML = `<i>¥</i>${yuan(num())}` : $('.pay-note', el).innerHTML = note ? `转账说明：${esc(note)} <u>修改</u>` : '添加转账说明';
     el.querySelectorAll('.pay-go').forEach(b => b.classList.toggle('dis', !(num() > 0) || over())); $('.pay-err', el)?.classList.toggle('on', over());
@@ -83,7 +83,7 @@ export function payPage(to, kind, done) {
   };
   const keys = `<div class="pay-k">${['1', '2', '3', 'del', '4', '5', '6', '7', '8', '9', '0', '.'].map(k => `<b data-a="pk" data-x="${k}" class="${k == 'del' ? 'del' : k == '0' ? 'zero' : ''}">${k == 'del' ? DEL : k}</b>`).join('')}<b class="pay-go dis" data-a="${hb ? 'pkok' : 'pgo'}">${hb ? '确定' : '转账'}</b></div>`;
   const hbBody = () => `<div class="hbs"><p class="pay-err">单个红包金额不可超过${HB_MAX}元</p>
-<div class="hbs-r" data-a="pfocus"><span>金额</span><b class="pay-n ph">¥0.00</b><em class="pay-cur"></em></div>
+<div class="hbs-r" data-a="pfocus"><span>金额</span><b class="pay-n emp">¥0.00</b><em class="pay-cur"></em></div>
 <div class="hbs-c"><div class="hbs-r nt"><input class="hbs-in" maxlength="25" placeholder="恭喜发财，大吉大利" value="${esc(note)}"><b class="hbs-sk" data-a="psk">${stk ? `<img src="${esc(stk.img)}">` : SMP}</b></div></div>
 <div class="hbs-c"><div class="hbs-r go"><span>红包封面</span><i class="hbs-ar"></i></div>${note ? '<div class="hbs-r sub go"><span>根据祝福语推荐</span><i class="hbs-cv"></i><i class="hbs-ar"></i></div>' : ''}</div>
 <div class="hbs-big"><i>¥</i>0.00</div><b class="hbs-go pay-go dis" data-a="pgo">塞钱进红包</b><p class="hbs-tip">未领取的红包，将于24小时后发起退款</p></div>`;
