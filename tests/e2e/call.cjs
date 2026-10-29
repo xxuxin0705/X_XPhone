@@ -10,7 +10,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.goto('http://localhost:8823/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'call_' + n + '.png') });
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.fav = await import('/apps/chat/fav.js');
-    core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; window._P = [];
+    core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; window._P = []; core.S.callAuto = false; window.cl = await import('/apps/chat/call.js');
     SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '喂？怎么突然打电话过来。' : '哈哈，真的吗。那你明天几点到？我去接你。'; };
     delete window.SpeechRecognition; delete window.webkitSpeechRecognition;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '徐鑫', nick: '绷带盐', fr: 1 })); window._k = dt.add(dt.blank('p', { real: 'Kiki', fr: 1 })); _c.msgs.push({ f: _c.id, t: 'text', c: '在吗', ts: Date.now() - 6e4 }); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
@@ -76,7 +76,24 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/最近6条/.test(await E(`_P.at(-1)`)), '打电话用轻一点的上下文（正文最近 6 条）');
   // 常驻前缀整场不变：两轮的系统提示一字不差，只有后面的「这通电话里说过的」在变
   ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && (h => h(a.prompt) === h(b.prompt))(p => p.split(/【想起来的旧事】|【这通电话里说过的】|刚刚说：|电话刚接通/)[0]) && /你在干嘛呀/.test(b.prompt); })()`), '两轮之间系统提示和前缀完全一样（缓存能命中），只有通话内容在变');
-  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition`);
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
+  // 自动接话（照 StarHub 示例，默认）+ 酒馆当前连接也走流式 + 字幕跟着声音一个字一个字出
+  await E(`(() => { core.S.callAuto = true; window._P0 = _P.length; window._D = []; window._busy = []; window._say = '我是螃蟹'; window._srN = 0;
+    window.webkitSpeechRecognition = class { start() { const me = this; _srN++; const t = _say; _say = ''; t && setTimeout(() => { me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: false })] }); setTimeout(() => me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: true })] }), 150); }, 200); } abort() {} stop() {} };
+    const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'makersuite', openai_max_tokens: 500, temp_openai: 1, reasoning_effort: 'high' }; X.getChatCompletionModel = () => 'gemini-test';
+    X.ChatCompletionService = { processRequest: async d => { _D.push(d); _busy.push(!!cl.inCall()?.rec); const first = /先开口/.test(JSON.stringify(d.messages));
+      return async function* () { if (first) { yield { text: '喂，' }; await new Promise(r => setTimeout(r, 400)); yield { text: '喂，吃完晚饭了没有？' }; } else yield { text: '好，那现在开始。' }; }; } }; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
+  await p.waitForFunction(`!!document.querySelector('.xc-tx .xc-r')`, null, { timeout: 8000 }); await W(300);
+  const part = await E(`document.querySelector('.xc-r').textContent`); await shot('reveal');
+  ok(part.length > 0 && part.length < '喂，吃完晚饭了没有？'.length, '字幕跟着声音一个字一个字出来（播到一半只出了一部分）：' + part);
+  ok(await E(`_D[0].stream === true && _D[0].reasoning_effort == 'min' && _D[0].chat_completion_source == 'makersuite' && _D[0].model == 'gemini-test' && _P.length == _P0`), '酒馆当前连接（聊天补全）也走流式：同一个来源和模型、低思考，不再走不能流式的 generateRaw');
+  ok(/自动接话/.test(await E(`document.querySelector('.xc-lang').textContent`)), '下面有「自动接话」开关');
+  await p.waitForFunction(`_D.length >= 2`, null, { timeout: 9000 }).catch(() => { });
+  ok(await E(`_D.length >= 2 && /我是螃蟹/.test(JSON.stringify(_D[1].messages))`), 'TA 说完自动开麦，我说完停 1.2 秒就自动发给 TA（不用点任何按钮） srN=' + await E(`_srN`));
+  ok(await E(`_busy.every(x => !x)`), '半双工：TA 想的时候麦是关着的（不会把外放的声音录进去）');
+  await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /正在听你说/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「正在听你说」');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);
   ok(await E(`core.D().favs.length == 1 && core.D().favs[0].src == '绷带盐'`), '收藏一条消息（记着来源）');

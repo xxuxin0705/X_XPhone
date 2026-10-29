@@ -416,6 +416,25 @@ async function stReq(id, sys, user, sig, cx, o) {
   for await (const v of r()) { out = v?.text || ''; const th = v?.state?.reasoning?.length || 0; th && o.onThink?.(th); out && o.onText?.(out); cx.part(out || `（模型正在思考，已经想了 ${th} 字。这是模型内部的思考过程，不是返回结果；想完才开始输出）`, th); }
   return out;
 }
+// 酒馆「当前连接」也能流式（只限聊天补全）：generateRaw 不支持流式，要一句一句出（打电话）就改用酒馆自带的 ChatCompletionService，
+// 参数照「API 连接」页当前的设置拿（同一个模型、同一个密钥、同一个代理），不切换、不改动酒馆的连接。文本补全 / 旧版酒馆没有这个服务 → 退回 generateRaw
+export const curStream = () => { try { const c = C(); return c.mainApi == 'openai' && !!c.ChatCompletionService?.processRequest && !!c.chatCompletionSettings?.chat_completion_source; } catch { return false; } };
+async function curReq(sys, user, sig, cx, o) {
+  const c = C(), s = c.chatCompletionSettings, src = s.chat_completion_source, sub = x => x && c.substituteParams ? c.substituteParams(x) : x;
+  const d = { stream: true, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], model: c.getChatCompletionModel?.() || s.openai_model, chat_completion_source: src,
+    max_tokens: +s.openai_max_tokens || 1024, temperature: +s.temp_openai || .9, include_reasoning: false, custom_prompt_post_processing: s.custom_prompt_post_processing, use_sysprompt: s.use_sysprompt,
+    ...(o.fast ? { reasoning_effort: 'min' } : s.reasoning_effort && { reasoning_effort: s.reasoning_effort }), // 低思考：Gemini / Claude / OpenAI 推理模型都按最小思考预算
+    ...(s.reverse_proxy && { reverse_proxy: s.reverse_proxy, proxy_password: s.proxy_password }),
+    ...(src == 'custom' && { custom_url: s.custom_url, custom_include_body: sub(s.custom_include_body), custom_exclude_body: sub(s.custom_exclude_body), custom_include_headers: sub(s.custom_include_headers) }),
+    ...(src == 'vertexai' && { vertexai_auth_mode: s.vertexai_auth_mode, vertexai_region: s.vertexai_region, vertexai_express_project_id: s.vertexai_express_project_id }),
+    ...['zai_endpoint', 'siliconflow_endpoint', 'minimax_endpoint', 'pollinations_endpoint'].reduce((a, k) => (s[k] && (a[k] = s[k]), a), {}) };
+  let r; try { r = await c.ChatCompletionService.processRequest(d, {}, true, sig); }
+  catch (e) { if (sig?.aborted) throw sig.reason || e; throw Error(String(e?.cause?.message || e?.message || e)); }
+  if (typeof r != 'function') return r?.content ?? '';
+  let out = '';
+  for await (const v of r()) { out = v?.text || ''; const th = v?.state?.reasoning?.length || 0; th && o.onThink?.(th); out && o.onText?.(out); cx.part(out || `（模型正在思考，已经想了 ${th} 字）`, th); }
+  return out;
+}
 // 本次调用走哪条线：生成用模型（aux）> 聊天模型；酒馆模式下可指定某个连接配置，不指定就用酒馆当前连接
 const route = (aux, use) => {
   const a = S.api.chat, x = use || aux && a.aux || ''; // use：某个功能单独选的模型（同 aux 的写法：配置 id / st:酒馆配置 id），空就照常
@@ -449,6 +468,8 @@ export const llm = (sys, user, desc = '聊天', sg, o = {}) => {
   const key = R.raw ? 'raw' : R.st ? 'st:' + R.st.id : 'p:' + p.id + ':' + p.model;
   const imgs = o.images?.length && !noVision.has(key) ? (await Promise.all(o.images.map(u => imgData(u).catch(() => null)))).filter(Boolean) : [];
   const once = async img => {
+    if (R.raw && o.stream && !img.length && curStream()) { let got = false; // 流式走不通（比如酒馆版本差异）且还没出字：退回 generateRaw 再来一次
+      try { return await curReq(sys, user, sig, cx, { ...o, onText: t => { got = true; o.onText?.(t); } }); } catch (e) { if (sig?.aborted || got) throw e; cx.part('（流式没走通，改成整段返回：' + e.message + '）', 0); } }
     if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: user });
     if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : user, sig, cx, o);
     const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : user }], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
