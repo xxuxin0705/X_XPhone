@@ -13,6 +13,8 @@ const css = () => new Promise(r => { const old = document.querySelector('link[da
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
 let pxReady; const pxFont = () => pxReady ||= (async () => { try { const f = new FontFace('xp-px', `url("${PXF}") format("woff")`); await f.load(); document.fonts.add(f); } catch {} })();
+// 样式表和像素字在插件一加载就开始拿（不等点图标）：不然第一次点的时候要等它们下完，看着像没反应
+let cssReady; const warm = () => { cssReady ||= css(); pxFont(); }; setTimeout(warm, 300);
 // 作品形态 / 身份 / 第四面墙 / 原著线 跟着聊天走（每个聊天是一个新的故事）；片头开关是全局设置
 const ST = () => D().eye ||= { form: '', role: 'viewer', wall: false, src: 'orig' };
 const INTRO_ON = () => (S.eye ||= {}).intro !== false;
@@ -204,10 +206,11 @@ ${INTRO_ON() && !played ? introHtml() : ''}
 <div class="eye-top"><b class="eye-back ${focused ? 'show' : ''}" data-a="eback">‹ 回到客厅</b><span class="eye-brand"><i></i>窥探之眼<small>${has ? esc(FN[st.form]) + ' · ' + esc(FM[st.form].unit) : '选一部作品'}</small></span></div>
 </div>`; };
 
+let opening = false;
 reg({
   id: 'eye', name: '窥探之眼',
   icon: `<img src="${IMG('icon')}" alt="">`,
-  open: async () => { await css(); pxFont(); ['guide', ...Object.values(SWAP)].forEach(f => { const i = new Image(); i.src = SWIMG(f); i.decode?.().catch(() => {}); }); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
+  open: async () => { if (opening) return; opening = true; warm(); try { await cssReady; } finally { opening = false; } ['guide', ...Object.values(SWAP)].forEach(f => { const i = new Image(); i.src = SWIMG(f); i.decode?.().catch(() => {}); }); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
     ez: (k, t, e, pg) => { if (!ST().form) return; focus(pg.el, k == focused ? '' : k); },
     eback: (x, t, e, pg) => back(pg.el),
     gpick: (k, t, e, pg) => pickForm(pg.el, k),

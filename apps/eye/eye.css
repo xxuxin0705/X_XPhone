@@ -87,14 +87,13 @@
 .eye-guide.in { opacity: 1; pointer-events: auto; }
 .eye-guide > .bleed { position: absolute; left: -10%; top: -10%; width: 120%; height: 120%; object-fit: cover; filter: blur(22px) brightness(.25); pointer-events: none; }
 .gfit { position: absolute; left: 50%; top: 50%; width: var(--fw, 100%); aspect-ratio: 1024 / 1466; transform: translate(-50%, -50%) scale(1.32); transform-origin: 99% 40%; }
-.gbase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: brightness(.22) saturate(.45); pointer-events: none; transition: filter 1.2s; }
-.eye-guide.picked .gbase { filter: brightness(.3) saturate(.55); }
-.gcol { position: absolute; overflow: hidden; pointer-events: none; opacity: 0; -webkit-mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(transparent, #000 6%, #000 90%, transparent); -webkit-mask-composite: source-in; mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(transparent, #000 6%, #000 90%, transparent); mask-composite: intersect; animation: gidle 3.6s ease-in-out infinite; animation-delay: calc(var(--i) * .5s); }
+.gbase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: brightness(.15) saturate(.25); pointer-events: none; transition: filter 1.2s; }
+.eye-guide.picked .gbase { filter: brightness(.2) saturate(.4); }
+.gcol { position: absolute; overflow: hidden; pointer-events: none; opacity: 0; -webkit-mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(transparent, #000 6%, #000 90%, transparent); -webkit-mask-composite: source-in; mask: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent), linear-gradient(transparent, #000 6%, #000 90%, transparent); mask-composite: intersect; }
 .gcol img { position: absolute; max-width: none; height: auto; display: block; filter: brightness(1.2) saturate(1.15); }
-@keyframes gidle { 0%, 100% { opacity: 0 } 50% { opacity: .35 } }
 .gcol.on { animation: glit .8s steps(1) forwards; }
 @keyframes glit { 0% { opacity: .2 } 15% { opacity: 1 } 25% { opacity: .35 } 40%, 100% { opacity: 1 } }
-.eye-guide.picked .gcol:not(.on) { animation: none; opacity: .14; transition: opacity .4s; }
+.gcol:not(.on) { opacity: 0; transition: opacity .35s; }
 .gh { position: absolute; cursor: pointer; }
 .eye-guide.done .gh { pointer-events: none; }
 /* 每块面板下面的名字（像素字），选中的那个亮 */
