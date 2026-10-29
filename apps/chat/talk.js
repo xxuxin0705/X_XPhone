@@ -115,6 +115,7 @@ export async function retrans(ch) {
     try { const t = await mt(src, l); m.ml = l; t && t != src ? Object.assign(m, { orig: src, c: t }) : m.orig && (m.c = m.orig, delete m.orig); } catch { }
     m.tp = 0; saveD(); emit('chat');
   }
+  await qFix(ch);
 }
 const needMe = (ch, m) => { const l = ch.cfg.trMine && myLang(ch); return l && m.f == 'me' && /text|voice/.test(m.t) && !m.tp && /[\p{L}]/u.test(m.orig || m.c || '') && (m.ml || '') != l && l; };
 const zhOnly = (m, ch) => ch.cfg.trAuto === false && m.tr && m.f != 'me' && !m.orig; // 关着自动翻译：直接说中文
@@ -125,6 +126,22 @@ function qShow(ch, q) {
   if (!m && !q.id && q.c) { const hit = x => !/sys|pat/.test(x.t) && [brief(x), x.c, x.orig, x.tr].some(t => t && String(t).startsWith(q.c)); m = ch.msgs.find(hit); m && (q.id = m.id ||= uid()); }
   if (!m) return q;
   return { w: who(ch, m.f), c: m.t == 'sys' ? '该消息已撤回' : brief({ ...m, c: said(m, ch) }).slice(0, 40) };
+}
+// 旧引用（没存 id）的那条后来换了语言，文字已经对不上：把当时引用的那段免费机翻成中文，跟它前面同一个人每条消息的中文比，字最像的那条就是，补上 id
+// 偷懒：按字重合度猜，两条中文意思像但用字不同会猜不中（猜不中就照旧显示当时的文字）；新引用都存 id，不走这里
+const chars = t => new Set(String(t || '').replace(/[\s\p{P}\p{S}]/gu, ''));
+const like = (a, b) => { const A = chars(a), B = chars(b); let n = 0; A.forEach(c => B.has(c) && n++); return A.size && B.size ? 2 * n / (A.size + B.size) : 0; };
+export async function qFix(ch) {
+  let hit = 0;
+  for (const [i, m] of ch.msgs.entries()) {
+    const q = m.q; if (!q || q.id || q.miss || !q.c) continue;
+    qShow(ch, q); if (q.id) { hit = 1; continue; } // 文字还对得上
+    const pre = ch.msgs.slice(0, i).filter(x => !/sys|pat/.test(x.t)), same = pre.filter(x => who(ch, x.f) == q.w), cand = same.length ? same : pre;
+    let zh; try { zh = /[一-鿿]/.test(q.c) && !/[぀-ヿ가-힯]/.test(q.c) ? q.c : await mt(q.c, 'zh-CN'); } catch { continue; } // 机翻不通：下次再试
+    const sc = cand.map(x => Math.max(...[x.tr, x.orig, x.c].map(t => like(zh, t)))), best = Math.max(0, ...sc), k = sc.indexOf(best);
+    if (best > 0 && sc.filter(v => v == best).length == 1) { q.id = cand[k].id ||= uid(); hit = 1; } else q.miss = 1;
+  }
+  hit && (saveD(), emit('chat'));
 }
 export async function gen(ch) {
   clearTimeout(PEND.get(ch.id)); PEND.delete(ch.id);
@@ -211,7 +228,7 @@ function msgs(ch, sel) {
 /* ---------- 聊天窗口 ---------- */
 let avL, avT;
 export function openChat(id) {
-  const ch = get(id); if (!ch) return; if (top()?.cls != 'chatapp') { home(); APPS.chat.open(); } ch.unread = 0; saveD();
+  const ch = get(id); if (!ch) return; if (top()?.cls != 'chatapp') { home(); APPS.chat.open(); } ch.unread = 0; saveD(); qFix(ch);
   const cf = ch.cfg, cls = () => `chat st-${sty(ch)} ${ch.type == 'g' ? 'grp' : ''} ${cf.dark ? 'dark' : ''} sh-${cf.shape || 'def'} av-${cf.avs || 'def'} ${cf.showAv ? '' : 'noav'} ${cf.cont ? 'cont' : ''}`;
   let ptab = null, q = null; const pkC = {};
   let sel = null; // 多选时是选中消息下标的 Set

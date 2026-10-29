@@ -41,6 +41,10 @@ let reply = '';
   // 撤回后的引用
   await E(`(() => { const m = _c.msgs.find(m => m.tr == '你好呀'); Object.assign(m, { t: 'sys', c: '撤回了一条消息' }); core.emit('chat'); })()`); await W(400);
   ok((await qts()).some(t => t.endsWith('该消息已撤回')), '被引用的撤回了：显示「该消息已撤回」');
+  // 更旧的引用：存的是当时的韩语，那条现在已经是日语了（文字对不上）→ 机翻成中文按字比对找回
+  await E(`(() => { _c.cfg.trAuto = true; _c.msgs.push({ f: _c.id, t: 'text', c: '[ja]唔干嘛突然发消息过来', tr: '唔~ 干嘛，突然发消息过来。', ts: 20 }, { f: 'me', t: 'text', c: '哈哈', ts: 21, q: { w: core.nm(_c), c: '[ko]唔干嘛突然' } }); core.saveD(); })()`);
+  await E(`talk.qFix(_c)`); await W(600);
+  ok((await qts()).some(t => t.endsWith('[ja]唔干嘛突然发消息过来')), '换过语言的旧引用：找回那条，显示现在的日语');
   ok(errs.length == 0, '没有报错 ' + errs.join(' | '));
   console.log(`\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
 })();
