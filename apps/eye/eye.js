@@ -8,13 +8,13 @@
 // 内容都是样例；生成之后接
 import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
 
-const CSS = new URL('./eye.css?v=6', import.meta.url).href;
+const CSS = new URL('./eye.css?v=7', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
 let pxReady; const pxFont = () => pxReady ||= (async () => { try { const f = new FontFace('xp-px', `url("${PXF}") format("woff")`); await f.load(); document.fonts.add(f); } catch {} })();
 // 样式表和像素字在插件一加载就开始拿（不等点图标）：不然第一次点的时候要等它们下完，看着像没反应
-let cssReady; const warm = () => { cssReady ||= css(); pxFont(); }; setTimeout(warm, 300);
+let cssReady, cssOk = false; const warm = () => { cssReady ||= css().then(() => { cssOk = true; }); pxFont(); }; setTimeout(warm, 300);
 // 作品形态 / 身份 / 第四面墙 / 原著线 跟着聊天走（每个聊天是一个新的故事）；片头开关是全局设置
 const ST = () => D().eye ||= { form: '', role: 'viewer', wall: false, src: 'orig' };
 const INTRO_ON = () => (S.eye ||= {}).intro !== false;
@@ -29,6 +29,8 @@ const FM = {
   novel: { ep: '章', unit: '第三卷 · 第 41 章', where: '文库 · 连载中', plat: '文库', bs: '作者的话', who: '作者', tv: 'novel' },
   game: { ep: '章', unit: '第 4 章 · 雨夜', where: '游戏库 · 已发售', plat: '游戏库', bs: '开发者日志', who: '制作组', tv: 'game' },
 };
+// 茶几上五样东西的范围（一开始只有它们亮着）
+const GOBJ = { manga: [40, 57.3, 54.7, 64.4], game: [51.2, 61.4, 69.4, 68.9], novel: [62, 56, 76.2, 64.3], drama: [74.2, 60.4, 83.8, 69.9], anime: [85.9, 53.9, 94.8, 62.4] };
 // 选作品那张图上，每一列（面板 + 小图标 + 茶几上对应的东西）的范围，百分比：左 上 右 下
 const GCOL = { manga: [36.6, 40, 54.2, 64], game: [49.8, 40, 68.4, 68.4], novel: [63, 40, 75.2, 64], drama: [74.7, 40, 86.4, 69.2], anime: [86.4, 40, 99.4, 63] };
 const GHIT = { manga: [36, 40, 50, 68], game: [50, 40, 64, 68], novel: [64, 40, 75.5, 68], drama: [75.5, 40, 86.5, 70], anime: [86.5, 40, 99.5, 68] };
@@ -161,7 +163,7 @@ function guideHtml() {
   const g = IMG('guide');
   return `<div class="eye-guide ${ST().form ? '' : 'in'}"><img class="bleed" src="${g}" alt=""><div class="gfit"><img class="gbase" src="${g}" draggable="false" alt="">
 <div class="gtv"><p class="gq">在那个世界里，<br>这段剧情是一部……</p></div>
-${FORMS.map(([k], i) => { const [l, t, r, b] = GCOL[k]; return `<div class="gcol" data-x="${k}" style="${pct(GCOL[k])};--i:${i}"><img src="${g}" style="width:${10000 / (r - l)}%;left:${-l / (r - l) * 100}%;top:${-t / (b - t) * 100}%" alt=""></div>`; }).join('')}
+${FORMS.map(([k], i) => ['gobj', 'gcol'].map(c => { const z = (c == 'gobj' ? GOBJ : GCOL)[k], [l, t, r, b] = z; return `<div class="${c}" data-x="${k}" style="${pct(z)};--i:${i}"><img src="${g}" style="width:${10000 / (r - l)}%;left:${-l / (r - l) * 100}%;top:${-t / (b - t) * 100}%" alt=""></div>`; }).join('')).join('')}
 ${FORMS.map(([k, n]) => `<b class="gh" data-a="gpick" data-x="${k}" style="${pct(GHIT[k])}"></b><span class="gl" data-x="${k}" style="left:${(GCOL[k][0] + GCOL[k][2]) / 2}%">${n}</span>`).join('')}</div>
 <b class="gok" data-a="gok">确 认</b></div>`;
 }
@@ -183,6 +185,10 @@ function confirmForm(el) {
 }
 
 function mount(el) {
+  const st0 = $('.eye-stage', el); if (!st0 || st0._eye) return;
+  // 点图标后页面马上出来（黑的），样式表到了才显示内容、开始片头——不会再有「点了没反应」
+  if (!cssOk) return void cssReady.then(() => { cssOk = true; mount(el); });
+  st0.style.visibility = '';
   fitRoom(el); requestAnimationFrame(() => fitRoom(el)); const st = $('.eye-stage', el); if (!st || st._eye) return; st._eye = 1; new ResizeObserver(() => fitRoom(el)).observe(st);
   st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); st.style.setProperty('--mx', (e.clientX - r.left) / r.width * 100 + '%'); st.style.setProperty('--my', (e.clientY - r.top) / r.height * 100 + '%'); });
   let y0 = 0; st.addEventListener('pointerdown', e => { const c = e.target.closest('.holo'); y0 = c ? e.clientY : 0; });
@@ -191,7 +197,7 @@ function mount(el) {
   if (INTRO_ON() && !played) { played = true; intro(el); } else if (!ST().form) guide(el, true);
 }
 
-const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="--mx:50%;--my:50%">
+const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="--mx:50%;--my:50%;position:absolute;inset:0;background:#06070c${cssOk ? '' : ';visibility:hidden'}">
 <div class="eye-room" style="--s:1;--tx:0px;--ty:0px"><img class="bleed" src="${IMG('room')}" draggable="false" alt=""><div class="fit">
 <img class="base ${st.role == 'author' ? '' : 'in'}" src="${IMG('room')}" draggable="false" alt=""><img class="base ${st.role == 'author' ? 'in' : ''}" src="${IMG('room_author')}" draggable="false" alt="">
 <div class="tv-scr ${has ? 'lit' : ''}">${tvScreen()}</div>
@@ -206,11 +212,10 @@ ${INTRO_ON() && !played ? introHtml() : ''}
 <div class="eye-top"><b class="eye-back ${focused ? 'show' : ''}" data-a="eback">‹ 回到客厅</b><span class="eye-brand"><i></i>窥探之眼<small>${has ? esc(FN[st.form]) + ' · ' + esc(FM[st.form].unit) : '选一部作品'}</small></span></div>
 </div>`; };
 
-let opening = false;
 reg({
   id: 'eye', name: '窥探之眼',
   icon: `<img src="${IMG('icon')}" alt="">`,
-  open: async () => { if (opening) return; opening = true; warm(); try { await cssReady; } finally { opening = false; } ['guide', ...Object.values(SWAP)].forEach(f => { const i = new Image(); i.src = SWIMG(f); i.decode?.().catch(() => {}); }); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
+  open: () => { warm(); ['guide', ...Object.values(SWAP)].forEach(f => { const i = new Image(); i.src = SWIMG(f); i.decode?.().catch(() => {}); }); focused = ''; stack = []; played = false; return page({ title: '', cls: 'eye-pg', noBack: 1, body, after: mount, acts: {
     ez: (k, t, e, pg) => { if (!ST().form) return; focus(pg.el, k == focused ? '' : k); },
     eback: (x, t, e, pg) => back(pg.el),
     gpick: (k, t, e, pg) => pickForm(pg.el, k),
