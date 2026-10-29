@@ -2100,3 +2100,4 @@ html{min-height:100%;min-height:100dvh}
 .sd-ok{position:absolute;left:14px;right:14px;bottom:110px;z-index:83;display:flex;align-items:center;gap:8px;padding:12px 16px;border-radius:8px;background:rgba(40,40,40,.92);color:#fff;font-size:calc(14px*var(--fz,1));transition:opacity .25s}.sd-ok.out{opacity:0}.sd-ok i{font-style:normal}
 .tl i i.cl-i,.st-wx .tl i i.cl-i{width:28px;height:28px;border-radius:0;background:currentColor;font-size:0}
 .wx-i i.cl-i{display:block}
+.cl-lang{display:flex;align-items:center;gap:10px;font-size:calc(12px*var(--fz,1))}.cl-lang i{width:1px;height:10px;background:rgba(255,255,255,.35)}.cl-lang b{font-weight:400;opacity:.65;cursor:pointer}

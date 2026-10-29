@@ -34,6 +34,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 再打一次、拨号时取消
   await E(`document.querySelector('.clb').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=video]').click()`); await W(300); await E(`document.querySelector('.cl [data-k=end]').click()`); await W(400);
   ok(await E(`_c.msgs.at(-1).c == '已取消' && _c.msgs.at(-1).kind == 'video'`), '视频通话拨号时取消：「已取消」');
+  // 切句（照 StarHub 验收条件 01）：标点、括号、SAY/ZH 标记切在任意网络块之间，放出来的句子都完整，括号旁白不念
+  const cuts = await E(`(async () => { const m = await import('/apps/chat/call.js'), run = (mk, txt, n) => { const out = [], P = mk((t, tr) => out.push(tr ? t + '|' + tr : t)); for (let i = 0; i < txt.length; i += n) P.feed(txt.slice(i, i + n)); P.finish(); return out.map(x => x.replace(/[（(][^）)]*[）)]/g, '').trim()); };
+    const zh = '喂？（笑）怎么突然打电话过来。你那边下雨了吗，我这边刚停「真的」！最后一句没标点';
+    const pr = 'SAY: Take your time.\\nZH: 慢慢来。\\nSAY: I am listening.\\nZH: 我在听。';
+    return JSON.stringify([1, 2, 3, 7].map(n => [run(m.zhUnits, zh, n), run(m.pairUnits, pr, n)])); })()`);
+  ok(JSON.parse(cuts).every(([a, b]) => JSON.stringify(a) == JSON.stringify(['喂？', '怎么突然打电话过来。', '你那边下雨了吗，我这边刚停「真的」！', '最后一句没标点']) && JSON.stringify(b) == JSON.stringify(['Take your time.|慢慢来。', 'I am listening.|我在听。'])), '流式切句：每次只来 1 / 2 / 3 / 7 个字，切出来的句子都一样完整；外语原话和中文释义成对 ' + cuts.slice(0, 160));
   // 收藏
   await E(`fav.addFav(_c.msgs.find(m => m.c == '在吗'), _c)`); await W(200);
   ok(await E(`core.D().favs.length == 1 && core.D().favs[0].src == '绷带盐'`), '收藏一条消息（记着来源）');
