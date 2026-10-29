@@ -10,7 +10,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'callear_' + n + '.png') });
   // 假麦克风：一个持续的「嗡」声，音量由 window._loud 控制（0 = 安静，1 = 在说话）
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js');
-    core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar = 'model'; core.S.callNudge = false; window._P = []; window._loud = 0; window._gum = 0;
+    core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar2 = 'model'; core.S.callNudge = false; window._P = []; window._loud = 0; window._gum = 0;
     navigator.mediaDevices.getUserMedia = async c => { _gum++; const X = new AudioContext(), o = X.createOscillator(), g = X.createGain(), d = X.createMediaStreamDestination(); o.frequency.value = 220; o.connect(g); g.connect(d); o.start(); g.gain.value = 0; setInterval(() => { g.gain.value = _loud * .5 + .0005; }, 20); window._mic = c; return d.stream; };
     window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); return /先开口/.test(s) ? '喂？' : _mode == 'bye' ? '好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
     delete window.webkitSpeechRecognition;
@@ -66,7 +66,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.__TAURI__`);
   // 硅基识别（照 evolia 的伪流式）：边说边切片送去认、字边说边出来；说完整句当文字发给 TA（不带录音）
   const ASR = []; await ctx.route(/audio\/transcriptions/, async r => { const b = r.request().postDataBuffer()?.toString('utf8') || ''; ASR.push(b); const n = ASR.length; await new Promise(z => setTimeout(z, 150)); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text: n == 1 ? '我是' : '螃蟹' }) }); });
-  await E(`(() => { core.S.callEar = 'sf'; core.S.callAsr = { key: 'sk-test' }; _mode = ''; })()`);
+  await E(`(() => { core.S.callEar2 = 'sf'; core.S.callAsr = { key: 'sk-test' }; _mode = ''; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
   ok(/硅基识别/.test(await E(`document.querySelector('.xc-lang').textContent`)) && await E(`cl.inCall().ear == 'sf'`), '底部开关切到「硅基识别」');
   const n0s = await E(`_P.length`); await E(`_loud = 1`); await W(1300); await E(`_loud = 0`); await W(450); await E(`_loud = 1`); await W(300);
@@ -78,11 +78,11 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`_P.length`) == n0s + 1 && /我是螃蟹/.test(lp) && !/audio_url/.test(lp), '说完：整句「我是螃蟹」当文字发给 TA，不带录音');
   ok(/我是螃蟹/.test(await E(`document.querySelector('.xc-tx').innerText`)), '字幕里是认出来的整句');
   // TA 主动挂电话（学 evolia 的 call_control）：聊完了 TA 在最后写 [挂断]
-  await E(`_mode = 'bye'; core.S.callEar = 'model'`); await E(`(() => { const a = cl.inCall(); a.ear = 'model'; })()`); await W(1500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
+  await E(`_mode = 'bye'; core.S.callEar2 = 'model'`); await E(`(() => { const a = cl.inCall(); a.ear = 'model'; })()`); await W(1500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
   ok(await E(`!cl.inCall() && _c.msgs.at(-1).t == 'call'`) && !/挂断\]/.test(await E(`JSON.stringify(_c.msgs.at(-1).log)`)), 'TA 说「晚安」后在最后写 [挂断]：电话自己挂了，字幕和记录里不露标记');
   await E(`cl.inCall()?.hang?.()`); await W(300); await E(`_mode = ''`);
   // 说完等多久可以调：设成 1.6 秒，停 1.2 秒还不算说完，停够才发
-  await E(`(() => { core.S.callEar = 'model'; core.S.callGap = 1.6; _mode = ''; })()`);
+  await E(`(() => { core.S.callEar2 = 'model'; core.S.callGap = 1.6; _mode = ''; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
   const g0 = await E(`_P.length`); await E(`_loud = 1`); await W(800); await E(`_loud = 0`); await W(1250);
   ok(await E(`_P.length`) == g0 && await E(`cl.inCall().ph == 'rec'`), '说完等 1.6 秒：停了 1.2 秒还在听（不抢话）');

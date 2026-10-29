@@ -4,6 +4,7 @@
 // - 约 0.5 秒的「预卷」：开口前的那一小段也留着，开头几个字不会被吞
 // - 安静多久算说完可以调（S.callGap，默认 1 秒）；说得长（超过 2.5 秒）再多等 0.5 秒，免得我想一下就被抢话（学 voice-call-demo 的 AdaptiveEndpoint）；不到 0.35 秒的不算（咳嗽、碰到手机）；一句最长 30 秒
 // - 识别来源可以换：
+//     local：本地识别（sherpa-onnx 网页版，见 local-asr.js；学 AIRI）：手机上直接认，不联网、不花钱、不要密钥，边说边出字；认出来是空的就当是噪音
 //     model：整段录音交给聊天模型听（Gemini 能听音频；不另外调用）
 //     sf：硅基流动的免费识别模型（SenseVoiceSmall / TeleSpeechASR），「伪流式」边说边出字：
 //         切片 ≥1 秒且遇到 0.2 秒的小停顿就切一段送去认，或者连着说超过 3 秒、当前这帧不响时强制切；
@@ -39,11 +40,11 @@ export function toneOf(chunks, speak, total) { let q = 0, n = 0, pk = 0; for (co
   const rms = n ? Math.sqrt(q / n) : 0, pause = total ? 1 - speak / total : 0, L = [];
   if (rms > 0 && rms < .025 && pk < .18) L.push('声音偏轻'); if (rms >= .075 || pk >= .65) L.push('声音比较有力'); if (pause >= .42) L.push('停顿稍多'); else if (speak / Math.max(total, .01) >= .78 && rms >= .045) L.push('说得很连贯');
   return L.slice(0, 2).join('、'); }
-// o.ctx：通话的 AudioContext；o.kind()：'model' | 'sf'；o.mode()：'listen'（轮到我）| 'busy'（TA 在想 / 在说，可以插话）| 'off'；o.playing()：TA 的声音正在放
+// o.ctx：通话的 AudioContext；o.kind()：'local' | 'model' | 'sf'；o.local(onPartial)：开一段本地识别会话（没准备好返回 null）；o.mode()：'listen'（轮到我）| 'busy'（TA 在想 / 在说，可以插话）| 'off'；o.playing()：TA 的声音正在放
 // on(type, data)：start（开口了）/ level（音量 0~1）/ partial（边说边认出来的字）/ end（说完了，正在认）/ final（{ text?, chunks, sr }）/ short（太短不算）
 //                 duck / unduck / barge（插话：TA 被打断，开始听我说）/ asrerr（识别出错）
 export function makeEar(o, on) {
-  const E = { ms: null, nodes: null, fl: .004, pre: [], buf: [], on: 0, q: 0, sp: 0, ld: 0, bl: 0, duck: 0, slice: [], parts: [], chain: null, ep: 0, vmax: 0, at: 0, kind: '' };
+  const E = { ms: null, nodes: null, fl: .004, pre: [], buf: [], on: 0, q: 0, sp: 0, ld: 0, bl: 0, duck: 0, slice: [], parts: [], chain: null, ep: 0, sess: null, vmax: 0, at: 0, kind: '' };
   async function start() {
     if (E.ms) return;
     const st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
@@ -53,9 +54,10 @@ export function makeEar(o, on) {
     E.nodes = { src, pr, z }; pr.onaudioprocess = e => frame(e.inputBuffer.getChannelData(0), X.sampleRate); X.resume?.();
   }
   function stop() { const n = E.nodes; if (n) { n.pr.onaudioprocess = null; n.src.disconnect(); n.pr.disconnect(); n.z.disconnect(); } E.nodes = null; E.ms?.getTracks().forEach(t => t.stop()); E.ms = null; reset(); }
-  function reset() { E.on = 0; E.buf = []; E.slice = []; E.parts = []; E.pre = []; E.ld = 0; E.bl = 0; E.q = 0; E.sp = 0; if (E.duck) { E.duck = 0; on('unduck'); } E.ep++; }
+  function reset() { E.sess?.cancel(); E.sess = null; E.on = 0; E.buf = []; E.slice = []; E.parts = []; E.pre = []; E.ld = 0; E.bl = 0; E.q = 0; E.sp = 0; if (E.duck) { E.duck = 0; on('unduck'); } E.ep++; }
   // 开口：预卷 + 这一帧开始记
-  function begin(pre, sp) { E.on = 1; E.buf = pre.slice(); E.slice = pre.slice(); E.parts = []; E.chain = Promise.resolve(); E.q = 0; E.sp = sp; E.kind = o.kind(); E.ep++; on('start'); }
+  function begin(pre, sp, sr) { E.on = 1; E.buf = pre.slice(); E.slice = pre.slice(); E.parts = []; E.chain = Promise.resolve(); E.q = 0; E.sp = sp; E.kind = o.kind(); E.ep++; on('start');
+    if (E.kind == 'local') { E.sess?.cancel(); const ep = E.ep; E.sess = o.local?.(t => ep == E.ep && t && on('partial', t)) || null; E.sess && pre.forEach(f => E.sess.feed(f, sr)); } } // 本地识别：预卷也喂进去，开头几个字不丢
   // 伪流式：送一段去认，按顺序排队；前面认出来的字当 prompt
   function sendSlice(sr) {
     const ch = E.slice, ep = E.ep; E.slice = []; if (!ch.length) return;
@@ -66,6 +68,7 @@ export function makeEar(o, on) {
     const sp = E.sp, kind = E.kind; E.on = 0; E.buf = [];
     if (sp < EAR.MIN) { E.slice = []; E.ep++; return on('short'); }
     const tone = toneOf(buf, sp, buf.length * (2048 / sr));
+    if (kind == 'local' && E.sess) { const ss = E.sess, ep = E.ep; E.sess = null; on('end'); ss.end().then(t => { if (ep != E.ep) return; t ? on('final', { text: t, chunks: buf, sr, tone }) : on('short'); }); return; } // 认出来是空的：噪音，不算说话
     if (kind != 'sf') return on('final', { chunks: buf, sr, tone });
     on('end'); sendSlice(sr); const ep = E.ep; E.chain.then(() => ep == E.ep && on('final', { text: E.parts.join(''), chunks: buf, sr, tone }));
   }
@@ -75,19 +78,19 @@ export function makeEar(o, on) {
     const m = o.mode(); if (m == 'off') { if (E.on || E.bl || E.duck) reset(); return; }
     const th = Math.max(.012, E.fl * 3.2), f = d.slice(0);
     if (m == 'busy') { // 插话：门槛高一些（喇叭会漏进来一点 TA 的声音），两段式
-      if (E.on) { E.on = 0; E.buf = []; E.slice = []; }
+      if (E.on) { E.on = 0; E.buf = []; E.slice = []; E.sess?.cancel(); E.sess = null; }
       const play = o.playing(), thB = play ? Math.max(.03, th * 2.5) : th;
       E.pre.push(f); E.pre.length > Math.ceil(1.2 / fr) && E.pre.shift();
       E.bl = rms > thB ? E.bl + 1 : Math.max(0, E.bl - 1);
       if (play && !E.duck && E.bl >= EAR.DUCK_F) { E.duck = 1; on('duck'); }
       if (E.duck && E.bl == 0) { E.duck = 0; on('unduck'); }
-      if (E.bl >= (play ? EAR.CUT_F : EAR.CUT_F_THINK)) { const pre = E.pre, n = E.bl; E.pre = []; E.bl = 0; E.duck = 0; on('barge'); begin(pre, n * fr); }
+      if (E.bl >= (play ? EAR.CUT_F : EAR.CUT_F_THINK)) { const pre = E.pre, n = E.bl; E.pre = []; E.bl = 0; E.duck = 0; on('barge'); begin(pre, n * fr, sr); }
       return;
     }
     E.bl = 0; if (E.duck) { E.duck = 0; on('unduck'); }
     if (!E.on) { if (rms < th) E.fl = E.fl * .96 + rms * .04; E.pre.push(f); E.pre.length > Math.ceil(EAR.PRE / fr) && E.pre.shift(); E.ld = rms > th ? E.ld + 1 : 0;
-      if (E.ld >= 3) { const pre = E.pre; E.pre = []; begin(pre, E.ld * fr); } return; } // 连着 3 帧（约 0.13 秒）够响：开口了
-    E.buf.push(f); E.slice.push(f); rms > th * .7 ? (E.q = 0, E.sp += fr) : (E.q += fr);
+      if (E.ld >= 3) { const pre = E.pre; E.pre = []; begin(pre, E.ld * fr, sr); } return; } // 连着 3 帧（约 0.13 秒）够响：开口了
+    E.buf.push(f); E.slice.push(f); E.sess?.feed(f, sr); rms > th * .7 ? (E.q = 0, E.sp += fr) : (E.q += fr);
     on('level', Math.min(1, rms / (th * 4)));
     if (E.kind == 'sf') { const sl = E.slice.length * fr; if ((sl >= EAR.SLICE_MIN && E.q >= EAR.SLICE_GAP) || (sl >= EAR.SLICE_MAX && rms <= th * .7)) sendSlice(sr); }
     if (E.q >= (+S.callGap || EAR.END) + (E.sp > EAR.LONG ? EAR.LONG_ADD : 0) || E.buf.length * fr >= EAR.MAX) end(sr);

@@ -136,3 +136,17 @@ evolia 是原生安卓，自己有录音权限，链路是 录音（AEC3 + 降�
 - **追问**（Brielle：最多追问 2 次）：TA 说完、我 8 秒不出声（输入法说 15 秒），TA 自然地问一句「还在吗」；最多两次，我一开口就重新算。`S.callNudge` 为 false 可以关。
 - **听语气标签**（voice-call-demo 的 ToneAccumulator）：按音量和停顿贴「声音偏轻 / 声音比较有力 / 停顿稍多 / 说得很连贯」，硅基识别时跟文字一起告诉模型（模型听本来就听得到语气，不用）。
 - 没做：Fish / MiniMax 的流式合成要走 WebSocket 并在请求头带密钥，浏览器的 WebSocket 加不了请求头，要中转服务器；小米 MiMo 识别、阿里 paraformer 实时识别要另外的账号；通话里的音效（「把猫叫来」有喵声）要音效素材，以后再说。
+
+## 2026-10-30（voice-v2 分支）：本地识别——在浏览器里自己认字（学 AIRI）
+
+- 起因：用户在浏览器（原生酒馆）里也听不到。浏览器自带识别要连谷歌；模型听要求聊天接口能转发音频（走 OpenAI 兼容中转时多半会被丢掉）；硅基识别要密钥。都不稳。
+- AIRI（moeru-ai/airi）在浏览器里用 VAD + sherpa-onnx 的 WebAssembly 本地识别。照这个做：
+  - 程序：sherpa-onnx v1.13.7 的网页版识别（GitHub Releases 上的 `sherpa-onnx-wasm-simd-v1.13.7-zh-en-asr-zipformer`），在后台线程（`apps/chat/asr-worker.js`）里跑，不卡界面。
+  - 模型：换成小号的流式中英双语 `sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16`：编码器 / 连接器 int8，解码器 fp32（int8 解码器实测会漏字），拼成 `asr/asr.data`（60MB），`asr-main.js` 里的文件清单改成这个包。程序 13MB。
+  - 放在插件的 `asr/` 文件夹里：酒馆「切换分支」后文件就在扩展文件夹里，浏览器同源读取，没有跨域问题，读过一次浏览器缓存。找不到时退到 raw.githubusercontent.com（允许跨域）。
+  - `apps/chat/local-asr.js`：读文件（带进度）→ 起线程（`wasmBinary` / `getPreloadedPackage` 直接把程序和模型交进去，不让它自己下载）→ `session(onPartial)`：`feed(声音, 采样率)` 内部降到 16kHz，`end()` 补 0.4 秒静音把最后几个字推出来，交出整句。
+  - 耳朵（ear.js）加 `local`：开口时开会话并把预卷喂进去，说话时持续喂，字边说边冒出来；说完交整句；认出来是空的就当噪音（不发、不提示「没听清」）。打断、追问、说完等多久都照旧。
+- 默认识别方式改成本地识别（新的设置项 `S.callEar2`，以前选过别的也会先用本地识别）。第一次通话要读 73MB，状态行显示「正在准备本地识别… N%」；读不了自动换成模型听并说明原因。
+- 实测：用户录屏里的「喂你在干什么呢 / 喂喂听得到吗 / 为什么感觉听不到啊」全对，13.8 秒的话 2.3 秒认完；在真的 SillyTavern 1.18.0 + 假麦克风里走通（模型从扩展文件夹读到、边说边出字、整句交给模型）。
+- 测试：`callasr`（8825）用 sherpa-onnx 自带的测试录音（Apache-2.0）当假麦克风，真的认字。
+- Tauri 里还是不行：TauriTavern 2.4.0 安卓安装包的权限里没有 RECORD_AUDIO（拆包确认），网页拿不到麦克风。
