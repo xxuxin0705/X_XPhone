@@ -1,6 +1,7 @@
+import { streamSpeech, speechStyle } from './speech-stream.js';
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'voice-v2 · 10-30 · 14';
+export const VER = 'GPT · 10-30 · 通话重写 1';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -633,7 +634,9 @@ export const tts = (text, voice, sex, sg0, o = {}) => {
     if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`);
     const pk = voice ? { v: voice } : pickVoice(o.c, p, sex, o.app), v = pk.v, t = sayAs(text, o.c?.tv?.say), q = tq(p);
     if (o.c && pk.from == 'none') throw Error('还没给 TA 配音色');
-    const L = ttsLang(o, o.c?.tv?.lang), b = await (TTS[q.prov] || TTS.openai)({ ...q, ...(L && { lang: L }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
+    const L = ttsLang(o, o.c?.tv?.lang), cfg = { ...q, ...(L && { lang: L }) };
+    if (o.onPCM && await streamSpeech(cfg, t, v, sg, o.onPCM, xf, o.emotion)) return { pcm: true };
+    const style = speechStyle(cfg, t, o.emotion), b = await (TTS[q.prov] || TTS.openai)(cfg, style.text, v, sg); if (!b?.size) throw Error('音频为空');
     if (o.blob) return b; // 只要音频（聊天里的语音消息自己播、自己缓存）
     await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · ${p.name || p.prov} · 音色 ${v || '默认'}]`;
   }, sg0, pO);

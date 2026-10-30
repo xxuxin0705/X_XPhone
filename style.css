@@ -2041,7 +2041,6 @@ html{min-height:100%;min-height:100dvh}
 /* ---------- 通话（照微信录屏）：模糊头像铺底、中间头像名字、下面 麦克风 / 挂断 / 扬声器；图标抠自录屏 ---------- */
 .xc-i{display:inline-block;flex:none;width:26px;height:26px;background:currentColor;-webkit-mask:var(--ci) center/contain no-repeat;mask:var(--ci) center/contain no-repeat}
 .st-wx .tl i .pic-i{width:28px;height:28px}
-.xc-mi{display:inline-flex;align-items:center;gap:8px}.xc-mi .xc-i{width:20px;height:20px}.xc-ms{width:18px;height:18px}
 .xc{position:absolute;inset:0;z-index:74;color:#fff;overflow:hidden;opacity:0;transform:scale(.98);transition:opacity .22s,transform .25s var(--ease-out,ease)}.xc.in{opacity:1;transform:none}
 .xc-bg{position:absolute;inset:-40px;background:#333 center/cover;filter:blur(28px) brightness(.55);transform:scale(1.1)}
 .xc-video .xc-bg{inset:0;filter:none;transform:none}.xc-dim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.1) 40%,rgba(0,0,0,.45))}
@@ -2053,19 +2052,16 @@ html{min-height:100%;min-height:100dvh}
 .xc-dots{display:inline-flex;gap:6px}.xc-dots i{width:6px;height:6px;border-radius:50%;background:#fff;opacity:.3;animation:cl-dot 1.2s infinite}.xc-dots i:nth-child(2){animation-delay:.2s}.xc-dots i:nth-child(3){animation-delay:.4s}
 @keyframes cl-dot{30%{opacity:1}}
 .xc-ph{margin:0;font-size:calc(12.5px*var(--fz,1));opacity:.55}
-.xc-cap{margin:18px 0 0;max-width:100%;font-size:calc(16px*var(--fz,1));line-height:1.5;text-shadow:0 1px 4px rgba(0,0,0,.3)}.xc-cap small{display:block;font-size:calc(12px*var(--fz,1));opacity:.6}.xc-cap em{display:block;margin-top:4px;font-style:normal;font-size:calc(13.5px*var(--fz,1));opacity:.75}
 .xc-type{align-self:stretch;margin:0 16px;display:flex;gap:8px}
 #stp .xc-type input{flex:1;max-width:none;padding:10px 14px;border-radius:20px;background:rgba(255,255,255,.18);color:#fff;text-align:left}#stp .xc-type input::placeholder{color:rgba(255,255,255,.55)}
 .xc-type b{display:grid;place-items:center;padding:0 16px;border-radius:20px;background:#07c160;cursor:pointer}
 .xc-ctl{position:absolute;left:0;right:0;bottom:calc(30px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:14px}
-.xc-sw{font-weight:400;font-size:calc(13px*var(--fz,1));padding:6px 14px;border-radius:16px;background:rgba(0,0,0,.3);cursor:pointer}
 .xc-bts{display:flex;justify-content:space-around;width:100%;padding:0 18px}.xc-bts>b{display:flex;flex-direction:column;align-items:center;gap:9px;width:33%;font-weight:400;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .xc-c{display:grid;place-items:center;width:66px;height:66px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;transition:transform 120ms var(--ease-out)}.xc-bts>b:active .xc-c{transform:scale(.94)}
 .xc-bts>b.on .xc-c{background:#fff;color:#111}.xc-c.red{background:#fa5151}.xc-c .xc-i{width:30px;height:30px}.xc-c svg{width:30px;height:30px}
 .xc-i.off{position:relative;opacity:.9}.xc-c .xc-i.off+*{display:none}
 .xc-bts>b:not(.on) .xc-c:has(.off)::after{content:'';position:absolute;width:34px;height:2px;background:#fff;transform:rotate(45deg)}.xc-c{position:relative}
 .xc-bts small{font-size:calc(12.5px*var(--fz,1));opacity:.85}
-.xc-kb{font-weight:400;font-size:calc(12.5px*var(--fz,1));opacity:.65;cursor:pointer}
 /* 缩小：右上角一个小窗，显示头像和时长，点一下回来 */
 .xc.mini{inset:auto 10px auto auto;top:calc(var(--sbh) + 52px);width:78px;height:104px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer}
 .xc.mini>*:not(.xc-bg):not(.xc-mini):not(.xc-v),.xc.mini>.xc-v>*:not(.xc-bg){display:none}.xc.mini .xc-bg{inset:0;filter:blur(8px) brightness(.5);transform:none}
@@ -2101,42 +2097,23 @@ html{min-height:100%;min-height:100dvh}
 .tl i i.xc-i,.st-wx .tl i i.xc-i{width:28px;height:28px;border-radius:0;background:currentColor;font-size:0}
 .wx-i i.xc-i{display:block}
 .xc-lang{display:flex;align-items:center;gap:10px;font-size:calc(12px*var(--fz,1))}.xc-lang i{width:1px;height:10px;background:rgba(255,255,255,.35)}.xc-lang b{font-weight:400;opacity:.65;cursor:pointer}
-/* 通话字幕：这通电话里说过的话，最新的在最下面；外语下面一行中文 */
-.xc-tx{width:100%;max-height:30vh;margin-top:14px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;text-align:left;-webkit-mask:linear-gradient(transparent,#000 22%);mask:linear-gradient(transparent,#000 22%);scrollbar-width:none}
-.xc-tx p{margin:0;max-width:86%;align-self:flex-start;font-size:calc(15px*var(--fz,1));line-height:1.45;opacity:.6;text-shadow:0 1px 4px rgba(0,0,0,.3);transition:opacity .2s}
-.xc-tx p.now,.xc-tx p:last-child{opacity:1}.xc-tx p.me{align-self:flex-end;text-align:right;opacity:.55}.xc-tx p.ing{font-style:italic;opacity:.75}
-.xc-tx em{display:block;margin-top:2px;font-style:normal;font-size:calc(13px*var(--fz,1));opacity:.75}
-/* 通话：点这里说 / 说完了；想了几秒；提示 */
-.xc-talk{display:flex;gap:10px;justify-content:center;margin-bottom:4px}
-.xc-pill{display:inline-flex;align-items:center;gap:8px;min-width:150px;justify-content:center;padding:12px 22px;border-radius:26px;background:rgba(255,255,255,.92);color:#111;font-weight:500;font-size:calc(16px*var(--fz,1));cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform 120ms var(--ease-out),background .2s}
-.xc-pill:active{transform:scale(.96)}.xc-pill.go{background:#07c160;color:#fff}.xc-pill.sub{min-width:0;background:rgba(0,0,0,.35);color:#fff;font-weight:400}.xc-pill.dis{opacity:.45}
-.xc-pill .xc-i.sm{width:20px;height:20px}
-.xc-ts{font-style:normal;font-variant-numeric:tabular-nums;opacity:.9}
-.xc-tx p.xc-dg{margin-top:-4px;align-self:flex-end;text-align:right;font-size:calc(11.5px*var(--fz,1));line-height:1.45;opacity:.65}.xc-tx p.xc-dg:empty{display:none}
-.xc-hint{margin:6px 10px 0;font-size:calc(12px*var(--fz,1));line-height:1.5;opacity:.7}
-.xc-cur{display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-.15em;background:#fff;animation:xc-cur 1s steps(2) infinite}@keyframes xc-cur{to{opacity:0}}
-.xc-tx p.ing{opacity:.95;font-style:normal}
-
-/* 通话 · 输入法说（TauriTavern）：输入框做成字幕的样子，常驻不重建 */
+/* 通话字幕与常驻输入：390px 手机宽下给双方发言留出完整区域。 */
 .xc-v{display:contents}
-.xc-kb{position:absolute;left:24px;right:24px;bottom:calc(196px + env(safe-area-inset-bottom));display:block}
-#stp .xc-kb input{width:100%;max-width:none;box-sizing:border-box;padding:6px 2px;border:0;border-radius:0;border-bottom:1px solid rgba(255,255,255,.22);background:none;color:#fff;font:inherit;font-size:calc(15px*var(--fz,1));text-align:right;outline:none;caret-color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.3)}
-.xc-kb input::placeholder{color:rgba(255,255,255,.45)}
-#stp .xc-kb input:focus{border-bottom-color:rgba(255,255,255,.5)}
-.xc.pl .xc-kb{bottom:calc(254px + env(safe-area-inset-bottom))}
-/* 通话 · 模型听：说话时字幕位置是一排跟着音量跳的小竖条 */
-.xc-lv{display:inline-flex;gap:4px;align-items:center;height:18px;--lv:.2}
-.xc-lv i{width:3px;border-radius:2px;background:#fff;height:calc(4px + 14px * var(--lv));transition:height .08s}
-.xc-lv i:nth-child(2),.xc-lv i:nth-child(4){height:calc(4px + 10px * var(--lv))}.xc-lv i:nth-child(1),.xc-lv i:nth-child(5){height:calc(3px + 6px * var(--lv))}
-/* 通话 · 改听错的字 */
-.xc-tx p.me[data-k=fix]{cursor:pointer}
-.xc-fix{position:absolute;left:20px;right:20px;top:38%;z-index:3;padding:14px;border-radius:14px;background:rgba(30,30,34,.92);display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
-.xc-fix small{opacity:.65;font-size:calc(12px*var(--fz,1))}
-#stp .xc-fix input{width:100%;max-width:none;box-sizing:border-box;padding:9px 12px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;text-align:left;font-size:calc(15px*var(--fz,1))}
-.xc-fix div{display:flex;justify-content:flex-end;gap:10px}.xc-fix b{padding:6px 14px;border-radius:16px;background:rgba(255,255,255,.14);cursor:pointer;font-weight:500}.xc-fix b.ok{background:#07c160}
-.xc-hint{overflow-wrap:anywhere;max-height:4.5em;overflow:hidden}
-.xc-go{display:inline-block;margin:6px 0 0;padding:5px 12px;border-radius:14px;background:rgba(255,255,255,.18);font-weight:600;opacity:1;touch-action:manipulation}
-.xc-hint:has(.xc-go){max-height:none;opacity:.9}
+.xc-mid{top:calc(var(--sbh) + 58px);bottom:180px;gap:8px;min-height:0}
+.xc-av{width:72px;height:72px;flex:none}
+.xc-tx{width:100%;min-height:0;flex:1;margin-top:12px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;text-align:left;overflow-wrap:anywhere;scrollbar-width:thin}
+.xc-tx p{margin:0;max-width:90%;align-self:flex-start;font-size:calc(15px*var(--fz,1));line-height:1.5;text-shadow:0 1px 4px #0006}
+.xc-tx p.me{align-self:flex-end;text-align:right}.xc-tx p.ing{opacity:.7}
+.xc-tx small{display:block;margin-bottom:3px;font-size:calc(11px*var(--fz,1));opacity:.6}
+.xc-tx em{display:block;margin-top:3px;font-size:calc(13px*var(--fz,1));font-style:normal;opacity:.75}
+.xc-lang{flex-wrap:wrap;justify-content:center;gap:8px;padding:0 12px}.xc-lang b{padding:8px 3px;min-height:28px;display:inline-flex;align-items:center}
+.xc-entry{position:absolute;z-index:3;left:12px;right:12px;bottom:170px;margin:0;display:flex;gap:8px}.xc-entry[hidden]{display:none}
+#stp .xc-entry input{min-width:0;font-size:calc(15px*var(--fz,1))}
+.xc-entry button{border:0;border-radius:20px;padding:0 14px;background:#07c160;color:#fff;font:inherit;font-size:calc(14px*var(--fz,1));cursor:pointer}
+.xc-with-entry .xc-mid{bottom:230px}
+.xc.mini .xc-v>.xc-mid{display:flex;inset:6px;padding:0;gap:5px;justify-content:center}.xc.mini .xc-av{width:36px;height:36px}.xc.mini .xc-nm,.xc.mini .xc-ph,.xc.mini .xc-tx{display:none}.xc.mini .xc-st{font-size:calc(12px*var(--fz,1))}
+.xc [role=button]:focus-visible{outline:2px solid #fff;outline-offset:4px}
+
 /* 设置 · 免费模型 */
 .freem h6 .fm-on{margin-left:8px;padding:1px 7px;border-radius:9px;font-style:normal;font-size:calc(11px*var(--fz,1));background:var(--ac);color:#fff;vertical-align:1px}
 .freem .fm-l a.lnk{margin-left:auto;margin-right:14px}

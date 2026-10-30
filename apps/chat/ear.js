@@ -1,34 +1,16 @@
-// 小手机 · 通话的「耳朵」：麦克风 → 判断有没有人在说话（VAD）→ 交给识别
-// 照开源 App evolia 的 VoiceCallManager / OnlineASRProvider 拆出来（那边是原生安卓，这里用网页能做到的同样做法）：
-// - 麦克风开回声消除 / 降噪 / 自动增益；噪声底自适应（安静时慢慢学环境有多吵），比它响 3.2 倍才算有人说话
-// - 约 0.5 秒的「预卷」：开口前的那一小段也留着，开头几个字不会被吞
-// - 安静多久算说完可以调（S.callGap，默认 1 秒）；说得长（超过 2.5 秒）再多等 0.5 秒，免得我想一下就被抢话（学 voice-call-demo 的 AdaptiveEndpoint）；不到 0.35 秒的不算（咳嗽、碰到手机）；一句最长 30 秒
-// - 识别来源可以换：
-//     local：本地识别（sherpa-onnx 网页版，见 local-asr.js；学 AIRI）：手机上直接认，不联网、不花钱、不要密钥，边说边出字；认出来是空的就当是噪音
-//         小模型短句口语会认错字（「在干嘛呢」→「他干嘛嘛」）：有硅基密钥（o.polish() 为真）时，说完把整句录音再交给云端认一遍（免费，不到一秒），以云端为准；云端 1.5 秒没回或出错就用本地的
-//     model：整段录音交给聊天模型听（Gemini 能听音频；不另外调用）
-//     sf：硅基流动的免费识别模型（SenseVoiceSmall / TeleSpeechASR），「伪流式」边说边出字：
-//         切片 ≥1 秒且遇到 0.2 秒的小停顿就切一段送去认，或者连着说超过 3 秒、当前这帧不响时强制切；
-//         前面认出来的字当作 prompt 带上，接得上；说完把剩下的一段认完再交出整句
-// - TA 想 / 说的时候也在听（插话），两段式：连着响约 0.24 秒先把 TA 的声音压低（duck），
-//   连着响约 0.52 秒才真的打断（TA 在想时 0.42 秒）；中途不响了就把音量恢复（「嗯」一声不打断）
+// 通话收音：持续回声消除、自动多语言识别、语义停顿和插话；每段录音有独立取消信号。
 import { S, xf } from '../../core.js';
-
-export const EAR = { END: 1.0, LONG: 2.5, LONG_ADD: .5, MIN: .35, MAX: 30, PRE: .5, DUCK: .24, CUT: .52, CUT_THINK: .42, ON: .12, SLICE_MIN: 1, SLICE_GAP: .2, SLICE_MAX: 3 };
-
-// 硅基流动识别的配置：没单独填就用画图那里填过的硅基流动密钥，再没有就用「免费模型」里加过的硅基流动聊天配置的密钥（同一个密钥）
+import { endpointGap } from './call-flow.js';
 export const sfKey = () => S.api?.img?.cfg?.sf?.key || S.api?.chat?.list?.find(p => /api\.siliconflow\.(cn|com)/.test(p.url || '') && p.key)?.key || '';
-export const asrCfg = () => { const a = S.callAsr ||= {}; return { url: (a.url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''), key: a.key || sfKey(), model: a.model || 'FunAudioLLM/SenseVoiceSmall' }; };
-export async function sfAsr(chunks, sr, prompt = '', sg) {
-  const c = asrCfg(); if (!c.key) throw Error('还没填硅基流动的密钥');
-  const fd = new FormData(); fd.append('file', new Blob([wavBuf(chunks, sr)], { type: 'audio/wav' }), 'say.wav'); fd.append('model', c.model); prompt && fd.append('prompt', prompt.slice(-200));
-  const r = await xf(c.url + '/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + c.key }, body: fd, signal: sg });
-  if (!r.ok) throw Error(`识别失败 HTTP ${r.status} ${(await r.text().catch(() => '')).slice(0, 120)}`);
-  const j = await r.json(); return String(j.text || '').replace(/<\|[^|]*\|>/g, '').trim(); // SenseVoice 有时带 <|zh|><|NEUTRAL|> 这种标记
+export const asrCfg = () => { const a = S.callAsr || {}; return { url: (a.url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''), key: a.key || sfKey(), model: a.model || 'FunAudioLLM/SenseVoiceSmall' }; };
+export async function sfAsr(chunks, sr, prompt = '', signal) {
+  const c = asrCfg(); if (!c.key) throw Error('请先在语音识别设置里填写密钥');
+  const fd = new FormData(); fd.append('file', new Blob([wavBuf(chunks, sr)], { type: 'audio/wav' }), 'say.wav'); fd.append('model', c.model);
+  // 不传 language：每段录音独立自动识别语言，不沿用上一句的语言或内容。
+  const r = await xf(c.url + '/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + c.key }, body: fd, signal });
+  if (!r.ok) throw Error(`识别失败 HTTP ${r.status}`);
+  const j = await r.json(); return String(j.text || '').replace(/<\|[^|]*\|>/g, '').trim();
 }
-
-// 降采样到 16kHz：先低通（7kHz 以上滤掉，不然会折叠进来变成杂音、糊掉辅音），再按比例取点（比例不是整数时线性插值）。
-// 一次做一段，段与段之间的状态留着（滤波器的尾巴、取点的零头），所以边录边喂也接得上
 export function resampler(sr) {
   const OUT = 16000, r = sr / OUT; if (r <= 1) return f => Float32Array.from(f);
   const N = 32, h = new Float32Array(N + 1), fc = 7000 / sr; let sum = 0; // 33 抽头的加窗 sinc 低通
@@ -53,68 +35,66 @@ export function wavBuf(chunks, sr) {
 }
 export function wav(chunks, sr) { const u = new Uint8Array(wavBuf(chunks, sr)); let t = ''; for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return 'data:audio/wav;base64,' + btoa(t); }
 
-// 听语气（学 voice-call-demo 的 ToneAccumulator）：按音量和停顿给这句话贴一两个标签，只交文字的识别方式靠它让 TA 知道语气
-export function toneOf(chunks, speak, total) { let q = 0, n = 0, pk = 0; for (const c of chunks) for (let i = 0; i < c.length; i += 4) { const v = c[i]; q += v * v; n++; const a = Math.abs(v); a > pk && (pk = a); }
-  const rms = n ? Math.sqrt(q / n) : 0, pause = total ? 1 - speak / total : 0, L = [];
-  if (rms > 0 && rms < .025 && pk < .18) L.push('声音偏轻'); if (rms >= .075 || pk >= .65) L.push('声音比较有力'); if (pause >= .42) L.push('停顿稍多'); else if (speak / Math.max(total, .01) >= .78 && rms >= .045) L.push('说得很连贯');
-  return L.slice(0, 2).join('、'); }
-// o.ctx：通话的 AudioContext；o.kind()：'local' | 'model' | 'sf'；o.local(onPartial)：开一段本地识别会话（没准备好返回 null）；o.mode()：'listen'（轮到我）| 'busy'（TA 在想 / 在说，可以插话）| 'off'；o.playing()：TA 的声音正在放
-// on(type, data)：start（开口了）/ level（音量 0~1）/ partial（边说边认出来的字）/ end（说完了，正在认）/ final（{ text?, chunks, sr }）/ short（太短不算）
-//                 duck / unduck / barge（插话：TA 被打断，开始听我说）/ asrerr（识别出错）
+
 export function makeEar(o, on) {
-  const E = { ms: null, nodes: null, fl: .004, pre: [], buf: [], on: 0, q: 0, sp: 0, ld: 0, bl: 0, duck: 0, slice: [], parts: [], chain: null, ep: 0, sess: null, vmax: 0, at: 0, kind: '' };
-  async function start() {
-    if (E.ms) return;
-    const st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
-    // 麦克风挂在通话的时钟上（48k）；降到识别要的 16k 在 resampler() 里做。试过单独开一个 16k 的时钟让浏览器重采样：Chrome 里接上的那一路一直是静音，不用
-    const X = o.ctx; if (!X) { st.getTracks().forEach(t => t.stop()); throw Error('这个浏览器没有音频时钟'); }
-    E.ms = st; E.at = performance.now();
-    const src = X.createMediaStreamSource(st), pr = X.createScriptProcessor(2048, 1, 1), z = X.createGain(); /* 一帧约 43 毫秒 */ z.gain.value = 0; src.connect(pr); pr.connect(z); z.connect(X.destination); // 静音接到输出，处理器才会跑
-    E.nodes = { src, pr, z }; pr.onaudioprocess = e => frame(e.inputBuffer.getChannelData(0), X.sampleRate); X.resume?.();
+  let stream = null, nodes = null, closed = false, opening = null, epoch = 0, ac = null;
+  let pre = [], buf = [], active = false, floor = .003, onset = 0, quiet = 0, voiced = 0, length = 0, text = '', revision = 0, recognized = -1, lastRequest = 0, recognizing = false, ducked = false, ending = false, spill = [];
+  const reset = () => { epoch++; ending = false; spill = []; ac?.abort(); ac = null; active = false; pre = []; buf = []; onset = quiet = voiced = length = 0; text = ''; revision = 0; recognized = -1; recognizing = false; if (ducked) on('unduck'); ducked = false; };
+  async function recognize(sr) {
+    if (recognizing || !active || !buf.length) return;
+    const ep = epoch, rev = revision, chunks = buf.slice(), ctrl = ac = new AbortController(); recognizing = true; lastRequest = length;
+    const tm = setTimeout(() => ctrl.abort(), 8000);
+    try { const t = await (o.recognize || sfAsr)(chunks, sr, '', ctrl.signal);
+      if (closed || ep !== epoch || ctrl.signal.aborted) return;
+      text = t; recognized = rev; if (t) on('partial', t);
+    } catch (e) { if (!closed && ep === epoch && !ctrl.signal.aborted) { reset(); on('error', e); } else if (!closed && ep === epoch) { reset(); on('error', Error('语音识别超时')); } }
+    finally { clearTimeout(tm); if (ep === epoch) { recognizing = false; ac = null; maybeEnd(sr); } }
   }
-  function stop() { const n = E.nodes; if (n) { n.pr.onaudioprocess = null; n.src.disconnect(); n.pr.disconnect(); n.z.disconnect(); } E.nodes = null; E.ms?.getTracks().forEach(t => t.stop()); E.ms = null; reset(); }
-  function reset() { E.sess?.cancel(); E.sess = null; E.on = 0; E.buf = []; E.slice = []; E.parts = []; E.pre = []; E.ld = 0; E.bl = 0; E.q = 0; E.sp = 0; if (E.duck) { E.duck = 0; on('unduck'); } E.ep++; }
-  // 开口：预卷 + 这一帧开始记
-  function begin(pre, sp, sr) { E.on = 1; E.buf = pre.slice(); E.slice = pre.slice(); E.parts = []; E.chain = Promise.resolve(); E.q = 0; E.sp = sp; E.kind = o.kind(); E.ep++; on('start');
-    if (E.kind == 'local') { E.sess?.cancel(); const ep = E.ep; E.sess = o.local?.(t => ep == E.ep && t && on('partial', t)) || null; E.sess && pre.forEach(f => E.sess.feed(f, sr)); } } // 本地识别：预卷也喂进去，开头几个字不丢
-  // 伪流式：送一段去认，按顺序排队；前面认出来的字当 prompt
-  function sendSlice(sr) {
-    const ch = E.slice, ep = E.ep; E.slice = []; if (!ch.length) return;
-    E.chain = E.chain.then(async () => { if (ep != E.ep) return; try { const t = await sfAsr(ch, sr, E.parts.join('')); if (ep != E.ep) return; if (t) { E.parts.push(t); on('partial', E.parts.join('')); } } catch (e) { ep == E.ep && on('asrerr', e); } });
+  function maybeEnd(sr) {
+    if (!active || recognizing || quiet < endpointGap(text) / 1000 && length < 30) return;
+    if (voiced < .28) { reset(); on('short'); return; }
+    if (recognized !== revision) { recognize(sr); return; }
+    const t = text, rest = spill; reset(); t ? on('final', { text: t, sr }) : on('short'); for (const f of rest) frame(f, sr);
   }
-  function end(sr) {
-    const buf = E.buf.slice(0, Math.max(1, E.buf.length - Math.floor(Math.max(0, E.q - .25) / E.fr))); // 去掉末尾的静音
-    const sp = E.sp, kind = E.kind; E.on = 0; E.buf = [];
-    if (sp < EAR.MIN) { E.slice = []; E.ep++; return on('short'); }
-    const tone = toneOf(buf, sp, buf.length * E.fr);
-    if (kind == 'local' && E.sess) { const ss = E.sess, ep = E.ep; E.sess = null; on('end'); const pol = o.polish?.() ? polish(buf, sr) : Promise.resolve(''); ss.end().then(async t => { if (ep != E.ep) return; const c = t ? await pol : ''; if (ep != E.ep) return; c && c != t && on('partial', c); t ? on('final', { text: c || t, chunks: buf, sr, tone, local: t }) : on('short'); }); return; } // 认出来是空的：噪音，不算说话
-    if (kind != 'sf') return on('final', { chunks: buf, sr, tone });
-    on('end'); sendSlice(sr); const ep = E.ep; E.chain.then(() => ep == E.ep && on('final', { text: E.parts.join(''), chunks: buf, sr, tone }));
-  }
-  // 云端再认一遍（本地 + 硅基）：1.5 秒内没回就算了，用本地的
-  function polish(buf, sr) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 1500); return sfAsr(buf, sr, '', ac.signal).then(t => (clearTimeout(tm), t)).catch(() => ''); }
-  function frame(d, sr) {
-    let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; const rms = Math.sqrt(s / d.length), fr = E.fr = d.length / sr, F = sec => Math.max(1, Math.round(sec / fr)); // 连续几帧：按秒数算，麦克风采样率不同一帧的长短也不同
-    E.vmax = Math.max(E.vmax, rms);
-    const m = o.mode(); if (m == 'off') { if (E.on || E.bl || E.duck) reset(); return; }
-    const th = Math.max(.012, E.fl * 3.2), f = d.slice(0);
-    if (m == 'busy') { // 插话：门槛高一些（喇叭会漏进来一点 TA 的声音），两段式
-      if (E.on) { E.on = 0; E.buf = []; E.slice = []; E.sess?.cancel(); E.sess = null; }
-      const play = o.playing(), thB = play ? Math.max(.03, th * 2.5) : th;
-      E.pre.push(f); E.pre.length > Math.ceil(1.2 / fr) && E.pre.shift();
-      E.bl = rms > thB ? E.bl + 1 : Math.max(0, E.bl - 1);
-      if (play && !E.duck && E.bl >= F(EAR.DUCK)) { E.duck = 1; on('duck'); }
-      if (E.duck && E.bl == 0) { E.duck = 0; on('unduck'); }
-      if (E.bl >= F(play ? EAR.CUT : EAR.CUT_THINK)) { const pre = E.pre, n = E.bl; E.pre = []; E.bl = 0; E.duck = 0; on('barge'); begin(pre, n * fr, sr); }
+  function frame(input, sr) {
+    if (closed) return;
+    const mode = o.mode(); if (mode === 'off') { if (active || onset) reset(); return; }
+    const f = input.slice(), dt = f.length / sr; let sum = 0; for (const v of f) sum += v * v;
+    const rms = Math.sqrt(sum / f.length), threshold = Math.max(.012, floor * 3.5), playing = o.playing();
+    const loud = rms > (mode === 'busy' && playing ? Math.max(.035, threshold * 2) : threshold);
+    if (!active) {
+      pre.push(f); if (pre.length * dt > .6) pre.shift();
+      onset = loud ? onset + dt : Math.max(0, onset - dt * 2);
+      if (!loud && !playing) floor = floor * .97 + rms * .03;
+      if (mode === 'busy' && playing && onset > .16 && !ducked) { ducked = true; on('duck'); }
+      if (!onset && ducked) { ducked = false; on('unduck'); }
+      const needed = mode === 'busy' ? playing ? .38 : .22 : .09;
+      if (onset >= needed) {
+        const saved = pre; reset(); buf = saved; active = true; voiced = onset = needed; length = saved.length * dt; revision++;
+        if (mode === 'busy') on('barge'); on('start');
+      }
       return;
     }
-    E.bl = 0; if (E.duck) { E.duck = 0; on('unduck'); }
-    if (!E.on) { if (rms < th) E.fl = E.fl * .96 + rms * .04; E.pre.push(f); E.pre.length > Math.ceil(EAR.PRE / fr) && E.pre.shift(); E.ld = rms > th ? E.ld + 1 : 0;
-      if (E.ld >= F(EAR.ON)) { const pre = E.pre; E.pre = []; begin(pre, E.ld * fr, sr); } return; } // 连着约 0.12 秒够响：开口了
-    E.buf.push(f); E.slice.push(f); E.sess?.feed(f, sr); rms > th * .7 ? (E.q = 0, E.sp += fr) : (E.q += fr);
-    on('level', Math.min(1, rms / (th * 4)));
-    if (E.kind == 'sf') { const sl = E.slice.length * fr; if ((sl >= EAR.SLICE_MIN && E.q >= EAR.SLICE_GAP) || (sl >= EAR.SLICE_MAX && rms <= th * .7)) sendSlice(sr); }
-    if (E.q >= (+S.callGap || EAR.END) + (E.sp > EAR.LONG ? EAR.LONG_ADD : 0) || E.buf.length * fr >= EAR.MAX) end(sr);
+    if (ending) { spill.push(f); if (spill.length * dt > 18) { reset(); on('error', Error('识别未及时跟上，请稍停一下')); } return; }
+    buf.push(f); length += dt; if (loud) { voiced += dt; quiet = 0; revision++; } else quiet += dt;
+    on('level', Math.min(1, rms / (threshold * 4)));
+    // 只在停顿时认整段，或说话超过 1.5 秒时更新字幕；不切碎日语/英语词语。
+    if (voiced >= .28 && !recognizing && recognized !== revision && (quiet >= .24 || length - lastRequest >= 1.5)) recognize(sr);
+    if (length >= 30) ending = true; maybeEnd(sr);
   }
-  return { start, stop, reset, get on() { return !!E.on; }, get ms() { return E.ms; }, get vmax() { return E.vmax; }, set vmax(v) { E.vmax = v; }, get at() { return E.at; }, set at(v) { E.at = v; }, get E() { return E; } };
+  async function start() {
+    if (stream || opening) return opening; closed = false; const ep = epoch;
+    opening = (async () => {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+      if (closed || ep !== epoch) { s.getTracks().forEach(t => t.stop()); return; }
+      if (!o.ctx) { s.getTracks().forEach(t => t.stop()); throw Error('当前浏览器不支持音频采集'); }
+      stream = s; const src = o.ctx.createMediaStreamSource(s), pr = o.ctx.createScriptProcessor(1024, 1, 1), gain = o.ctx.createGain(); gain.gain.value = 0;
+      nodes = { src, pr, gain }; src.connect(pr); pr.connect(gain); gain.connect(o.ctx.destination);
+      pr.onaudioprocess = e => frame(e.inputBuffer.getChannelData(0), o.ctx.sampleRate);
+      await o.ctx.resume();
+    })();
+    try { await opening; } finally { opening = null; }
+  }
+  function stop() { closed = true; reset(); if (nodes) { nodes.pr.onaudioprocess = null; Object.values(nodes).forEach(n => n.disconnect()); nodes = null; } stream?.getTracks().forEach(t => t.stop()); stream = null; }
+  return { start, stop, reset, frame, get ms() { return stream; }, get on() { return active; } };
 }
