@@ -25,7 +25,7 @@ const vStop = () => { VA?.pause(); VA = null; VL = 0; if (VM) { VM = null; emit(
 async function vBlob(ch, m) { // 合成并缓存，返回能播的地址；酒馆自带朗读（没法拿到音频）就直接读一遍，返回空
   if (m.au) { const u = await mediaSrc(m.au).catch(() => ''); if (u) return u; }
   if (VP.has(m)) return VP.get(m);
-  const c = m.f == 'me' ? meVoice() : get(m.f), p = tts(said(m, ch), '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p', blob: 1 }).then(async b => {
+  const c = m.f == 'me' ? meVoice() : get(m.f), p = tts(said(m, ch), '', c?.sex, undefined, { c, app: ch.type == 'g' ? 'g' : 'p', blob: 1, ...(m.f != 'me' && { lang: zhOnly(m, ch) ? '' : langFor(ch, m.f) }) }).then(async b => {
     if (!(b instanceof Blob)) return ''; m.au = await putAudio(b); saveD(); return URL.createObjectURL(b); }).finally(() => VP.delete(m));
   VP.set(m, p); return p;
 }

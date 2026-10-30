@@ -162,7 +162,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
   // 中转站有限额时，接通这一句不调用模型（省一次）
   function storyAsk() { const L = A.outL ?? (ch.cfg?.lang || ''); return !L || /^zh/.test(L) ? '想听什么故事？说给我听，我慢慢讲给你。' : `SAY: ${{ ja: '何のお話が聞きたい？ゆっくり話してあげる。', ko: '무슨 이야기 듣고 싶어? 천천히 들려줄게.' }[L] || 'What story do you want to hear? I\'ll tell you slowly.'}\nZH: 想听什么故事？我慢慢讲给你。`; }
   function greet() { const L = A.outL ?? (ch.cfg?.lang || ''), g = { ja: ['もしもし？', '喂？'], en: ['Hello?', '喂？'], ko: ['여보세요?', '喂？'] }[L]; return !L || /^zh/.test(L) ? '喂？' : `SAY: ${g?.[0] || 'Hello?'}\nZH: ${g?.[1] || '喂？'}`; }
-  function prefill() { if (!S.callFill) return; const L = A.outL ?? (ch.cfg?.lang || ''), t = { ja: 'えーっと……', en: 'Umm… let me think.', ko: '음… 잠깐만.' }[L] || '嗯……我想想。'; A.fill = tts(t, '', c.sex, null, { c, blob: 1 }).catch(() => null); }
+  function prefill() { if (!S.callFill) return; const L = A.outL ?? (ch.cfg?.lang || ''), t = { ja: 'えーっと……', en: 'Umm… let me think.', ko: '음… 잠깐만.' }[L] || '嗯……我想想。'; A.fill = tts(t, '', c.sex, null, { c, blob: 1, lang: L && !/^zh/.test(L) ? L : '' }).catch(() => null); }
   function noVoice() { try { const vo = voiceOf(c); return pickVoice(c, ttsCfg(vo.pv)).from == 'none'; } catch { return false; } }
   function stopRing() { A.ring?.(); A.ring = null; }
   function stopRec() { clearTimeout(A.sil); try { A.rec?.abort(); } catch { } A.rec = null; }
@@ -278,7 +278,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
       + (au ? `\n第一行必须是 HEARD: 后面照录音写下${me.nick}说的原话（照原来的语言写；笑、叹气、哈欠、哽咽这些声音写在括号里，如「（笑）你好坏」；听不清就写 HEARD: ?），然后另起一行开始回 TA。\n认真听语气：是笑着说、困了、犹豫、撒娇还是不高兴，回答要自然地接住这个语气（不用说出「我听出你…」）。` : '');
     const U = []; let played = -1, done = false; // U：已稳定的句子 { t 台词, tr 释义, b 音频 }
     const synth = () => { for (let k = played + 1; k <= Math.min(U.length - 1, played + 2); k++) { const u = U[k]; if (u.b !== undefined) continue; // 只领先 2 句
-      u.b = A.ttsBad ? Promise.resolve(null) : tts(u.t, '', c.sex, sg, { c, blob: 1 }).catch(e => { if (!sg.aborted && !A.ttsBad) { A.ttsBad = true; toast('语音合成不可用，只显示字幕：' + e.message); } return null; }); } };
+      u.b = A.ttsBad ? Promise.resolve(null) : tts(u.t, '', c.sex, sg, { c, blob: 1, lang: zh ? '' : outL }).catch(e => { if (!sg.aborted && !A.ttsBad) { A.ttsBad = true; toast('语音合成不可用，只显示字幕：' + e.message); } return null; }); } };
     // 一轮最多说 4 句（故事不限）：模型有时会一口气把两个人的对话都编出来、最后自己写 [挂断]，超过就掐掉后面的
     const MAXU = story ? 1e9 : 4, lac = new AbortController(), lsg = AbortSignal.any ? AbortSignal.any([sg, lac.signal]) : sg; let capped = false;
     const pub = (t, tr = '') => { if (capped) return; if (U.length >= MAXU) { capped = true; lac.abort(); return; } if (/[\[［]\s*挂断\s*[\]］]/.test(t)) { A.bye = 1; t = t.replace(/[\[［]\s*挂断\s*[\]］]/g, ''); tr = String(tr).replace(/[\[［]\s*挂断\s*[\]］]/g, ''); } /* TA 主动挂电话（学 evolia 的 call_control） */ t = clean(t); if (!t || sg.aborted) return; U.push({ t, tr: clean(tr) }); synth(); kick(); };

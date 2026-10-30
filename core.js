@@ -620,14 +620,18 @@ export const pickVoice = (c, p, sex, app) => { const vo = c ? voiceOf(c, app) : 
   if (vo?.voice) return { v: vo.voice, from: 'own' };
   if (c && S.api.tts.fb === false) return { v: '', from: 'none' };
   const g = sx == '男' ? p.vm : sx == '女' ? p.vf : ''; return g ? { v: g, from: sx } : { v: p.voice || '', from: p.voice ? 'pv' : 'none' }; };
-// o：{ c: 联系人 }，按这个人的服务商、朗读语言、名字读音来读
+// 朗读语言跟着「这句话是什么语言」走：聊天设置里开了翻译（日语 / 韩语…）TA 说的就是那门语言，没开就是中文。
+// 目前 MiniMax 有这个开关（language_boost，指定后日语里的汉字会按日语读，不会读成中文）；Fish / ElevenLabs 自己会认，不用传
+const LB = { '': 'Chinese', zh: 'Chinese', 'zh-TW': 'Chinese', ja: 'Japanese', ko: 'Korean', en: 'English', fr: 'French', de: 'German', es: 'Spanish', ru: 'Russian', th: 'Thai', vi: 'Vietnamese' };
+const ttsLang = (o, tv) => { const m = o.lang != null ? LB[o.lang] : null; return !m ? tv : m == 'Chinese' && /Yue/.test(tv || '') ? tv : m; }; // 手动选了粤语、说的又是中文：还读粤语
+// o：{ c: 联系人, lang: 这句话的语言（'' 中文 / ja / ko…，不传就照专属音色里设的） }，按这个人的服务商、朗读语言、名字读音来读
 export const tts = (text, voice, sex, sg0, o = {}) => {
   const vo = o.c ? voiceOf(o.c, o.app) : null, pv = vo?.pv || bindOf('tts', o.app), pO = pv && pv != prof('tts').prov ? ttsCfg(pv) : null;
   return call('tts', '语音', text, async (p, sg) => {
     if (tav('tts')) return slash(`/speak ${voice ? `voice="${voice}" ` : ''}${text}`);
     const pk = voice ? { v: voice } : pickVoice(o.c, p, sex, o.app), v = pk.v, t = sayAs(text, o.c?.tv?.say), q = tq(p);
     if (o.c && pk.from == 'none') throw Error('还没给 TA 配音色');
-    const b = await (TTS[q.prov] || TTS.openai)({ ...q, ...(o.c?.tv?.lang && { lang: o.c.tv.lang }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
+    const L = ttsLang(o, o.c?.tv?.lang), b = await (TTS[q.prov] || TTS.openai)({ ...q, ...(L && { lang: L }) }, t, v, sg); if (!b?.size) throw Error('音频为空');
     if (o.blob) return b; // 只要音频（聊天里的语音消息自己播、自己缓存）
     await play(b); return `[已播放 ${(b.size / 1024).toFixed(0)}KB · ${p.name || p.prov} · 音色 ${v || '默认'}]`;
   }, sg0, pO);
