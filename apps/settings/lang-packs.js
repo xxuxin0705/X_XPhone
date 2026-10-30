@@ -27,7 +27,7 @@ export function langPage() {
   let job = null; // 正在下载：{ L, pct, ac }
   const pg = page({ title: '语音识别语言包', cls: 'set freem',
     body: () => { const c = asrCfg(), kf = keyFrom();
-      return `<p class="tip">打电话时点「我说 …」换语言。中文用内置的本地识别；说别的语言时，装了本地包就用本地包，没装就用云端识别。</p>
+      return `<p class="tip">打电话时点「我说 …」换语言。中文用内置的本地识别；说别的语言时，装了本地包就用本地包，没装就用云端识别。本地模型一个只认一种语言，想中日英混着说、不换来换去，选「混着说」（走云端识别）。</p>
 <h6>本地语言包</h6><div class="card">${PACKS.map(p => `<div class="row"><span><b>${esc(p.n)}</b><small>${p.st == 'builtin' ? '' : '下载 '}${p.mb}MB · ${esc(p.d)}</small></span>${p.st == 'builtin' ? '<small class="lp-st">内置</small>' : job?.L == p.L ? `<small class="lp-st lp-p">${job.pct || 0}%</small><b class="lnk" data-a="stop">取消</b>` : S.asrPacks?.[p.L] ? `<small class="lp-st">已装</small><b class="lnk" data-a="rm" data-x="${p.L}">删除</b>` : `<b class="lnk" data-a="get" data-x="${p.L}">下载</b>`}</div>`).join('')}</div>
 <p class="tip">语言包只下一次，存在这个浏览器里（换浏览器或清了网站数据要重下）。下到一半断了，再点「下载」只补没下完的部分。日语识别 Powered by Moonshine AI（Moonshine AI Community License，个人非商业使用免费）。</p>
 <h6>云端识别（硅基流动，免费）${c.key ? '<em class="fm-on">能用</em>' : ''}</h6><div class="card">

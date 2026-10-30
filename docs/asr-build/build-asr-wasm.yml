@@ -1,0 +1,43 @@
+# 编译 sherpa-onnx 的网页版「离线识别」（vad-asr）：小手机的日语等语言包要用（流式的 asr 版里没有离线识别）
+# 编译结果推到 asr-wasm-out 分支；模型文件由小手机自己打包，这里只要程序本体
+name: build-asr-wasm
+on:
+  push:
+    branches: [asr-build]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: k2-fsa/sherpa-onnx
+          ref: v1.13.7
+          path: sherpa
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 4.0.23
+      - name: assets
+        run: |
+          cd sherpa/wasm/vad-asr/assets
+          curl -sSL -O https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx
+          printf 'a 0\n' > tokens.txt
+          ls -la
+      - name: build
+        run: |
+          cd sherpa
+          sed -i 's/make -j2/make -j4/' build-wasm-simd-vad-asr.sh
+          ./build-wasm-simd-vad-asr.sh
+      - name: publish
+        run: |
+          mkdir out
+          cp -v sherpa/build-wasm-simd-vad-asr/install/bin/wasm/vad-asr/* out/
+          cp -v sherpa/LICENSE out/
+          cd out
+          git init -q
+          git checkout -q -b asr-wasm-out
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "sherpa-onnx v1.13.7 vad-asr wasm"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" asr-wasm-out

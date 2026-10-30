@@ -379,8 +379,10 @@ const post = (url, body, h, signal) => xf(url, { signal, method: 'POST', headers
 const req = (p, path, body, signal) => xf(base(p.url) + path, { signal, method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(p.key && { Authorization: 'Bearer ' + p.key }) }, body: body && JSON.stringify(body) }).then(chk);
 
 /* ---------- 聊天模型（默认流式：边收边显示，不会因为整体太慢被判超时） ---------- */
-// 关思考：GLM / Qwen 用各自的开关，其它模型用 reasoning_effort；接口不认就自动去掉重发
-const noThink = m => /glm/i.test(m) ? { thinking: { type: 'disabled' } } : /qwen|qwq/i.test(m) ? { enable_thinking: false } : { reasoning_effort: 'low' };
+// 关思考：按模型名挑开关——GLM / DeepSeek 用 thinking 开关，Qwen 用 enable_thinking，Gemini 2.x 能整个关掉（none），Gemini 3+ / Claude / 其它用 reasoning_effort: low；接口不认就自动去掉重发
+export const noThink = m => /glm|deepseek/i.test(m) ? { thinking: { type: 'disabled' } } : /qwen|qwq/i.test(m) ? { enable_thinking: false } : /gemini-?[12]\b|gemini-?[12][.-]/i.test(m) ? { reasoning_effort: 'none' } : { reasoning_effort: 'low' };
+// 写成酒馆「附加请求体」要的 YAML（一行一个顶层键；嵌套用 JSON 写法，YAML 认）
+const noThinkYaml = m => Object.entries(noThink(m)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n');
 const pick = j => j.choices?.[0]?.message?.content ?? j.choices?.[0]?.text ?? '';
 async function readAI(r, cx, o) {
   const rd = r.body?.getReader?.(); if (!rd) return pick(await r.json());
@@ -426,10 +428,15 @@ async function curReq(sys, user, sig, cx, o) {
     ...(o.fast ? { reasoning_effort: 'min' } : s.reasoning_effort && { reasoning_effort: s.reasoning_effort }), // 低思考：Gemini / Claude / OpenAI 推理模型都按最小思考预算
     ...(s.reverse_proxy && { reverse_proxy: s.reverse_proxy, proxy_password: s.proxy_password }),
     ...(src == 'custom' && { custom_url: s.custom_url, custom_include_body: sub(s.custom_include_body), custom_exclude_body: sub(s.custom_exclude_body), custom_include_headers: sub(s.custom_include_headers) }),
+    // 中转站（自定义接口）：酒馆只给它认识的 OpenAI 推理模型转 reasoning_effort，别的模型名（Gemini / DeepSeek…）一律丢掉——「低思考」就没送到过模型那里。
+    // 所以低思考时把关思考的参数塞进「附加请求体」（酒馆会原样合进请求），按模型名挑对应的开关；接口不认（400）就去掉重发
+    ...(src == 'custom' && o.fast && !o.noFast && { custom_include_body: [sub(s.custom_include_body), noThinkYaml(c.getChatCompletionModel?.() || s.openai_model)].filter(Boolean).join('\n') }),
     ...(src == 'vertexai' && { vertexai_auth_mode: s.vertexai_auth_mode, vertexai_region: s.vertexai_region, vertexai_express_project_id: s.vertexai_express_project_id }),
     ...['zai_endpoint', 'siliconflow_endpoint', 'minimax_endpoint', 'pollinations_endpoint'].reduce((a, k) => (s[k] && (a[k] = s[k]), a), {}) };
   let r; try { r = await c.ChatCompletionService.processRequest(d, {}, true, sig); }
-  catch (e) { if (sig?.aborted) throw sig.reason || e; throw Error(String(e?.cause?.message || e?.message || e)); }
+  catch (e) { if (sig?.aborted) throw sig.reason || e; const m = String(e?.cause?.message || e?.message || e);
+    if (src == 'custom' && o.fast && !o.noFast && /\b(400|422)\b|invalid|unknown|unrecognized|not supported|unsupported|extra|permitted/i.test(m)) { cx.part('（接口不认关思考的参数，去掉重发）', 0); return curReq(sys, user, sig, cx, { ...o, noFast: 1 }); }
+    throw Error(m); }
   if (typeof r != 'function') return r?.content ?? '';
   let out = '';
   for await (const v of r()) { out = v?.text || ''; const th = v?.state?.reasoning?.length || 0; th && o.onThink?.(th); out && o.onText?.(out); cx.part(out || `（模型正在思考，已经想了 ${th} 字）`, th); }

@@ -178,3 +178,10 @@ evolia 是原生安卓，自己有录音权限，链路是 录音（AEC3 + 降�
 - 识别：`local-asr.js` 改成一个语言一个引擎（`asrFor(L)`），同一时间只开一个模型（手机内存）。离线模型只会整段认：后台线程每攒 0.7 秒新声音就把整段重认一遍当字幕（上一遍认得慢就隔久一点，超过 12 秒不再中途重认），说完补 0.3 秒静音认整句。实测 8 秒日语整句在电脑上约 1 秒。
 - 许可：Moonshine 的日语模型是 Moonshine AI Community License（个人 / 非商业免费），`asr-ja/ja/` 里放了 LICENSE-moonshine 和 NOTICE，设置页写着 Powered by Moonshine AI。
 - 测试：`callja`（8826）真的从 GitHub 下载（缓存到 tests/out/asr-ja/），`JA_WAV=` 给一段日语 wav 时连识别一起测。
+
+## 慢、口头禅「嗯……」、混着说、分支（2026-10-30 录屏反馈）
+
+- **慢的真相**：录屏里「在想… 22s · 模型思考了 3442 字」——「低思考」根本没生效。酒馆对自定义接口（中转站）只给它认识的 OpenAI 推理模型名（o1 / o3 / gpt-5…）转 `reasoning_effort`，别的模型名一律丢掉。修：`core.js` `curReq` 在中转站 + 低思考时把关思考参数塞进酒馆的「附加请求体」（`custom_include_body`，酒馆会原样合进请求），按模型名挑：GLM / DeepSeek → `thinking: {type: disabled}`，Qwen → `enable_thinking: false`，Gemini 2.x → `reasoning_effort: none`，Gemini 3+ / Claude / 其它 → `reasoning_effort: low`（`noThink()`，直连配置那条线也用它）。接口不认（400 / 422 / unknown…）就去掉重发一次。通话里的提示改成：低思考开着还慢 → 这个模型关不掉思考，换个不思考的（免费模型里的 GLM-4-Flash）。
+- **「嗯……」/「えーっと」**：是垫音——模型想超过 2 秒先放预合成的「嗯……我想想」。模型一慢每句开头都是它，像口头禅。改成默认关（`S.callFill`），通话里「本地识别」菜单最下面能开；开着也改成 4 秒才垫。
+- **混着说**：本地模型一个只认一种语言（中文内置 / 日语包），示例视频那种丝滑切换是云端服务做的。「我说」菜单加了「混着说（中日英韩粤）」= 云端识别（SenseVoice 本身是多语言的）。
+- **分支**：Release 建不了（会话权限），删分支也被代理挡（403），所以 `asr-build`、`asr-wasm-out` 要用户在 GitHub 网页上删；`asr-ja` 留着当语言包货架（下载只是抓文件进浏览器，不切分支、不用刷新）。编译 workflow 收进 `docs/asr-build/` 备查。

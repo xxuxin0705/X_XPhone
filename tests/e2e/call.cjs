@@ -94,6 +94,16 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`_busy.every(x => !x)`), '半双工：TA 想的时候麦是关着的（不会把外放的声音录进去）');
   await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「在听…」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
+  // 中转站（自定义接口）：酒馆不给别的模型名转 reasoning_effort → 低思考要塞进「附加请求体」，按模型名挑开关；接口不认就去掉重发；垫音默认关
+  await E(`(() => { window._D = []; window._rej = 1; const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'custom', custom_url: 'https://relay.test/v1', custom_include_body: 'top_p: 0.9', openai_max_tokens: 500, temp_openai: 1 }; X.getChatCompletionModel = () => 'gemini-3.8-flash';
+    X.ChatCompletionService = { processRequest: async d => { _D.push(d); if (_rej && /reasoning_effort/.test(d.custom_include_body || '')) { _rej = 0; throw Error('HTTP 400: Unrecognized request argument: reasoning_effort'); } return async function* () { yield { text: '喂？' }; }; } }; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
+  await p.waitForFunction(`_D.length >= 2`, null, { timeout: 8000 }).catch(() => { });
+  ok(await E(`_D.length == 2 && /^top_p: 0.9\\nreasoning_effort: "low"$/.test(_D[0].custom_include_body) && _D[1].custom_include_body == 'top_p: 0.9'`), '中转站 + 低思考：关思考的参数（Gemini 3 → reasoning_effort: low）塞进附加请求体，原来填的保留；接口不认就去掉重发 ' + await E(`JSON.stringify(_D.map(d => d.custom_include_body))`));
+  ok(await E(`!cl.inCall().fill`), '垫音「嗯……我想想」默认关（不会每句开头都「嗯」）');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
+  ok(await E(`(async () => { const c = await import('/core.js'); return JSON.stringify([c.noThink('deepseek-v3.2'), c.noThink('glm-4.7-flash'), c.noThink('Qwen/Qwen3-8B'), c.noThink('gemini-2.5-flash'), c.noThink('claude-x')]); })()`) == JSON.stringify([{ thinking: { type: 'disabled' } }, { thinking: { type: 'disabled' } }, { enable_thinking: false }, { reasoning_effort: 'none' }, { reasoning_effort: 'low' }]), '关思考按模型名挑开关：DeepSeek / GLM 用 thinking、Qwen 用 enable_thinking、Gemini 2 能整个关掉、其它 low');
+  await E(`(() => { const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
   // 麦克风诊断：识别开起来了、麦克风也接上了，但一点声音都没进来（比如录屏占着麦克风）→ 屏幕上直接写出来
   await E(`(() => { window.webkitSpeechRecognition = class { start() { setTimeout(() => { this.onstart?.(); this.onaudiostart?.(); }, 100); } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async () => '喂？'; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
