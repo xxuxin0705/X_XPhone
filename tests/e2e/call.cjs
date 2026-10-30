@@ -24,7 +24,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`!!document.querySelector('.xc .xc-dots') && /取消/.test(document.querySelector('.xc-ctl').textContent) && /麦克风已开/.test(document.querySelector('.xc-ctl').textContent)`), '拨号中：头像名字、三个点，下面 麦克风已开 / 取消 / 扬声器已关');
   await W(4200); await shot('talk');
   ok(await E(`!!document.querySelector('.xc .xc-tm') && /挂断/.test(document.querySelector('.xc-ctl').textContent)`), '接通：显示通话时长，按钮变「挂断」');
-  ok(/怎么突然打电话/.test(await E(`document.querySelector('.xc').textContent`)) || /怎么突然打电话/.test(await E(`JSON.stringify(core.inCall?.() || '')`)) || await E(`_P.length`) >= 1, '接通后对方先开口（流式切句、字幕）');
+  ok(/喂？/.test(await E(`document.querySelector('.xc-tx').innerText`)) && await E(`_P.length`) == 0, '接通后 TA 先「喂？」（不调模型：接起来就能说，不用等它想）');
   await W(2500);
   ok(await E(`!!document.querySelector('.xc-pill[data-k=talk]')`) && /点这里说/.test(await E(`document.querySelector('.xc-ctl').textContent`)), 'TA 说完轮到我：下面是「点这里说」，不自动开麦');
   await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(300);
@@ -56,10 +56,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
     const st = AudioBufferSourceNode.prototype.start; AudioBufferSourceNode.prototype.start = function (...a) { _play++; return st.apply(this, a); };
     const pl = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { /^blob:/.test(this.src) && _play++; return pl.call(this); };
     SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return 'SAY: もしもし、どうしたの？\\nZH: 喂，怎么了？\\nSAY: 今ちょうど暇だよ。\\nZH: 我现在正好有空。'; }; })()`);
-  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(7000); await shot('ja');
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(4000);
+  ok(/もしもし？\n喂？/.test(await E(`document.querySelector('.xc-tx')?.innerText || ''`)), '日语角色接通：「もしもし？」+ 中文「喂？」（不调模型）');
+  await E(`document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '在干嘛'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(5000); await shot('ja');
   const tx = await E(`document.querySelector('.xc-tx')?.innerText || ''`);
-  ok(/もしもし/.test(tx) && /喂，怎么了/.test(tx) && /今ちょうど暇だよ/.test(tx) && /我现在正好有空/.test(tx), '字幕：日语原话 + 下面的中文 ' + JSON.stringify(tx).slice(0, 80));
-  ok(await E(`_play`) >= 2, '两句都真的播放了（不是只显示字） play=' + await E(`_play`));
+  ok(/もしもし、どうしたの/.test(tx) && /喂，怎么了/.test(tx) && /今ちょうど暇だよ/.test(tx) && /我现在正好有空/.test(tx), '字幕：日语原话 + 下面的中文 ' + JSON.stringify(tx).slice(0, 80));
+  ok(await E(`_play`) >= 3, '问候和两句回答都真的播放了（不是只显示字） play=' + await E(`_play`));
   ok(!/もしもし.*ZH|SAY:/.test(tx), '字幕里没有 SAY / ZH 标记');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''; core.S.api.tts = {}`);
   // 点一下说：话实时写在屏幕上；识别自己停了也接着听、拼起来；点「说完了」才发给对方
@@ -75,29 +77,29 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 通话用轻上下文：正文最多 6 条
   ok(/最近6条/.test(await E(`_P.at(-1)`)), '打电话用轻一点的上下文（正文最近 6 条）');
   // 常驻前缀整场不变：两轮的系统提示一字不差，只有后面的「这通电话里说过的」在变
-  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && (h => h(a.prompt) === h(b.prompt))(p => p.split(/【想起来的旧事】|【这通电话里说过的】|刚刚说：|电话刚接通/)[0]) && /你在干嘛呀/.test(b.prompt); })()`), '两轮之间系统提示和前缀完全一样（缓存能命中），只有通话内容在变');
+  await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '没事'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(2500);
+  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && (h => h(a.prompt) === h(b.prompt))(p => p.split(/【想起来的旧事】|【这通电话里说过的】|刚刚说：|电话刚接通/)[0]) && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt); })()`), '两轮之间系统提示和前缀完全一样（缓存能命中），只有通话内容在变');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   // 自动接话（照 StarHub 示例，默认）+ 酒馆当前连接也走流式 + 字幕跟着声音一个字一个字出
   await E(`(() => { core.S.callAuto = true; window._P0 = _P.length; window._D = []; window._busy = []; window._say = '我是螃蟹'; window._srN = 0;
     window.webkitSpeechRecognition = class { start() { const me = this; _srN++; const t = _say; _say = ''; t && setTimeout(() => { me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: false })] }); setTimeout(() => me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: true })] }), 150); }, 200); } abort() {} stop() {} };
     const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'makersuite', openai_max_tokens: 500, temp_openai: 1, reasoning_effort: 'high' }; X.getChatCompletionModel = () => 'gemini-test';
-    X.ChatCompletionService = { processRequest: async d => { _D.push(d); _busy.push(!!cl.inCall()?.rec); const first = /先开口/.test(JSON.stringify(d.messages));
-      return async function* () { if (first) { yield { text: '喂，' }; await new Promise(r => setTimeout(r, 400)); yield { text: '喂，吃完晚饭了没有？' }; } else yield { text: '好，那现在开始。' }; }; } }; })()`);
+    X.ChatCompletionService = { processRequest: async d => { _D.push(d); _busy.push(!!cl.inCall()?.rec); return async function* () { yield { text: '好，' }; await new Promise(r => setTimeout(r, 400)); yield { text: '好，那现在开始吧。' }; }; } }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
-  await p.waitForFunction(`!!document.querySelector('.xc-tx .xc-r')`, null, { timeout: 8000 }); await W(300);
-  const part = await E(`document.querySelector('.xc-r').textContent`); await shot('reveal');
-  ok(part.length > 0 && part.length < '喂，吃完晚饭了没有？'.length, '字幕跟着声音一个字一个字出来（播到一半只出了一部分）：' + part);
+  await p.waitForFunction(`_D.length >= 1 && /好/.test([...document.querySelectorAll('.xc-tx .xc-r')].at(-1)?.textContent || '')`, null, { timeout: 12000 }); await W(200);
+  const part = await E(`[...document.querySelectorAll('.xc-r')].at(-1).textContent`); await shot('reveal');
+  ok(part.length > 0 && part.length < '好，那现在开始吧。'.length, '字幕跟着声音一个字一个字出来（播到一半只出了一部分）：' + part);
   ok(await E(`_D[0].stream === true && _D[0].reasoning_effort == 'min' && _D[0].chat_completion_source == 'makersuite' && _D[0].model == 'gemini-test' && _P.length == _P0`), '酒馆当前连接（聊天补全）也走流式：同一个来源和模型、低思考，不再走不能流式的 generateRaw');
   ok(/自动接话/.test(await E(`document.querySelector('.xc-lang').textContent`)), '下面有「自动接话」开关');
-  await p.waitForFunction(`_D.length >= 2`, null, { timeout: 9000 }).catch(() => { });
-  ok(await E(`_D.length >= 2 && /我是螃蟹/.test(JSON.stringify(_D[1].messages))`), 'TA 说完自动开麦，我说完停 1.2 秒就自动发给 TA（不用点任何按钮） srN=' + await E(`_srN`));
+  ok(await E(`_D.length == 1 && /我是螃蟹/.test(JSON.stringify(_D[0].messages))`), 'TA「喂？」完自动开麦，我说完停 1.2 秒就自动发给 TA（不用点任何按钮；接通那句没调模型） srN=' + await E(`_srN`));
   ok(await E(`_busy.every(x => !x)`), '半双工：TA 想的时候麦是关着的（不会把外放的声音录进去）');
   await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「在听…」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
   // 中转站（自定义接口）：酒馆不给别的模型名转 reasoning_effort → 低思考要塞进「附加请求体」，按模型名挑开关；接口不认就去掉重发；垫音默认关
   await E(`(() => { window._D = []; window._rej = 1; const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'custom', custom_url: 'https://relay.test/v1', custom_include_body: 'top_p: 0.9', openai_max_tokens: 500, temp_openai: 1 }; X.getChatCompletionModel = () => 'gemini-3.8-flash';
     X.ChatCompletionService = { processRequest: async d => { _D.push(d); if (_rej && /reasoning_effort/.test(d.custom_include_body || '')) { _rej = 0; throw Error('HTTP 400: Unrecognized request argument: reasoning_effort'); } return async function* () { yield { text: '喂？' }; }; } }; })()`);
-  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(3500);
+  await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '在吗'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`);
   await p.waitForFunction(`_D.length >= 2`, null, { timeout: 8000 }).catch(() => { });
   ok(await E(`_D.length == 2 && /^top_p: 0.9\\nreasoning_effort: "low"$/.test(_D[0].custom_include_body) && _D[1].custom_include_body == 'top_p: 0.9'`), '中转站 + 低思考：关思考的参数（Gemini 3 → reasoning_effort: low）塞进附加请求体，原来填的保留；接口不认就去掉重发 ' + await E(`JSON.stringify(_D.map(d => d.custom_include_body))`));
   ok(await E(`!cl.inCall().fill`), '垫音「嗯……我想想」默认关（不会每句开头都「嗯」）');

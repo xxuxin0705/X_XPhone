@@ -4,6 +4,7 @@
 //   放在 GitHub 的 asr-ja 分支（不放进插件本体，不想说日语的人不用多下）；模型包切成 20MB 一块、各自 gzip 压缩，断了重来只补没下完的那块
 // 手机内存有限：同一时间只留一个识别模型，换语言时把另一个关掉
 // 用法：const e = asrFor('zh-CN'); await e.load(进度回调) → const s = e.session(onPartial) → s.feed(48k/44.1k 的声音) … → await s.end() 得到整句
+import { resampler } from './ear.js';
 const BASE = new URL('../../asr/', import.meta.url).href;
 const GH = 'https://raw.githubusercontent.com/xxuxin0705/X_XPhone/';
 const REMOTE = [GH + 'voice-v2/asr/']; // 插件文件夹里没有时的备用（比如用压缩包装的）
@@ -86,14 +87,14 @@ function engine(id, o) {
     },
     // 一句话：feed 送声音（任意采样率，内部降到 16kHz），end() 等整句
     session(onPartial) {
-      const sid = ++nid; let fin = null, carry = 0, acc = 0, accN = 0;
+      const sid = ++nid; let fin = null, rs = null, rsr = 0;
       const done = new Promise(r => fin = r);
       subs.set(sid, { partial: s => onPartial?.(clean(s)), final: s => { subs.delete(sid); fin(clean(s)); } });
       W.postMessage({ t: 'begin', id: sid });
       return {
-        feed(f, sr) { // 按块取平均降到 16kHz（滤掉高频，跟 wav 一样）；块边界的零头留到下一次
-          const r = sr / 16000, out = []; for (let i = 0; i < f.length; i++) { acc += f[i]; accN++; carry += 1; if (carry >= r) { out.push(acc / accN); acc = 0; accN = 0; carry -= r; } }
-          out.length && W?.postMessage({ t: 'pcm', id: sid, d: Float32Array.from(out) });
+        feed(f, sr) { // 降到 16kHz（低通 + 取点，见 ear.js 的 resampler；跟 wav 用同一个）
+          if (sr != rsr) { rs = resampler(sr); rsr = sr; } const out = rs(f);
+          out.length && W?.postMessage({ t: 'pcm', id: sid, d: out });
         },
         end() { W?.postMessage({ t: 'end', id: sid }); return Promise.race([done, new Promise(r => setTimeout(() => r(''), o.off ? 15000 : 8000))]); },
         cancel() { subs.delete(sid); fin(''); },

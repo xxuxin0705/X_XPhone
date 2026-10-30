@@ -67,7 +67,7 @@ export function startCall(ch, kind = 'voice', so = {}) {
     else if (loc && A.ear == 'local') loadLocal(); // 中文 ↔ 装了包的语言：换个模型
     A.earBad = ''; }
   function isEar() { return A.ear == 'model' || A.ear == 'sf' || A.ear == 'local'; } // 自己开麦克风听（不是浏览器识别 / 输入法）
-  const ear = makeEar({ ctx: A.ctx, kind: () => A.ear == 'model' ? 'model' : A.ear, playing: () => (A.playN || 0) > 0, local: cb => eng().loaded ? eng().session(cb) : null,
+  const ear = makeEar({ ctx: A.ctx, kind: () => A.ear == 'model' ? 'model' : A.ear, playing: () => (A.playN || 0) > 0, local: cb => eng().loaded ? eng().session(cb) : null, polish: () => (S.callPolish ?? true) && !!asrCfg().key && navigator.onLine !== false,
     mode: () => !A.mic || A.st != 'talk' || CALL != A || A.recog || !isEar() || A.ear == 'local' && !eng().loaded || performance.now() < (A.quiet || 0) ? 'off' : A.ph == 'think' || A.ph == 'speak' ? (S.callBarge ?? true) && !A.story ? 'busy' : 'off' : 'listen' } /* 讲故事时不靠声音打断（翻身、嘟囔会误打断），要停就点一下屏幕 */, (t, v) => earEv(t, v));
   A.earObj = ear;
   const el = Object.assign(document.createElement('div'), { className: `xc xc-${kind}` }); A.el = el; CALL = A;
@@ -131,7 +131,8 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     if (k == 'outl') return menu(OUT, 'TA 用什么语言回答').then(v => { if (v == null) return; A.outL = v == 'auto' ? undefined : v; draw(); toast('下一句开始生效'); }); // 本轮不变，下一轮才换
     if (k == 'kb') { A.typing = !A.typing; return draw(); }
     if (k == 'auto') { A.auto = S.callAuto = !A.auto; save(); toast(A.auto ? '自动接话：你停下来 TA 就接着说' : '点着说：点「点这里说」开始，点「说完了」才轮到 TA'); if (A.auto && A.ph == 'idle') return listen(); return draw(); }
-    if (k == 'ear') return menu([['local', '本地识别（推荐：手机上直接认，不联网、不花钱、边说边出字）'], ['model', '模型听（录音交给聊天模型听，要 Gemini 这类能听音频的）'], ['sf', '硅基识别（免费识别模型，边说边出字）'], ['web', '浏览器识别（要能连上谷歌）'], ['gap', `说完等多久：${+S.callGap || 1} 秒`], ['fill', `等久了先「嗯」一声：${S.callFill ? '开' : '关'}`]], '怎么听你说话').then(v => { if (!v || CALL != A) return;
+    if (k == 'ear') return menu([['local', '本地识别（推荐：手机上直接认，不联网、不花钱、边说边出字）'], ['model', '模型听（录音交给聊天模型听，要 Gemini 这类能听音频的）'], ['sf', '硅基识别（免费识别模型，边说边出字）'], ['web', '浏览器识别（要能连上谷歌）'], ['gap', `说完等多久：${+S.callGap || 1} 秒`], ['fill', `等久了先「嗯」一声：${S.callFill ? '开' : '关'}`], ['pol', `本地认完再让云端校对一遍：${(S.callPolish ?? true) ? '开' : '关'}${asrCfg().key ? '' : '（要硅基密钥）'}`]], '怎么听你说话').then(v => { if (!v || CALL != A) return;
+      if (v == 'pol') { S.callPolish = !(S.callPolish ?? true); save(); return toast(S.callPolish ? '开了：说完把录音交给硅基流动再认一遍（免费），以它为准；没回就用本地的' : '关了：只用本地认的'); }
       if (v == 'fill') { S.callFill = !S.callFill; save(); S.callFill && !A.fill && prefill(); return toast(S.callFill ? '开了：TA 想超过 4 秒先「嗯」一声' : '关了：TA 想好才开口'); }
       if (v == 'gap') return menu([['0.6', '0.6 秒（说话利索）'], ['1', '1 秒（默认）'], ['1.6', '1.6 秒（爱停顿）'], ['2.5', '2.5 秒（慢慢想）']], '你停多久算说完').then(g => { if (!g) return; S.callGap = +g; save(); toast(`停 ${g} 秒算说完（说得长会再多等 0.5 秒）`); });
       if (v == A.ear) return; earOff(); stopRec(); A.ear = S.callEar2 = v; save(); A.earBad = ''; A.earBack = null; A.ph == 'rec' && (A.ph = 'idle');
@@ -146,7 +147,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
   if (kind == 'video') navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: 'user' }, audio: false }).then(s => { if (CALL != A) return s.getTracks().forEach(t => t.stop()); A.cam = s; draw(); }).catch(() => { });
 
   // 响铃 → 过一会儿对方接起（AI 接电话不用等太久）
-  A.ring = ringTone(); const pick = setTimeout(() => { if (CALL != A) return; stopRing(); A.st = 'talk'; A.t0 = +now(); draw(); noVoice() ? toast(`${nm(c)} 还没配音色，只显示字幕（聊天设置 → 专属音色）`) : prefill(); turn(null, A.story ? { canned: storyAsk() } : +S.callRpm && +S.callRpm <= 6 ? { canned: greet() } : {}); }, 1800 + Math.random() * 1800);
+  A.ring = ringTone(); const pick = setTimeout(() => { if (CALL != A) return; stopRing(); A.st = 'talk'; A.t0 = +now(); draw(); noVoice() ? toast(`${nm(c)} 还没配音色，只显示字幕（聊天设置 → 专属音色）`) : prefill(); turn(null, { canned: A.story ? storyAsk() : greet() }); }, 1200 + Math.random() * 900); // 接通那句「喂？」不调模型：接起来就能说，我开口 TA 才开始想
   // 常驻前缀整场不变（学 StarHub 视频陪伴教程）：系统提示、人设、最近聊天在接通时算一次就冻住，每轮只换「这通电话里说过的」和「刚刚说」；前缀一样模型那边的缓存才能命中，起手快
   let SYS = null; const sysOnce = () => SYS ||= sysCtx({ n: 6, rc: 2500, wi: 2500, desc: 1500 });
   const HEAD = () => A.head ||= `【现在】${me.nick}和${rn(c)}正在打${A.kind == 'video' ? '视频' : '语音'}电话，你是${rn(c)}。\n${mp('chat.call', { 对方: rn(c), 我: me.nick })}\n${NOAI}` + (r => r ? `\n【最近的聊天】\n${r}` : '')(ch.msgs.filter(m => !/sys|pat/.test(m.t)).slice(-12).map(m => `${m.f == 'me' ? me.nick : rn(c)}: ${say(m)}`).join('\n'));
@@ -264,7 +265,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     const guard = setTimeout(() => { if (!first && !sg.aborted) { ac.abort(); A.ph = 'fail'; A.why = `TA 那边 2 分钟一个字都没出${A.thk ? `（模型一直在思考，想了 ${A.thk} 字）` : ''}，可能模型卡住了；可以在 设置 → 应用配置 → 语音通话 换个模型或把「低思考」打开`; draw(); } }, 120e3);
     const outL = A.outL ?? (ch.cfg?.lang || ''), zh = !outL || /^zh/.test(outL) && outL != 'zh-TW'; // 语言快照
     const P = HEAD() + `${(r => r ? `\n【想起来的旧事】（只当背景）\n${r}` : '')(recall(ch, said || '', 12, 400))}${A.log.length ? `\n【这通电话里说过的】\n${A.log.slice(-16).map(x => `${x.f == 'me' ? me.nick : rn(c)}：${x.t}`).join('\n')}` : ''}\n`
-      + (story ? `${me.nick}想听：「${said}」${asr ? '（语音识别出来的字，可能有同音字认错，按意思理解；明显认错时第一行先写 FIX: 改正后的原话）' : ''}。现在是睡前，${me.nick}躺着听你讲。用你自己的口吻，慢慢讲一个完整的故事给 TA 听：大约 1500 字；句子短、语气轻、适合念出来，像贴在耳边小声讲；中间可以偶尔轻轻跟 TA 说一两句（比如「困了就闭上眼睛」）；结尾慢慢收住，跟 TA 道晚安。` : nudge ? `${me.nick}已经 ${nudge} 秒没出声了。像打电话那样自然地追问一句（比如：喂？还在吗？是不是信号不好？），只说一句。` : au ? `${me.nick}刚刚说了一句话，就是附带的这段录音（是${me.nick}本人在电话里说的话）。` : said ? `${me.nick}刚刚说：「${said}」${tone ? `（听起来：${tone}）` : ''}${asr ? '（这是语音识别出来的字，可能有同音字认错，比如「心好累」认成「行好累」；按上下文理解。如果明显认错了，第一行先写 FIX: 改正后的原话，再另起一行回 TA；没认错就不要写 FIX）' : ''}\n接着回 TA。` : `电话刚接通（是${me.nick}打给你的），你先开口。`)
+      + (story ? `${me.nick}想听：「${said}」${asr ? '（语音识别出来的字，可能有同音字认错，按意思理解；明显认错时第一行先写 FIX: 改正后的原话）' : ''}。现在是睡前，${me.nick}躺着听你讲。用你自己的口吻，慢慢讲一个完整的故事给 TA 听：大约 1500 字；句子短、语气轻、适合念出来，像贴在耳边小声讲；中间可以偶尔轻轻跟 TA 说一两句（比如「困了就闭上眼睛」）；结尾慢慢收住，跟 TA 道晚安。` : nudge ? `${me.nick}已经 ${nudge} 秒没出声了。像打电话那样自然地追问一句（比如：喂？还在吗？是不是信号不好？），只说一句。` : au ? `${me.nick}刚刚说了一句话，就是附带的这段录音（是${me.nick}本人在电话里说的话）。` : said ? `${me.nick}刚刚说：「${said}」${tone ? `（听起来：${tone}）` : ''}${asr ? '（这是语音识别出来的字，常把同音 / 近音字认错，字数一般是对的：「心好累」→「行好累」、「在干嘛呢」→「他干嘛嘛」、「你教我说日语吧」→「比教我说任语吧」。先在心里把它还原成最合理的一句口语再回答，不要揪着认错的字反问「谁」「什么」。还原过就第一行先写 FIX: 还原后的原话，再另起一行回 TA；没认错就不要写 FIX）' : ''}\n接着回 TA。` : `电话刚接通（是${me.nick}打给你的），你先开口。`)
       + (zh ? '\n只输出你要说的话，一句一行，不要括号旁白。' : `\n你说${lname(outL)}。每一句都成对输出两行，第一行 SAY: 后面是${lname(outL)}原话，第二行 ZH: 后面是这句的简体中文意思。例：\nSAY: ${outL == 'ja' ? 'もしもし、どうしたの？' : outL == 'ko' ? '여보세요, 무슨 일이야?' : 'Hey, what\'s up?'}\nZH: 喂，怎么了？\n只输出这样成对的行，不要别的。`)
       + `\n如果这通电话自然聊完了（互相说了再见 / 晚安 / 要去忙了），在最后单独一行写 [挂断]，电话就会挂掉；没聊完不要写。`
       + (au ? `\n第一行必须是 HEARD: 后面照录音写下${me.nick}说的原话（照原来的语言写；笑、叹气、哈欠、哽咽这些声音写在括号里，如「（笑）你好坏」；听不清就写 HEARD: ?），然后另起一行开始回 TA。\n认真听语气：是笑着说、困了、犹豫、撒娇还是不高兴，回答要自然地接住这个语气（不用说出「我听出你…」）。` : '');

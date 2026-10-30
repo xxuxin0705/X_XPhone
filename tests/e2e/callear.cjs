@@ -28,11 +28,11 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/data:audio\/wav;base64,/.test(last) && /audio_url/.test(last) && /HEARD/.test(last), '停下 1 秒：录音（16kHz wav）跟这轮请求一起发给模型，要它先写 HEARD');
   const tx = await E(`document.querySelector('.xc-tx').innerText`);
   ok(/我是螃蟹/.test(tx) && /好，那现在开始/.test(tx) && !/HEARD/.test(tx), '字幕：我说的话（模型听到的）+ TA 的回答，不露 HEARD 标记 ' + JSON.stringify(tx).slice(0, 60));
-  ok(await E(`_P.length == 2`), '只调用了一次模型（没有另外的识别调用）');
+  ok(await E(`_P.length == 1`), '只调用了一次模型（接通那句「喂？」和识别都不调模型）');
   // 很短的一下（碰到手机）不算说话
   await W(3000); const n0 = await E(`_P.length`); await E(`_loud = 1`); await W(200); await E(`_loud = 0`); await W(1800);
   ok(await E(`_P.length`) == n0, '很短的一声（不到 0.35 秒）不算说话、不发');
-  ok(/认真听语气/.test(await E(`JSON.stringify(_P[1])`)) && /（笑）/.test(await E(`JSON.stringify(_P[1])`)), '提示词让模型听语气，笑、叹气写进听到的话里');
+  ok(/认真听语气/.test(await E(`JSON.stringify(_P[0])`)) && /（笑）/.test(await E(`JSON.stringify(_P[0])`)), '提示词让模型听语气，笑、叹气写进听到的话里');
   // 点字幕里我说的那句：改字
   await E(`document.querySelector('.xc-tx p.me[data-k=fix]').click()`); await W(200);
   await E(`(() => { const i = document.querySelector('.xc-fix input'); i.value = '我是小螃蟹'; document.querySelector('.xc-fix [data-f=y]').click(); })()`); await W(200);
@@ -83,7 +83,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`_P.length`) == m0 + 1 && /好累，好累/.test(await E(`JSON.stringify(_P.at(-1))`)), '停顿一下又接着说：两段并成一句，只发了一次请求');
   // 识别认错了字（行好累 → 心好累）：模型按上下文改，第一行写 FIX，字幕和通话内容跟着改；同一次请求，不多花
   asrNext = '行好累啊'; await E(`_mode = 'fix'`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3800);
-  ok(/同音字/.test(await E(`JSON.stringify(_P.at(-1))`)) && /心好累啊/.test(await E(`document.querySelector('.xc-tx').innerText`)) && !/行好累啊|FIX/.test(await E(`document.querySelector('.xc-tx').innerText`)) && await E(`cl.inCall().log.some(x => x.t == '心好累啊')`), '「行好累啊」→ 模型按上下文改成「心好累啊」，字幕和记录都改了');
+  ok(/同音/.test(await E(`JSON.stringify(_P.at(-1))`)) && /心好累啊/.test(await E(`document.querySelector('.xc-tx').innerText`)) && !/行好累啊|FIX/.test(await E(`document.querySelector('.xc-tx').innerText`)) && await E(`cl.inCall().log.some(x => x.t == '心好累啊')`), '「行好累啊」→ 模型按上下文改成「心好累啊」，字幕和记录都改了');
   // 中转站限流（429 / 1 分钟内最多请求 3 次）：记住限额、排队自动重发，不算失败，不把一长串报错甩到屏幕上
   asrNext = '在吗'; await E(`_mode = 'r429'; window._thrown = 0`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3500);
   ok(await E(`core.S.callRpm == 3 && cl.inCall().ph != 'fail' && !/request id|\\{/.test(document.querySelector('.xc').innerText)`) && /排队中|在想|正在说|在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), '429：记住每分钟 3 次，排队自动重发（不算失败）：' + await E(`document.querySelector('.xc-ph').textContent`));
