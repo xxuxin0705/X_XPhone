@@ -1,7 +1,7 @@
 import { streamSpeech, speechStyle } from './speech-stream.js';
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'GPT · 10-30 · 通话重写 1';
+export const VER = 'GPT · 10-30 · 通话对话轮次 2';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -413,7 +413,7 @@ export const stProf = id => id && stProfiles()?.find(p => p.id == id) || null;
 export const stCurName = () => { try { const es = C().extensionSettings, id = es?.connectionManager?.selectedProfile; return id && es.connectionManager.profiles.find(p => p.id == id)?.name || ''; } catch { return ''; } };
 async function stReq(id, sys, user, sig, cx, o) {
   const R = C().ConnectionManagerRequestService; if (!R) throw Error('这个版本的酒馆不支持按连接配置调用，请更新酒馆，或改回「跟随酒馆当前连接」');
-  const m = [{ role: 'system', content: sys }, { role: 'user', content: user }]; let r;
+  const m = [{ role: 'system', content: sys }, ...(o.history || []), { role: 'user', content: user }]; let r;
   try { r = await R.sendRequest(id, R.constructPrompt ? R.constructPrompt(m, id) : m, 8192, { stream: true, signal: sig }); }
   catch (e) { if (sig?.aborted) throw sig.reason || e; throw Error(String(e?.cause?.message || e?.message || e)); }
   if (typeof r != 'function') return r?.content ?? (typeof r == 'string' ? r : '');
@@ -426,7 +426,7 @@ async function stReq(id, sys, user, sig, cx, o) {
 export const curStream = () => { try { const c = C(); return c.mainApi == 'openai' && !!c.ChatCompletionService?.processRequest && !!c.chatCompletionSettings?.chat_completion_source; } catch { return false; } };
 async function curReq(sys, user, sig, cx, o) {
   const c = C(), s = c.chatCompletionSettings, src = s.chat_completion_source, sub = x => x && c.substituteParams ? c.substituteParams(x) : x;
-  const d = { type: 'quiet', stream: true, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], model: c.getChatCompletionModel?.() || s.openai_model, chat_completion_source: src,
+  const d = { type: 'quiet', stream: true, messages: [{ role: 'system', content: sys }, ...(o.history || []), { role: 'user', content: user }], model: c.getChatCompletionModel?.() || s.openai_model, chat_completion_source: src,
     max_tokens: +s.openai_max_tokens || 1024, temperature: +s.temp_openai || .9, include_reasoning: false, custom_prompt_post_processing: s.custom_prompt_post_processing, use_sysprompt: s.use_sysprompt,
     ...(o.fast ? { reasoning_effort: 'min' } : s.reasoning_effort && { reasoning_effort: s.reasoning_effort }), // 低思考：Gemini / Claude / OpenAI 推理模型都按最小思考预算
     ...(s.reverse_proxy && { reverse_proxy: s.reverse_proxy, proxy_password: s.proxy_password }),
@@ -484,9 +484,9 @@ export const llm = (sys, user, desc = '聊天', sg, o = {}) => {
   const once = async img => {
     if (R.raw && o.stream && !img.length && curStream()) { let got = false; // 流式走不通（比如酒馆版本差异）且还没出字：退回 generateRaw 再来一次
       try { return await curReq(sys, stU, sig, cx, { ...o, onText: t => { got = true; o.onText?.(t); } }); } catch (e) { if (sig?.aborted || got) throw e; cx.part('（流式没走通，改成整段返回：' + e.message + '）', 0); } }
-    if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: au ? [{ role: 'user', content: stU }] : user });
+    if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: o.history?.length ? [...o.history, { role: 'user', content: stU }] : au ? [{ role: 'user', content: stU }] : user });
     if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : stU, sig, cx, o);
-    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : opU }], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
+    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, ...(o.history || []), { role: 'user', content: img.length ? withImgs(user, img) : opU }], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
     const x = p.fast || o.fast ? noThink(p.model) : null; let r;
     try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
     catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }

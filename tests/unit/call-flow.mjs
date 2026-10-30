@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { speechParser, endpointGap, remainingSpeech, callContext } from '../../apps/chat/call-flow.js';
+import { speechParser, endpointGap, remainingSpeech, callContext, callHistory } from '../../apps/chat/call-flow.js';
 import { rawPCM, streamSpeech, speechStyle } from '../../speech-stream.js';
 import { pcmSentence } from '../../apps/chat/call-audio.js';
 let pass=0, fail=0; const test=async(name,fn)=>{try{await fn();pass++;console.log('✓ '+name);}catch(e){fail++;console.error('✗ '+name+' '+e.stack);}};
@@ -16,6 +16,22 @@ await test('未闭合标记不发布、不朗读控制标签',()=>{const got=[],
 await test('WAIT 被任意网络分块时都只表示等待',()=>{let waited=0;const got=[],p=speechParser(u=>got.push(u),{wait:()=>waited++});for(const c of 'WAIT')p.feed(c);p.finish();assert.equal(waited,1);assert.equal(got.length,0);});
 await test('不完整话语等待更久、中断记忆和已说记录分开',()=>{assert.ok(endpointGap('因为')>endpointGap('说完了。'));assert.ok(endpointGap('because')>endpointGap('Thank you!'));assert.equal(remainingSpeech([{t:'你好',spoken:2},{t:'明天去看海',spoken:2},{t:'还有礼物',spoken:0}]),'去看海还有礼物');assert.match(callContext({msgs:[]},'我','你',[{f:'me',t:'新问题'}],'礼物'),/尚未说完的内容/);});
 const response=(parts)=>new Response(new ReadableStream({start(c){for(const p of parts)c.enqueue(Uint8Array.from(p));c.close();}}));
+await test('最新问题只发送一次，旧回答保留 assistant 身份',()=>{const messages=callHistory([{f:'c',t:'喂？'},{f:'me',t:'你好'},{f:'c',t:'今こっち晴れててさ。'},{f:'me',t:'在说什么呢？'}],'在说什么呢？');assert.deepEqual(messages.map(x=>x.role),['user','assistant']);assert.equal(messages.at(-1).content,'今こっち晴れててさ。');assert.ok(!JSON.stringify(messages).includes('在说什么呢？'));});
+await test('酒馆普通/流式/连接配置与自定义 API 都保留历史角色和最新问题',async()=>{
+  const core=await import('../../core.js'), oldFetch=globalThis.fetch, oldST=globalThis.SillyTavern, oldChat=core.S.api.chat;
+  const history=[{role:'user',content:'之前的问题'},{role:'assistant',content:'之前的回答'}];let captured;
+  const c={generateRaw:async o=>(captured=o.prompt,'答复')};globalThis.SillyTavern={getContext:()=>c};
+  const check=()=>{assert.deepEqual(captured.slice(-3),[...history,{role:'user',content:'现在的问题'}]);};
+  try{
+    core.S.api.chat={src:'tavern',list:[]};await core.llm('背景','现在的问题','通话',null,{history});check();
+    Object.assign(c,{mainApi:'openai',chatCompletionSettings:{chat_completion_source:'custom',custom_url:'https://test/v1'},ChatCompletionService:{processRequest:async d=>(captured=d.messages,{content:'答复'})}});
+    await core.llm('背景','现在的问题','通话',null,{history,stream:true});check();delete c.mainApi;
+    c.extensionSettings={connectionManager:{profiles:[{id:'conn',api:'openai'}]}};c.ConnectionManagerRequestService={sendRequest:async(id,m)=>(captured=m,{content:'答复'})};core.S.api.chat.stp='conn';
+    await core.llm('背景','现在的问题','通话',null,{history});check();
+    core.S.api.chat={src:'custom',cur:'p',list:[{id:'p',url:'https://test/v1',key:'fake',model:'m'}]};globalThis.fetch=async(u,o)=>(captured=JSON.parse(o.body).messages,new Response(JSON.stringify({choices:[{message:{content:'答复'}}]}),{headers:{'content-type':'application/json'}}));
+    await core.llm('背景','现在的问题','通话',null,{history,stream:false});check();
+  }finally{core.S.api.chat=oldChat;globalThis.fetch=oldFetch;globalThis.SillyTavern=oldST;}
+});
 await test('PCM 1/3/不规则字节边界重组、奇数尾和空流失败',async()=>{const got=[];await rawPCM(response([[1],[2,3,4],[5],[6,7,8]]),24000,new AbortController().signal,b=>got.push(...b));assert.deepEqual(got,[1,2,3,4,5,6,7,8]);await assert.rejects(rawPCM(response([[1,2,3]]),24000,null,()=>{}),/不完整/);await assert.rejects(rawPCM(response([]),24000,null,()=>{}),/为空/);});
 await test('网络流尚未结束时 PCM 已经排入音频时钟',async()=>{const x=clock(),ac=new AbortController(),p=pcmSentence(x,{},ac.signal,()=>{});let controller;const r=new Response(new ReadableStream({start(c){controller=c}}));let received=false;const stream=rawPCM(r,24000,ac.signal,b=>{received=true;p.push(b,24000)});controller.enqueue(new Uint8Array(12000));await new Promise(r=>setImmediate(r));assert.ok(received&&x.nodes.length===1);ac.abort();await assert.rejects(stream);assert.ok(p.done);});
 await test('MiniMax 分块 SSE UTF8、结束汇总不重播、缺结束拒绝',async()=>{let got=[];const content='data: '+JSON.stringify({data:{audio:'01020304',status:1}})+'\r\n\r\ndata: '+JSON.stringify({data:{audio:'01020304',status:2}})+'\r\n\r\n';const bytes=new TextEncoder().encode(content);await streamSpeech({prov:'mm',url:'https://test',key:'k'},'你好','v',new AbortController().signal,b=>got.push(...b),async()=>response([...bytes].map(x=>[x])));assert.deepEqual(got,[1,2,3,4]);await assert.rejects(streamSpeech({prov:'mm',url:'https://test'},'你好','v',new AbortController().signal,()=>{},async()=>response([Array.from(new TextEncoder().encode(content.split('data: ')[0]+'data: {"data":{"audio":"0102","status":1}}\n\n'))])),/正常结束/);});

@@ -48,3 +48,16 @@ export function callContext(ch, me, role, log, pending) {
   const recent = ch.msgs.filter(m => !/^(sys|pat)$/.test(m.t)).slice(-16);
   return `【最近的聊天】\n${recent.map(m => `${m.f === 'me' ? me : role}：${m.t === 'call' ? m.c + '\n' + (m.log || []).map(x => `${x.f === 'me' ? me : role}：${x.t}`).join('\n') : m.c || ''}`).join('\n')}\n【本次电话已经说过的】\n${log.slice(-40).map(x => `${x.f === 'me' ? me : role}：${x.t}`).join('\n')}${pending ? `\n【你被打断、尚未说完的内容】\n${pending}\n结合用户新说的话，自然接上仍然相关的意思；不要重复已经说过的句子，也不要无视用户硬接旧话。` : ''}`;
 }
+
+// 最新用户句单独发送；历史按真实角色传递，不能把旧回答当作新的用户要求。
+export function callHistory(log, current) {
+  const past = log.slice(); if (past.at(-1)?.f === 'me' && past.at(-1).t === current) past.pop();
+  const messages = [];
+  for (const x of past.slice(-40)) {
+    if (!x.t?.trim()) continue;
+    const role = x.f === 'me' ? 'user' : 'assistant', last = messages.at(-1);
+    if (last?.role === role) last.content += '\n' + x.t; else messages.push({ role, content: x.t });
+  }
+  while (messages[0]?.role === 'assistant') messages.shift(); // 接通问候不当成用户起始轮，兼容要求首轮为 user 的接口。
+  return messages;
+}

@@ -29,6 +29,8 @@ let pass = 0, fail = 0; const ok = (x, m) => { x ? pass++ : fail++; console.log(
     await p.evaluate("SillyTavern.getContext().chat.push({name:'旁白', mes:'剧情更新：现在两人到了医院。'}); reply='知道了，我在医院门口等你。'"); await voice('你知道我在哪吗？');
     ok(await p.evaluate("JSON.stringify(prompts.at(-1)).includes('现在两人到了医院')"), '电话中正文推进后，下一轮重新读取当前剧情');
     ok(await p.evaluate("JSON.stringify(prompts.at(-1)).includes('Can you hear me?')"), '当前电话前面说过的话进入后续上下文');
+    ok(await p.evaluate("Array.isArray(prompts.at(-1).prompt) && prompts.at(-1).prompt.at(-1).role==='user' && prompts.at(-1).prompt.at(-1).content==='你知道我在哪吗？' && prompts.at(-1).prompt.some(x=>x.role==='assistant')"), '酒馆请求：历史回答为 assistant，最新问题独立放在最后');
+
     await p.evaluate("ch.tv = {v:{openai:'alloy'}}; reply='EMO: happy\\n真的太开心了。'"); await voice('我通过考试啦。');
     ok(speech.at(-1).response_format === 'pcm' && /笑意/.test(speech.at(-1).instructions || ''), '支持的引擎收到 PCM 和情绪指令，字幕没有控制标记');
     ok(await p.evaluate("!document.querySelector('.xc-tx').textContent.includes('EMO:')"), '情绪标签不会出现在字幕或朗读文本里');

@@ -5,7 +5,7 @@ import { lname } from './data.js';
 import { recall } from './recall.js';
 import { makeEar, asrCfg } from './ear.js';
 import { askSfKey } from '../settings/lang-packs.js';
-import { speechParser, remainingSpeech, callContext } from './call-flow.js';
+import { speechParser, remainingSpeech, callContext, callHistory } from './call-flow.js';
 import { pcmSentence } from './call-audio.js';
 regMod({ k: 'chat.call', app: '聊天', n: '语音通话', def: '像和熟悉的人打电话，口语、短句，一次一到三句。根据句意和当前剧情自然改变语气：开心带笑意，难过时轻柔，惊讶时有起伏，情绪不要夸张。保持角色的性格、关系、知识边界，不替用户说话，不写动作旁白。', vars: [['对方', '通话的人'], ['我', '我的网名']] });
 const IC = n => new URL(`../../assets/wx/call/${n}.png`, import.meta.url).href;
@@ -110,9 +110,9 @@ export function startCall(ch, kind = 'voice', so = {}) {
       if (canned) parser.feed(canned + '\n');
       else {
         const sys = await sysCtx({ n: S.ctxN || 15 }); if (!valid()) return;
-        const role = rn(ch), P = `【现在】${me.nick}和${role}正在打${A.kind === 'video' ? '视频' : '语音'}电话。你只扮演${role}。\n${mp('chat.call', { 对方: role, 我: me.nick })}\n${NOAI}\n${callContext({ ...ch, msgs: ch.msgs.filter(m => m !== journal) }, me.nick, role, A.log, turn.pending)}\n【想起的旧事】\n${recall(ch, text, 16, 1000)}\n【联系人资料】${ch.sign || ''}\n【用户刚说】${text}\n以当前剧情、世界书、联系人关系为准。只写你现在这一轮要说的话，不代替用户作答。${A.story ? '用户想听睡前故事，讲一个完整的故事，语气轻柔。' : '简短接话，一到三句，接着等用户。如果用户只是停顿，话明显还未说完、还在想下一句，整轮只输出 WAIT，不要抢话。'}\n每段台词前可以单独一行写 EMO: neutral/happy/sad/angry/surprised/fearful/disgusted 中的一种，选择符合句意的情绪，默认 neutral。不要输出动作旁白或其它标签。\n${turn.out && !/^zh/.test(turn.out) ? `用${lname(turn.out)}回答，每句严格两行：SAY: 外语原话，然后 ZH: 中文释义。释义只显示，不朗读。` : '用简体中文回答，一句一行。'}`;
+        const role = rn(ch), P = `【现在】${me.nick}和${role}正在打${A.kind === 'video' ? '视频' : '语音'}电话。你只扮演${role}。\n${mp('chat.call', { 对方: role, 我: me.nick })}\n${NOAI}\n${callContext({ ...ch, msgs: ch.msgs.filter(m => m !== journal) }, me.nick, role, [], turn.pending)}\n【想起的旧事】\n${recall(ch, text, 16, 1000)}\n【联系人资料】${ch.sign || ''}\n以当前剧情、世界书、联系人关系为准。回应最后一条用户消息的具体问题，不要重复之前已经说过的台词，不要把剧情背景当成用户正在问的事情。用户问你在说什么时，解释你刚才的话；用户要你教语言时，接着教。只写你现在这一轮要说的话，不代替用户作答。${A.story ? '用户想听睡前故事，讲一个完整的故事，语气轻柔。' : '简短接话，一到三句，接着等用户。如果用户只是停顿，话明显还未说完、还在想下一句，整轮只输出 WAIT，不要抢话。'}\n每段台词前可以单独一行写 EMO: neutral/happy/sad/angry/surprised/fearful/disgusted 中的一种，选择符合句意的情绪，默认 neutral。不要输出动作旁白或其它标签。\n${turn.out && !/^zh/.test(turn.out) ? `用${lname(turn.out)}回答，每句严格两行：SAY: 外语原话，然后 ZH: 中文释义。释义只显示，不朗读。` : '用简体中文回答，一句一行。'}`;
         let previous = '';
-        const full = await llm(sys, P, '通话', sg, { stream: true, fast: 1, mod: 'chat.call', onText: snapshot => { if (!valid()) return; arm(); if (!snapshot.startsWith(previous)) throw Error('模型改写了已发布的通话台词'); parser.feed(snapshot.slice(previous.length)); previous = snapshot; } });
+        const full = await llm(sys + '\n' + P, text, '通话', sg, { history: callHistory(A.log, text), stream: true, fast: 1, mod: 'chat.call', onText: snapshot => { if (!valid()) return; arm(); if (!snapshot.startsWith(previous)) throw Error('模型改写了已发布的通话台词'); parser.feed(snapshot.slice(previous.length)); previous = snapshot; } });
         if (!valid()) return; const final = String(full || ''); if (final && !final.startsWith(previous)) throw Error('模型改写了通话台词'); if (final.length > previous.length) parser.feed(final.slice(previous.length));
       }
       parser.finish(); turn.done = true; kick(); await player;
