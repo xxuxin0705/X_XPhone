@@ -5,7 +5,7 @@ import { regMod, mp, NOAI } from '../../mods.js';
 regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '在回复的人'], ['我', '我的网名']] });
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
-import { callSheet, callBub, startCall } from './call.js';
+import { callSheet, callBub, startCall, warmEar } from './call.js';
 import { recall } from './recall.js';
 import { addFav, favPage, cardPick, cardH } from './fav.js';
 import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
@@ -277,6 +277,7 @@ function msgs(ch, sel) {
 let avL, avT;
 export function openChat(id) {
   const ch = get(id); if (!ch) return; if (top()?.cls != 'chatapp') { home(); APPS.chat.open(); } ch.unread = 0; saveD(); qFix(ch);
+  ch.type == 'p' && setTimeout(warmEar, 1500); // 私聊：后台先读好本地识别，打电话不用等
   const cf = ch.cfg, cls = () => { const L = look(ch); return `chat st-${sty(ch)} ${ch.type == 'g' ? 'grp' : ''} ${L.dark ? 'dark' : ''} sh-${L.shape || 'def'} av-${L.avs || 'def'} ${L.showAv ? '' : 'noav'} ${L.cont ? 'cont' : ''}`; };
   let ptab = null, q = null; const pkC = {};
   let sel = null; // 多选时是选中消息下标的 Set

@@ -56,6 +56,8 @@ export async function callSheet(ch) {
 const svgTel = '<svg class="xc-ms" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 3.5c.5-.3 1.2-.2 1.6.3l2 2.6c.4.5.4 1.2 0 1.7L9 9.4a12 12 0 0 0 5.6 5.6l1.3-1.2c.5-.4 1.2-.4 1.7 0l2.6 2c.5.4.6 1.1.3 1.6l-1.1 1.8c-.5.8-1.5 1.2-2.4.9C10.6 18.6 5.4 13.4 3.9 7.1c-.2-.9.1-1.9.9-2.4z"/></svg>';
 
 // so.story：「枕边故事」——接通后 TA 问想听什么（不调用模型），我说一句，TA 一次请求讲一个长故事，慢慢念给我听；讲完我不出声 30 秒就自己挂（多半睡着了）
+// 进私聊就在后台先把本地识别模型读好（同一个网页里只读一次），拨电话时不用再等「正在准备本地识别」
+export function warmEar() { const w = S.callEar2 ?? 'local'; if (w != 'local' || !navigator.mediaDevices?.getUserMedia || CALL) return; const L = S.callLang || 'zh-CN', en = packOn(L) && asrFor(L) || localAsr; en.loaded || en.load().catch(() => { }); }
 export function startCall(ch, kind = 'voice', so = {}) {
   if (CALL) return CALL.el.classList.remove('mini'), toast('正在通话中');
   const c = ch, me = meObj(), A = { ch, kind, st: 'dial', t0: 0, mic: true, spk: kind == 'video', log: [], cap: '', who: '', q: [], ac: null, rec: null, au: null, ring: null, cam: null, typing: false, ttsBad: false, inL: S.callLang || 'zh-CN', outL: undefined, ph: 'dial', thinkAt: 0, lastSaid: null };
@@ -288,7 +290,8 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     // 一轮最多说 4 句（故事不限）：模型有时会一口气把两个人的对话都编出来、最后自己写 [挂断]，超过就掐掉后面的
     const MAXU = story ? 1e9 : 4, lac = new AbortController(), lsg = AbortSignal.any ? AbortSignal.any([sg, lac.signal]) : sg; let capped = false;
     const pub = (t, tr = '') => { if (capped) return; if (U.length >= MAXU) { capped = true; lac.abort(); return; } if (/[\[［]\s*挂断\s*[\]］]/.test(t)) { A.bye = 1; t = t.replace(/[\[［]\s*挂断\s*[\]］]/g, ''); tr = String(tr).replace(/[\[［]\s*挂断\s*[\]］]/g, ''); } /* TA 主动挂电话（学 evolia 的 call_control） */ t = clean(t); if (!t || sg.aborted) return; U.push({ t, tr: clean(tr) }); synth(); kick(); };
-    const P1 = zh ? zhUnits(t => { const p = pureSay(t, 'zh'); p && pub(p); }) : pairUnits((t, tr) => { const p = pureSay(t, outL); p && pub(p, tr); }); // 夹进来的别的语言去掉，免得一个音色念两种话
+    const said0 = story ? null : A.log.filter(x => x.f != 'me'), ds = (t, tr) => said0?.length ? dropSaid(t, tr, said0) : [t, tr]; /* 开过口了：开场白、原样复读的句子去掉 */
+    const P1 = zh ? zhUnits(t => { const [p] = ds(pureSay(t, 'zh'), ''); p && pub(p); }) : pairUnits((t, tr) => { const [p, q] = ds(pureSay(t, outL), tr); p && pub(p, q); }); // 夹进来的别的语言去掉，免得一个音色念两种话
     // 模型听：回答前先有一行 HEARD: 我说的原话 → 填进字幕里我那一行、记进通话内容；其余照常切句
     let hd = !au && !asr, hb = ''; // asr：识别的字可能认错，模型可以先写一行 FIX: 改正后的原话
     const gotHeard = t => { t = String(t || '').replace(/\*[^*]*\*|【[^】]*】/g, '').trim().replace(/^[「“"]|[」”"]$/g, ''); if (!hl) return; if (!t || /^[?？]+$/.test(t)) { hl.t = '（没听清）'; } else { hl.t = t; A.lastSaid = t; hl.lg = { f: 'me', t }; A.log.push(hl.lg); } draw(); }; // 听到的话里（笑）（叹气）要留着
@@ -368,6 +371,15 @@ export function pureSay(t, L) { if (!t) return t; L = L || 'zh';
   const kana = /[\u3040-\u30ff]/, hangul = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/, han = /[\u4e00-\u9fff]/, zhOnly = /[你嘛呢吗么们这那哪啥咋俺啦呀吧哦哈咱]|什么|怎么|没有|一下|干嘛|是不是|的话/;
   const bad = s => /^zh/.test(L) ? kana.test(s) || hangul.test(s) : L == 'ja' ? hangul.test(s) || han.test(s) && !kana.test(s) && zhOnly.test(s) : L == 'ko' ? kana.test(s) || han.test(s) && !hangul.test(s) : kana.test(s) || hangul.test(s) || han.test(s);
   return String(t).split(/(?<=[、，,。．.!！?？\s])/).filter(s => !bad(s)).join('').replace(/^[、，,\s]+|[、，,\s]+$/g, '').trim(); }
+// 已经开聊了：TA 这一句开头又来「おはよう / 喂 / 早上好」，或者一字不差重复这通电话里说过的句子（弱模型爱复读开场白）→ 那几小句去掉
+// prev：这通电话里 TA 说过的 [{t, tr}]；中文释义按同样的位置删（句数对不上就按释义自己的内容删）
+const HI = /^(おはよう(ございます)?|もしもし|こんにちは|こんばんは|やあ|喂|早上好|早安|早|你好|嗨|哈喽|안녕(하세요)?|여보세요|hello|hi|hey)[\s~〜…、，,。．.!！?？]*$/i;
+export function dropSaid(t, tr, prev) { const cut = x => String(x || '').split(/(?<=[。．.!！?？…]+)(?![。．.!！?？…])/).filter(z => z.trim()), key = x => x.replace(/[\s~〜…、，,。．.!！?？「」"“”]/g, '').toLowerCase();
+  const seen = new Set(), seenT = new Set(); for (const x of prev || []) { cut(x.t).forEach(z => seen.add(key(z))); cut(x.tr).forEach(z => seenT.add(key(z))); }
+  const A = cut(t), B = cut(tr), off = A.map(z => HI.test(z.trim()) || seen.has(key(z)) && key(z).length > 0);
+  if (!off.some(Boolean)) return [t, tr]; const t2 = A.filter((_, i) => !off[i]).join('').trim(); if (!t2) return [null, null];
+  const tr2 = (B.length == A.length ? B.filter((_, i) => !off[i]) : String(tr || '').split(/(?<=[、，,。．.!！?？…]+)(?![、，,。．.!！?？…])/).filter(z => { const k = key(z); return !HI.test(z.trim()) && !(k.length >= 4 && [...seenT].some(x => x.includes(k))); })).join('').trim();
+  return [t2, tr2 || tr]; }
 export function pairUnits(pub) { let buf = '', say = null;
   const line = l => { l = l.trim(); if (!l) return; const m = l.match(/^(SAY|ZH)\s*[:：]\s*(.*)$/i);
     if (!m) { say != null && pub(say); say = l; return; } // 没按格式写的行：当作要说的话（宽松一点，不让整轮失败）
