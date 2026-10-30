@@ -21,7 +21,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const d = await E(`_P.at(-1)`), roles = d.messages.map(m => m.role).join(',');
   ok(roles == 'system,user,assistant,user,assistant,user', '发给模型的是真正的多轮对话：' + roles);
   ok(d.messages.at(-1).content == '还困吗' && /SAY: もしもし？/.test(d.messages[2].content), '最后一条就是我刚说的话；TA 前面的话按 SAY/ZH 格式写回去');
-  ok(/【此刻】/.test(d.messages[0].content) && /先接住/.test(d.messages[0].content) && !/刚刚说|最要紧/.test(JSON.stringify(d.messages)), '系统提示：此刻在干嘛、先接住我那句；没有以前那堆「刚刚说 / 最要紧」');
+  ok(/【此刻】/.test(d.messages[0].content) && /接着.{0,12}刚说的话/.test(d.messages[0].content) && !/刚刚说|最要紧/.test(JSON.stringify(d.messages)), '系统提示：此刻在干嘛、先接住我那句；没有以前那堆「刚刚说 / 最要紧」');
   ok(await E(`/医務室/.test(_T[0] || '')`), 'SAY 一写完就开始说，不等 ZH 那行（第二轮跟第一轮一字不差：整轮都是复读时还是说出来，别哑着） ' + JSON.stringify(await E(`_T`)));
   ok(await E(`cl.inCall().log.filter(x => x.f == 'c').slice(1).every(x => !/おはよう/.test(x.t) && x.tr && !/早上好/.test(x.tr))`), '每轮开头的「おはよう」去掉了，晚到的中文释义补进字幕且同样去掉「早上好」 ' + JSON.stringify(await E(`cl.inCall().log`)));
   ok(await E(`cl.inCall().log.filter(x => x.f == 'c').length == 3 && cl.inCall().ph != 'fail'`), '整轮都被当复读删光：还是把那句说出来，不显示「模型回了空的内容」');

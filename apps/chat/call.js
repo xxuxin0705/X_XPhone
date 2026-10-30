@@ -15,6 +15,7 @@ import { recall } from './recall.js';
 import { makeEar, wav, asrCfg } from './ear.js';
 import { asrFor, localAsr } from './local-asr.js';
 import { packOn } from '../settings/lang-packs.js';
+import { stLabel } from './status.js';
 import { FREE } from '../settings/free-models.js';
 // 加过的免费模型配置（有密钥的）：中转站排队时一键换过去
 const freeProf = () => S.api.chat.list.find(p => p.key && FREE.some(f => (p.url || '').replace(/\/+$/, '') == f.url));
@@ -163,7 +164,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
   // 响铃 → 过一会儿对方接起（AI 接电话不用等太久）
   A.ring = ringTone(); const pick = setTimeout(() => { if (CALL != A) return; stopRing(); A.st = 'talk'; A.t0 = +now(); draw(); noVoice() ? toast(`${nm(c)} 还没配音色，只显示字幕（聊天设置 → 专属音色）`) : prefill(); turn(null, { canned: A.story ? storyAsk() : greet() }); }, 1200 + Math.random() * 900); // 接通那句「喂？」不调模型：接起来就能说，我开口 TA 才开始想
   // 常驻前缀整场不变（学 StarHub 视频陪伴教程）：系统提示、人设、最近聊天在接通时算一次就冻住，每轮只换「这通电话里说过的」和「刚刚说」；前缀一样模型那边的缓存才能命中，起手快
-  let SYS = null; const sysOnce = () => SYS ||= sysCtx({ n: 6, rc: 2500, wi: 2500, desc: 1500 });
+  let SYS = null; const sysOnce = () => SYS ||= sysCtx(); // 跟私聊回复一样的完整上下文（人设、世界书、正文剧情不截短）：截短了 TA 就没了性格，只会说套话
   // ===== 打电话的提示词（10-31 重写）：系统提示只放「你是谁、此刻在干嘛、最近聊了啥、之前的电话、怎么说话」，规矩只留几条；
   // 这通电话里说的话按真正的多轮对话发（我一句 user、TA 一句 assistant），模型天然就接最后一句，不用在一大段文字里找「刚刚说」
   const ago = ms => { const m = Math.round(ms / 6e4); return m < 2 ? '刚刚' : m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.round(m / 60)} 小时前` : `${Math.round(m / 1440)} 天前`; };
@@ -172,10 +173,10 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     const calls = ch.msgs.filter(m => m.t == 'call' && !forgot(m) && m.log?.length).slice(-2).map(m => `${ago(d - (m.ts || 0))}打过一通（${m.c}）：${m.log.slice(-10).map(x => `${x.f == 'me' ? I : who}：${x.tr || x.t}`).join(' / ').slice(0, 260)}`).join('\n');
     return `\n\n【现在】${I}给${who}打${A.kind == 'video' ? '视频' : '语音'}电话，已经接通。你就是${who}，用${who}自己的口吻说话。${I}的话是语音识别出来的字，可能有同音错字，按最合理的意思理解；你说的话会被念出来。识别明显认错时，可以在最前面单独一行写 FIX: 改正后的原话（会改掉字幕），没认错就别写。`
       + `\n${mp('chat.call', { 对方: who, 我: I })}`
-      + `\n【此刻】现在是 ${d.getMonth() + 1} 月 ${d.getDate()} 日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}。照上面的最新剧情，你心里先定好${who}这会儿在哪、在干嘛、心情怎样，整通电话都照这个来；被问到就具体地说。`
+      + `\n【此刻】现在是 ${d.getMonth() + 1} 月 ${d.getDate()} 日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}。照上面的最新剧情，你心里先定好${who}这会儿在哪、在干嘛、心情怎样，整通电话都照这个来；被问到就具体地说。${c.st && d - (c.st.ts || 0) < 864e5 ? `（${who}的微信状态是「${stLabel(c.st)}${c.st.t ? '：' + c.st.t : ''}」，可以参考）` : ''}`
       + (chat ? `\n【最近的私聊】\n${chat}` : '')
       + (calls ? `\n【之前的电话】（你记得的事，只当背景，一切以最新剧情为准；合适的时候可以顺嘴提一句，比如刚打过怎么又打来，别反复说）\n${calls}` : '')
-      + `\n【怎么说话】\n- 真人打电话：口语，短，一次 1～3 句，说完就停，等${I}开口。\n- 先接住${I}刚说的那句：问什么答什么；没听清、没听懂就像真人一样反问（「啊？」「你说啥？」）。\n- 第一句尽量短（两三个字到半句话），可以是接话、反应，也可以直接答；每次都不一样，不要每次都用同一个词开头。\n- 不重复自己前面说过的话。不要动作描写、括号旁白、表情、星号。不要替${I}说话。`
+      + `\n【怎么说话】\n- 就像${who}本人在打电话，照人设的性格和说话习惯来：想说多少就说多少，可以一句，也可以一口气说好几句长句，会逗人、会吐槽、会自己说起一件事。\n- 接着${I}刚说的话往下聊：问什么答什么；没听清、没听懂就像真人一样反问。\n- 不重复自己前面说过的话。不要动作描写、括号旁白、表情、星号。只说${who}自己的话，不要替${I}说话。`
       + (zh ? `\n- 全部用简体中文说。` : `\n- 你说${L}。每一句都成对写两行：第一行 SAY: ${L}原话，第二行 ZH: 这句的中文意思。SAY 行只能有${L}，一个中文词都不夹。只输出这样成对的行。`)
       + `\n- ${I}说要走了（再见、晚安、去睡了、去忙了），你也道个别，最后单独一行写 [挂断]。`; })();
   // 这通电话说过的 → 多轮对话。TA 的话按要求的格式写回去（外语就是 SAY/ZH 成对），模型照着接着写，格式就不会跑
@@ -312,9 +313,10 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     const U = []; let played = -1, done = false; // U：已稳定的句子 { t 台词, tr 释义, b 音频 }
     const synth = () => { for (let k = played + 1; k <= Math.min(U.length - 1, played + 2); k++) { const u = U[k]; if (u.b !== undefined) continue; // 只领先 2 句
       u.b = A.ttsBad ? Promise.resolve(null) : tts(u.t, '', c.sex, sg, { c, blob: 1, lang: zh ? '' : outL }).catch(e => { if (!sg.aborted && !A.ttsBad) { A.ttsBad = true; toast('语音合成不可用，只显示字幕：' + e.message); } return null; }); } };
-    // 一轮最多说 4 句（故事不限）：模型有时会一口气把两个人的对话都编出来、最后自己写 [挂断]，超过就掐掉后面的
-    const MAXU = story ? 1e9 : 4, lac = new AbortController(), lsg = AbortSignal.any ? AbortSignal.any([sg, lac.signal]) : sg; let capped = false;
-    const pub = (t, tr = '') => { if (capped) return; if (U.length >= MAXU) { capped = true; lac.abort(); return; } if (/[\[［]\s*挂断\s*[\]］]/.test(t)) { A.bye = 1; t = t.replace(/[\[［]\s*挂断\s*[\]］]/g, ''); tr = String(tr).replace(/[\[［]\s*挂断\s*[\]］]/g, ''); } /* TA 主动挂电话（学 evolia 的 call_control） */ t = clean(t); if (!t || sg.aborted) return; const u = { t, tr: clean(tr) }; U.push(u); synth(); kick(); return u; };
+    // 一轮最多说 12 句（故事不限）：不限制长短（用户要的：像真人一样可以一口气说好几句长句），只防模型失控一直写；写出「我的名字：」就是在替我说话，从那里掐掉
+    const MAXU = story ? 1e9 : 12, lac = new AbortController(), lsg = AbortSignal.any ? AbortSignal.any([sg, lac.signal]) : sg; let capped = false;
+    const meRe = new RegExp('^\\s*' + me.nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[:：]');
+    const pub = (t, tr = '') => { if (capped) return; if (U.length >= MAXU || meRe.test(t)) { capped = true; lac.abort(); return; } if (/[\[［]\s*挂断\s*[\]］]/.test(t)) { A.bye = 1; t = t.replace(/[\[［]\s*挂断\s*[\]］]/g, ''); tr = String(tr).replace(/[\[［]\s*挂断\s*[\]］]/g, ''); } /* TA 主动挂电话（学 evolia 的 call_control） */ t = clean(t); if (!t || sg.aborted) return; const u = { t, tr: clean(tr) }; U.push(u); synth(); kick(); return u; };
     const keep = raw => ({ raw, t: dropSaid(raw, '', [])[0] || raw, tr: '' }); let cu = null, lost = null; /* lost：整轮都被当复读删光时，至少把第一句说出来，别哑着 */ const said0 = story ? null : A.log.filter(x => x.f != 'me'), ds = (t, tr) => said0?.length ? dropSaid(t, tr, said0) : [t, tr]; /* 开过口了：开场白、原样复读的句子去掉 */
     const P1 = zh ? zhUnits(t => { const raw = pureSay(t, 'zh'), [p] = ds(raw, ''); p ? pub(p) : raw && (lost ||= keep(raw)); }) : pairUnits(t => { const raw = pureSay(t, outL), [p] = ds(raw, ''); cu = p ? pub(p) : null; cu ? (cu.raw = raw) : raw && (lost ||= keep(raw)); }, tr => { const u = cu; cu = null; if (!u) { lost && !lost.tr && (lost.tr = dropSaid(lost.raw, tr, [])[1] || tr); return; } /* 这句被删了（开场白 / 复读）：释义也不要 */ u.tr = clean(String(ds(u.raw, tr)[1] || '').replace(/[\[［]\s*挂断\s*[\]］]/g, '')); u.ln && (u.ln.tr = u.tr, draw()); u.lg && (u.lg.tr = u.tr); }); // 夹进来的别的语言去掉，免得一个音色念两种话
     // 模型听：回答前先有一行 HEARD: 我说的原话 → 填进字幕里我那一行、记进通话内容；其余照常切句

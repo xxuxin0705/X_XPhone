@@ -75,10 +75,10 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在发呆呢/.test(await E(`document.querySelector('.xc-tx').innerText`)), '点「说完了」：发给对方，字幕里有我说的和 TA 回的');
   ok(/在想|点这里说|正在说/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态行有字');
   // 通话用轻上下文：正文最多 6 条
-  ok(/最近6条/.test(await E(`_P.at(-1)`)), '打电话用轻一点的上下文（正文最近 6 条）');
+  ok(/最近15条/.test(await E(`_P.at(-1)`)), '打电话用跟私聊一样的完整上下文（正文最近 15 条，人设世界书不截短）');
   // 常驻前缀整场不变：两轮的系统提示一字不差，只有后面的「这通电话里说过的」在变
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '没事'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(2500);
-  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt) && /先接住/.test(b.systemPrompt) && !/刚刚说|最要紧|别有 AI 味/.test(b.systemPrompt + b.prompt); })()`), '两轮之间系统提示完全一样（缓存能命中），只有通话内容在变；没有以前那堆「刚刚说 / 最要紧」');
+  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt) && /接着.{0,12}刚说的话/.test(b.systemPrompt) && !/刚刚说|最要紧|别有 AI 味/.test(b.systemPrompt + b.prompt); })()`), '两轮之间系统提示完全一样（缓存能命中），只有通话内容在变；没有以前那堆「刚刚说 / 最要紧」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   // 自动接话（照 StarHub 示例，默认）+ 酒馆当前连接也走流式 + 字幕跟着声音一个字一个字出
   await E(`(() => { core.S.callAuto = true; window._P0 = _P.length; window._D = []; window._busy = []; window._say = '我是螃蟹'; window._srN = 0;
@@ -111,15 +111,15 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(3500);
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '你在干嘛呀'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(6000);
   const said = await E(`cl.inCall()?.lines.filter(x => x.f != 'me').map(x => x.t) || []`), pr = await E(`_P.at(-1) || ''`);
-  ok(said.length <= 5 && !said.some(t => /疲れた|じゃあね/.test(t)), '模型一口气编了两个人的对话：一轮最多说 4 句，后面的掐掉 ' + JSON.stringify(said));
+  await W(6000); const said2 = await E(`cl.inCall()?.lines.filter(x => x.f != 'me').map(x => x.t) || []`); ok(said2.length >= 7 && said2.length <= 13, '不限制句数：一口气说好几句都念出来（只防失控，最多 12 句） ' + JSON.stringify(said2));
   ok(await E(`!!cl.inCall()`), '我没说要走，模型自己写的 [挂断] 不当真，电话没挂');
   ok(await E(`(() => { const m = cl.inCall(); return !!document.querySelector('.xc [data-k=mem]') && m.mem === true; })()`), '通话底部有「记住这通」开关，默认记');
-  ok(/不要替.*说话/.test(pr) && /先接住/.test(pr) && /不重复自己/.test(pr), '提示词：先接住我那句、别替我说话、别复读');
+  ok(/不要替.*说话/.test(pr) && /接着.{0,12}刚说的话/.test(pr) && /不重复自己/.test(pr) && /想说多少就说多少/.test(pr) && !/1～3 句/.test(pr), '提示词：接着我那句聊、不限句数长短、别替我说话、别复读');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''`);
   // 日语角色：提示词里不给真例句（模型会照抄「もしもし、どうしたの？」）；SAY 里夹的中文去掉
   ok(await E(`(async () => { const c = await import('/apps/chat/call.js'); return JSON.stringify([c.pureSay('な?、在干嘛呢', 'ja'), c.pureSay('何してるの？在干嘛', 'ja'), c.pureSay('本当？', 'ja'), c.pureSay('你在干嘛呀', 'ja'), c.pureSay('わ、わーい！桃！你醒啦！', 'ja'), c.pureSay('뭐 해? 何してる？', 'ko'), c.pureSay('뭐 해? 在干嘛', 'ko'), c.pureSay('在干嘛呢？もしもし？', 'zh'), c.pureSay('好呀。안녕', ''), c.pureSay('Hey! 何してる？', 'en')]); })()`) == JSON.stringify(['な?', '何してるの？', '本当？', '', 'わ、わーい！桃！', '뭐 해?', '뭐 해?', '在干嘛呢？', '好呀。', 'Hey!']), 'TA 只说一种语言：日语里夹的中文、韩语里夹的日语 / 中文、中文里夹的日语 / 韩语、英语里夹的日语都去掉');
   ok(await E(`(async () => { const c = await import('/apps/chat/call.js'), pv = [{ t: 'もしもし？' }, { t: 'おはよう。何かあったの？', tr: '早上好，发生什么事了吗？' }]; return JSON.stringify([c.dropSaid('おはよう。何かあったの？あの、医務室にいるよ。', '早上好，发生什么事了吗？那个，我在医务室。', pv), c.dropSaid('おはよう？', '早上好？', pv), c.dropSaid('うん、眠いの？', '嗯，困吗？', pv)]); })()`) == JSON.stringify([['あの、医務室にいるよ。', '那个，我在医务室。'], [null, null], ['うん、眠いの？', '嗯，困吗？']]), '开过口以后：每轮开头又来「おはよう。何かあったの？」这种开场白 / 原样复读，去掉（中文释义一起去掉）');
-  ok(/全部用简体中文说/.test(await E(`_P.find(x => !/SAY:/.test(x) && /先接住/.test(x)) || ''`)), '没开翻译：提示词写明全部用中文说');
+  ok(/全部用简体中文说/.test(await E(`_P.find(x => !/SAY:/.test(x) && /不重复自己/.test(x)) || ''`)), '没开翻译：提示词写明全部用中文说');
   ok(!/もしもし、どうしたの/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)) && /一个中文词都不夹/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)), '提示词里没有能被照抄的例句，写明 SAY 行不能夹中文');
   // 朗读语言跟着翻译设置走（MiniMax 的 language_boost）：开了日语就按日语读（汉字不会读成中文），没开就是中文；手动选了粤语、说中文时还读粤语
   ok(await E(`(async () => { const core = await import('/core.js'), F = window.fetch, B = []; window.fetch = async (u, o) => { if (/minimaxi/.test(String(u))) { B.push(JSON.parse(o.body)); return new Response(JSON.stringify({ data: { audio: 'fffb' }, base_resp: { status_code: 0 } }), { headers: { 'content-type': 'application/json' } }); } return F(u, o); };
