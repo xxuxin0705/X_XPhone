@@ -2,12 +2,12 @@
 // 回复时只带最近 30 条聊天；更早的聊天里，和「现在说到的词」有关的几句被「吸」上来，当背景放进提示词。
 // 像人一样：平时不会想起所有往事，但别人一提到某个词，相关的回忆自己就浮上来了。
 // 规矩（照教程）：有字数预算（记忆是配菜不是主食，超了砍掉分低的）；没想起来就整块不出现（不留「暂无」占位）；越久远的分越低。
-import { rn, say, meObj } from '../../core.js';
+import { rn, say, meObj, forgot } from '../../core.js';
 import { get } from './data.js';
 
 // 常见但没信息量的双字词：不当磁铁（不然「我们」「今天」会把什么都吸上来）
 const STOP = new Set('什么 我们 你们 他们 她们 今天 明天 昨天 怎么 这个 那个 这样 那样 就是 一下 没有 不是 可以 知道 现在 真的 还是 觉得 时候 已经 然后 因为 所以 但是 如果 一个 自己 东西 不要 没事 好的 哈哈 嗯嗯 一起 还有 只是 应该 可能 感觉 有点 一点 这么 那么 怎样 为什 么呢 了吗 的话 一样 不会 不能 出来 起来 过来 回来 这里 那里 哪里 是不 不了 了吧 吧吧 啊啊'.split(' '));
-const txt = m => /sys|pat/.test(m.t) ? '' : String(say(m) || '');
+const txt = m => /sys|pat/.test(m.t) || forgot(m) ? '' : String(say(m) || '');
 // 抽磁铁：英文 / 数字词、假名 / 韩文连写、汉字按两个字一组切
 export const keys = s => { const out = new Set(); s = String(s || '');
   for (const w of s.match(/[A-Za-z][A-Za-z0-9]{2,}|\d{3,}/g) || []) out.add(w.toLowerCase());

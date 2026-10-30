@@ -78,7 +78,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/最近6条/.test(await E(`_P.at(-1)`)), '打电话用轻一点的上下文（正文最近 6 条）');
   // 常驻前缀整场不变：两轮的系统提示一字不差，只有后面的「这通电话里说过的」在变
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '没事'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(2500);
-  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && (h => h(a.prompt) === h(b.prompt))(p => p.split(/【想起来的旧事】|【这通电话里说过的】|刚刚说：|电话刚接通/)[0]) && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt); })()`), '两轮之间系统提示和前缀完全一样（缓存能命中），只有通话内容在变');
+  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt) && /先接住/.test(b.systemPrompt) && !/刚刚说|最要紧|别有 AI 味/.test(b.systemPrompt + b.prompt); })()`), '两轮之间系统提示完全一样（缓存能命中），只有通话内容在变；没有以前那堆「刚刚说 / 最要紧」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   // 自动接话（照 StarHub 示例，默认）+ 酒馆当前连接也走流式 + 字幕跟着声音一个字一个字出
   await E(`(() => { core.S.callAuto = true; window._P0 = _P.length; window._D = []; window._busy = []; window._say = '我是螃蟹'; window._srN = 0;
@@ -113,13 +113,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const said = await E(`cl.inCall()?.lines.filter(x => x.f != 'me').map(x => x.t) || []`), pr = await E(`_P.at(-1) || ''`);
   ok(said.length <= 5 && !said.some(t => /疲れた|じゃあね/.test(t)), '模型一口气编了两个人的对话：一轮最多说 4 句，后面的掐掉 ' + JSON.stringify(said));
   ok(await E(`!!cl.inCall()`), '我没说要走，模型自己写的 [挂断] 不当真，电话没挂');
-  ok(/不要替.*说话/.test(pr) && /不要再说「喂」/.test(pr), '提示词：只写自己这一轮、别替我说话、招呼打过了别再「喂」');
+  ok(await E(`(() => { const m = cl.inCall(); return !!document.querySelector('.xc [data-k=mem]') && m.mem === true; })()`), '通话底部有「记住这通」开关，默认记');
+  ok(/不要替.*说话/.test(pr) && /先接住/.test(pr) && /不重复自己/.test(pr), '提示词：先接住我那句、别替我说话、别复读');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''`);
   // 日语角色：提示词里不给真例句（模型会照抄「もしもし、どうしたの？」）；SAY 里夹的中文去掉
   ok(await E(`(async () => { const c = await import('/apps/chat/call.js'); return JSON.stringify([c.pureSay('な?、在干嘛呢', 'ja'), c.pureSay('何してるの？在干嘛', 'ja'), c.pureSay('本当？', 'ja'), c.pureSay('你在干嘛呀', 'ja'), c.pureSay('わ、わーい！桃！你醒啦！', 'ja'), c.pureSay('뭐 해? 何してる？', 'ko'), c.pureSay('뭐 해? 在干嘛', 'ko'), c.pureSay('在干嘛呢？もしもし？', 'zh'), c.pureSay('好呀。안녕', ''), c.pureSay('Hey! 何してる？', 'en')]); })()`) == JSON.stringify(['な?', '何してるの？', '本当？', '', 'わ、わーい！桃！', '뭐 해?', '뭐 해?', '在干嘛呢？', '好呀。', 'Hey!']), 'TA 只说一种语言：日语里夹的中文、韩语里夹的日语 / 中文、中文里夹的日语 / 韩语、英语里夹的日语都去掉');
   ok(await E(`(async () => { const c = await import('/apps/chat/call.js'), pv = [{ t: 'もしもし？' }, { t: 'おはよう。何かあったの？', tr: '早上好，发生什么事了吗？' }]; return JSON.stringify([c.dropSaid('おはよう。何かあったの？あの、医務室にいるよ。', '早上好，发生什么事了吗？那个，我在医务室。', pv), c.dropSaid('おはよう？', '早上好？', pv), c.dropSaid('うん、眠いの？', '嗯，困吗？', pv)]); })()`) == JSON.stringify([['あの、医務室にいるよ。', '那个，我在医务室。'], [null, null], ['うん、眠いの？', '嗯，困吗？']]), '开过口以后：每轮开头又来「おはよう。何かあったの？」这种开场白 / 原样复读，去掉（中文释义一起去掉）');
-  ok(/全部用简体中文说/.test(await E(`_P.find(x => !/SAY:/.test(x) && /刚刚说/.test(x)) || ''`)), '没开翻译：提示词写明全部用中文说');
-  ok(!/もしもし、どうしたの/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)) && /一个中文词都不能夹/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)), '提示词里没有能被照抄的例句，写明 SAY 行不能夹中文');
+  ok(/全部用简体中文说/.test(await E(`_P.find(x => !/SAY:/.test(x) && /先接住/.test(x)) || ''`)), '没开翻译：提示词写明全部用中文说');
+  ok(!/もしもし、どうしたの/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)) && /一个中文词都不夹/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)), '提示词里没有能被照抄的例句，写明 SAY 行不能夹中文');
   // 朗读语言跟着翻译设置走（MiniMax 的 language_boost）：开了日语就按日语读（汉字不会读成中文），没开就是中文；手动选了粤语、说中文时还读粤语
   ok(await E(`(async () => { const core = await import('/core.js'), F = window.fetch, B = []; window.fetch = async (u, o) => { if (/minimaxi/.test(String(u))) { B.push(JSON.parse(o.body)); return new Response(JSON.stringify({ data: { audio: 'fffb' }, base_resp: { status_code: 0 } }), { headers: { 'content-type': 'application/json' } }); } return F(u, o); };
     const old = core.S.api.tts; core.S.api.tts = { src: 'custom', pv: 'mm', cfg: { mm: { key: 'k', model: 'speech-2.6-hd' } } }; const c = { id: 'x', sex: '女', tv: { v: { mm: 'v1' } }, cfg: {} };

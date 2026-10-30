@@ -92,7 +92,7 @@ export function makeEar(o, on) {
     on('end'); sendSlice(sr); const ep = E.ep; E.chain.then(() => ep == E.ep && on('final', { text: E.parts.join(''), chunks: buf, sr, tone }));
   }
   // 云端再认一遍（本地 + 硅基）：1.5 秒内没回就算了，用本地的
-  function polish(buf, sr) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 1500); return sfAsr(buf, sr, '', ac.signal).then(t => (clearTimeout(tm), t)).catch(() => ''); }
+  function polish(buf, sr) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 900); return sfAsr(buf, sr, '', ac.signal).then(t => (clearTimeout(tm), t)).catch(() => ''); }
   function frame(d, sr) {
     let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; const rms = Math.sqrt(s / d.length), fr = E.fr = d.length / sr, F = sec => Math.max(1, Math.round(sec / fr)); // 连续几帧：按秒数算，麦克风采样率不同一帧的长短也不同
     E.vmax = Math.max(E.vmax, rms);

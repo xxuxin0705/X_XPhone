@@ -1,6 +1,6 @@
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'voice-v2 · 10-31 · 18';
+export const VER = 'voice-v2 · 10-31 · 19';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -56,7 +56,9 @@ const mzSay = m => { const s = m.song || {}, t = `《${s.name || '未知歌曲'}
   if (m.t == 'song') return `[分享音乐] 分享了歌曲${t}${m.ex?.length ? `，摘录的歌词：「${m.ex.map(l => l.txt).join(' / ')}」` : ''}${m.note ? `，附言：${m.note}` : ''}`;
   if (m.t == 'listen') return m.st == 'ended' ? `[一起听歌] 发起过一起听${t}，现在已经结束了` : `[一起听歌] 邀请一起听${t}`;
   return { accepted: `[音乐邀请] 邀请一起听${t}，对方接受了，正在一起听`, rejected: `[音乐邀请] 邀请一起听${t}，对方拒绝了`, ended: `[音乐邀请] 邀请一起听${t}，一起听已经结束` }[m.st] || `[音乐邀请] 邀请一起听${t}，等对方接受`; };
-export const say = m => { if (/^(song|listen|minv)$/.test(m.t)) return mzSay(m); if (m.t == 'card') return `[推荐了一张个人名片：${m.c}]`; if (m.t == 'call') return `[${m.kind == 'video' ? '视频' : '语音'}通话 · ${m.c}${m.log?.length ? `；电话里聊了：${m.log.slice(-12).map(x => `${x.f == 'me' ? '我' : 'TA'}：${x.tr || x.t}`).join(' / ').slice(0, 400)}` : ''}]`; if (m.t == 'rec') return `[转发了一段聊天记录「${m.c}」：${(m.rec || []).map(r => `${r.n}: ${r.c}`).join(' / ')}]`; if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
+// 通话记录没选「记进记忆」：TA 不记得这通电话（聊天、回忆、正文注入里都不带）。旧的通话记录默认不记（之前坏掉的通话不会再喂回去）
+export const forgot = m => m?.t == 'call' && !m.mem;
+export const say = m => { if (/^(song|listen|minv)$/.test(m.t)) return mzSay(m); if (m.t == 'card') return `[推荐了一张个人名片：${m.c}]`; if (m.t == 'call') return `[${m.kind == 'video' ? '视频' : '语音'}通话 · ${m.c}${m.log?.length && m.mem ? `；电话里聊了：${m.log.slice(-12).map(x => `${x.f == 'me' ? '我' : 'TA'}：${x.tr || x.t}`).join(' / ').slice(0, 400)}` : ''}]`; if (m.t == 'rec') return `[转发了一段聊天记录「${m.c}」：${(m.rec || []).map(r => `${r.n}: ${r.c}`).join(' / ')}]`; if (m.t != 'sticker') return brief(m); let n = m.c && m.c != '表情' ? m.c : '', d = m.d && m.d != n ? m.d : '';
   if (!n && !d && m.img) { const x = S.stk?.mine?.flatMap(p => p.items).find(x => x.img == m.img) || S.assets.sticker.find(x => x.img == m.img); x && (n = x.l || x.name || '', d = x.d && x.d != n ? x.d : ''); } // 之前发的、后来才起名字的表情
   return `[表情包：${[n, d && `（${d}）`].join('') || '一个表情'}${m.pk ? `，「${m.pk}」里的` : ''}]`; };
 
@@ -412,7 +414,7 @@ export const stProf = id => id && stProfiles()?.find(p => p.id == id) || null;
 export const stCurName = () => { try { const es = C().extensionSettings, id = es?.connectionManager?.selectedProfile; return id && es.connectionManager.profiles.find(p => p.id == id)?.name || ''; } catch { return ''; } };
 async function stReq(id, sys, user, sig, cx, o) {
   const R = C().ConnectionManagerRequestService; if (!R) throw Error('这个版本的酒馆不支持按连接配置调用，请更新酒馆，或改回「跟随酒馆当前连接」');
-  const m = [{ role: 'system', content: sys }, { role: 'user', content: user }]; let r;
+  const m = [{ role: 'system', content: sys }, ...(o.msgs || [{ role: 'user', content: user }])]; let r;
   try { r = await R.sendRequest(id, R.constructPrompt ? R.constructPrompt(m, id) : m, 8192, { stream: true, signal: sig }); }
   catch (e) { if (sig?.aborted) throw sig.reason || e; throw Error(String(e?.cause?.message || e?.message || e)); }
   if (typeof r != 'function') return r?.content ?? (typeof r == 'string' ? r : '');
@@ -425,7 +427,7 @@ async function stReq(id, sys, user, sig, cx, o) {
 export const curStream = () => { try { const c = C(); return c.mainApi == 'openai' && !!c.ChatCompletionService?.processRequest && !!c.chatCompletionSettings?.chat_completion_source; } catch { return false; } };
 async function curReq(sys, user, sig, cx, o) {
   const c = C(), s = c.chatCompletionSettings, src = s.chat_completion_source, sub = x => x && c.substituteParams ? c.substituteParams(x) : x;
-  const d = { type: 'quiet', stream: true, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], model: c.getChatCompletionModel?.() || s.openai_model, chat_completion_source: src,
+  const d = { type: 'quiet', stream: true, messages: [{ role: 'system', content: sys }, ...(o.msgs || [{ role: 'user', content: user }])], model: c.getChatCompletionModel?.() || s.openai_model, chat_completion_source: src,
     max_tokens: +s.openai_max_tokens || 1024, temperature: +s.temp_openai || .9, include_reasoning: false, custom_prompt_post_processing: s.custom_prompt_post_processing, use_sysprompt: s.use_sysprompt,
     ...(o.fast ? { reasoning_effort: 'min' } : s.reasoning_effort && { reasoning_effort: s.reasoning_effort }), // 低思考：Gemini / Claude / OpenAI 推理模型都按最小思考预算
     ...(s.reverse_proxy && { reverse_proxy: s.reverse_proxy, proxy_password: s.proxy_password }),
@@ -452,6 +454,7 @@ const route = (aux, use) => {
   if (a.src == 'tavern') { const sp = stProf(a.stp); return sp ? { st: sp } : { raw: 1 }; }
   return { p: prof('chat') };
 };
+// o.msgs：真正的多轮对话 [{role:'user'|'assistant', content}]（打电话用：你一句、TA 一句排好发过去，模型天然接最后一句）；不支持的路子（酒馆文本补全）照旧用 user 那段文字
 // o.fast 本次强制低思考；o.use 指定模型（功能单独选的，见 设置 → API）；o.aux 用「生成用模型」（生成联系人 / 剧情同步等，没设就用聊天模型）；o.onText(已收到的全文) / o.onThink(思考字数) 流式回调
 export const auxProf = () => { const r = route(1); return r.p && r.p.id == S.api.chat.aux ? r.p : null; };
 // 识图：把图片跟这次请求一起发给模型（不额外调用），模型看图理解意思。o.images = [图片地址…]
@@ -485,7 +488,7 @@ export const llm = (sys, user, desc = '聊天', sg, o = {}) => {
       try { return await curReq(sys, stU, sig, cx, { ...o, onText: t => { got = true; o.onText?.(t); } }); } catch (e) { if (sig?.aborted || got) throw e; cx.part('（流式没走通，改成整段返回：' + e.message + '）', 0); } }
     if (R.raw) return img.length ? C().generateRaw({ systemPrompt: sys, prompt: [{ role: 'user', content: withImgs(user, img) }] }) : C().generateRaw({ systemPrompt: sys, prompt: au ? [{ role: 'user', content: stU }] : user });
     if (R.st) return stReq(R.st.id, sys, img.length ? withImgs(user, img) : stU, sig, cx, o);
-    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, { role: 'user', content: img.length ? withImgs(user, img) : opU }], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
+    const body = { model: p.model, temperature: +p.temp || 0.9, messages: [{ role: 'system', content: sys }, ...(o.msgs && !au && !img.length ? o.msgs : [{ role: 'user', content: img.length ? withImgs(user, img) : opU }])], ...((o.stream ?? p.stream ?? !p.nostream) && { stream: true }) };
     const x = p.fast || o.fast ? noThink(p.model) : null; let r;
     try { r = await req(p, '/chat/completions', { ...body, ...x }, sig); }
     catch (e) { if (!x || !/HTTP (400|422)/.test(e.message)) throw e; r = await req(p, '/chat/completions', body, sig); }
@@ -780,7 +783,7 @@ ${wi ? `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')), wi)}
 export const INJ = []; // App 注册的注入片段：() => 文本
 export function syncInject() {
   const c = C(); let t = '';
-  if (S.mode == 'linked') t = D().chats.map(ch => { const ms = ch.msgs.filter(m => m.inj || ch.cfg?.inj).slice(-15); return ms.length ? `[${ch.type == 'g' ? '群聊「' + ch.name + '」' : '与' + rn(ch) + '的私聊'}]\n` + ms.map(m => `${m.f == 'me' ? meObj().nick : rn(byId(m.f))}: ${say(m)}`).join('\n') : ''; }).filter(Boolean).join('\n');
+  if (S.mode == 'linked') t = D().chats.map(ch => { const ms = ch.msgs.filter(m => (m.inj || ch.cfg?.inj) && !forgot(m)).slice(-15); return ms.length ? `[${ch.type == 'g' ? '群聊「' + ch.name + '」' : '与' + rn(ch) + '的私聊'}]\n` + ms.map(m => `${m.f == 'me' ? meObj().nick : rn(byId(m.f))}: ${say(m)}`).join('\n') : ''; }).filter(Boolean).join('\n');
   const u = c.name1, inl = S.inline ? `<手机同步格式>\n剧情里有人用手机（发消息、发朋友圈、加好友、拉群、转账、拍一拍）时，在本条回复最后附一个 <手机>…</手机> 块，一行一件事，只写${u}的手机上能看到的：\n私聊|发送者|接收者|内容（发表情包就写 [表情包:关键词]）\n群聊|群名|发送者|内容\n朋友圈|作者|内容\n加好友|真实姓名|网名|TA说的语言（说中文就不写）\n拉群|群名|成员1,成员2\n转账|发送者|接收者|金额|备注\n拍一拍|谁|动作\n心情|谁|心情词|没说出口的一句话|TA心里那座岛此刻的风景|三到五句心声，用／隔开（心声是 TA 此刻脑子里一闪而过的念头，每句 15 字以内，口吻贴人设，彼此不重复）（风景写四到八个词：时代（现代 / 古风）、季节（春 / 夏 / 秋 / 冬）、剧情此刻所在的地方（如 古寺求签、深夜便利店、医院走廊、海边灯塔、学校操场），再加天气时间和两三样具体物件，要和故事的世界观一致，例：古风 秋 古寺 求签 枫叶 香炉 / 现代 冬 深夜便利店 路灯 雪）（主要角色的心情有明显变化时写）\n人名都写真实姓名，${u}就写「${u}」。没有手机上的事就不要写这个块。这个块会自动收进手机，不会显示在正文里。\n</手机同步格式>` : '';
   const ext = INJ.map(f => { try { return f(c) || ''; } catch { return ''; } }).filter(Boolean).join('\n'); // 各 App 自己要带进正文的格式（比如音乐卡）
   c.setExtensionPrompt?.('st_phone', [ext, t && `<手机聊天记录>\n以下是${u}手机里的聊天，相关角色知道这些内容：\n${t}\n</手机聊天记录>`, inl].filter(Boolean).join('\n'), 1, 2, false, 0); // 跟着正文一起输出，不额外调 API

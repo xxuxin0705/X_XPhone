@@ -8,7 +8,7 @@ import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { callSheet, callBub, startCall, warmEar } from './call.js';
 import { recall } from './recall.js';
 import { addFav, favPage, cardPick, cardH } from './fav.js';
-import { C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
+import { forgot, C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
 import { get, isMe, addMsg, viewing, sty, who, nre, shake, rm, gsz, STY, LANGS, lname, langFor, myLang, qref, look, stkAllow, grpNames } from './data.js';
 import { openFeed } from './chat.js';
 import { payPage, hbOpen, hbDetail, tfPage } from './pay.js';
@@ -92,7 +92,7 @@ export function parseReply(raw, ch) {
 }
 function replyP(ch, patNow) {
   const g = ch.type == 'g', me = meObj().nick, al = stkOf(ch), sk = [...new Set([...(!al || al.has('fav') ? S.assets.sticker.map(s => s.name) : []), ...S.stk.mine.filter(p => !al || al.has(srcOf(p.id))).flatMap(p => p.items.map(x => x.l))].filter(Boolean))].slice(0, 60).join('、'), lang = ch.cfg.lang;
-  const hist = ch.msgs.slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${qShow(ch, m.q).c}）` : ''}${m.stq ? `（回复了你的微信状态「${m.stq}」）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? m.rcpt ? `（这条是${m.st == '已退还' ? '退还' : '收下'}对方那笔转账的回执）` : `（${m.st}）` : ''}`).join('\n');
+  const hist = ch.msgs.filter(m => !forgot(m)).slice(-30).map(m => `${m.f == 'me' ? me : m.f == 'sys' ? '[系统]' : rn(get(m.f))}: ${m.t == 'pat' || m.t == 'sys' ? `（${m.c}）` : say(m)}${m.q ? `（引用了：${qShow(ch, m.q).c}）` : ''}${m.stq ? `（回复了你的微信状态「${m.stq}」）` : ''}${m.t == 'hb' ? `（${m.f == 'me' ? (m.st ? '已被领取' : '还没人领') : m.st ? `${me}已领取` : `${me}还没领`}）` : ''}${m.t == 'transfer' && m.st ? m.rcpt ? `（这条是${m.st == '已退还' ? '退还' : '收下'}对方那笔转账的回执）` : `（${m.st}）` : ''}`).join('\n');
   const tl = (g ? ch.members : [ch.id]).map(i => [get(i), langFor(ch, i)]).filter(([c, l]) => c && l).map(([c, l]) => `${rn(c)}用${lname(l)}`), cf = ch.cfg;
   const c50 = v => Math.max(0, Math.min(50, +v || 0)), rn0 = c50(cf.rmin == null ? 1 : cf.rmin), rn1 = Math.max(rn0, c50(cf.rmax == null ? 5 : cf.rmax)), vn0 = c50(cf.vmin), vn1 = Math.max(vn0, c50(cf.vmax == null ? 1 : cf.vmax)); // 最多 50 条
   const ls = mzB.getMusicListening(ch.id), snap = ls && G.mzSnapshot?.(), mt2 = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
@@ -383,13 +383,14 @@ export function openChat(id) {
         const has = stk && S.assets.sticker.some(x => x.img == m.img);
         const k = await pop(t.closest('.msg')?.querySelector('.bub') || t, [
           ...(stk && !has ? [['add', '添加']] : []), ...(text ? [['copy', '复制']] : []), ['fwd', '转发'], ['fav', '收藏'], ['q', '引用'],
-          ...(m.t == 'text' ? [['edit', '编辑']] : []), ...(m.t == 'voice' ? [['stt', m.stt ? '取消转文字' : '转文字'], ...(m.au ? [['vre', '重新合成']] : [])] : []), ['multi', '多选'],
+          ...(m.t == 'text' ? [['edit', '编辑']] : []), ...(m.t == 'call' && m.log?.length ? [['mem', m.mem ? '不记进记忆' : '记进记忆']] : []), ...(m.t == 'voice' ? [['stt', m.stt ? '取消转文字' : '转文字'], ...(m.au ? [['vre', '重新合成']] : [])] : []), ['multi', '多选'],
           ...(mine ? [['rc', '撤回']] : ch.msgs.slice(+i + 1).every(x => x.f != 'me' || x.rcpt) ? [['regen', '重新生成']] : []), /* 只有最新一轮回复能重新生成 */ ['del', '删除']], m.t != 'rec' && sty(ch) != 'wx'); if (!k) return; // 注入正文只在多选里（整个聊天开了注入就不用）；微信没有贴表情
         if (k[0] == '~') return pg.acts.rpx(i + '|' + k.slice(1)); // 表情回应
         if (k == 'q') { q = i; qbar(); return $('.ip', pg.el).focus(); }
         if (k == 'add') { S.assets.sticker.unshift({ id: uid(), name: m.c && m.c != '表情' ? m.c : '表情', img: m.img }); C().saveSettingsDebounced(); return toast('已添加到「我的表情」'); }
         if (k == 'stt') { m.stt = !m.stt; saveD(); return emit('chat'); }
         if (k == 'vre') { VM == m && vStop(); drop(m.au); delete m.au; delete m.du; saveD(); return vPlay(ch, m); } // 只重新合成这条语音的声音，文字不变
+        if (k == 'mem') { m.mem ? delete m.mem : (m.mem = 1); saveD(); emit('chat'); return toast(m.mem ? 'TA 会记得这通电话（以最新剧情为准）' : 'TA 不记得这通电话了'); }
         if (k == 'fwd') return fwd([m], 'one');
         if (k == 'fav') return addFav(m, get(m.f));
         if (k == 'multi') { sel = new Set([+i]); return rer(); }
