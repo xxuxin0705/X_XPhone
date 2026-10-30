@@ -34,7 +34,12 @@ const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAA
 const SR = () => globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
 const mmss = s => `${String(s / 60 | 0).padStart(2, '0')}:${String(s % 60 | 0).padStart(2, '0')}`;
 let CALL = null; // 同一时间只有一通电话
-const REQ = []; // 通话里发出去的请求时间（中转站常按「每分钟几次」限流，见 slot）
+// 每分钟限额按「打电话用的是哪个模型」分开记：中转站报过「每分钟 3 次」，换成免费模型不该跟着排队
+// 线路 = 应用配置里语音通话选的模型（配置 id / st:酒馆连接配置），没选就是聊天模型那条线
+const route = () => S.mods?.['chat.call']?.use || (S.api.chat.src == 'tavern' ? 'st:' + (S.api.chat.stp || '') : S.api.chat.cur || '');
+const RPM = () => { if ('callRpm' in S) delete S.callRpm; return S.callRpmBy ||= {}; }; // 旧版存的是全局限额（不知道是哪条线报的）：丢掉，哪条线再报 429 再记
+const rpm = () => +RPM()[route()] || 0;
+const REQS = {}, REQ = () => REQS[route()] ||= []; // 通话里发出去的请求时间，按线路分开（见 slot）
 const shortErr = m => { m = String(m || ''); const x = m.match(/"message"\s*:\s*"([^"]+)"/); return (x ? x[1] : m).replace(/\s*\(request id[^)]*\)/i, '').slice(0, 90); }; // 报错只留一句人话
 const SIL = 1200; // 自动接话：我停下多久算说完（毫秒）
 // TauriTavern（安卓 App）没有申请录音权限，网页里拿不到麦克风，浏览器识别也用不了 → 改用手机输入法自带的语音输入（键盘上的话筒）：
@@ -89,8 +94,8 @@ export function startCall(ch, kind = 'voice', so = {}) {
   const draw = () => {
     const dial = A.st == 'dial', rec = A.ph == 'rec', cap = A.lines.length || rec ? `<div class="xc-tx">${A.lines.slice(-8).map((x, i, L) => `<p class="${x.f == 'me' ? 'me' : ''} ${i == L.length - 1 && A.ph == 'speak' && x.f != 'me' ? 'now' : ''}"${x.f == 'me' && x.t != '…' ? ` data-k="fix" data-i="${A.lines.length - L.length + i}"` : ''}>${x == A.rv ? `<span class="xc-r">${esc(x.t.slice(0, x.sh))}</span>` : esc(x.t)}${x.tr && x.tr != x.t ? `<em${x == A.rv ? ' class="xc-r2"' : ''}>${esc(x == A.rv ? x.tr.slice(0, Math.ceil(x.tr.length * x.sh / Math.max(1, x.t.length))) : x.tr)}</em>` : ''}</p>`).join('')}${rec ? isEar() ? `<p class="me ing xc-lvp"><span class="xc-pt">${esc(A.heard || '')}</span> <span class="xc-lv"><i></i><i></i><i></i><i></i><i></i></span></p>` : `<p class="me ing"><span>${esc(A.heard || '')}</span><i class="xc-cur"></i></p><p class="xc-dg">${esc(diag())}</p>` : ''}</div>` : '';
     const thinkS = A.ph == 'think' ? Math.round((performance.now() - A.thinkAt) / 1e3) : 0;
-    const ph = A.story && !dial && (A.ph == 'idle' || A.ph == 'speak' || A.ph == 'think' && !A.queue && !A.recog) ? { idle: A.story == 1 ? '想听什么故事？直接说' : '讲完啦，晚安', speak: `${esc(nm(c))} 在讲故事`, think: `${esc(nm(c))} 在想故事…` }[A.ph] : { idle: A.kbv ? A.kbF ? '在听…' : A.kbU ? '点下面的框，接着说' : '点下面的框，按键盘上的🎤说话' : isEar() && A.mic ? A.ear == 'local' && !eng().loaded ? `正在准备本地识别…${A.lp != null ? ` ${A.lp}%` : ''}` : ear.ms ? '在听…' : '正在打开麦克风…' : A.mic ? A.auto ? '点「点这里说」接着聊' : '点下面「点这里说」，说完点「说完了」' : '麦克风已关', rec: A.auto ? '在听…' : '在听你说… 说完点「说完了」', think: A.queue ? `排队中：中转站每分钟最多 ${S.callRpm} 次，还要等 ${A.queue} 秒` : A.recog ? '在认你说的话…' : `${esc(nm(c))} 在想…${thinkS >= 5 ? ` <i class="xc-ts">${tsTxt(thinkS)}</i>` : ''}`, speak: `${esc(nm(c))} 正在说`, fail: '这轮没接上，可以再说一遍' }[A.ph] || '';
-    const hint = A.kbv && !A.kbU && A.ph != 'think' && A.ph != 'speak' && !dial ? '<p class="xc-hint">酒馆 App（Tauri）没有给网页麦克风权限，直接对着手机说它听不到；借键盘自带的语音输入说，停一下自动发给 TA</p>' : A.ph == 'fail' && A.why ? `<p class="xc-hint">${esc(A.why)}</p>` : isEar() && A.earBad ? `<p class="xc-hint">${esc(A.earBad)}</p>` : A.ph == 'think' && A.queue && freeProf() && (S.mods?.['chat.call']?.use || '') != freeProf().id ? `<p class="xc-hint">中转站每分钟只给 ${S.callRpm} 次，所以在排队。<b class="xc-go" data-k="gofree">打电话改用${esc(freeProf().name)}，不用排队</b></p>` : A.ph == 'think' && thinkS >= 20 ? `<p class="xc-hint">${A.raw ? '酒馆当前连接是文本补全（或酒馆版本太旧），拿不到流式，要等整段想完才开口。在 设置 → 应用配置 → 聊天 → 语音通话 里选一个「连接配置」或自己的 API，并把「低思考」打开，会快很多' : `模型想得有点久${A.thk ? `（已经想了 ${A.thk} 字）` : ''}。${(S.mods?.['chat.call']?.think || 'low') == 'full' ? '在 设置 → 应用配置 → 语音通话 里把「低思考」打开会快一些' : '「低思考」已经开着它还这么想，是这个模型关不掉思考：打电话换个不思考的模型吧（设置 → 应用配置 → 语音通话 → 挑一个免费模型，比如 GLM-4-Flash）'}`}</p>` : '';
+    const ph = A.story && !dial && (A.ph == 'idle' || A.ph == 'speak' || A.ph == 'think' && !A.queue && !A.recog) ? { idle: A.story == 1 ? '想听什么故事？直接说' : '讲完啦，晚安', speak: `${esc(nm(c))} 在讲故事`, think: `${esc(nm(c))} 在想故事…` }[A.ph] : { idle: A.kbv ? A.kbF ? '在听…' : A.kbU ? '点下面的框，接着说' : '点下面的框，按键盘上的🎤说话' : isEar() && A.mic ? A.ear == 'local' && !eng().loaded ? `正在准备本地识别…${A.lp != null ? ` ${A.lp}%` : ''}` : ear.ms ? '在听…' : '正在打开麦克风…' : A.mic ? A.auto ? '点「点这里说」接着聊' : '点下面「点这里说」，说完点「说完了」' : '麦克风已关', rec: A.auto ? '在听…' : '在听你说… 说完点「说完了」', think: A.queue ? `排队中：中转站每分钟最多 ${rpm()} 次，还要等 ${A.queue} 秒` : A.recog ? '在认你说的话…' : `${esc(nm(c))} 在想…${thinkS >= 5 ? ` <i class="xc-ts">${tsTxt(thinkS)}</i>` : ''}`, speak: `${esc(nm(c))} 正在说`, fail: '这轮没接上，可以再说一遍' }[A.ph] || '';
+    const hint = A.kbv && !A.kbU && A.ph != 'think' && A.ph != 'speak' && !dial ? '<p class="xc-hint">酒馆 App（Tauri）没有给网页麦克风权限，直接对着手机说它听不到；借键盘自带的语音输入说，停一下自动发给 TA</p>' : A.ph == 'fail' && A.why ? `<p class="xc-hint">${esc(A.why)}</p>` : isEar() && A.earBad ? `<p class="xc-hint">${esc(A.earBad)}</p>` : A.ph == 'think' && A.queue && freeProf() && (S.mods?.['chat.call']?.use || '') != freeProf().id ? `<p class="xc-hint">中转站每分钟只给 ${rpm()} 次，所以在排队。<b class="xc-go" data-k="gofree">打电话改用${esc(freeProf().name)}，不用排队</b></p>` : A.ph == 'think' && thinkS >= 20 ? `<p class="xc-hint">${A.raw ? '酒馆当前连接是文本补全（或酒馆版本太旧），拿不到流式，要等整段想完才开口。在 设置 → 应用配置 → 聊天 → 语音通话 里选一个「连接配置」或自己的 API，并把「低思考」打开，会快很多' : `模型想得有点久${A.thk ? `（已经想了 ${A.thk} 字）` : ''}。${(S.mods?.['chat.call']?.think || 'low') == 'full' ? '在 设置 → 应用配置 → 语音通话 里把「低思考」打开会快一些' : '「低思考」已经开着它还这么想，是这个模型关不掉思考：打电话换个不思考的模型吧（设置 → 应用配置 → 语音通话 → 挑一个免费模型，比如 GLM-4-Flash）'}`}</p>` : '';
     const pill = dial ? '' : (A.kbv || isEar()) && !(A.ph == 'think' && thinkS >= 20) && A.ph != 'fail' ? '' : rec ? `<div class="xc-talk"><b class="xc-pill go" data-k="done">说完了</b><b class="xc-pill sub" data-k="recx">取消</b></div>`
       : A.ph == 'think' ? `<div class="xc-talk"><b class="xc-pill sub" data-k="stop">${thinkS >= 20 ? '不等了，我再说' : '打断'}</b></div>`
       : A.ph == 'speak' ? '' : `<div class="xc-talk">${A.typing || isEar() ? '' : `<b class="xc-pill ${A.mic ? '' : 'dis'}" data-k="talk">${msk('mic', 'sm')}${A.ph == 'fail' && A.lastSaid ? '再说一遍' : '点这里说'}</b>`}${A.ph == 'fail' && A.lastSaid ? `<b class="xc-pill sub" data-k="retry">重发刚才那句</b>` : ''}</div>`;
@@ -252,7 +257,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     const i = w.querySelector('input'), end = ok => { const v = i.value.trim(); if (ok && v) { (S.callAsr ||= {}).key = v; save(); A.earBack && A.ear == 'model' && (A.ear = 'sf'); toast('保存了，开口说话就行'); } else if (!asrCfg().key) { A.ear = 'model'; toast('先用「模型听」（要 Gemini 这类能听录音的模型）'); } w.remove(); draw(); };
     w.onclick = e => { e.stopPropagation(); const f = e.target.dataset.f; f && end(f == 'y'); }; i.onkeydown = e => e.key == 'Enter' && end(true); setTimeout(() => i.focus(), 30); }
   // 先别急着发（省请求次数）：认出一句后等一小会儿，期间我又开口就并成一句；我还在说就一直等。中转站有「每分钟几次」的限制时等久一点
-  const holdMs = () => +S.callRpm && +S.callRpm <= 6 ? 1500 : 700;
+  const holdMs = () => rpm() && rpm() <= 6 ? 1500 : 700;
   function hold(tx, tone) { if (CALL != A) return;
     if (A.pend) { A.pend.t += '，' + tx; A.pend.line.t = A.pend.t; A.pend.tone = tone || A.pend.tone; } else { const e = { f: 'me', t: tx }; A.lines.push(e); A.pend = { t: tx, tone, line: e }; }
     clearTimeout(A.pendT); A.ph = 'idle'; draw(); A.pendT = setTimeout(flush, holdMs()); }
@@ -305,7 +310,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
       let last = '';
       // 打电话用轻一点的上下文（最近 6 条正文、世界书截短）：提示词短，模型起手就快
       if (canned) { P2.feed(canned + '\n'); P2.finish(); done = true; kick(); await player; return endTurn(); } // 接通先说一句（不调用模型）
-      await slot(sg); if (sg.aborted || CALL != A) return; REQ.push(Date.now()); A.queue = 0; draw();
+      await slot(sg); if (sg.aborted || CALL != A) return; REQ().push(Date.now()); A.queue = 0; draw();
       const full = await llm(await sysOnce(), P, '通话', lsg, { stream: true, fast: 1, mod: 'chat.call', ...(au && { audio: au }), onThink: th => { A.thk = th; }, onText: t => { if (sg.aborted) return; first ||= !!t; P2.feed(t.slice(last.length)); last = t; } });
       if (!sg.aborted && !capped) { const f2 = String(full || ''); f2.length > last.length && P2.feed(f2.slice(last.length)); P2.finish(); }
       done = true; kick(); await player;
@@ -313,16 +318,16 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
       done = true; kick(); clearTimeout(fillT); clearTimeout(guard); if (sg.aborted) return;
       // 中转站限流（429 / 「1 分钟内最多请求 3 次」）：记住限额，排队自动重发，不算失败（最多两次）
       if (/429|请求数限制|too many requests|rate.?limit/i.test(e.message) && !first && (o.rt || 0) < 2) { const m = e.message.match(/(\d+)\s*分钟内最多请求\s*(\d+)\s*次/) || e.message.match(/(\d+)\s*(?:requests?|次)\s*(?:per|\/|每)\s*(\d*)\s*min/i);
-        const lim = m ? Math.max(1, Math.floor(+m[2] / (+m[1] || 1))) || +m[1] : Math.max(1, REQ.filter(t => Date.now() - t < 60e3).length - 1); S.callRpm = Math.min(+S.callRpm || 99, lim); save();
+        const lim = m ? Math.max(1, Math.floor(+m[2] / (+m[1] || 1))) || +m[1] : Math.max(1, REQ().filter(t => Date.now() - t < 60e3).length - 1); RPM()[route()] = Math.min(rpm() || 99, lim); save();
         A.why = ''; return turn(said, { ...o, rt: (o.rt || 0) + 1 }); }
       A.ph = 'fail'; A.why = '没接上：' + shortErr(e.message); hl && hl.t == '…' && (hl.t = '（语音）'); next(); toast((au && /audio|inline|mime|unsupport|modalit|HTTP 400/i.test(e.message) ? '这个模型可能听不了录音，可以把底部的「模型听」切成「浏览器识别」：' : '对方没听清：') + shortErr(e.message)); return; } // 失败就结束这一轮，不偷偷再生成一份
     endTurn();
     function endTurn() { clearTimeout(fillT); clearTimeout(guard); if (CALL != A || sg.aborted) return; { if (A.bye && (BYE.test(`${said || ''} ${A.lastSaid || ''}`) || A.log.filter(x => x.f == 'me').length >= 6)) { A.ph = 'idle'; draw(); return setTimeout(() => CALL == A && hang(), 900); } A.bye = 0; /* 我没说要走、才聊了几句就写 [挂断]：不当真 */ A.ph = U.length ? 'idle' : 'fail'; U.length || (A.why = `模型回了空的内容${A.thk ? `（只思考了 ${A.thk} 字，没写正文）` : ''}，可以再说一遍`); next(); } } // 说完了：轮到我（自动接话就直接开麦）
   }
   // 排队：中转站「每分钟最多 N 次」时，这一分钟用满了就等，屏幕上显示还要等几秒（我接着说的话会并进来）
-  async function slot(sg) { const n = +S.callRpm || 0; if (!n) return;
-    for (;;) { const t = Date.now(); while (REQ.length && t - REQ[0] > 60e3) REQ.shift(); if (REQ.length < n || sg.aborted || CALL != A) { A.queue = 0; return; }
-      A.queue = Math.ceil((60e3 - (t - REQ[0]) + 300) / 1e3); const e = el.querySelector('.xc-ph'); e && (e.textContent = `排队中：中转站每分钟最多 ${n} 次，还要等 ${A.queue} 秒`);
+  async function slot(sg) { const n = rpm(); if (!n) return;
+    for (;;) { const t = Date.now(), Q = REQ(); while (Q.length && t - Q[0] > 60e3) Q.shift(); if (Q.length < n || sg.aborted || CALL != A) { A.queue = 0; return; }
+      A.queue = Math.ceil((60e3 - (t - Q[0]) + 300) / 1e3); const e = el.querySelector('.xc-ph'); e && (e.textContent = `排队中：中转站每分钟最多 ${n} 次，还要等 ${A.queue} 秒`);
       await new Promise(r => { const tm = setTimeout(r, 1000); sg.addEventListener('abort', () => (clearTimeout(tm), r()), { once: true }); }); } }
   // 播一句：解码后排到同一个 AudioContext 的时间轴上（不每句新建播放器、不靠 setTimeout 接）；解不了码就退回 <audio>；没声音就按字数停一会儿
   async function playBlob(b, t, sg, on) { A.playN = (A.playN || 0) + 1; try { return await playOne(b, t, sg, on); } finally { A.playN--; } }

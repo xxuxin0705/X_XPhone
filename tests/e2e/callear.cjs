@@ -86,8 +86,10 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/同音/.test(await E(`JSON.stringify(_P.at(-1))`)) && /心好累啊/.test(await E(`document.querySelector('.xc-tx').innerText`)) && !/行好累啊|FIX/.test(await E(`document.querySelector('.xc-tx').innerText`)) && await E(`cl.inCall().log.some(x => x.t == '心好累啊')`), '「行好累啊」→ 模型按上下文改成「心好累啊」，字幕和记录都改了');
   // 中转站限流（429 / 1 分钟内最多请求 3 次）：记住限额、排队自动重发，不算失败，不把一长串报错甩到屏幕上
   asrNext = '在吗'; await E(`_mode = 'r429'; window._thrown = 0`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3500);
-  ok(await E(`core.S.callRpm == 3 && cl.inCall().ph != 'fail' && !/request id|\\{/.test(document.querySelector('.xc').innerText)`) && /排队中|在想|正在说|在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), '429：记住每分钟 3 次，排队自动重发（不算失败）：' + await E(`document.querySelector('.xc-ph').textContent`));
-  await E(`_mode = ''; core.S.callRpm = 0`); asrNext = null;
+  ok(await E(`Object.values(core.S.callRpmBy || {}).includes(3) && cl.inCall().ph != 'fail' && !/request id|\\{/.test(document.querySelector('.xc').innerText)`) && /排队中|在想|正在说|在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), '429：记住每分钟 3 次，排队自动重发（不算失败）：' + await E(`document.querySelector('.xc-ph').textContent`));
+  // 限额按线路记：中转站报了每分钟 3 次，打电话换成别的模型（免费模型）就不跟着排队
+  ok(await E(`(() => { const k = Object.keys(core.S.callRpmBy)[0]; (core.S.mods ||= {})['chat.call'] = { use: 'free-x' }; const other = !core.S.callRpmBy['free-x']; delete core.S.mods['chat.call']; return !!k && other; })()`), '每分钟限额只记在报 429 的那条线上，换成别的模型打电话不排队');
+  await E(`_mode = ''; core.S.callRpmBy = {}`); asrNext = null;
   await E(`cl.inCall()?.hang?.()`); await W(400);
   // 枕边故事：「＋」里点开 → TA 问想听什么（不调用模型）→ 我说一句 → 一次请求讲完，一句一句慢慢念；讲的时候不追问
   asrNext = '讲个小狐狸的故事'; await E(`(() => { core.S.callEar2 = 'sf'; core.S.callNudge = true; _mode = ''; window._s0 = _P.length; })()`);
