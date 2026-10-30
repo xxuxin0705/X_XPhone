@@ -1,11 +1,12 @@
 // 全新通话：持续收音 → 自动语言识别 → 稳定台词 → 有界合成 → 音频时钟播放。
-import { S, D, C, saveD, esc, ui, toast, avOf, meObj, nm, rn, now, llm, sysCtx, tts, emit, menu, voiceOf, ttsCfg, pickVoice } from '../../core.js';
+import { S, D, C, save, saveD, esc, ui, toast, avOf, meObj, nm, rn, now, llm, sysCtx, tts, emit, menu, voiceOf, ttsCfg, pickVoice } from '../../core.js';
 import { regMod, mp, NOAI } from '../../mods.js';
 import { lname } from './data.js';
 import { recall } from './recall.js';
-import { makeEar, asrCfg } from './ear.js';
-import { askSfKey } from '../settings/lang-packs.js';
+import { makeEar } from './ear.js';
+import { prepareLocal, localReady, localSession, releaseLocal } from './local-speech.js';
 import { speechParser, remainingSpeech, callContext, callHistory } from './call-flow.js';
+import { inputDial, INPUT_LANGS, defaultInputs, inputName } from './call-language.js';
 import { pcmSentence } from './call-audio.js';
 regMod({ k: 'chat.call', app: '聊天', n: '语音通话', def: '像和熟悉的人打电话，口语、短句，一次一到三句。根据句意和当前剧情自然改变语气：开心带笑意，难过时轻柔，惊讶时有起伏，情绪不要夸张。保持角色的性格、关系、知识边界，不替用户说话，不写动作旁白。', vars: [['对方', '通话的人'], ['我', '我的网名']] });
 const IC = n => new URL(`../../assets/wx/call/${n}.png`, import.meta.url).href;
@@ -23,7 +24,7 @@ export const callBub = (m, i) => `<span class="clb" data-a="recall" data-x="${i}
 export function startCall(ch, kind = 'voice', so = {}) {
   if (CALL) { CALL.el.classList.remove('mini'); return CALL; }
   const data = D(), context = C(), chatId = context.getCurrentChatId?.() ?? context.chatId, owner = context.chatMetadata;
-  const me = meObj(), A = { ch, kind, st: 'dial', ph: 'dial', t0: 0, mic: true, spk: kind === 'video', inL: 'auto', outL: undefined, lines: [], log: [], pending: '', turn: null, ac: null, cam: null, story: !!so.story, metrics: [] };
+  const me = meObj(), A = { ch, kind, st: 'dial', ph: 'dial', t0: 0, mic: true, spk: kind === 'video', inL: INPUT_LANGS.some(x => x[0] === S.callInputLang) ? S.callInputLang : 'zh-CN', outL: ch.cfg?.lang || '', lines: [], log: [], pending: '', turn: null, ac: null, cam: null, story: !!so.story, metrics: [] };
   const el = A.el = Object.assign(document.createElement('div'), { className: `xc xc-${kind}` }); CALL = A;
   const view = Object.assign(document.createElement('div'), { className: 'xc-v' }); el.append(view);
   // 输入框常驻，字幕重画不会关闭安卓输入法；没有网页录音权限时仍可用输入法说话。
@@ -34,14 +35,15 @@ export function startCall(ch, kind = 'voice', so = {}) {
   try { A.ctx = new (globalThis.AudioContext || globalThis.webkitAudioContext)(); A.gain = A.ctx.createGain(); A.gain.gain.value = .85; A.gain.connect(A.ctx.destination); A.ctx.resume().catch(() => {}); } catch {}
   const live = () => CALL === A && A.st !== 'ended';
   const sameChat = () => D() === data && C().chatMetadata === owner && (C().getCurrentChatId?.() ?? C().chatId) === chatId;
-  const ear = A.earObj = makeEar({ ctx: A.ctx, playing: () => A.ph === 'speak', mode: () => !live() || !A.mic || A.st !== 'talk' || !asrCfg().key || A.micError ? 'off' : A.ph === 'think' || A.ph === 'speak' ? 'busy' : 'listen' }, (type, value) => {
+  const ear = A.earObj = makeEar({ ctx: A.ctx, language: () => A.inL, local: localSession, playing: () => A.ph === 'speak', mode: () => !live() || !A.mic || A.st !== 'talk' || A.loading || !localReady(A.inL) || A.micError ? 'off' : A.ph === 'think' || A.ph === 'speak' ? 'busy' : 'listen' }, (type, value) => {
     if (!live() || !sameChat()) return;
     if (type === 'duck') { A.gain && (A.gain.gain.value = .22); return; }
     if (type === 'unduck') { volume(); return; }
     if (type === 'barge') interrupt();
-    if (type === 'start') { A.ph = 'rec'; A.heard = ''; draw(); }
-    if (type === 'partial') { A.heard = value; draw(); }
-    if (type === 'final') { A.heard = ''; heard(value.text); }
+    if (type === 'start') { A.settling = false; A.ph = 'rec'; A.heard = ''; draw(); }
+    if (type === 'partial') { A.heard = value; const span = view.querySelector('.ing span'); if (span) span.textContent = value; else draw(); }
+    if (type === 'settling') { A.settling = value; const status = view.querySelector('.xc-ph'); if (status && A.ph === 'rec') status.textContent = value ? '正在确认…' : '在听…'; }
+    if (type === 'final') { A.heard = ''; heard(value.text); if (A.nextInL) { const lang = A.nextInL; A.nextInL = null; chooseLanguage(lang); } }
     if (type === 'short') { A.heard = ''; A.ph = 'idle'; draw(); }
     if (type === 'error') { A.heard = ''; A.ph = 'fail'; A.error = value.message; draw(); }
     if (type === 'level') el.style.setProperty('--xc-level', value);
@@ -49,13 +51,25 @@ export function startCall(ch, kind = 'voice', so = {}) {
   function volume() { if (A.gain) A.gain.gain.value = A.spk ? 1 : .85; if (A.audio) A.audio.volume = A.spk ? 1 : .85; }
   function draw() {
     if (!live()) return;
-    const dial = A.st === 'dial', status = dial ? '等待接听' : A.micError ? '麦克风不可用' : !A.mic ? '麦克风已关' : !asrCfg().key ? '识别未配置' : ({ idle: '在听…', rec: '在听…', think: `${nm(ch)} 在想…`, speak: `${nm(ch)} 正在说`, fail: A.error || '这轮没接上' })[A.ph];
+    const dial = A.st === 'dial', status = A.loading ? `正在准备${inputName(A.inL)}识别…` : A.localError ? A.localError : dial ? '等待接听' : A.inL === 'keyboard' ? '键盘输入' : A.micError ? '麦克风不可用' : !A.mic ? '麦克风已关' : ({ idle: '在听…', rec: A.settling ? '正在确认…' : '在听…', think: `${nm(ch)} 在想…`, speak: `${nm(ch)} 正在说`, fail: A.error || '这轮没接上' })[A.ph];
     view.innerHTML = `<div class="xc-bg" style="background-image:url('${esc(avOf(ch))}')"></div><div class="xc-dim"></div><b class="xc-min" data-k="min" role="button" tabindex="0" aria-label="最小化">${msk('mini')}</b>${A.kind === 'video' ? '<div class="xc-me"><video autoplay muted playsinline></video></div>' : ''}
-<div class="xc-mid"><img class="xc-av" src="${esc(avOf(ch))}"><b class="xc-nm">${esc(nm(ch))}</b><p class="xc-st">${dial ? '<span class="xc-dots"><i></i><i></i><i></i></span>' : `<span class="xc-tm">${mmss((+now() - A.t0) / 1000)}</span>`}</p><p class="xc-ph" role="status">${esc(status)}</p><div class="xc-tx" aria-live="off">${A.lines.map(x => `<p class="${x.f === 'me' ? 'me' : ''}"><small>${esc(x.f === 'me' ? me.nick : nm(ch))}</small><span>${esc(x.t)}</span>${x.tr ? `<em>${esc(x.tr)}</em>` : ''}</p>`).join('')}${A.ph === 'rec' ? `<p class="me ing"><small>${esc(me.nick)}</small><span>${esc(A.heard || '…')}</span></p>` : ''}</div></div>
-<div class="xc-ctl"><div class="xc-bts"><b data-k="mic" class="${A.mic ? 'on' : ''}" role="button" tabindex="0"><i class="xc-c">${msk('mic', A.mic ? '' : 'off')}</i><small>${A.mic ? '麦克风已开' : '麦克风已关'}</small></b><b data-k="end" role="button" tabindex="0"><i class="xc-c red">${msk('hang')}</i><small>${dial ? '取消' : '挂断'}</small></b><b data-k="spk" class="${A.spk ? 'on' : ''}" role="button" tabindex="0"><i class="xc-c">${A.spk ? SPK_ON : msk('spk-off')}</i><small>${A.spk ? '扬声器已开' : '扬声器已关'}</small></b></div>${dial ? '' : `<div class="xc-lang"><b data-k="asr" role="button" tabindex="0">自动多语言</b><i></i><b data-k="outl" role="button" tabindex="0">TA 说 ${esc(OUT.find(x => x[0] === (A.outL ?? ch.cfg?.lang ?? 'zh'))?.[1] || lname(A.outL ?? ch.cfg?.lang) || '中文')}</b><i></i><b data-k="kb" role="button" tabindex="0">⌨</b>${A.turn ? '<i></i><b data-k="stop" role="button" tabindex="0">打断</b>' : ''}</div>`}</div>`;
+<div class="xc-mid"><img class="xc-av" src="${esc(avOf(ch))}"><b class="xc-nm">${esc(nm(ch))}</b><p class="xc-st">${dial ? '<span class="xc-dots"><i></i><i></i><i></i></span>' : `<span class="xc-tm">${mmss((+now() - A.t0) / 1000)}</span>`}</p><p class="xc-ph" role="status">${esc(status)}</p><div class="xc-tx" aria-live="off">${A.lines.map(x => `<p class="${x.f === 'me' ? 'me' : ''}"><small>${esc(x.f === 'me' ? me.nick : nm(ch))}</small><span>${esc(x.t)}</span>${x.tr ? `<em>${esc(x.tr)}</em>` : ''}</p>`).join('')}${A.ph === 'rec' ? `<p class="me ing"><small>${esc(me.nick)}</small><span>${esc(A.heard || '正在收音…')}</span></p>` : ''}</div></div>
+<div class="xc-ctl"><div class="xc-bts"><b data-k="mic" class="${A.mic ? 'on' : ''}" role="button" tabindex="0"><i class="xc-c">${msk('mic', A.mic ? '' : 'off')}</i><small>${A.inL === 'keyboard' ? '键盘输入' : A.mic ? '麦克风已开' : '麦克风已关'}</small></b><b data-k="end" role="button" tabindex="0"><i class="xc-c red">${msk('hang')}</i><small>${dial ? '取消' : '挂断'}</small></b><b data-k="spk" class="${A.spk ? 'on' : ''}" role="button" tabindex="0"><i class="xc-c">${A.spk ? SPK_ON : msk('spk-off')}</i><small>${A.spk ? '扬声器已开' : '扬声器已关'}</small></b></div>${dial ? '' : `<div class="xc-lang"><b data-k="inl" role="button" tabindex="0" class="phone-gesture-control" data-no-swipe-back>我说 ${esc(inputName(A.inL))}</b><i></i><span>TA 说 ${esc(A.outL ? (OUT.find(x => x[0] === A.outL)?.[1] || lname(A.outL)) : '中文')}</span><i></i><span>本地识别</span><i></i><b data-k="kb" role="button" tabindex="0">⌨</b>${A.turn ? '<i></i><b data-k="stop" role="button" tabindex="0">打断</b>' : ''}</div>`}</div>`;
     if (A.cam) view.querySelector('video').srcObject = A.cam;
     const tx = view.querySelector('.xc-tx'); tx.scrollTop = tx.scrollHeight;
   }
+  const favorites = () => Array.isArray(S.callInputFavs) && S.callInputFavs.length === 4 && new Set(S.callInputFavs).size === 4 && S.callInputFavs.every(l => INPUT_LANGS.some(x => x[0] === l)) ? S.callInputFavs : defaultInputs;
+  function chooseLanguage(lang) {
+    S.callInputLang = lang; save();
+    if (ear.on) { A.nextInL = lang; toast('下一句话使用' + inputName(lang)); return; }
+    A.inL = lang; A.localError = ''; ear.stop();
+    if (lang === 'keyboard') { releaseLocal(); kb.hidden = false; el.classList.add('xc-with-entry'); input.focus(); A.loading = false; draw(); }
+    else openMic();
+  }
+  const languageDial = inputDial(el, { current: () => A.nextInL || A.inL, favorites, choose: chooseLanguage, edit: async () => {
+    const slot = await menu(favorites().map((l, i) => [String(i), ['↑ ', '→ ', '↓ ', '← '][i] + inputName(l)]), '常用语言'); if (slot == null || !live()) return;
+    const lang = await menu(INPUT_LANGS, '输入语言'); if (!lang || !live()) return; const list = [...favorites()], index = +slot, previous = list.indexOf(lang); if (previous >= 0) list[previous] = list[index]; list[index] = lang; S.callInputFavs = list; save();
+  } });
   function send() { const text = input.value.trim(); if (!text || !live() || A.st !== 'talk') return; input.value = ''; ear.reset(); if (A.turn) interrupt(); heard(text); }
   function heard(text) { if (!live() || !sameChat()) return; const x = { f: 'me', t: text }; A.lines.push(x); A.log.push(x); A.ph = 'think'; A.error = ''; saveTranscript(); draw(); run(text); }
   function interrupt() {
@@ -139,9 +153,17 @@ export function startCall(ch, kind = 'voice', so = {}) {
     } finally { URL.revokeObjectURL(url); }
   }
   async function openMic() {
-    if (!live() || !A.mic || !asrCfg().key) return;
-    try { await ear.start(); if (!live() || !A.mic) ear.stop(); }
-    catch (e) { if (!live()) return; A.micError = e.message || '麦克风不可用'; kb.hidden = false; el.classList.add('xc-with-entry'); toast('麦克风不可用，可用键盘输入；请检查浏览器或 App 的录音权限'); draw(); }
+    if (!live() || !A.mic) return;
+    if (A.inL === 'keyboard') { kb.hidden = false; el.classList.add('xc-with-entry'); input.focus(); draw(); return; }
+    const lang = A.inL, version = A.preparing = (A.preparing || 0) + 1; A.loading = true; A.localError = ''; draw();
+    try {
+      await prepareLocal(lang); if (!live() || version !== A.preparing) return;
+      A.loading = false; await ear.start(); if (!live() || !A.mic) ear.stop(); draw();
+    } catch (e) {
+      if (!live() || version !== A.preparing) return; A.loading = false;
+      if (/NotAllowed|NotReadable|NotFound|Security/.test(e?.name || '')) A.micError = e.message || '麦克风不可用'; else A.localError = e.message || '本地识别不可用';
+      kb.hidden = false; el.classList.add('xc-with-entry'); toast('本地识别未能启用，可以使用输入法语音输入'); draw();
+    }
   }
   // 每句保存到同一条通话消息：切换剧情或页面关闭时不依赖最后一次挂断才能留下记录。
   function saveTranscript(final = false, cancel = false) {
@@ -152,7 +174,7 @@ export function startCall(ch, kind = 'voice', so = {}) {
     if (sameChat()) { saveD(); if (final) emit('chat'); }
   }
   function hang() {
-    if (!live()) return; if (source?.removeListener && types?.CHAT_CHANGED) source.removeListener(types.CHAT_CHANGED, change); const cancel = A.st === 'dial'; interrupt(); A.st = 'ended'; ear.stop(); clearTimeout(pick); clearInterval(tick); A.cam?.getTracks().forEach(t => t.stop()); A.ctx?.close().catch(() => {}); A.audio?.pause();
+    if (!live()) return; if (source?.removeListener && types?.CHAT_CHANGED) source.removeListener(types.CHAT_CHANGED, change); const cancel = A.st === 'dial'; languageDial.destroy(); interrupt(); A.st = 'ended'; ear.stop(); clearTimeout(pick); clearInterval(tick); A.cam?.getTracks().forEach(t => t.stop()); A.ctx?.close().catch(() => {}); A.audio?.pause(); releaseLocal();
     saveTranscript(true, cancel);
     CALL = null; el.remove();
   }
@@ -166,8 +188,8 @@ export function startCall(ch, kind = 'voice', so = {}) {
     if (k === 'spk') { A.spk = !A.spk; volume(); draw(); }
     if (k === 'stop') interrupt();
     if (k === 'kb') { kb.hidden = !kb.hidden; el.classList.toggle('xc-with-entry', !kb.hidden); if (!kb.hidden) input.focus(); }
-    if (k === 'asr') { if (await askSfKey() && live()) { ear.stop(); A.micError = ''; openMic(); draw(); } }
-    if (k === 'outl') { const l = await menu(OUT, 'TA 用什么语言回答'); if (l != null && live()) { A.outL = l === 'auto' ? undefined : l; draw(); } }
+
+
   };
   el.onkeydown = e => { if (e.target.matches('[data-k]') && ['Enter', ' '].includes(e.key)) { e.preventDefault(); e.target.click(); } };
   const expand = e => { if (el.classList.contains('mini')) { el.classList.remove('mini'); e.stopImmediatePropagation(); } }; el.addEventListener('click', expand, true);

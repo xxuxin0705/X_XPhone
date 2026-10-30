@@ -10,6 +10,14 @@ let pass = 0, fail = 0; const ok = (x, m) => { x ? pass++ : fail++; console.log(
     const asr = [], speech = []; let transcript = '今天很开心。', pcmSeconds = .15;
     await ctx.route('**/audio/transcriptions', async r => { asr.push(r.request().postDataBuffer().toString()); await r.fulfill({ json: { text: transcript }, headers: { 'access-control-allow-origin': '*' } }); });
     await ctx.route('**/audio/speech', async r => { speech.push(r.request().postDataJSON()); await r.fulfill({ body: Buffer.alloc(Math.floor(24000 * pcmSeconds) * 2), contentType: 'application/octet-stream', headers: { 'access-control-allow-origin': '*' } }); });
+    await ctx.addInitScript(() => {
+      window.testTranscript = '说完了。'; window.localModels = [];
+      window.XPhoneVosk = { Model: class {
+        constructor(url) { this.ready=false; this.events={}; localModels.push(url); this.timer=setTimeout(()=>{this.ready=true;this.events.load?.({result:true})},5); }
+        on(k,f){this.events[k]=f} terminate(){clearTimeout(this.timer);this.ready=false}
+        get KaldiRecognizer(){return class{constructor(){this.events={};this.text=testTranscript;this.closed=false}on(k,f){this.events[k]=f}acceptWaveformFloat(){if(!this.closed)this.events.partialresult?.({result:{partial:this.text}})}retrieveFinalResult(){queueMicrotask(()=>{if(!this.closed)this.events.result?.({final:true,result:{text:this.text}})})}remove(){this.closed=true}}}
+      } };
+    });
     const p = await ctx.newPage(), errors = []; p.on('pageerror', e => errors.push(e.message)); await p.goto('http://127.0.0.1:8827'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
     await p.evaluate(async () => {
       window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.cl = await import('/apps/chat/call.js');
@@ -21,11 +29,11 @@ let pass = 0, fail = 0; const ok = (x, m) => { x ? pass++ : fail++; console.log(
       window.call = cl.startCall(ch);
     });
     await p.waitForFunction("call.st === 'talk' && call.ph === 'idle'");
-    ok(await p.evaluate("call.inL === 'auto' && !('earBack' in call)"), '默认自动多语言，不读取旧的固定语言配置');
-    const voice = async text => { transcript = text; const count = await p.evaluate('prompts.length'); await p.evaluate(() => { const ear = call.earObj, loud = new Float32Array(480).fill(.2), silent = new Float32Array(480); for (let i = 0; i < 40; i++) ear.frame(loud, 24000); for (let i = 0; i < 85; i++) ear.frame(silent, 24000); }); await p.waitForFunction(n => prompts.length > n && call.ph === 'idle', count); };
-    for (const text of ['今天很开心。', '今日は何をしていたの？', 'Can you hear me?']) await voice(text);
+    ok(await p.evaluate("call.inL === 'zh-CN' && !('earBack' in call)"), '默认免费本地中文，不使用云端识别密钥');
+    const voice = async (text, lang='zh-CN') => { if(await p.evaluate('call.inL')!==lang){await p.click('[data-k=inl]');await p.click('.xcl-'+['zh-CN','ja-JP','en-US','keyboard'].indexOf(lang));await p.waitForFunction('!call.loading');} await p.waitForFunction('!call.loading && !!call.earObj.ms'); transcript = text; await p.evaluate(t=>testTranscript=t,text); const count = await p.evaluate('prompts.length'); await p.evaluate(() => { const ear = call.earObj, loud = new Float32Array(480).fill(.2), silent = new Float32Array(480); for (let i = 0; i < 40; i++) ear.frame(loud, 24000); for (let i = 0; i < 85; i++) ear.frame(silent, 24000); }); await p.waitForFunction(n => prompts.length > n && call.ph === 'idle', count); };
+    for (const [lang,text] of [['zh-CN','今天很开心。'], ['ja-JP','今日は何をしていたの？'], ['en-US','Can you hear me?']]) await voice(text,lang);
     ok(await p.evaluate("['今天很开心。','今日は何をしていたの？','Can you hear me?'].every(t => call.log.some(x => x.f === 'me' && x.t === t))"), '中日英三轮识别原文上屏并记入通话');
-    ok(asr.length === 3 && asr.every(s => !/name="language"|name="prompt"/.test(s)), '识别每轮不传固定语言或上一句提示，避免语言串台');
+    ok(asr.length === 0, '识别不调用云端接口，不使用已配置的旧 ASR 密钥');
     await p.evaluate("SillyTavern.getContext().chat.push({name:'旁白', mes:'剧情更新：现在两人到了医院。'}); reply='知道了，我在医院门口等你。'"); await voice('你知道我在哪吗？');
     ok(await p.evaluate("JSON.stringify(prompts.at(-1)).includes('现在两人到了医院')"), '电话中正文推进后，下一轮重新读取当前剧情');
     ok(await p.evaluate("JSON.stringify(prompts.at(-1)).includes('Can you hear me?')"), '当前电话前面说过的话进入后续上下文');
@@ -57,6 +65,17 @@ let pass = 0, fail = 0; const ok = (x, m) => { x ? pass++ : fail++; console.log(
     await p.waitForFunction("generatedDone && call.ph==='idle'");
     await p.evaluate("delete SillyTavern.getContext().ChatCompletionService;delete SillyTavern.getContext().mainApi;ch.tv={v:{}}");
     ok(await p.evaluate("ch.msgs.filter(x=>x.t==='call').length===1 && ch.msgs.at(-1).log.some(x=>/第二句/.test(x.t))"), '通话期间持续保存到同一条消息，切换剧情前已留下双方记录');
+    // 拖圆盘只改变输入语言，角色语言整通固定。
+    const dial=await p.locator('[data-k=inl]').boundingBox(); await p.mouse.move(dial.x+dial.width/2,dial.y+dial.height/2);await p.mouse.down();await p.mouse.move(dial.x+dial.width/2+65,dial.y+dial.height/2,{steps:6});await p.mouse.up();
+    ok(await p.evaluate("call.inL==='ja-JP' && call.outL==='' && !document.querySelector('.xcl-dial')"), '向右拖选日语，不改变角色语言，松手圆盘关闭');
+    await p.click('[data-k=inl]');await p.screenshot({path:path.join(out,'call-language.png')});await p.click('.xcl-0');
+    ok(await p.evaluate("call.inL==='zh-CN' && core.S.callInputLang==='zh-CN'"), '点击圆盘也能选中文并保存');
+    await voice('中文说完了。');
+    ok(await p.evaluate("call.inL==='zh-CN' && localModels.some(u=>u.endsWith('zh.tar.gz'))"), '手动选择中文后使用中文本地模型');
+    await p.click('[data-k=inl]');await p.click('.xcl-edit');await p.click('.sheet.in .mi[data-x="2"]');await p.click('.sheet.in .mi[data-x="keyboard"]');
+    ok(await p.evaluate("core.S.callInputFavs[2]==='keyboard' && call.inL==='zh-CN'"), '常用语言位置可更换，不立即改变当前语言');
+    await p.click('[data-k=inl]');ok(await p.locator('.xcl-2').textContent()==='键盘', '下次打开圆盘显示保存的常用语言');await p.keyboard.press('Escape');
+
     await p.screenshot({ path: path.join(out, 'call-rewrite.png') });
     ok(await p.evaluate("(()=>{const tx=document.querySelector('.xc-tx').getBoundingClientRect(), ctl=document.querySelector('.xc-entry').getBoundingClientRect();return tx.bottom<=ctl.top && tx.width>200})()"), '390px 宽屏：字幕与输入框不重叠');
     await p.evaluate("call.hang()");
@@ -68,11 +87,13 @@ let pass = 0, fail = 0; const ok = (x, m) => { x ? pass++ : fail++; console.log(
     await p.evaluate("fav.cardPick(ch,(c,note)=>{ch.msgs.push({t:'card',cid:c.id,c:c.real,f:'me',ts:Date.now()})})");await p.waitForTimeout(250);await p.click('.cp-r');await p.waitForSelector('.xsd.in');await p.click('.xsd [data-k=y]');await p.waitForTimeout(300);
     ok(await p.evaluate("ch.msgs.at(-1).cid===friend.id && /Kiki/.test(core.say(ch.msgs.at(-1)))"), '个人名片选择与正文上下文保持正常');
     // 权限申请迟到：先挂断，再返回流，所有轨道必须立刻释放。
-    await p.evaluate("window.stopped=0; navigator.mediaDevices.getUserMedia=()=>new Promise(r=>window.resolveMic=r); window.late=cl.startCall(ch); late.hang(); resolveMic({getTracks:()=>[{stop(){stopped++}}]})"); await p.waitForTimeout(100);
+    await p.evaluate("window.stopped=0; navigator.mediaDevices.getUserMedia=()=>new Promise(r=>window.resolveMic=r); window.late=cl.startCall(ch)"); await p.waitForFunction('window.resolveMic');await p.evaluate("late.hang();resolveMic({getTracks:()=>[{stop(){stopped++}}]})");await p.waitForTimeout(100);
     ok(await p.evaluate('stopped === 1 && !cl.inCall()'), '挂断后迟到的麦克风权限回调会释放轨道');
     // 跨剧情聊天不能继续请求或把旧通话写到新聊天。
     await p.evaluate("core.S.callAsr.key=''; window.next=cl.startCall(ch); SillyTavern.getContext().chatId='chatB'; SillyTavern.getContext().chatMetadata={}"); await p.waitForTimeout(650);
     ok(await p.evaluate("!cl.inCall() && !core.D().chats.length"), '切换酒馆聊天立即结束旧电话，新聊天没有旧通话');
+    await p.evaluate("window.keyboardMic=0;core.S.callInputLang='keyboard';navigator.mediaDevices.getUserMedia=async()=>{keyboardMic++;throw Error('must not open')};window.keyCh=dt.add(dt.blank('p',{real:'键盘测试',fr:1}));window.keyCall=cl.startCall(keyCh)");await p.waitForTimeout(650);
+    ok(await p.evaluate("!document.querySelector('.xc-entry').hidden && keyboardMic===0 && /键盘输入/.test(document.querySelector('.xc-ph').textContent)"), '保存的键盘模式下次通话直接可用，不偷偷打开麦克风');await p.evaluate('keyCall.hang()');
     ok(errors.length === 0, '无浏览器运行异常：' + errors.join('; '));
   } catch (e) { ok(false, e.stack); }
   finally { await browser?.close(); srv.close(); console.log(`${pass} passed, ${fail} failed`); process.exitCode = fail ? 1 : 0; }

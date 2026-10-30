@@ -69,7 +69,8 @@ apps/chat/       聊天 App
   recall.js        磁铁召回（学 StarHub 记忆教程，不调用模型）：回复时，最近 30 条以外的旧聊天里和现在话题有关的几句被关键词「吸」上来，有字数预算，没有就整块不出现
   call.js          全新通话界面和轮次：自动多语言识别、插话保留未说内容、每轮刷新剧情、挂断保存双方实际已说内容（docs/call-streaming.md）
   call-flow.js     稳定台词 / 情绪协议、语义停顿和未说内容
-  ear.js           麦克风 / 回声消除 / 自动识别 / 插话检测；不固定输入语言
+  ear.js           麦克风 / 回声消除 / 语言快照 / 插话检测；local-speech.js 用 Vosk 提供免费本地流式识别，禁止回退到收费云端 ASR
+  call-language.js 输入语言圆盘（中文 / 日语 / 英语 / 键盘，四向拖动 / 点击 / 自定义位置）；角色语言整通固定
   call-audio.js    PCM 小块沿同一音频时钟播放，播完才确认；speech-stream.js 适配支持 PCM 的服务
   fav.js           收藏（D().favs，长按消息收藏、我 → 收藏、＋ → 发送收藏）和个人名片（t:'card'，cid）；「发送给」确认框 sendTo
   status.js        微信「状态」（照录屏）：我页状态胶囊、状态列表、全屏看状态、设个状态 / 写状态；c.st / D().me.st = { k 图标, l 自定义名, t, tr, tp 话题, bg, loc, ts }，24 小时过期；图标抠在 assets/wx/st/

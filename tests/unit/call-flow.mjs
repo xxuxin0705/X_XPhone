@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { speechParser, endpointGap, remainingSpeech, callContext, callHistory } from '../../apps/chat/call-flow.js';
 import { rawPCM, streamSpeech, speechStyle } from '../../speech-stream.js';
+import { dialDirection } from '../../apps/chat/call-language.js';
 import { pcmSentence } from '../../apps/chat/call-audio.js';
 let pass=0, fail=0; const test=async(name,fn)=>{try{await fn();pass++;console.log('✓ '+name);}catch(e){fail++;console.error('✗ '+name+' '+e.stack);}};
 await test('按任意块边界解析稳定中英文、情绪与释义',()=>{
@@ -32,6 +33,7 @@ await test('酒馆普通/流式/连接配置与自定义 API 都保留历史角�
     await core.llm('背景','现在的问题','通话',null,{history,stream:false});check();
   }finally{core.S.api.chat=oldChat;globalThis.fetch=oldFetch;globalThis.SillyTavern=oldST;}
 });
+await test('语言圆盘方向和中心取消区域',()=>{assert.deepEqual([[0,-60],[60,0],[0,60],[-60,0],[2,3]].map(([x,y])=>dialDirection(x,y)),[0,1,2,3,-1]);});
 await test('PCM 1/3/不规则字节边界重组、奇数尾和空流失败',async()=>{const got=[];await rawPCM(response([[1],[2,3,4],[5],[6,7,8]]),24000,new AbortController().signal,b=>got.push(...b));assert.deepEqual(got,[1,2,3,4,5,6,7,8]);await assert.rejects(rawPCM(response([[1,2,3]]),24000,null,()=>{}),/不完整/);await assert.rejects(rawPCM(response([]),24000,null,()=>{}),/为空/);});
 await test('网络流尚未结束时 PCM 已经排入音频时钟',async()=>{const x=clock(),ac=new AbortController(),p=pcmSentence(x,{},ac.signal,()=>{});let controller;const r=new Response(new ReadableStream({start(c){controller=c}}));let received=false;const stream=rawPCM(r,24000,ac.signal,b=>{received=true;p.push(b,24000)});controller.enqueue(new Uint8Array(12000));await new Promise(r=>setImmediate(r));assert.ok(received&&x.nodes.length===1);ac.abort();await assert.rejects(stream);assert.ok(p.done);});
 await test('MiniMax 分块 SSE UTF8、结束汇总不重播、缺结束拒绝',async()=>{let got=[];const content='data: '+JSON.stringify({data:{audio:'01020304',status:1}})+'\r\n\r\ndata: '+JSON.stringify({data:{audio:'01020304',status:2}})+'\r\n\r\n';const bytes=new TextEncoder().encode(content);await streamSpeech({prov:'mm',url:'https://test',key:'k'},'你好','v',new AbortController().signal,b=>got.push(...b),async()=>response([...bytes].map(x=>[x])));assert.deepEqual(got,[1,2,3,4]);await assert.rejects(streamSpeech({prov:'mm',url:'https://test'},'你好','v',new AbortController().signal,()=>{},async()=>response([Array.from(new TextEncoder().encode(content.split('data: ')[0]+'data: {"data":{"audio":"0102","status":1}}\n\n'))])),/正常结束/);});

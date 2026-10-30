@@ -1,10 +1,6 @@
-// 通话识别设置；旧语言包缓存和用户配置保留，不再用于自动多语言通话。
-import { S, page, esc, form, save } from '../../core.js';
-import { asrCfg } from '../chat/ear.js';
-export async function askSfKey() {
-  const c = asrCfg(), r = await form('自动多语言识别', [['url', '接口地址', 'text'], ['model', '识别模型', 'text'], ['key', 'API 密钥', 'password']], { ...c, key: S.callAsr?.key || '' });
-  if (!r) return false; S.callAsr = { url: String(r.url || c.url).trim(), model: String(r.model || c.model).trim(), key: String(r.key || '').trim() }; save(); return !!asrCfg().key;
-}
+// 免费本地识别，无识别 API 密钥；语言模型随插件提供，运行库在浏览器缓存解压结果。
+import { S, page, save } from '../../core.js';
+import { LOCAL_LANGS } from '../chat/local-speech.js';
 export function langPage() {
-  const p = page({ title: '语音识别', cls: 'set', body: () => { const c = asrCfg(); return `<div class="card"><div class="row"><span>输入语言</span><b>自动识别 · 中 / 日 / 英 / 韩 / 粤</b></div><div class="row" data-a="cfg"><span><b>${esc(c.model)}</b><small>${esc(c.url)}</small></span><b class="lnk">${c.key ? '已配置' : '配置'}</b></div></div>`; }, acts: { cfg: async () => { await askSfKey(); p.re(); } } });
+  const p = page({ title: '本地语音识别', cls: 'set', body: () => `<div class="card">${LOCAL_LANGS.map(([id, name, code, mb]) => `<div class="row" data-a="lang" data-x="${id}"><span><b>${name}</b><small>${mb}MB · 本地免费</small></span><b>${(S.callInputLang || 'zh-CN') === id ? '默认' : '已内置'}</b></div>`).join('')}</div>`, acts: { lang: id => { S.callInputLang = id; save(); p.re(); } } });
 }

@@ -1,16 +1,5 @@
-// 通话收音：持续回声消除、自动多语言识别、语义停顿和插话；每段录音有独立取消信号。
-import { S, xf } from '../../core.js';
+// 免费本地通话收音：人声触发、预卷、语义停顿、插话；录音不发往识别服务。
 import { endpointGap } from './call-flow.js';
-export const sfKey = () => S.api?.img?.cfg?.sf?.key || S.api?.chat?.list?.find(p => /api\.siliconflow\.(cn|com)/.test(p.url || '') && p.key)?.key || '';
-export const asrCfg = () => { const a = S.callAsr || {}; return { url: (a.url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''), key: a.key || sfKey(), model: a.model || 'FunAudioLLM/SenseVoiceSmall' }; };
-export async function sfAsr(chunks, sr, prompt = '', signal) {
-  const c = asrCfg(); if (!c.key) throw Error('请先在语音识别设置里填写密钥');
-  const fd = new FormData(); fd.append('file', new Blob([wavBuf(chunks, sr)], { type: 'audio/wav' }), 'say.wav'); fd.append('model', c.model);
-  // 不传 language：每段录音独立自动识别语言，不沿用上一句的语言或内容。
-  const r = await xf(c.url + '/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + c.key }, body: fd, signal });
-  if (!r.ok) throw Error(`识别失败 HTTP ${r.status}`);
-  const j = await r.json(); return String(j.text || '').replace(/<\|[^|]*\|>/g, '').trim();
-}
 export function resampler(sr) {
   const OUT = 16000, r = sr / OUT; if (r <= 1) return f => Float32Array.from(f);
   const N = 32, h = new Float32Array(N + 1), fc = 7000 / sr; let sum = 0; // 33 抽头的加窗 sinc 低通
@@ -38,15 +27,16 @@ export function wav(chunks, sr) { const u = new Uint8Array(wavBuf(chunks, sr)); 
 
 export function makeEar(o, on) {
   let stream = null, nodes = null, closed = false, opening = null, epoch = 0, ac = null;
-  let pre = [], buf = [], active = false, floor = .003, onset = 0, quiet = 0, voiced = 0, length = 0, text = '', revision = 0, recognized = -1, lastRequest = 0, recognizing = false, ducked = false, ending = false, spill = [];
-  const reset = () => { epoch++; ending = false; spill = []; ac?.abort(); ac = null; active = false; pre = []; buf = []; onset = quiet = voiced = length = 0; text = ''; revision = 0; recognized = -1; recognizing = false; if (ducked) on('unduck'); ducked = false; };
+  let pre = [], buf = [], active = false, floor = .003, onset = 0, quiet = 0, voiced = 0, length = 0, text = '', revision = 0, recognized = -1, lastRequest = 0, recognizing = false, ducked = false, ending = false, spill = [], session = null, language = 'zh-CN', settling = false;
+  const reset = () => { epoch++; session?.cancel(); session = null; settling = false; ending = false; spill = []; ac?.abort(); ac = null; active = false; pre = []; buf = []; onset = quiet = voiced = length = 0; text = ''; revision = 0; recognized = -1; recognizing = false; if (ducked) on('unduck'); ducked = false; };
   async function recognize(sr) {
     if (recognizing || !active || !buf.length) return;
     const ep = epoch, rev = revision, chunks = buf.slice(), ctrl = ac = new AbortController(); recognizing = true; lastRequest = length;
-    const tm = setTimeout(() => ctrl.abort(), 8000);
-    try { const t = await (o.recognize || sfAsr)(chunks, sr, '', ctrl.signal);
+    const tm = setTimeout(() => ctrl.abort(), session ? 30000 : 8000);
+    try { if (session) ending = true;
+      const t = session ? await session.end() : o.recognize ? await o.recognize(chunks, sr, '', ctrl.signal, language) : (() => { throw Error('本地识别尚未准备好'); })();
       if (closed || ep !== epoch || ctrl.signal.aborted) return;
-      text = t; recognized = rev; if (t) on('partial', t);
+      recognized = rev; if (rev === revision || !text) { text = t; if (t) on('partial', t); }
     } catch (e) { if (!closed && ep === epoch && !ctrl.signal.aborted) { reset(); on('error', e); } else if (!closed && ep === epoch) { reset(); on('error', Error('语音识别超时')); } }
     finally { clearTimeout(tm); if (ep === epoch) { recognizing = false; ac = null; maybeEnd(sr); } }
   }
@@ -72,14 +62,17 @@ export function makeEar(o, on) {
       if (onset >= needed) {
         const saved = pre; reset(); buf = saved; active = true; voiced = onset = needed; length = saved.length * dt; revision++;
         if (mode === 'busy') on('barge'); on('start');
+        language = o.language?.() || 'zh-CN'; const ep = epoch;
+        if (o.local) { session = o.local(language, t => { if (ep === epoch && active && !closed) { text = t; on('partial', t); } }); saved.forEach(f => session.feed(f, sr)); }
       }
       return;
     }
     if (ending) { spill.push(f); if (spill.length * dt > 18) { reset(); on('error', Error('识别未及时跟上，请稍停一下')); } return; }
-    buf.push(f); length += dt; if (loud) { voiced += dt; quiet = 0; revision++; } else quiet += dt;
+    buf.push(f); session?.feed(f, sr); length += dt; if (loud) { voiced += dt; quiet = 0; revision++; if (settling) { settling = false; on('settling', false); } } else quiet += dt;
     on('level', Math.min(1, rms / (threshold * 4)));
-    // 只在停顿时认整段，或说话超过 1.5 秒时更新字幕；不切碎日语/英语词语。
-    if (voiced >= .28 && !recognizing && recognized !== revision && (quiet >= .24 || length - lastRequest >= 1.5)) recognize(sr);
+    if (quiet >= .24 && !settling) { settling = true; on('settling', true); }
+    // 无实时字幕能力时提早提供整段草稿；每次都包含之前的声音，允许后文修正前文。
+    if (!session && voiced >= .28 && !recognizing && recognized !== revision && (quiet >= .24 || length - lastRequest >= .65)) recognize(sr);
     if (length >= 30) ending = true; maybeEnd(sr);
   }
   async function start() {
