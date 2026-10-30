@@ -325,3 +325,40 @@
 .ef-live { position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); translate: -50% 0; display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 16px; background: rgba(8, 10, 18, .82); border: 1px solid rgba(255, 70, 70, .5); box-shadow: 0 6px 20px rgba(0, 0, 0, .35); z-index: 4; pointer-events: none;
   font-family: "xp-px", sans-serif; font-size: 13px; letter-spacing: 1px; color: #ff7a7a; -webkit-font-smoothing: none; }
 .ef-live i { width: 7px; height: 12px; background: #ff4a4a; animation: gcur .8s steps(1) infinite; }
+
+/* ---------- 窗外：跟着时间 / 月相 / 天气变（sky.js；只盖在窗玻璃上，mask 是从底图抠的玻璃） ---------- */
+.eye-win { position: absolute; pointer-events: none; transition: opacity .4s; }
+.eye-stage.swapped .eye-win { opacity: 0; }
+.eye-win > div { position: absolute; inset: 0; -webkit-mask: var(--mask) 0 0 / 100% 100% no-repeat; mask: var(--mask) 0 0 / 100% 100% no-repeat; overflow: hidden; }
+.win-sky { mix-blend-mode: screen; }
+/* 盖住底图里画死的月牙，换成当天的月相 */
+.moon-cov { position: absolute; width: 70%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, #0f2757 55%, rgba(15, 39, 87, 0) 72%); }
+.moon { position: absolute; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; overflow: hidden; background: #f4efd6; box-shadow: 0 0 6px 1px rgba(244, 239, 214, .55), 0 0 18px 4px rgba(170, 195, 255, .25); transition: opacity .8s; }
+.moon::after { content: ''; position: absolute; inset: -2%; border-radius: 50%; background: #0f2757; transform: translateX(calc(var(--dir, 1) * -1 * var(--lit, .3) * 104%)); }
+.moon.none { opacity: 0; }
+.sky-tint, .sky-rain, .sky-snow, .sky-flash { position: absolute; inset: 0; opacity: 0; transition: opacity 1.2s, background 1.2s; }
+/* 一天里的四段：窗玻璃的颜色（screen 叠上去，树影还是暗的） */
+[data-tod=dawn] .sky-tint { opacity: .55; background: linear-gradient(#4d5f9c, #b98fae 55%, #f3b98d); }
+[data-tod=day] .sky-tint { opacity: .85; background: linear-gradient(#7fa7e0, #bcd7f4 60%, #e2eefa); }
+[data-tod=dusk] .sky-tint { opacity: .7; background: linear-gradient(#4c3f86, #b0688f 50%, #ff9c63); }
+[data-tod=dawn] .moon { opacity: .4; } [data-tod=day] .moon { opacity: 0; } [data-tod=dusk] .moon { opacity: .55; }
+/* 阴天 / 雨 / 雪 / 雷：看不见月亮，天色发灰 */
+:is([data-wx=cloud], [data-wx=fog], [data-wx=rain], [data-wx=snow], [data-wx=storm]) .moon { opacity: 0; }
+:is([data-wx=cloud], [data-wx=fog], [data-wx=rain], [data-wx=snow], [data-wx=storm]) .sky-tint { filter: saturate(.25) brightness(.85); }
+[data-wx=fog] .sky-tint { opacity: .6; background: linear-gradient(#8b93a3, #c4c8cf); }
+.sky-rain { background: repeating-linear-gradient(104deg, transparent 0 9px, rgba(205, 222, 255, .55) 9px 10px, transparent 10px 23px, rgba(205, 222, 255, .3) 23px 24px); background-size: 40px 90px; animation: sky-rain .45s linear infinite; }
+:is([data-wx=rain], [data-wx=storm]) .sky-rain { opacity: .75; }
+@keyframes sky-rain { to { background-position: -22px 90px; } }
+.sky-snow { background: radial-gradient(circle, rgba(255, 255, 255, .9) 0 1.4px, transparent 2px) 0 0 / 22px 26px, radial-gradient(circle, rgba(255, 255, 255, .7) 0 1px, transparent 1.6px) 9px 13px / 17px 21px; animation: sky-snow 7s linear infinite; }
+[data-wx=snow] .sky-snow { opacity: .9; }
+@keyframes sky-snow { to { background-position: 14px 260px, 0 190px; } }
+.sky-flash { background: #fff; }
+[data-wx=storm] .sky-flash { animation: sky-flash 11s infinite; }
+@keyframes sky-flash { 0%, 61%, 63.5%, 64.5%, 100% { opacity: 0 } 62% { opacity: .9 } 64% { opacity: .6 } }
+/* 地上那道光跟着换：月光 → 日光 → 夕照；下雨阴天就淡下去 */
+[data-tod=day] .moon-ray { background: linear-gradient(90deg, rgba(255, 244, 222, .22), transparent); }
+[data-tod=dusk] .moon-ray { background: linear-gradient(90deg, rgba(255, 170, 110, .2), transparent); }
+[data-tod=dawn] .moon-ray { background: linear-gradient(90deg, rgba(255, 205, 170, .14), transparent); }
+:is([data-wx=cloud], [data-wx=fog], [data-wx=rain], [data-wx=snow], [data-wx=storm]) .moon-ray { opacity: .35; }
+#stp.lite .sky-rain, #stp.lite .sky-snow, #stp.lite .sky-flash { animation: none; }
+@media (prefers-reduced-motion: reduce) { .sky-rain, .sky-snow, .sky-flash { animation: none; } }

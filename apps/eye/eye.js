@@ -8,8 +8,9 @@
 // 内容都是样例；生成之后接
 import { S, D, $, $$, page, reg, toast, saveD, esc, openApp } from '../../core.js';
 import { openForum } from './forum.js';
+import { skyHtml, startSky, toggleWx, paint } from './sky.js';
 
-const CSS = new URL('./eye.css?v=16', import.meta.url).href;
+const CSS = new URL('./eye.css?v=17', import.meta.url).href;
 const css = () => new Promise(r => { const old = document.querySelector('link[data-eye]'); if (old) return old.sheet ? r() : old.addEventListener('load', () => r(), { once: true }); const l = document.createElement('link'); l.rel = 'stylesheet'; l.dataset.eye = 1; l.href = CSS; l.onload = l.onerror = () => r(); document.head.append(l); setTimeout(r, 1500); });
 const IMG = f => new URL(`../../assets/eye/${f}.webp`, import.meta.url).href;
 const PXF = new URL('../../assets/fonts/px-eye.woff', import.meta.url).href;
@@ -65,7 +66,7 @@ const H = {
   fan: () => ({ k: 'FANWORKS · 同人圈', t: '本周产出 64', m: '图 41 · 文 19 · cos 4 · 高维度的粉丝们', grid: [['#5a6a9a', '雨夜'], ['#8a5a6a', '借伞'], ['#4a6a5a', '屋檐下'], ['#6a5a8a', '回头'], ['#8a7a4a', '扉页'], ['#4a5a7a', '三人']], list: [['太太A', '《等雨停的人》 · 短篇 · 3.2k 字', '热 890'], ['画手B', '屋檐下 · 彩图', '412']], acts: [['看全部', 'fanall']] }),
   line: () => ST().src == 'fan' ? { k: 'ORIGINAL · 原著线', t: '原著里的他们', m: '原著角色看这条线的剧情', body: '原著里那把伞他没借出去。所以当原著的他看到这条线里的自己坐在屋檐下等雨停，沉默了很久。', list: [['原著 · 他', '……我不会把伞借出去的。但这个我，好像比我更像我。', ''], [' 原著 · 她', '这条线里他居然会等人，笑死，原著他连雨都不躲。', '']], acts: [['切换到 IF 线（原创作品）', 'srcorig']] }
     : { k: 'IF · 另一条线', t: '如果那天他没借伞', m: 'IF 线 · 同一批人，另一个选择', body: '这部作品没有原著，所以另一条线是「IF 线」：同一个故事，在某个岔路口走了另一条路。那边的他们，隔着线看这边。', list: [['IF 线 · 他', '我把伞留下了。然后我在屋檐下等了一整晚，雨也没停。', ''], ['IF 线 · 她', '这边的我没去找他。所以看见那边的我去了，有点想哭。', '']], acts: [['切换到原著线（同人作品）', 'srcfan']] },
-  set: () => ({ k: 'SETTINGS', t: '作品档案', m: `${FN[ST().form]} · ${FM[ST().form].unit}`, forms: 1, acts: [['重新选择作品', 'reguide']] }),
+  set: () => ({ k: 'SETTINGS', t: '作品档案', m: `${FN[ST().form]} · ${FM[ST().form].unit}`, forms: 1, acts: [['重新选择作品', 'reguide'], [S.eye?.wx?.on ? '窗外：跟我这边的天气（点了关掉）' : '窗外：跟我这边的天气', 'wx']] }),
   tv: () => { const f = FM[ST().form]; return { k: `${FN[ST().form]} · 本期`, t: '雨停之前', m: `${f.where} · ${f.unit}`, body: '这一' + f.ep + '里，万事屋的雨一直没停。他把最后一把伞借给了来委托的人，自己在屋檐下坐到天黑。', dm: ['前方高能！！', '泪目了', '这一集神作', '打卡', '伞！！！'], acts: [['弹幕 · 实时', 'dm'], ['刷新本期', 'gen']] }; },
   mask: () => ({ k: 'IDENTITY · 身份', t: ST().role == 'author' ? '作者' : '观众席', m: ST().role == 'author' ? '以作者本人的身份发言 · 读者会认出你' : '以普通读者的身份逛论坛 · 用自己的马甲发帖', body: ST().role == 'author' ? '面具戴上了。从现在起，你的每一句话都会被当成官方发言。' : '面具还挂在墙上。你只是观众席里的一个人。', acts: [[ST().role == 'author' ? '摘下面具 · 回到观众席' : '戴上面具 · 成为作者', 'role']] }),
   curtain: () => { const f = FM[ST().form]; return { k: `BACKSTAGE · ${f.bs}`, t: f.who, m: `本${f.ep} · 2 条`, body: ST().form == 'manga' || ST().form == 'novel' ? '这一话画到最后一页的时候外面真的在下雨。借伞那个分镜改了四次，责编说第一版太温柔了，不像他。' : '录屋檐下那段戏的时候，导演让我什么都别说，只呼吸。后来回放，我自己也沉默了很久。', acts: [['看全文', 'bs']] }; },
@@ -195,7 +196,7 @@ function mount(el) {
   if (!cssOk) return void cssReady.then(() => { cssOk = true; mount(el); });
   st0.style.visibility = '';
   fitRoom(el); requestAnimationFrame(() => fitRoom(el)); const st = $('.eye-stage', el); if (!st || st._eye) return; st._eye = 1; new ResizeObserver(() => fitRoom(el)).observe(st);
-  const spot = $('.eye-spot', st); st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); spot && (spot.style.transform = `translate(${e.clientX - r.left}px,${e.clientY - r.top}px)`); });
+  const spot = $('.eye-spot', st); startSky(st); st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); spot && (spot.style.transform = `translate(${e.clientX - r.left}px,${e.clientY - r.top}px)`); });
   let y0 = 0; st.addEventListener('pointerdown', e => { const c = e.target.closest('.holo'); y0 = c ? e.clientY : 0; });
   st.addEventListener('pointerup', e => { if (y0 && e.clientY - y0 > 48) back(el); y0 = 0; });
   st.addEventListener('click', e => { if (st.classList.contains('guiding')) return; if (e.target.closest('.holo,[data-a]')) return; if (focused) back(el); });
@@ -205,6 +206,7 @@ function mount(el) {
 const body = () => { const st = ST(), has = !!st.form; return `<div class="eye-stage ${st.wall ? 'wall' : ''}" style="position:absolute;inset:0;background:#06070c${cssOk ? '' : ';visibility:hidden'}">
 <div class="eye-room" style="--s:1;--tx:0px;--ty:0px"><img class="bleed" src="${IMG('room')}" draggable="false" alt=""><div class="fit">
 <img class="base ${st.role == 'author' ? '' : 'in'}" src="${IMG('room')}" draggable="false" alt=""><img class="base ${st.role == 'author' ? 'in' : ''}" src="${IMG('room_author')}" draggable="false" alt="">
+${skyHtml()}
 <div class="tv-scr ${has ? 'lit' : ''}">${tvScreen()}</div>
 <i class="led"></i><i class="moon-ray"></i><i class="curtain-glow"></i>
 ${Object.entries(ZONES).map(([k, z]) => `<b class="hz hz-${k}" data-a="ez" data-x="${k}" style="left:${z[0]}%;top:${z[1]}%;width:${z[2] - z[0]}%;height:${z[3] - z[1]}%"></b>`).join('')}
@@ -235,6 +237,7 @@ reg({
       if (a == 'role') { st.role = st.role == 'author' ? 'viewer' : 'author'; saveD(); $$('.base', pg.el).forEach((i, n) => i.classList.toggle('in', (n == 1) == (st.role == 'author'))); focus(pg.el, 'mask', false); return; }
       if (a == 'wall') { st.wall = !st.wall; saveD(); $('.eye-stage', pg.el).classList.toggle('wall', st.wall); $('.tv-scr', pg.el).innerHTML = tvScreen(); focus(pg.el, 'cctv', false); return; }
       if (a == 'srcfan' || a == 'srcorig') { st.src = a == 'srcfan' ? 'fan' : 'orig'; saveD(); focus(pg.el, 'phone:line', false); return; }
+      if (a == 'wx') { toggleWx().then(() => { paint($('.eye-stage', pg.el), true); focus(pg.el, 'phone:set', false); }); return; }
       if (a == 'reguide') { st.form = ''; saveD(); pg.re(); return; }
       if (a == 'shop') { focus(pg.el, 'phone:shop'); return; }
       if (a == 'street') { openApp('street'); return; }
