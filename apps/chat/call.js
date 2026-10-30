@@ -272,7 +272,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     const outL = A.outL ?? (ch.cfg?.lang || ''), zh = !outL || /^zh/.test(outL) && outL != 'zh-TW'; // 语言快照
     const P = HEAD() + `${(r => r ? `\n【想起来的旧事】（只当背景）\n${r}` : '')(recall(ch, said || '', 12, 400))}${A.log.length ? `\n【这通电话里说过的】\n${A.log.slice(-16).map(x => `${x.f == 'me' ? me.nick : rn(c)}：${x.t}`).join('\n')}` : ''}\n`
       + (story ? `${me.nick}想听：「${said}」${asr ? '（语音识别出来的字，可能有同音字认错，按意思理解；明显认错时第一行先写 FIX: 改正后的原话）' : ''}。现在是睡前，${me.nick}躺着听你讲。用你自己的口吻，慢慢讲一个完整的故事给 TA 听：大约 1500 字；句子短、语气轻、适合念出来，像贴在耳边小声讲；中间可以偶尔轻轻跟 TA 说一两句（比如「困了就闭上眼睛」）；结尾慢慢收住，跟 TA 道晚安。` : nudge ? `${me.nick}已经 ${nudge} 秒没出声了。像打电话那样自然地追问一句（比如：喂？还在吗？是不是信号不好？），只说一句。` : au ? `${me.nick}刚刚说了一句话，就是附带的这段录音（是${me.nick}本人在电话里说的话）。` : said ? `${me.nick}刚刚说：「${said}」${tone ? `（听起来：${tone}）` : ''}${asr ? '（这是语音识别出来的字，常把同音 / 近音字认错，字数一般是对的：「心好累」→「行好累」、「在干嘛呢」→「他干嘛嘛」、「你教我说日语吧」→「比教我说任语吧」。先在心里把它还原成最合理的一句口语再回答，不要揪着认错的字反问「谁」「什么」。还原过就第一行先写 FIX: 还原后的原话，再另起一行回 TA；没认错就不要写 FIX）' : ''}\n接着回 TA。` : `电话刚接通（是${me.nick}打给你的），你先开口。`)
-      + (zh ? '\n只输出你要说的话，一句一行，不要括号旁白。' : `\n你说${lname(outL)}。每一句都成对输出两行，第一行 SAY: 后面是${lname(outL)}原话，第二行 ZH: 后面是这句的简体中文意思。格式：\nSAY: （${lname(outL)}原话）\nZH: （中文意思）\nSAY 行必须从头到尾都是${lname(outL)}，一个中文词都不能夹（中文只写在 ZH 行）。只输出这样成对的行，不要别的。`)
+      + (zh ? '\n全部用简体中文说，一个日语、韩语、英语的句子都不要夹（人名、外来词可以）。只输出你要说的话，一句一行，不要括号旁白。' : `\n你说${lname(outL)}。每一句都成对输出两行，第一行 SAY: 后面是${lname(outL)}原话，第二行 ZH: 后面是这句的简体中文意思。格式：\nSAY: （${lname(outL)}原话）\nZH: （中文意思）\nSAY 行必须从头到尾都是${lname(outL)}，一个中文词都不能夹（中文只写在 ZH 行）。只输出这样成对的行，不要别的。`)
       + (story || nudge ? '' : `\n现在轮到你（${rn(c)}）回这一句：只写你自己这一次要说的 1～3 句，然后停下等${me.nick}开口。不要替${me.nick}说话，不要写成你们俩一来一回的对话，不要自问自答。${A.log.some(x => x.f != 'me') ? '电话已经接通、招呼也打过了，直接接着话题说，不要再说「喂」「もしもし」。' : ''}`)
       + `\n如果这通电话自然聊完了（${me.nick}说了再见 / 晚安 / 要去睡了、要去忙了），在最后单独一行写 [挂断]，电话就会挂掉；${me.nick}没说要走就不要写。`
       + (au ? `\n第一行必须是 HEARD: 后面照录音写下${me.nick}说的原话（照原来的语言写；笑、叹气、哈欠、哽咽这些声音写在括号里，如「（笑）你好坏」；听不清就写 HEARD: ?），然后另起一行开始回 TA。\n认真听语气：是笑着说、困了、犹豫、撒娇还是不高兴，回答要自然地接住这个语气（不用说出「我听出你…」）。` : '');
@@ -282,7 +282,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     // 一轮最多说 4 句（故事不限）：模型有时会一口气把两个人的对话都编出来、最后自己写 [挂断]，超过就掐掉后面的
     const MAXU = story ? 1e9 : 4, lac = new AbortController(), lsg = AbortSignal.any ? AbortSignal.any([sg, lac.signal]) : sg; let capped = false;
     const pub = (t, tr = '') => { if (capped) return; if (U.length >= MAXU) { capped = true; lac.abort(); return; } if (/[\[［]\s*挂断\s*[\]］]/.test(t)) { A.bye = 1; t = t.replace(/[\[［]\s*挂断\s*[\]］]/g, ''); tr = String(tr).replace(/[\[［]\s*挂断\s*[\]］]/g, ''); } /* TA 主动挂电话（学 evolia 的 call_control） */ t = clean(t); if (!t || sg.aborted) return; U.push({ t, tr: clean(tr) }); synth(); kick(); };
-    const P1 = zh ? zhUnits(pub) : pairUnits((t, tr) => { const p = pureSay(t, outL); p && pub(p, tr); }); // SAY 里夹的中文去掉，免得用日语音色念中文
+    const P1 = zh ? zhUnits(t => { const p = pureSay(t, 'zh'); p && pub(p); }) : pairUnits((t, tr) => { const p = pureSay(t, outL); p && pub(p, tr); }); // 夹进来的别的语言去掉，免得一个音色念两种话
     // 模型听：回答前先有一行 HEARD: 我说的原话 → 填进字幕里我那一行、记进通话内容；其余照常切句
     let hd = !au && !asr, hb = ''; // asr：识别的字可能认错，模型可以先写一行 FIX: 改正后的原话
     const gotHeard = t => { t = String(t || '').replace(/\*[^*]*\*|【[^】]*】/g, '').trim().replace(/^[「“"]|[」”"]$/g, ''); if (!hl) return; if (!t || /^[?？]+$/.test(t)) { hl.t = '（没听清）'; } else { hl.t = t; A.lastSaid = t; hl.lg = { f: 'me', t }; A.log.push(hl.lg); } draw(); }; // 听到的话里（笑）（叹气）要留着
@@ -353,10 +353,14 @@ export function zhUnits(pub) { let buf = '';
     buf = buf.slice(st); if (end && buf.trim()) { pub(buf); buf = ''; } };
   return { feed: d => { buf += d; scan(); }, finish: () => scan(1) }; }
 // 外语：一行 SAY（要念的原话）一行 ZH（只显示的中文释义），成对放出；只合成 SAY。行没写完不处理
-// SAY 行只留这门语言：按标点切成小段，像中文的段去掉（日语：没有假名、又带「嘛呢吗么什么怎么」这类中文才有的字；韩语 / 英语：没有本语言字母却有汉字）
-export function pureSay(t, L) { if (!t || !L || /^zh/.test(L)) return t;
-  const kana = /[\u3040-\u30ff]/, han = /[\u4e00-\u9fff]/, zhOnly = /[嘛呢吗么们这那哪啥咋俺]|什么|怎么|没有|一下|干嘛|是不是|的话/;
-  const bad = s => !han.test(s) ? false : L == 'ja' ? !kana.test(s) && zhOnly.test(s) : L == 'ko' ? !/[\uac00-\ud7af]/.test(s) : !/[a-z]/i.test(s) || han.test(s);
+// TA 说的话只留这一门语言：按标点切成小段，不是这门语言的段去掉（不念、不显示）
+// - 中文：带假名（日语）或谚文（韩语）的段去掉
+// - 日语：带谚文的去掉；没有假名、又带「嘛呢吗么什么怎么」这类只有中文才用的字的去掉（「本当」这种日语汉字词留着）
+// - 韩语：带假名的去掉；有汉字却没有谚文的去掉
+// - 英语等拼音文字：带汉字 / 假名 / 谚文的去掉
+export function pureSay(t, L) { if (!t) return t; L = L || 'zh';
+  const kana = /[\u3040-\u30ff]/, hangul = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/, han = /[\u4e00-\u9fff]/, zhOnly = /[嘛呢吗么们这那哪啥咋俺]|什么|怎么|没有|一下|干嘛|是不是|的话/;
+  const bad = s => /^zh/.test(L) ? kana.test(s) || hangul.test(s) : L == 'ja' ? hangul.test(s) || han.test(s) && !kana.test(s) && zhOnly.test(s) : L == 'ko' ? kana.test(s) || han.test(s) && !hangul.test(s) : kana.test(s) || hangul.test(s) || han.test(s);
   return String(t).split(/(?<=[、，,。．.!！?？\s])/).filter(s => !bad(s)).join('').replace(/^[、，,\s]+|[、，,\s]+$/g, '').trim(); }
 export function pairUnits(pub) { let buf = '', say = null;
   const line = l => { l = l.trim(); if (!l) return; const m = l.match(/^(SAY|ZH)\s*[:：]\s*(.*)$/i);
