@@ -115,6 +115,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`!!cl.inCall()`), '我没说要走，模型自己写的 [挂断] 不当真，电话没挂');
   ok(/不要替.*说话/.test(pr) && /不要再说「喂」/.test(pr), '提示词：只写自己这一轮、别替我说话、招呼打过了别再「喂」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''`);
+  // 日语角色：提示词里不给真例句（模型会照抄「もしもし、どうしたの？」）；SAY 里夹的中文去掉
+  ok(await E(`(async () => { const c = await import('/apps/chat/call.js'); return JSON.stringify([c.pureSay('な?、在干嘛呢', 'ja'), c.pureSay('何してるの？在干嘛', 'ja'), c.pureSay('本当？', 'ja'), c.pureSay('你在干嘛呀', 'ja')]); })()`) == JSON.stringify(['な?', '何してるの？', '本当？', '']), 'TA 说日语时 SAY 里夹的中文被去掉（不会用日语音色念中文）');
+  ok(!/もしもし、どうしたの/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)) && /一个中文词都不能夹/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)), '提示词里没有能被照抄的例句，写明 SAY 行不能夹中文');
   // 麦克风诊断：识别开起来了、麦克风也接上了，但一点声音都没进来（比如录屏占着麦克风）→ 屏幕上直接写出来
   await E(`(() => { window.webkitSpeechRecognition = class { start() { setTimeout(() => { this.onstart?.(); this.onaudiostart?.(); }, 100); } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async () => '喂？'; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
