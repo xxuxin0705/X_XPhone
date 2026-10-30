@@ -174,3 +174,7 @@ evolia 是原生安卓，自己有录音权限，链路是 录音（AEC3 + 降�
 - 硅基密钥来源：通话里填的 → 画图里填的硅基流动密钥 → 免费模型里加过的硅基流动聊天配置的密钥（`ear.js` 的 `sfKey()`）。
 - 设置 → 通用 → 语音识别语言包（`apps/settings/lang-packs.js`）：中文内置；日语本地包（Moonshine v2 tiny-ja，约 72MB）；云端识别（能不能用、密钥从哪来、去哪拿）。
 - 日语本地包要 sherpa-onnx 的离线识别（vad-asr 版 wasm，流式版里没有）：`asr-build` 分支上的 GitHub Actions 编译，产物在 `asr-wasm-out` 分支。
+- 日语本地包做好了（同一天）：`asr-build` 编出来的离线识别 wasm（13MB）+ Moonshine v2 tiny 日语量化模型（72MB），放在 `asr-ja` 分支（不进插件本体）。模型包切成 20MB 一块、各自 gzip（下载合计约 49MB；不压缩的话 GitHub 的密钥扫描会把模型里一串随机字节当成 Hugging Face 密钥拦下推送）。设置页点「下载」→ 浏览器自己解压 → 存进 IndexedDB（`xphone-asr`），断了只补没下完的块；能取消、能删除；网站数据被清过会自动改回「没装」。下载地址先 raw.githubusercontent.com，连不上再走 ghfast.top 加速。
+- 识别：`local-asr.js` 改成一个语言一个引擎（`asrFor(L)`），同一时间只开一个模型（手机内存）。离线模型只会整段认：后台线程每攒 0.7 秒新声音就把整段重认一遍当字幕（上一遍认得慢就隔久一点，超过 12 秒不再中途重认），说完补 0.3 秒静音认整句。实测 8 秒日语整句在电脑上约 1 秒。
+- 许可：Moonshine 的日语模型是 Moonshine AI Community License（个人 / 非商业免费），`asr-ja/ja/` 里放了 LICENSE-moonshine 和 NOTICE，设置页写着 Powered by Moonshine AI。
+- 测试：`callja`（8826）真的从 GitHub 下载（缓存到 tests/out/asr-ja/），`JA_WAV=` 给一段日语 wav 时连识别一起测。

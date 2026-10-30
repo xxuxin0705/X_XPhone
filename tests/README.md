@@ -79,4 +79,5 @@ node tests/run.cjs            # 全部：很慢，只在用户要求时跑
 - `call`（8823）：通话 / 收藏 / 名片
 - `callear`（8824）：通话 · 模型听
 - `callasr`（8825）：通话 · 本地识别（真的认测试录音）
+- `callja`（8826）：通话 · 日语本地包（真的从 GitHub asr-ja 分支下载，缓存在 tests/out/asr-ja/；`JA_WAV=日语 16kHz wav` 时连识别一起测）。要联网，第一次比较慢，平时不用跑
 - `cssname`（不开浏览器）：样式撞名检查，改了 style.css 就跑
