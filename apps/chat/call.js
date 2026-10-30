@@ -170,7 +170,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
   const CSYS = (zh, outL) => A.csys ||= (() => { const d = now(), L = zh ? '' : lname(outL), who = rn(c), I = me.nick;
     const chat = ch.msgs.filter(m => !/sys|pat|call/.test(m.t)).slice(-12).map(m => `${m.f == 'me' ? I : who}: ${say(m)}`).join('\n');
     const calls = ch.msgs.filter(m => m.t == 'call' && !forgot(m) && m.log?.length).slice(-2).map(m => `${ago(d - (m.ts || 0))}打过一通（${m.c}）：${m.log.slice(-10).map(x => `${x.f == 'me' ? I : who}：${x.tr || x.t}`).join(' / ').slice(0, 260)}`).join('\n');
-    return `\n\n【现在】${I}给${who}打${A.kind == 'video' ? '视频' : '语音'}电话，已经接通。你就是${who}，用${who}自己的口吻说话。${I}的话是语音识别出来的字，可能有同音错字，按最合理的意思理解；你说的话会被念出来。`
+    return `\n\n【现在】${I}给${who}打${A.kind == 'video' ? '视频' : '语音'}电话，已经接通。你就是${who}，用${who}自己的口吻说话。${I}的话是语音识别出来的字，可能有同音错字，按最合理的意思理解；你说的话会被念出来。识别明显认错时，可以在最前面单独一行写 FIX: 改正后的原话（会改掉字幕），没认错就别写。`
       + `\n${mp('chat.call', { 对方: who, 我: I })}`
       + `\n【此刻】现在是 ${d.getMonth() + 1} 月 ${d.getDate()} 日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}。照上面的最新剧情，你心里先定好${who}这会儿在哪、在干嘛、心情怎样，整通电话都照这个来；被问到就具体地说。`
       + (chat ? `\n【最近的私聊】\n${chat}` : '')
@@ -315,10 +315,10 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     // 一轮最多说 4 句（故事不限）：模型有时会一口气把两个人的对话都编出来、最后自己写 [挂断]，超过就掐掉后面的
     const MAXU = story ? 1e9 : 4, lac = new AbortController(), lsg = AbortSignal.any ? AbortSignal.any([sg, lac.signal]) : sg; let capped = false;
     const pub = (t, tr = '') => { if (capped) return; if (U.length >= MAXU) { capped = true; lac.abort(); return; } if (/[\[［]\s*挂断\s*[\]］]/.test(t)) { A.bye = 1; t = t.replace(/[\[［]\s*挂断\s*[\]］]/g, ''); tr = String(tr).replace(/[\[［]\s*挂断\s*[\]］]/g, ''); } /* TA 主动挂电话（学 evolia 的 call_control） */ t = clean(t); if (!t || sg.aborted) return; const u = { t, tr: clean(tr) }; U.push(u); synth(); kick(); return u; };
-    let cu = null; const said0 = story ? null : A.log.filter(x => x.f != 'me'), ds = (t, tr) => said0?.length ? dropSaid(t, tr, said0) : [t, tr]; /* 开过口了：开场白、原样复读的句子去掉 */
-    const P1 = zh ? zhUnits(t => { const [p] = ds(pureSay(t, 'zh'), ''); p && pub(p); }) : pairUnits(t => { const raw = pureSay(t, outL), [p] = ds(raw, ''); cu = p ? pub(p) : null; cu && (cu.raw = raw); }, tr => { const u = cu; cu = null; if (!u) return; /* 这句被删了（开场白 / 复读）：释义也不要 */ u.tr = clean(String(ds(u.raw, tr)[1] || '').replace(/[\[［]\s*挂断\s*[\]］]/g, '')); u.ln && (u.ln.tr = u.tr, draw()); u.lg && (u.lg.tr = u.tr); }); // 夹进来的别的语言去掉，免得一个音色念两种话
+    const keep = raw => ({ raw, t: dropSaid(raw, '', [])[0] || raw, tr: '' }); let cu = null, lost = null; /* lost：整轮都被当复读删光时，至少把第一句说出来，别哑着 */ const said0 = story ? null : A.log.filter(x => x.f != 'me'), ds = (t, tr) => said0?.length ? dropSaid(t, tr, said0) : [t, tr]; /* 开过口了：开场白、原样复读的句子去掉 */
+    const P1 = zh ? zhUnits(t => { const raw = pureSay(t, 'zh'), [p] = ds(raw, ''); p ? pub(p) : raw && (lost ||= keep(raw)); }) : pairUnits(t => { const raw = pureSay(t, outL), [p] = ds(raw, ''); cu = p ? pub(p) : null; cu ? (cu.raw = raw) : raw && (lost ||= keep(raw)); }, tr => { const u = cu; cu = null; if (!u) { lost && !lost.tr && (lost.tr = dropSaid(lost.raw, tr, [])[1] || tr); return; } /* 这句被删了（开场白 / 复读）：释义也不要 */ u.tr = clean(String(ds(u.raw, tr)[1] || '').replace(/[\[［]\s*挂断\s*[\]］]/g, '')); u.ln && (u.ln.tr = u.tr, draw()); u.lg && (u.lg.tr = u.tr); }); // 夹进来的别的语言去掉，免得一个音色念两种话
     // 模型听：回答前先有一行 HEARD: 我说的原话 → 填进字幕里我那一行、记进通话内容；其余照常切句
-    let hd = !au && (!asr || !!MS), hb = ''; // asr：识别的字可能认错，模型可以先写一行 FIX: 改正后的原话
+    let hd = !au && !asr, hb = ''; // asr：识别的字可能认错，模型可以先写一行 FIX: 改正后的原话
     const gotHeard = t => { t = String(t || '').replace(/\*[^*]*\*|【[^】]*】/g, '').trim().replace(/^[「“"]|[」”"]$/g, ''); if (!hl) return; if (!t || /^[?？]+$/.test(t)) { hl.t = '（没听清）'; } else { hl.t = t; A.lastSaid = t; hl.lg = { f: 'me', t }; A.log.push(hl.lg); } draw(); }; // 听到的话里（笑）（叹气）要留着
     const gotFix = t => { t = String(t || '').trim().replace(/^[「“"]|[」”"]$/g, ''); if (!hl || !t) return; hl.t = t; hl.lg && (hl.lg.t = t); A.lastSaid = t; A.prevSay && A.prevSay.line == hl && (A.prevSay.text = t); draw(); }; // 字幕里我那句、通话内容一起改
     const TAG = au ? /^\s*HEARD\s*[:：]\s*(.*)$/i : /^\s*FIX\s*[:：]\s*(.*)$/i, got = t => au ? gotHeard(t) : gotFix(t), miss = () => { au && hl && (hl.t = '（语音）'); };
@@ -341,7 +341,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
       if (canned) { P2.feed(canned + '\n'); P2.finish(); done = true; kick(); await player; return endTurn(); } // 接通先说一句（不调用模型）
       await slot(sg); if (sg.aborted || CALL != A) return; REQ().push(Date.now()); A.queue = 0; draw();
       const full = await llm(await sysOnce() + (MS ? CSYS(zh, outL) : ''), P, '通话', lsg, { stream: true, fast: 1, mod: 'chat.call', ...(MS && { msgs: MS }), ...(au && { audio: au }), onThink: th => { A.thk = th; }, onText: t => { if (sg.aborted) return; first ||= !!t; P2.feed(t.slice(last.length)); last = t; } });
-      if (!sg.aborted && !capped) { const f2 = String(full || ''); f2.length > last.length && P2.feed(f2.slice(last.length)); P2.finish(); }
+      if (!sg.aborted && !capped) { const f2 = String(full || ''); f2.length > last.length && P2.feed(f2.slice(last.length)); P2.finish(); !U.length && lost && pub(lost.t, lost.tr); }
       done = true; kick(); await player;
     } catch (e) { if (capped && !sg.aborted) { P2.finish(); done = true; kick(); await player; return endTurn(); } // 句数够了、主动掐断请求：照常收尾
       done = true; kick(); clearTimeout(fillT); clearTimeout(guard); if (sg.aborted) return;
