@@ -1,0 +1,9 @@
+This Moonshine AI Model is licensed under the Moonshine AI Community License, Copyright © Moonshine AI Ltd. All Rights Reserved
+
+Powered by Moonshine AI
+
+Model: sherpa-onnx-moonshine-tiny-ja-quantized-2026-02-27 (Moonshine v2 tiny Japanese, quantized, as converted by the sherpa-onnx project).
+Changes made by X_XPhone (packaging only, the model weights are not modified): encoder_model.ort, decoder_model_merged.ort and tokens.txt were concatenated in that order, split into 20 MiB parts, and each part was gzip-compressed (ja.data.N.gz). The full license agreement is in LICENSE-moonshine.
+Used for personal, non-commercial voice recognition inside the X_XPhone SillyTavern extension.
+
+sherpa-onnx (off.wasm.gz, ja-main.js): Apache-2.0, see LICENSE-sherpa-onnx.
