@@ -5,11 +5,11 @@ const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png'
 const srv = http.createServer((q, r) => { const u = q.url.split('?')[0]; const f = u == '/' ? path.join(here, 'st.html') : path.join(root, u); try { const b = fs.readFileSync(f); r.writeHead(200, { 'content-type': (MIME[path.extname(f)] || 'text/html') + '; charset=utf-8' }); r.end(b); } catch { r.writeHead(404); r.end(); } }).listen(8823);
 const wav = () => { const n = 4800, b = Buffer.alloc(44 + n * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + n * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(24000, 24); b.writeUInt32LE(48000, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(n * 2, 40); return b; };
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
-(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort()); let ttsN = 0; await ctx.route(/api\.fish\.audio/, r => { ttsN++; r.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'access-control-allow-origin': '*' }, body: wav() }); });
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); await ctx.route(/fonts\.googleapis/, r => r.abort()); let ttsN = 0; const TTS = [], _ttsBody = b => b && TTS.push(String(b.input || b.text || '')); await ctx.route(/api\.fish\.audio/, r => { ttsN++; _ttsBody(r.request().postDataJSON()); r.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'access-control-allow-origin': '*' }, body: wav() }); });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8823/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'call_' + n + '.png') });
-  await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.fav = await import('/apps/chat/fav.js');
+  await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.fav = await import('/apps/chat/fav.js'); window.br = await import('/apps/chat/call-brain.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; window._P = []; core.S.callAuto = false; core.S.callEar2 = 'web'; core.S.callNudge = false; window.cl = await import('/apps/chat/call.js');
     SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '喂？怎么突然打电话过来。' : '哈哈，真的吗。那你明天几点到？我去接你。'; };
     delete window.SpeechRecognition; delete window.webkitSpeechRecognition;
@@ -22,15 +22,16 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/视频通话/.test(await E(`document.querySelector('.sheet.in').textContent`)) && /语音通话/.test(await E(`document.querySelector('.sheet.in').textContent`)), '点视频通话：底部弹出 视频通话 / 语音通话 / 取消');
   await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(400); await shot('dial');
   ok(await E(`!!document.querySelector('.xc .xc-dots') && /取消/.test(document.querySelector('.xc-ctl').textContent) && /麦克风已开/.test(document.querySelector('.xc-ctl').textContent)`), '拨号中：头像名字、三个点，下面 麦克风已开 / 取消 / 扬声器已关');
-  await W(4200); await shot('talk');
+  ok(await E(`_P.length == 1 && cl.inCall().st == 'dial'`), '响铃的时候模型已经在写接通第一句了（还没接起来）');
+  await W(3800); await shot('talk');
   ok(await E(`!!document.querySelector('.xc .xc-tm') && /挂断/.test(document.querySelector('.xc-ctl').textContent)`), '接通：显示通话时长，按钮变「挂断」');
-  ok(/喂？/.test(await E(`document.querySelector('.xc-tx').innerText`)) && await E(`_P.length`) == 0, '接通后 TA 先「喂？」（不调模型：接起来就能说，不用等它想）');
+  ok(/怎么突然打电话过来/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /先开口/.test(await E(`_P[0]`)) && /不要只说一句「喂」/.test(await E(`_P[0]`)), '接通第一句是模型照剧情写的（提示里要求别只说「喂」），不再是固定的「喂？」');
   await W(2500);
   ok(await E(`!!document.querySelector('.xc-pill[data-k=talk]')`) && /点这里说/.test(await E(`document.querySelector('.xc-ctl').textContent`)), 'TA 说完轮到我：下面是「点这里说」，不自动开麦');
   await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(300);
   ok(await E(`!!document.querySelector('.xc-type input')`), '没有语音识别：点「点这里说」打开「打字说」');
   await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '我明天回来'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(3500);
-  ok(/我明天回来/.test(await E(`_P.at(-1)`)) && /打电话/.test(await E(`_P.at(-1)`)), '我打字说的话发给对方（提示词里写明在打电话）');
+  ok(/我明天回来/.test(await E(`_P.at(-1)`)) && /打.*电话/.test(await E(`_P.at(-1)`)), '我打字说的话发给对方（提示词里写明在打电话）');
   await E(`document.querySelector('.xc [data-k=min]').click()`); await W(300); ok(await E(`document.querySelector('.xc').classList.contains('mini')`), '左上角缩小成小窗'); await shot('mini');
   await E(`document.querySelector('.xc').click()`); await W(200); await E(`document.querySelector('.xc [data-k=end]').click()`); await W(500);
   const m = await E(`JSON.stringify(_c.msgs.at(-1))`); ok(/"t":"call"/.test(m) && /通话时长 00:\d\d/.test(m) && /我明天回来/.test(m), '挂断：聊天里一条「通话时长 00:0x」，存着通话内容 ' + m.slice(0, 90));
@@ -39,34 +40,39 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 再打一次、拨号时取消
   await E(`document.querySelector('.clb').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=video]').click()`); await W(300); await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   ok(await E(`_c.msgs.at(-1).c == '已取消' && _c.msgs.at(-1).kind == 'video'`), '视频通话拨号时取消：「已取消」');
-  // 切句（照 StarHub 验收条件 01）：标点、括号、SAY/ZH 标记切在任意网络块之间，放出来的句子都完整，括号旁白不念
-  const cuts = await E(`(async () => { const m = await import('/apps/chat/call.js'), run = (mk, txt, n) => { const out = [], P = mk((t, tr) => out.push(tr ? t + '|' + tr : t)); for (let i = 0; i < txt.length; i += n) P.feed(txt.slice(i, i + n)); P.finish(); return out.map(x => x.replace(/[（(][^）)]*[）)]/g, '').trim()); };
+  // 切句（call-brain）：标点、「」、（）切在任意网络块之间，放出来的小句都一样完整；外语「原话」（中文意思）成对；括号里的笑 / 叹气变成语音标记，别的括号旁白不念
+  const cuts = await E(`(() => { const run = (pair, txt, n) => { const out = []; let U = []; const P = br.parser(pair, { unit: () => { const u = { t: '', tr: '' }; U.push(u); return u; }, part: (u, t) => out.push(br.cues(t, '[]').v), tr: (u, t) => out.push('=' + t), end: () => { }, bye: () => out.push('BYE'), stop: () => out.push('STOP') }, { me: '绷带盐', who: '徐鑫' }); for (let i = 0; i < txt.length; i += n) P.feed(txt.slice(i, i + n)); P.finish(); return out; };
     const zh = '喂？（笑）怎么突然打电话过来。你那边下雨了吗，我这边刚停「真的」！最后一句没标点';
-    const pr = 'SAY: Take your time.\\nZH: 慢慢来。\\nSAY: I am listening.\\nZH: 我在听。';
-    return JSON.stringify([1, 2, 3, 7].map(n => [run(m.zhUnits, zh, n), run(m.pairUnits, pr, n)])); })()`);
-  ok(JSON.parse(cuts).every(([a, b]) => JSON.stringify(a) == JSON.stringify(['喂？', '怎么突然打电话过来。', '你那边下雨了吗，我这边刚停「真的」！', '最后一句没标点']) && JSON.stringify(b) == JSON.stringify(['Take your time.|慢慢来。', 'I am listening.|我在听。'])), '流式切句：每次只来 1 / 2 / 3 / 7 个字，切出来的句子都一样完整；外语原话和中文释义成对 ' + cuts.slice(0, 160));
+    const pr = '「あ、医務室で寝てるよ。どうしたの？」（啊，在医务室睡觉呢。怎么了？）\\n「（ため息）本当？」（真的？）\\n绷带盐：我没事\\n「そうか」';
+    return JSON.stringify([1, 2, 3, 7].map(n => [run(false, zh, n), run(true, pr, n)])); })()`);
+  ok(JSON.parse(cuts).every(([a, b]) => JSON.stringify(a) == JSON.stringify(['喂？', '[laughing]怎么突然打电话过来。', '你那边下雨了吗，我这边刚停「真的」！', '最后一句没标点']) && JSON.stringify(b) == JSON.stringify(['あ、医務室で寝てるよ。', 'どうしたの？', '=啊，在医务室睡觉呢。怎么了？', '[sighing]本当？', '=真的？', 'STOP'])), '流式切句：每次只来 1 / 2 / 3 / 7 个字结果都一样；（笑）→ [laughing]；模型写出「我的名字：」就停 ' + cuts.slice(0, 200));
+  ok(await E(`JSON.stringify([br.langOk('本当？', 'ja'), br.langOk('医務室で寝てる', 'ja'), br.langOk('稍微有点事情，刚从医院回来', 'ja'), br.langOk('你在干嘛呀', 'ja'), br.langOk('好呀。안녕', ''), br.langOk('Hey! 何してる', 'en'), br.langOk('뭐 해?', 'ko')])`) == JSON.stringify([true, true, false, false, false, false, true]), '语言检查：纯汉字的短日语放行，整句中文不放行；中文里夹韩语、英语里夹日语都不行');
   // 磁铁召回（学 StarHub 记忆教程，不调用模型）：更早的聊天里提过「蛋白粉」，现在又说到 → 那几句被吸上来；没说到就整块不出现（变异对照）
   const rc = await E(`(async () => { const r = await import('/apps/chat/recall.js'), ch = { msgs: [] }, t = Date.now() - 864e5 * 20;
     ch.msgs.push({ f: _c.id, t: 'text', c: '我最近在喝那个巧克力味的蛋白粉', ts: t }, { f: 'me', t: 'text', c: '好喝吗', ts: t + 1 });
     for (let i = 0; i < 40; i++) ch.msgs.push({ f: i % 2 ? 'me' : _c.id, t: 'text', c: '嗯嗯 好的 第' + i + '句闲聊', ts: t + 1e5 * i });
     ch.msgs.at(-1).c = '你那个蛋白粉还有吗'; const a = r.recall(ch); ch.msgs.at(-1).c = '晚上吃什么'; const b = r.recall(ch); return JSON.stringify([a, b]); })()`);
   ok(/巧克力味的蛋白粉/.test(JSON.parse(rc)[0]) && JSON.parse(rc)[1] === '', '磁铁召回：说到「蛋白粉」想起 20 天前那句；没说到就不出现 ' + rc.slice(0, 80));
-  // 日语角色：真的出声（每句都送去合成并播放）、字幕里是日语 + 中文
-  await E(`(() => { core.S.api.tts = { src: 'custom', pv: 'fish', cfg: { fish: { key: 'fk', model: 's1' } } }; _c.tv = { v: { fish: 'vid' } }; _c.cfg.lang = 'ja'; window._play = 0;
+  // 日语角色：真的出声（每句都送去合成并播放）、字幕里是日语 + 中文；模型混进一句中文 → 翻成日语再念，原来的中文当字幕
+  await ctx.route(/\/api\/translate\/google/, r => r.fulfill({ status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'たった今病院から帰ってきたんだ。' }));
+  await E(`(() => { core.S.api.tts = { src: 'custom', pv: 'fish', cfg: { fish: { key: 'fk', model: 's2.1-pro' } } }; _c.tv = { v: { fish: 'vid' } }; _c.cfg.lang = 'ja'; window._play = 0; window._tts = [];
     const st = AudioBufferSourceNode.prototype.start; AudioBufferSourceNode.prototype.start = function (...a) { _play++; return st.apply(this, a); };
     const pl = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { /^blob:/.test(this.src) && _play++; return pl.call(this); };
-    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return 'SAY: もしもし、どうしたの？\\nZH: 喂，怎么了？\\nSAY: 今ちょうど暇だよ。\\nZH: 我现在正好有空。'; }; })()`);
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '「もしもし、どうしたの？」（喂，怎么了？）' : '「（笑）今ちょうど暇だよ。」（我现在正好有空。）\\n「稍微有点事情，刚从医院回来。」'; }; })()`);
+  await ctx.route(/api\.fish\.audio/, r => { ttsN++; _ttsBody(r.request().postDataJSON()); r.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'access-control-allow-origin': '*' }, body: wav() }); });
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(4000);
-  ok(/もしもし？\n喂？/.test(await E(`document.querySelector('.xc-tx')?.innerText || ''`)), '日语角色接通：「もしもし？」+ 中文「喂？」（不调模型）');
-  await E(`document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '在干嘛'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(5000); await shot('ja');
+  ok(/もしもし、どうしたの？\n喂，怎么了？/.test(await E(`document.querySelector('.xc-tx')?.innerText || ''`)), '日语角色接通：模型写的「原话」（中文）→ 字幕上一行日语、下一行中文');
+  await E(`document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '在干嘛'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(6000); await shot('ja');
   const tx = await E(`document.querySelector('.xc-tx')?.innerText || ''`);
-  ok(/もしもし、どうしたの/.test(tx) && /喂，怎么了/.test(tx) && /今ちょうど暇だよ/.test(tx) && /我现在正好有空/.test(tx), '字幕：日语原话 + 下面的中文 ' + JSON.stringify(tx).slice(0, 80));
+  ok(/今ちょうど暇だよ/.test(tx) && /我现在正好有空/.test(tx) && !/\(笑\)|（笑）/.test(tx), '字幕：日语原话 + 下面的中文；（笑）不显示 ' + JSON.stringify(tx).slice(0, 80));
+  ok(/たった今病院から帰ってきた/.test(tx) && /稍微有点事情，刚从医院回来/.test(tx) && !/「稍微/.test(tx), '模型混进了一整句中文：先翻成日语（酒馆自带翻译）再念，原来的中文当字幕');
+  ok(TTS.some(t => /\[laughing\]今ちょうど暇だよ/.test(t)) && TTS.some(t => /たった今病院から帰ってきた/.test(t)) && !TTS.some(t => /稍微有点事情/.test(t)), '交给 Fish Audio 的文字：（笑）变成 [laughing]；中文那句念的是翻过的日语，没有让日语音色硬念汉字 ' + JSON.stringify(TTS));
   ok(await E(`_play`) >= 3, '问候和两句回答都真的播放了（不是只显示字） play=' + await E(`_play`));
-  ok(!/もしもし.*ZH|SAY:/.test(tx), '字幕里没有 SAY / ZH 标记');
+  ok(!/「|」|SAY:|ZH:/.test(tx), '字幕里没有「」SAY / ZH 这些标记');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''; core.S.api.tts = {}`);
   // 点一下说：话实时写在屏幕上；识别自己停了也接着听、拼起来；点「说完了」才发给对方
   await E(`(() => { window._srN = 0; window.webkitSpeechRecognition = class { start() { const me = this; _srN++; const n = _srN; setTimeout(() => { if (n == 1) { me.onresult?.({ results: [Object.assign([{ transcript: '你在' }], { isFinal: true }), Object.assign([{ transcript: '干嘛' }], { isFinal: false })] }); me.onend?.(); } else if (n == 2) me.onresult?.({ results: [Object.assign([{ transcript: '呀' }], { isFinal: false })] }); }, 200); } abort() {} stop() {} };
-    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return '在发呆呢。'; }; })()`);
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '喂？' : '在发呆呢。'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500);
   await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(900);
   ok(await E(`document.querySelector('.xc-tx .ing')?.textContent`) == '你在干嘛呀' && await E(`_srN`) >= 2 && /说完了/.test(await E(`document.querySelector('.xc-ctl').textContent`)), '说话时实时上屏；识别自己停了接着听、拼起来 ' + await E(`document.querySelector('.xc-tx .ing')?.textContent`));
@@ -74,13 +80,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.xc-pill[data-k=done]').click()`); await W(2500);
   ok(/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在发呆呢/.test(await E(`document.querySelector('.xc-tx').innerText`)), '点「说完了」：发给对方，字幕里有我说的和 TA 回的');
   ok(/在想|点这里说|正在说/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态行有字');
-  // 通话用轻上下文：正文最多 6 条
-  ok(/最近15条/.test(await E(`_P.at(-1)`)), '打电话用跟私聊一样的完整上下文（正文最近 15 条，人设世界书不截短）');
-  // 常驻前缀整场不变：两轮的系统提示一字不差，只有后面的「这通电话里说过的」在变
+  ok(/最近10条/.test(await E(`_P.at(-1)`)) && /【世界书】/.test(await E(`_P.at(-1)`)), '背景：人设、世界书、正文最近 10 条（拨号时算一次）');
+  // 常驻前缀整场不变：两轮的系统提示一字不差，只有这通电话的对话在变
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '没事'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(2500);
-  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt) && /接着.{0,12}刚说的话/.test(b.systemPrompt) && !/刚刚说|最要紧|别有 AI 味/.test(b.systemPrompt + b.prompt); })()`), '两轮之间系统提示完全一样（缓存能命中），只有通话内容在变；没有以前那堆「刚刚说 / 最要紧」');
+  ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt) && /【此刻】/.test(b.systemPrompt) && /想说多少说多少/.test(b.systemPrompt) && !/刚刚说|最要紧|别有 AI 味|1～3 句|SAY:/.test(b.systemPrompt + b.prompt); })()`), '两轮之间系统提示完全一样（缓存能命中），只有对话在变；规矩只剩几条，没有「刚刚说 / 最要紧 / 1～3 句」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
-  // 自动接话（照 StarHub 示例，默认）+ 酒馆当前连接也走流式 + 字幕跟着声音一个字一个字出
+  // 自动接话（照 StarHub 示例，默认）+ 酒馆当前连接也走流式 + 字幕跟着声音一个字一个字出 + 发的是真正的多轮对话
   await E(`(() => { core.S.callAuto = true; window._P0 = _P.length; window._D = []; window._busy = []; window._say = '我是螃蟹'; window._srN = 0;
     window.webkitSpeechRecognition = class { start() { const me = this; _srN++; const t = _say; _say = ''; t && setTimeout(() => { me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: false })] }); setTimeout(() => me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: true })] }), 150); }, 200); } abort() {} stop() {} };
     const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'makersuite', openai_max_tokens: 500, temp_openai: 1, reasoning_effort: 'high' }; X.getChatCompletionModel = () => 'gemini-test';
@@ -91,36 +96,33 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(part.length > 0 && part.length < '好，那现在开始吧。'.length, '字幕跟着声音一个字一个字出来（播到一半只出了一部分）：' + part);
   ok(await E(`_D[0].stream === true && _D[0].reasoning_effort == 'min' && _D[0].chat_completion_source == 'makersuite' && _D[0].model == 'gemini-test' && _P.length == _P0`), '酒馆当前连接（聊天补全）也走流式：同一个来源和模型、低思考，不再走不能流式的 generateRaw');
   ok(/自动接话/.test(await E(`document.querySelector('.xc-lang').textContent`)), '下面有「自动接话」开关');
-  ok(await E(`_D.length == 1 && /我是螃蟹/.test(JSON.stringify(_D[0].messages))`), 'TA「喂？」完自动开麦，我说完停 1.2 秒就自动发给 TA（不用点任何按钮；接通那句没调模型） srN=' + await E(`_srN`));
+  await p.waitForFunction(`_D.length >= 2`, null, { timeout: 12000 }).catch(() => { });
+  ok(await E(`_D.length == 2 && _D[1].messages.map(m => m.role).join() == 'system,user,assistant,user' && _D[1].messages.at(-1).content == '我是螃蟹' && /好，那现在开始吧/.test(_D[1].messages[2].content)`), 'TA 第一句说完自动开麦，我说完停 1.2 秒就自动发给 TA；发的是真正的多轮对话（我 user / TA assistant，最后一条就是我刚说的） ' + await E(`JSON.stringify(_D[1]?.messages?.slice(1))`));
   ok(await E(`_busy.every(x => !x)`), '半双工：TA 想的时候麦是关着的（不会把外放的声音录进去）');
   await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「在听…」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
-  // 中转站（自定义接口）：酒馆不给别的模型名转 reasoning_effort → 低思考要塞进「附加请求体」，按模型名挑开关；接口不认就去掉重发；垫音默认关
+  // 中转站（自定义接口）：酒馆不给别的模型名转 reasoning_effort → 低思考要塞进「附加请求体」，按模型名挑开关；接口不认就去掉重发
   await E(`(() => { window._D = []; window._rej = 1; const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'custom', custom_url: 'https://relay.test/v1', custom_include_body: 'top_p: 0.9', openai_max_tokens: 500, temp_openai: 1 }; X.getChatCompletionModel = () => 'gemini-3.8-flash';
     X.ChatCompletionService = { processRequest: async d => { _D.push(d); if (_rej && /reasoning_effort/.test(d.custom_include_body || '')) { _rej = 0; throw Error('HTTP 400: Unrecognized request argument: reasoning_effort'); } return async function* () { yield { text: '喂？' }; }; } }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(3500);
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '在吗'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`);
-  await p.waitForFunction(`_D.length >= 2`, null, { timeout: 8000 }).catch(() => { });
-  ok(await E(`_D.length == 2 && /^top_p: 0.9\\nreasoning_effort: "low"$/.test(_D[0].custom_include_body) && _D[1].custom_include_body == 'top_p: 0.9'`), '中转站 + 低思考：关思考的参数（Gemini 3 → reasoning_effort: low）塞进附加请求体，原来填的保留；接口不认就去掉重发 ' + await E(`JSON.stringify(_D.map(d => d.custom_include_body))`));
-  ok(await E(`!cl.inCall().fill`), '垫音「嗯……我想想」默认关（不会每句开头都「嗯」）');
+  await p.waitForFunction(`_D.length >= 3`, null, { timeout: 8000 }).catch(() => { });
+  ok(await E(`_D.length == 3 && /^top_p: 0.9\\nreasoning_effort: "low"$/.test(_D[0].custom_include_body) && _D[1].custom_include_body == 'top_p: 0.9'`), '中转站 + 低思考：关思考的参数（Gemini 3 → reasoning_effort: low）塞进附加请求体，原来填的保留；接口不认就去掉重发 ' + await E(`JSON.stringify(_D.map(d => d.custom_include_body))`));
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   ok(await E(`(async () => { const c = await import('/core.js'); return JSON.stringify([c.noThink('deepseek-v3.2'), c.noThink('glm-4.7-flash'), c.noThink('Qwen/Qwen3-8B'), c.noThink('gemini-2.5-flash'), c.noThink('claude-x')]); })()`) == JSON.stringify([{ thinking: { type: 'disabled' } }, { thinking: { type: 'disabled' } }, { enable_thinking: false }, { reasoning_effort: 'none' }, { reasoning_effort: 'low' }]), '关思考按模型名挑开关：DeepSeek / GLM 用 thinking、Qwen 用 enable_thinking、Gemini 2 能整个关掉、其它 low');
   await E(`(() => { const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
-  // 录屏里的事故：我说「你在干嘛呀」，模型把两个人的对话一口气全编出来（もしもし / なあに / どうしたの…），最后自己写 [挂断]
-  await E(`(() => { _c.cfg.lang = 'ja'; window._P1 = _P.length; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return ['もしもし？', '喂？', 'なあに？', '怎么了？', 'ちょっとしたことだよ。', '是点小事。', 'あ、そうか。', '哦，这样啊。', 'で、何かあったの？', '那，发生什么事了？', 'ちょっと疲れたんだよね。', '有点累了。', 'じゃあね。', '那拜拜。', '[挂断]'].map((t, i) => (i % 2 ? 'ZH: ' : 'SAY: ') + t).join('\\n'); }; })()`);
+  // TA 一口气说一大段：不限制句数（照人设想说多少说多少），都念出来；模型自己写的 [挂断] 我没说要走就不当真；模型开始替我说话就从那里掐掉
+  await E(`(() => { _c.cfg.lang = 'ja'; window._P1 = _P.length; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '「もしもし？」（喂？）' : [['なあに？', '怎么了？'], ['ちょっとしたことだよ。', '是点小事。'], ['あ、そうか。', '哦，这样啊。'], ['で、何かあったの？', '那，发生什么事了？'], ['ちょっと疲れたんだよね。', '有点累了。'], ['じゃあね。', '那拜拜。']].map(([a, b]) => '「' + a + '」（' + b + '）').join('\\n') + '\\n[挂断]\\n' + core.meObj().nick + '：好的拜拜\\n「おやすみ」（晚安）'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(3500);
-  await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '你在干嘛呀'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(6000);
+  await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '你在干嘛呀'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(14000);
   const said = await E(`cl.inCall()?.lines.filter(x => x.f != 'me').map(x => x.t) || []`), pr = await E(`_P.at(-1) || ''`);
-  await W(6000); const said2 = await E(`cl.inCall()?.lines.filter(x => x.f != 'me').map(x => x.t) || []`); ok(said2.length >= 7 && said2.length <= 13, '不限制句数：一口气说好几句都念出来（只防失控，最多 12 句） ' + JSON.stringify(said2));
+  ok(said.length == 7 && said.at(-1) == 'じゃあね。' && !said.includes('おやすみ'), '一口气说了六句：全念出来；写到「我的名字：」就掐掉（后面的不念） ' + JSON.stringify(said));
   ok(await E(`!!cl.inCall()`), '我没说要走，模型自己写的 [挂断] 不当真，电话没挂');
   ok(await E(`(() => { const m = cl.inCall(); return !!document.querySelector('.xc [data-k=mem]') && m.mem === true; })()`), '通话底部有「记住这通」开关，默认记');
-  ok(/不要替.*说话/.test(pr) && /接着.{0,12}刚说的话/.test(pr) && /不重复自己/.test(pr) && /想说多少就说多少/.test(pr) && !/1～3 句/.test(pr), '提示词：接着我那句聊、不限句数长短、别替我说话、别复读');
+  ok(/只说.{0,6}的话，不替/.test(pr) && /想说多少说多少/.test(pr) && /一个中文词都不夹/.test(pr) && !/1～3 句|SAY:|ZH:/.test(pr), '提示词：只说 TA 自己的话、想说多少说多少、日语不夹中文；没有 SAY / ZH');
+  ok(!/もしもし、どうしたの/.test(pr) && /「日语原话」（中文意思）/.test(pr), '提示词里只给格式，不给真例句（模型会照抄）');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''`);
-  // 日语角色：提示词里不给真例句（模型会照抄「もしもし、どうしたの？」）；SAY 里夹的中文去掉
-  ok(await E(`(async () => { const c = await import('/apps/chat/call.js'); return JSON.stringify([c.pureSay('な?、在干嘛呢', 'ja'), c.pureSay('何してるの？在干嘛', 'ja'), c.pureSay('本当？', 'ja'), c.pureSay('你在干嘛呀', 'ja'), c.pureSay('わ、わーい！桃！你醒啦！', 'ja'), c.pureSay('뭐 해? 何してる？', 'ko'), c.pureSay('뭐 해? 在干嘛', 'ko'), c.pureSay('在干嘛呢？もしもし？', 'zh'), c.pureSay('好呀。안녕', ''), c.pureSay('Hey! 何してる？', 'en')]); })()`) == JSON.stringify(['な?', '何してるの？', '本当？', '', 'わ、わーい！桃！', '뭐 해?', '뭐 해?', '在干嘛呢？', '好呀。', 'Hey!']), 'TA 只说一种语言：日语里夹的中文、韩语里夹的日语 / 中文、中文里夹的日语 / 韩语、英语里夹的日语都去掉');
-  ok(await E(`(async () => { const c = await import('/apps/chat/call.js'), pv = [{ t: 'もしもし？' }, { t: 'おはよう。何かあったの？', tr: '早上好，发生什么事了吗？' }]; return JSON.stringify([c.dropSaid('おはよう。何かあったの？あの、医務室にいるよ。', '早上好，发生什么事了吗？那个，我在医务室。', pv), c.dropSaid('おはよう？', '早上好？', pv), c.dropSaid('うん、眠いの？', '嗯，困吗？', pv)]); })()`) == JSON.stringify([['あの、医務室にいるよ。', '那个，我在医务室。'], [null, null], ['うん、眠いの？', '嗯，困吗？']]), '开过口以后：每轮开头又来「おはよう。何かあったの？」这种开场白 / 原样复读，去掉（中文释义一起去掉）');
-  ok(/全部用简体中文说/.test(await E(`_P.find(x => !/SAY:/.test(x) && /不重复自己/.test(x)) || ''`)), '没开翻译：提示词写明全部用中文说');
-  ok(!/もしもし、どうしたの/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)) && /一个中文词都不夹/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)), '提示词里没有能被照抄的例句，写明 SAY 行不能夹中文');
+  ok(/全部用简体中文说/.test(await E(`_P.find(x => /想说多少说多少/.test(x) && !/一个中文词/.test(x)) || ''`)), '没开翻译：提示词写明全部用中文说');
   // 朗读语言跟着翻译设置走（MiniMax 的 language_boost）：开了日语就按日语读（汉字不会读成中文），没开就是中文；手动选了粤语、说中文时还读粤语
   ok(await E(`(async () => { const core = await import('/core.js'), F = window.fetch, B = []; window.fetch = async (u, o) => { if (/minimaxi/.test(String(u))) { B.push(JSON.parse(o.body)); return new Response(JSON.stringify({ data: { audio: 'fffb' }, base_resp: { status_code: 0 } }), { headers: { 'content-type': 'application/json' } }); } return F(u, o); };
     const old = core.S.api.tts; core.S.api.tts = { src: 'custom', pv: 'mm', cfg: { mm: { key: 'k', model: 'speech-2.6-hd' } } }; const c = { id: 'x', sex: '女', tv: { v: { mm: 'v1' } }, cfg: {} };

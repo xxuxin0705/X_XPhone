@@ -12,7 +12,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar2 = 'model'; core.S.callNudge = false; window._P = []; window._loud = 0; window._gum = 0;
     navigator.mediaDevices.getUserMedia = async c => { _gum++; const X = new AudioContext(), o = X.createOscillator(), g = X.createGain(), d = X.createMediaStreamDestination(); o.frequency.value = 220; o.connect(g); g.connect(d); o.start(); g.gain.value = 0; setInterval(() => { g.gain.value = _loud * .5 + .0005; }, 20); window._mic = c; return d.stream; };
-    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); if (_mode == 'r429' && !window._thrown) { window._thrown = 1; throw Error('HTTP 429 {"error":{"message":"您已达到请求数限制：1分钟内最多请求3次 (request id: abc)"}}'); } return /想听：/.test(s) ? '从前，森林里住着一只小狐狸。\\n它每天晚上都会抬头数星星。\\n数着数着，它就睡着了。\\n晚安，做个好梦。' : /先开口/.test(s) ? '喂？' : _mode == 'fix' && /行好累/.test(s) ? 'FIX: 心好累啊\\n怎么啦，今天很辛苦吗？' : _mode == 'bye' ? 'HEARD: 我要睡了，晚安\\n好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
+    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); if (_mode == 'r429' && !window._thrown) { window._thrown = 1; throw Error('HTTP 429 {"error":{"message":"您已达到请求数限制：1分钟内最多请求3次 (request id: abc)"}}'); } return /想听这个故事/.test(s) ? '从前，森林里住着一只小狐狸。\\n它每天晚上都会抬头数星星。\\n数着数着，它就睡着了。\\n晚安，做个好梦。' : /先开口/.test(s) ? '喂？' : _mode == 'fix' && /行好累/.test(s) ? 'FIX: 心好累啊\\n怎么啦，今天很辛苦吗？' : _mode == 'bye' ? 'HEARD: 我要睡了，晚安\\n好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
     delete window.webkitSpeechRecognition;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '五条悟', nick: '五条', fr: 1 })); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
@@ -28,11 +28,11 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/data:audio\/wav;base64,/.test(last) && /audio_url/.test(last) && /HEARD/.test(last), '停下 1 秒：录音（16kHz wav）跟这轮请求一起发给模型，要它先写 HEARD');
   const tx = await E(`document.querySelector('.xc-tx').innerText`);
   ok(/我是螃蟹/.test(tx) && /好，那现在开始/.test(tx) && !/HEARD/.test(tx), '字幕：我说的话（模型听到的）+ TA 的回答，不露 HEARD 标记 ' + JSON.stringify(tx).slice(0, 60));
-  ok(await E(`_P.length == 1`), '只调用了一次模型（接通那句「喂？」和识别都不调模型）');
+  ok(await E(`_P.length == 2`), '只调用了两次模型（接通第一句一次、我这句一次；识别本身不调模型）');
   // 很短的一下（碰到手机）不算说话
   await W(3000); const n0 = await E(`_P.length`); await E(`_loud = 1`); await W(200); await E(`_loud = 0`); await W(1800);
   ok(await E(`_P.length`) == n0, '很短的一声（不到 0.35 秒）不算说话、不发');
-  ok(/认真听语气/.test(await E(`JSON.stringify(_P[0])`)) && /（笑）/.test(await E(`JSON.stringify(_P[0])`)), '提示词让模型听语气，笑、叹气写进听到的话里');
+  ok(/HEARD/.test(await E(`JSON.stringify(_P[1])`)) && /笑、叹气写在括号里/.test(await E(`JSON.stringify(_P[1])`)), '提示词：先写 HEARD 听到的原话，笑、叹气写进括号里');
   // 点字幕里我说的那句：改字
   await E(`document.querySelector('.xc-tx p.me[data-k=fix]').click()`); await W(200);
   await E(`(() => { const i = document.querySelector('.xc-fix input'); i.value = '我是小螃蟹'; document.querySelector('.xc-fix [data-f=y]').click(); })()`); await W(200);
@@ -81,9 +81,6 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   asrNext = '好累'; await W(2500); const m0 = await E(`_P.length`);
   await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(1300); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3200);
   ok(await E(`_P.length`) == m0 + 1 && /好累，好累/.test(await E(`JSON.stringify(_P.at(-1))`)), '停顿一下又接着说：两段并成一句，只发了一次请求');
-  // 识别认错了字（行好累 → 心好累）：模型按上下文改，第一行写 FIX，字幕和通话内容跟着改；同一次请求，不多花
-  asrNext = '行好累啊'; await E(`_mode = 'fix'`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3800);
-  ok(/同音/.test(await E(`JSON.stringify(_P.at(-1))`)) && /心好累啊/.test(await E(`document.querySelector('.xc-tx').innerText`)) && !/行好累啊|FIX/.test(await E(`document.querySelector('.xc-tx').innerText`)) && await E(`cl.inCall().log.some(x => x.t == '心好累啊')`), '「行好累啊」→ 模型按上下文改成「心好累啊」，字幕和记录都改了');
   // 中转站限流（429 / 1 分钟内最多请求 3 次）：记住限额、排队自动重发，不算失败，不把一长串报错甩到屏幕上
   asrNext = '在吗'; await E(`_mode = 'r429'; window._thrown = 0`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3500);
   ok(await E(`Object.values(core.S.callRpmBy || {}).includes(3) && cl.inCall().ph != 'fail' && !/request id|\\{/.test(document.querySelector('.xc').innerText)`) && /排队中|在想|正在说|在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), '429：记住每分钟 3 次，排队自动重发（不算失败）：' + await E(`document.querySelector('.xc-ph').textContent`));
@@ -100,7 +97,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/在讲故事|在想故事/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态：在讲故事');
   await W(9000);
   const sp = await E(`JSON.stringify(_P.at(-1))`);
-  ok(await E(`_P.length == _s0 + 1`) && /想听：「讲个小狐狸的故事/.test(sp) && /1500 字/.test(sp), '我说一句想听什么 → 只发了一次请求，让 TA 讲 1500 字左右 n=' + (await E(`_P.length - _s0`)) + ' ' + (sp.match(/想听：「[^」]*」|已经 \\d+ 秒没出声|刚刚说：「[^」]*」/g) || []).join(','));
+  ok(await E(`_P.length == _s0 + 1`) && /讲个小狐狸的故事（.{0,12}想听这个故事/.test(sp) && /1500 字/.test(sp), '我说一句想听什么 → 只发了一次请求，让 TA 讲 1500 字左右 n=' + (await E(`_P.length - _s0`)) + ' ' + (sp.match(/讲个小狐狸的故事|安静了 \\d+ 秒/g) || []).join(','));
   ok(/小狐狸/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /晚安/.test(await E(`document.querySelector('.xc-tx').innerText`)), '故事一句一句念出来（字幕里有）');
   await p.waitForFunction(`/讲完啦/.test(document.querySelector('.xc-ph')?.textContent || '')`, null, { timeout: 20000 }).catch(() => { });
   await E(`cl.inCall().idleAt = performance.now() - 31e3`); await W(1500);
@@ -112,7 +109,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`cl.inCall().idleAt = performance.now() - 6e3`); const nz0 = await E(`_P.length`); asrDelay = 2600;
   await E(`_loud = 1`); await W(1000); await E(`_loud = 0`); await W(6500);
   const nzP = await E(`_P.slice(${nz0}).map(o => JSON.stringify(o))`);
-  ok(nzP.length >= 1 && !/没出声了/.test(nzP.join('')) && /在干嘛呀/.test(nzP[0]), '我开口后识别慢、认完正好满 8 秒：不会先冒出「还在吗」追问，发出去的就是我说的话 n=' + nzP.length);
+  ok(nzP.length >= 1 && !/没出声/.test(nzP.join('')) && /在干嘛呀/.test(nzP[0]), '我开口后识别慢、认完正好满 8 秒：不会先冒出「还在吗」追问，发出去的就是我说的话 n=' + nzP.length);
   await E(`core.S.callNudge = false; cl.inCall()?.hang?.()`); await W(400); asrDelay = 150; asrNext = null;
   // 免费模型：一键加成配置（同一家不重复加），官网 / 拿密钥的链接能点开、能复制
   ok(await E(`(async () => { const f = await import('/apps/settings/free-models.js'); const n0 = core.S.api.chat.list.length; const id = f.freeAdd('zhipu', 'glm-4-flash-250414', 'k1'); const id2 = f.freeAdd('zhipu', 'glm-4.7-flash'); const p = core.S.api.chat.list.find(x => x.id == id);
@@ -154,7 +151,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await W(1200); ok(await E(`_P.length`) == g0 + 1, '停够 1.6 秒：发出去');
   // 追问：TA 说完我一直不出声，TA 问一句「还在吗」，最多两次
   await W(3000); await E(`(() => { core.S.callNudge = true; core.S.callGap = 1; const a = cl.inCall(); a.idleAt = performance.now() - 9e3; })()`); await W(1600);
-  ok(/没出声了/.test(await E(`JSON.stringify(_P.at(-1))`)) && await E(`cl.inCall().nudge`) == 1, '我 8 秒没出声：TA 追问一句');
+  ok(/没出声/.test(await E(`JSON.stringify(_P.at(-1))`)) && await E(`cl.inCall().nudge`) == 1, '我 8 秒没出声：TA 追问一句');
   await W(3000); await E(`cl.inCall().idleAt = performance.now() - 9e3`); await W(1600); await W(3000); await E(`cl.inCall().idleAt = performance.now() - 9e3`); await W(1600);
   ok(await E(`cl.inCall().nudge`) == 2, '最多追问两次 n=' + await E(`cl.inCall().nudge`));
   await E(`core.S.callNudge = false; cl.inCall()?.hang?.()`); await W(400);

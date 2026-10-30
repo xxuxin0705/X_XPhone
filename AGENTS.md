@@ -67,7 +67,8 @@ apps/chat/       聊天 App
   pay.js           转账 / 红包（照真机录屏）：发红包页 / 转账页（自带数字键盘，红包单个 ≤200）→ 微信支付弹层 → 转账支付成功页；拆红包「開」→ 红包详情页；转账详情（待你收款 → 你已收款，回执消息 rcpt）
   feed.js          动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）、个人相册、生成动态弹窗（条数 / 必定出现的人）
   recall.js        磁铁召回（学 StarHub 记忆教程，不调用模型）：回复时，最近 30 条以外的旧聊天里和现在话题有关的几句被关键词「吸」上来，有字数预算，没有就整块不出现
-  call.js          语音 / 视频通话（照微信录屏）：浏览器语音识别听我说（不支持就打字）→ 模型流式回 → 按句切、边合成边播；挂断存一条 t:'call' 消息（log 是通话内容，say() 带摘录给后面的回复）；做法记在 docs/call-streaming.md
+  call.js          语音 / 视频通话（照微信录屏）：界面、麦克风（ear.js）、播放、打断、记不记进记忆；接通第一句由模型照剧情写（响铃时就在写）；挂断存一条 t:'call' 消息（log 是通话内容，mem 才记进记忆）；做法记在 docs/call-streaming.md
+  call-brain.js    通话的「脑子」：背景（base / tail，拨号时算一次）、多轮对话 messages、流式切句 parser（中文一行一段；外语「原话」（中文意思））、语言检查 langOk / fixLang（设成日语就必须是日语，混了中文先翻）、（笑）（叹气）→ Fish Audio 标记 cues
   fav.js           收藏（D().favs，长按消息收藏、我 → 收藏、＋ → 发送收藏）和个人名片（t:'card'，cid）；「发送给」确认框 sendTo
   status.js        微信「状态」（照录屏）：我页状态胶囊、状态列表、全屏看状态、设个状态 / 写状态；c.st / D().me.st = { k 图标, l 自定义名, t, tr, tp 话题, bg, loc, ts }，24 小时过期；图标抠在 assets/wx/st/
   map.js           地图选点（Leaflet 从 CDN 懒加载；国内高德瓦片、国外 OSM；Nominatim 搜索 / 反查，不走用户 API）：地区、状态位置
