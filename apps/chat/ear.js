@@ -5,7 +5,7 @@
 // - 安静多久算说完可以调（S.callGap，默认 1 秒）；说得长（超过 2.5 秒）再多等 0.5 秒，免得我想一下就被抢话（学 voice-call-demo 的 AdaptiveEndpoint）；不到 0.35 秒的不算（咳嗽、碰到手机）；一句最长 30 秒
 // - 识别来源可以换：
 //     local：本地识别（sherpa-onnx 网页版，见 local-asr.js；学 AIRI）：手机上直接认，不联网、不花钱、不要密钥，边说边出字；认出来是空的就当是噪音
-//         小模型短句口语会认错字（「在干嘛呢」→「他干嘛嘛」）：有硅基密钥（o.polish() 为真）时，说完把整句录音再交给云端认一遍（免费，不到一秒），以云端为准；云端 2.5 秒没回或出错就用本地的
+//         小模型短句口语会认错字（「在干嘛呢」→「他干嘛嘛」）：有硅基密钥（o.polish() 为真）时，说完把整句录音再交给云端认一遍（免费，不到一秒），以云端为准；云端 1.5 秒没回或出错就用本地的
 //     model：整段录音交给聊天模型听（Gemini 能听音频；不另外调用）
 //     sf：硅基流动的免费识别模型（SenseVoiceSmall / TeleSpeechASR），「伪流式」边说边出字：
 //         切片 ≥1 秒且遇到 0.2 秒的小停顿就切一段送去认，或者连着说超过 3 秒、当前这帧不响时强制切；
@@ -91,8 +91,8 @@ export function makeEar(o, on) {
     if (kind != 'sf') return on('final', { chunks: buf, sr, tone });
     on('end'); sendSlice(sr); const ep = E.ep; E.chain.then(() => ep == E.ep && on('final', { text: E.parts.join(''), chunks: buf, sr, tone }));
   }
-  // 云端再认一遍（本地 + 硅基）：2.5 秒内没回就算了，用本地的
-  function polish(buf, sr) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 2500); return sfAsr(buf, sr, '', ac.signal).then(t => (clearTimeout(tm), t)).catch(() => ''); }
+  // 云端再认一遍（本地 + 硅基）：1.5 秒内没回就算了，用本地的
+  function polish(buf, sr) { const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 1500); return sfAsr(buf, sr, '', ac.signal).then(t => (clearTimeout(tm), t)).catch(() => ''); }
   function frame(d, sr) {
     let s = 0; for (let i = 0; i < d.length; i++) s += d[i] * d[i]; const rms = Math.sqrt(s / d.length), fr = E.fr = d.length / sr, F = sec => Math.max(1, Math.round(sec / fr)); // 连续几帧：按秒数算，麦克风采样率不同一帧的长短也不同
     E.vmax = Math.max(E.vmax, rms);

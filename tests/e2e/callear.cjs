@@ -65,7 +65,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`!document.querySelector('.xc-kb') && cl.inCall().ear == 'model' && !!cl.inCall().earObj.ms`), 'Tauri 拿得到麦克风（以后加了权限）：直接用模型听');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.__TAURI__`);
   // 硅基识别（照 evolia 的伪流式）：边说边切片送去认、字边说边出来；说完整句当文字发给 TA（不带录音）
-  const ASR = []; let asrNext = null; await ctx.route(/audio\/transcriptions/, async r => { const b = r.request().postDataBuffer()?.toString('utf8') || ''; ASR.push(b); const n = ASR.length; await new Promise(z => setTimeout(z, 150)); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text: asrNext ?? (n == 1 ? '我是' : '螃蟹') }) }); });
+  const ASR = []; let asrNext = null, asrDelay = 150; await ctx.route(/audio\/transcriptions/, async r => { const b = r.request().postDataBuffer()?.toString('utf8') || ''; ASR.push(b); const n = ASR.length; await new Promise(z => setTimeout(z, asrDelay)); r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text: asrNext ?? (n == 1 ? '我是' : '螃蟹') }) }); });
   await E(`(() => { core.S.callEar2 = 'sf'; core.S.callAsr = { key: 'sk-test' }; _mode = ''; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
   ok(/硅基识别/.test(await E(`document.querySelector('.xc-lang').textContent`)) && await E(`cl.inCall().ear == 'sf'`), '底部开关切到「硅基识别」');
@@ -106,6 +106,14 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`cl.inCall().idleAt = performance.now() - 31e3`); await W(1500);
   ok(await E(`!cl.inCall() && /^枕边故事 /.test(_c.msgs.at(-1).c) && _P.length == _s0 + 1`), '讲完 30 秒没动静：自己挂了（聊天里记一条「枕边故事」），整通只调用了一次');
   await E(`core.S.callNudge = false`); asrNext = null;
+  // 录屏里的事故：TA 说完 6 秒我才开口，识别又慢（3 秒），认完那一刻正好满 8 秒——「追问」不能抢在我这句前面发「喂？还在吗？」
+  await E(`(() => { core.S.callEar2 = 'sf'; core.S.callNudge = true; _mode = ''; })()`); asrNext = '在干嘛呀';
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
+  await E(`cl.inCall().idleAt = performance.now() - 6e3`); const nz0 = await E(`_P.length`); asrDelay = 2600;
+  await E(`_loud = 1`); await W(1000); await E(`_loud = 0`); await W(6500);
+  const nzP = await E(`_P.slice(${nz0}).map(o => JSON.stringify(o))`);
+  ok(nzP.length >= 1 && !/没出声了/.test(nzP.join('')) && /在干嘛呀/.test(nzP[0]), '我开口后识别慢、认完正好满 8 秒：不会先冒出「还在吗」追问，发出去的就是我说的话 n=' + nzP.length);
+  await E(`core.S.callNudge = false; cl.inCall()?.hang?.()`); await W(400); asrDelay = 150; asrNext = null;
   // 免费模型：一键加成配置（同一家不重复加），官网 / 拿密钥的链接能点开、能复制
   ok(await E(`(async () => { const f = await import('/apps/settings/free-models.js'); const n0 = core.S.api.chat.list.length; const id = f.freeAdd('zhipu', 'glm-4-flash-250414', 'k1'); const id2 = f.freeAdd('zhipu', 'glm-4.7-flash'); const p = core.S.api.chat.list.find(x => x.id == id);
     return id == id2 && core.S.api.chat.list.length == n0 + 1 && p.url == 'https://open.bigmodel.cn/api/paas/v4' && p.key == 'k1' && p.model == 'glm-4.7-flash' && p.models.includes('glm-4-flash-250414') && p.fast; })()`), '免费模型：添加智谱 → 新配置（地址、密钥、模型都填好），再加同一家只换模型不重复');

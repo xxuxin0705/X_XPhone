@@ -119,7 +119,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
     if (A.ph == 'rec') dg();
     if (A.story == 2 && A.st == 'talk' && A.ph == 'idle' && A.idleAt && performance.now() - A.idleAt > 30e3) return hang(); // 枕边故事讲完 30 秒没动静：多半睡着了，轻轻挂掉
     // 追问（学 Brielle 的通话系统）：TA 说完我一直不出声，TA 问一句「还在吗」，最多两次；我一开口就重新算
-    if ((S.callNudge ?? true) && !A.story && A.st == 'talk' && A.ph == 'idle' && A.idleAt && A.lines.length && (A.nudge || 0) < 2 && !el.querySelector('.xc-fix') && !(A.kbv && KB?.querySelector('input').value)) { const w = A.kbv ? 15 : 8, s = (performance.now() - A.idleAt) / 1e3; if (s >= w) { A.nudge = (A.nudge || 0) + 1; turn(null, { nudge: Math.round(s) }); } }
+    if ((S.callNudge ?? true) && !A.story && A.st == 'talk' && A.ph == 'idle' && !A.pend && !A.recog && !ear.on && A.idleAt && A.lines.length && (A.nudge || 0) < 2 && !el.querySelector('.xc-fix') && !(A.kbv && KB?.querySelector('input').value)) { const w = A.kbv ? 15 : 8, s = (performance.now() - A.idleAt) / 1e3; if (s >= w) { A.nudge = (A.nudge || 0) + 1; turn(null, { nudge: Math.round(s) }); } }
     if (A.earBad && /一点声音/.test(A.earBad) && ear.vmax > .004) { A.earBad = ''; draw(); }
     if (isEar() && ear.ms && A.st == 'talk' && !A.earBad && performance.now() - ear.at > 6e3 && ear.vmax < .002) { A.earBad = '麦克风开着，但一点声音都没进来：如果在录屏并且录了麦克风，录屏会把麦克风占走（录屏时关掉「录制麦克风声音」再试）'; draw(); }
     if (A.ph == 'think') { const sN = Math.round((performance.now() - A.thinkAt) / 1e3), ts = el.querySelector('.xc-ts'); ts && (ts.textContent = tsTxt(sN)); (sN == 5 || sN == 20) && draw(); } }, 1000); // 想到 20 秒：换上提示和「不等了」
@@ -235,7 +235,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
   function duck(on) { A.ducked = on; const v = (A.spk ? 1 : .85) * (on ? .2 : 1); try { A.gain?.gain.setTargetAtTime(v, A.ctx.currentTime, .04); } catch { } A.au && (A.au.volume = v); }
   function earEv(t, v) {
     if (CALL != A) return;
-    if (t == 'start') { A.ph = 'rec'; A.heard = ''; A.nudge = 0; draw(); }
+    if (t == 'start') { A.ph = 'rec'; A.heard = ''; A.nudge = 0; A.idleAt = performance.now(); draw(); } /* 我开口了：「没出声」重新计时 */
     else if (t == 'level') { const lv = el.querySelector('.xc-lv'); lv && lv.style.setProperty('--lv', v.toFixed(2)); }
     else if (t == 'partial') { A.heard = v; const p = el.querySelector('.xc-tx .ing .xc-pt'); p ? (p.textContent = v) : draw(); } // 硅基识别：边说边出字
     else if (t == 'end') { A.ph = 'think'; A.recog = 1; A.thinkAt = performance.now(); draw(); } // 说完了，最后一段还在认
@@ -260,7 +260,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
   const holdMs = () => rpm() && rpm() <= 6 ? 1500 : 700;
   function hold(tx, tone) { if (CALL != A) return;
     if (A.pend) { A.pend.t += '，' + tx; A.pend.line.t = A.pend.t; A.pend.tone = tone || A.pend.tone; } else { const e = { f: 'me', t: tx }; A.lines.push(e); A.pend = { t: tx, tone, line: e }; }
-    clearTimeout(A.pendT); A.ph = 'idle'; draw(); A.pendT = setTimeout(flush, holdMs()); }
+    clearTimeout(A.pendT); A.ph = 'idle'; A.idleAt = performance.now(); draw(); A.pendT = setTimeout(flush, holdMs()); }
   function flush() { const p = A.pend; if (!p || CALL != A) return; if (ear.on || A.ph == 'rec') { A.pendT = setTimeout(flush, 400); return; }
     A.pend = null; A.lastSaid = p.t; A.nudge = 0; A.log.push(p.line); A.prevSay = { text: p.t, line: p.line }; const st = A.story == 1; st && (A.story = 2); turn(p.t, { tone: p.tone, hl: p.line, asr: 1, story: st }); }
   function heardAudio(url) { interrupt(); const ln = { f: 'me', t: '…' }; A.lines.push(ln); A.hl = ln; turn(null, { au: url, hl: ln }); }
