@@ -110,6 +110,28 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(async () => { const f = await import('/apps/settings/free-models.js'); f.freePage(); })()`); await W(500); await shot('free');
   ok(await E(`(() => { const el = core.top().el; return el.querySelectorAll('h6').length == 3 && !!el.querySelector('a[href="https://open.bigmodel.cn"]') && !!el.querySelector('a[href="https://cloud.siliconflow.cn/account/ak"]') && !!el.querySelector('a[href="https://aistudio.google.com"]') && el.querySelectorAll('[data-a=fcopy]').length == 6 && el.querySelectorAll('[data-a=fadd]').length == 8; })()`), '免费模型页：三家（智谱 / 硅基流动 / Gemini），官网和拿密钥都能点开、能复制，8 个模型可以添加');
   await E(`core.back()`); await W(300);
+  // 语言：本地识别只有内置中文；说日语（没装日语包）自动换成云端识别，换回中文再换回本地；没有密钥就在通话里提示填
+  const dial = async () => { await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); };
+  asrNext = 'こんにちは、元気？'; await E(`(() => { core.S.callEar2 = 'local'; core.S.callLang = 'ja-JP'; core.S.callAsr = { key: 'sk-test' }; _mode = ''; })()`);
+  await dial(); await W(6000);
+  ok(await E(`cl.inCall().ear == 'sf' && cl.inCall().earBack == 'local' && /硅基识别/.test(document.querySelector('.xc-lang').textContent) && /日语/.test(document.querySelector('.xc-lang').textContent)`), '我说日语（没装日语包）：自动用云端识别（硅基流动），中文以后还用本地');
+  const j0 = await E(`_P.length`), a0 = ASR.length; await E(`_loud = 1`); await W(1200); await E(`_loud = 0`); await W(2600);
+  ok(ASR.length > a0 && await E(`_P.length`) == j0 + 1 && /こんにちは/.test(await E(`JSON.stringify(_P.at(-1))`)), '说日语：云端认出来的日语整句发给 TA');
+  await E(`document.querySelector('.xc [data-k=inl]').click()`); await W(300);
+  ok(/云端识别/.test(await E(`document.querySelector('.sheet.in')?.textContent || ''`)) && /中文 · 本地/.test(await E(`document.querySelector('.sheet.in')?.textContent || ''`)), '「我说」菜单里写着每种语言用什么认（中文本地、日语云端）');
+  await E(`document.querySelector('.sheet.in [data-x="zh-CN"]').click()`); await W(300);
+  ok(await E(`cl.inCall().ear == 'local' && !cl.inCall().earBack && core.S.callLang == 'zh-CN'`), '换回中文：换回本地识别');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
+  await E(`(() => { core.S.callLang = 'ja-JP'; core.S.callAsr = {}; })()`); await dial(); await W(1500);
+  ok(await E(`cl.inCall().ear == 'model' && /云端识别/.test(document.querySelector('.xc-fix')?.textContent || '') && /语言包/.test(document.querySelector('.xc-fix').textContent)`), '说日语但没有硅基密钥：通话里提示填密钥（或者以后装本地语言包），先用模型听');
+  await E(`document.querySelector('.xc-fix input').value = 'sk-j'; document.querySelector('.xc-fix [data-f=y]').click()`); await W(200);
+  ok(await E(`cl.inCall().ear == 'sf' && core.S.callAsr.key == 'sk-j'`), '填好密钥：马上换成云端识别');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
+  await E(`(() => { core.S.callLang = 'zh-CN'; core.S.callAsr = {}; core.S.api.chat.list.push({ id: 'sfp', name: '免费 · 硅基流动', url: 'https://api.siliconflow.cn/v1', key: 'sk-chat', model: 'Qwen/Qwen3-8B' }); })()`);
+  ok(await E(`(async () => (await import('/apps/chat/ear.js')).asrCfg().key)()`) == 'sk-chat', '云端识别的密钥：没单独填时用「免费模型」里加过的硅基流动配置的密钥');
+  await E(`(async () => (await import('/apps/settings/lang-packs.js')).langPage())()`); await W(500); await shot('langp');
+  ok(await E(`(() => { const el = core.top().el, t = el.textContent; return /中文/.test(t) && /内置/.test(t) && /日语/.test(t) && /准备中/.test(t) && /能用/.test(t) && /免费模型里加的/.test(t) && !!el.querySelector('a[href="https://cloud.siliconflow.cn/account/ak"]'); })()`), '设置 → 语音识别语言包：中文内置、日语本地包（准备中）、云端识别（密钥从哪来、去哪拿）');
+  await E(`(() => { core.back(); core.S.api.chat.list = core.S.api.chat.list.filter(p => p.id != 'sfp'); })()`); await W(300);
   // TA 主动挂电话（学 evolia 的 call_control）：聊完了 TA 在最后写 [挂断]
   await E(`_mode = 'bye'; core.S.callEar2 = 'model'`); await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
   ok(await E(`!cl.inCall() && _c.msgs.at(-1).t == 'call'`) && !/挂断\]/.test(await E(`JSON.stringify(_c.msgs.at(-1).log)`)), 'TA 说「晚安」后在最后写 [挂断]：电话自己挂了，字幕和记录里不露标记');

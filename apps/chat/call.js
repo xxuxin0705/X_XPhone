@@ -14,6 +14,7 @@ import { lname } from './data.js';
 import { recall } from './recall.js';
 import { makeEar, wav, asrCfg } from './ear.js';
 import { localAsr } from './local-asr.js';
+import { packOn } from '../settings/lang-packs.js';
 regMod({ k: 'chat.call', app: '聊天', n: '语音通话', def: '这是在打电话，不是发消息：完全口语，短句，一次只说一两句，像真人那样有停顿、会接话、会追问，可以有「嗯」「啊」「欸」这种语气词。不要动作描写、括号旁白、表情符号、星号。', vars: [['对方', '通话的人'], ['我', '我的网名']] });
 
 const IC = n => new URL(`../../assets/wx/call/${n}.png`, import.meta.url).href;
@@ -55,8 +56,13 @@ export function startCall(ch, kind = 'voice', so = {}) {
   try { A.ctx = new (globalThis.AudioContext || globalThis.webkitAudioContext)(); A.gain = A.ctx.createGain(); A.gain.gain.value = A.spk ? 1 : .85; A.gain.connect(A.ctx.destination);
     const z = A.ctx.createBufferSource(); z.buffer = A.ctx.createBuffer(1, 1, 22050); z.connect(A.gain); z.start(0); A.ctx.resume?.(); } catch { }
   A.au = new Audio(SILENT); A.au.play().catch(() => { });
-  isEar() ? setTimeout(() => { earOn(); A.ear == 'sf' && !asrCfg().key && askKey(); A.ear == 'local' && loadLocal(); }, 0) : TAU() && setTimeout(() => kbMode(), 0); // 趁这次点击开麦克风（第一次会弹权限）；Tauri 里浏览器识别用不了
+  isEar() ? setTimeout(() => { earOn(); fitLang(); A.ear == 'sf' && !asrCfg().key && askKey(); A.ear == 'local' && loadLocal(); }, 0) : TAU() && setTimeout(() => kbMode(), 0); // 趁这次点击开麦克风（第一次会弹权限）；Tauri 里浏览器识别用不了
   A.lines = []; // 字幕：这通电话里谁说了什么（外语带中文）
+  // 本地识别只认内置的中文和装了语言包的语言：说别的语言时换成云端识别（硅基流动免费的 SenseVoice，听得懂中英日韩粤），换回中文再换回本地
+  function fitLang(say) { if (!isEar() && !A.earBack) return; const loc = packOn(A.inL), ln = IN.find(x => x[0] == A.inL)?.[1] || A.inL;
+    if (!loc && A.ear == 'local') { A.earBack = 'local'; if (asrCfg().key) { A.ear = 'sf'; say && toast(`说${ln}用云端识别（硅基流动，免费）；中文还是本地认`); } else { A.ear = 'model'; askKey(); } }
+    else if (loc && A.earBack) { A.ear = A.earBack; A.earBack = null; A.ear == 'local' && loadLocal(); say && toast('换回本地识别'); }
+    A.earBad = ''; }
   function isEar() { return A.ear == 'model' || A.ear == 'sf' || A.ear == 'local'; } // 自己开麦克风听（不是浏览器识别 / 输入法）
   const ear = makeEar({ ctx: A.ctx, kind: () => A.ear == 'model' ? 'model' : A.ear, playing: () => (A.playN || 0) > 0, local: cb => localAsr.loaded ? localAsr.session(cb) : null,
     mode: () => !A.mic || A.st != 'talk' || CALL != A || A.recog || !isEar() || A.ear == 'local' && !localAsr.loaded || performance.now() < (A.quiet || 0) ? 'off' : A.ph == 'think' || A.ph == 'speak' ? (S.callBarge ?? true) && !A.story ? 'busy' : 'off' : 'listen' } /* 讲故事时不靠声音打断（翻身、嘟囔会误打断），要停就点一下屏幕 */, (t, v) => earEv(t, v));
@@ -117,14 +123,15 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     if (k == 'stop') { const w = Math.round((performance.now() - A.thinkAt) / 1e3); interrupt(); A.ph = 'fail'; A.why = `刚才等了 ${w} 秒没等 TA 想完${A.thk ? `（模型思考了 ${A.thk} 字还没开口）` : '（模型一个字都还没回）'}。想得久多半是开着深度思考：设置 → 应用配置 → 语音通话 打开「低思考」`; return next(); }
     if (k == 'retry') { if (A.lastSaid) { A.lines.push({ f: 'me', t: A.lastSaid }); A.log.push({ f: 'me', t: A.lastSaid }); turn(A.lastSaid); } return; }
     if (k == 'spk') { A.spk = !A.spk; A.au && (A.au.volume = A.spk ? 1 : .85); A.gain && (A.gain.gain.value = A.spk ? 1 : .85); A.ctx?.resume?.(); return draw(); }
-    if (k == 'inl') return menu(IN, '我说什么语言').then(v => { if (!v) return; A.inL = S.callLang = v; save(); draw(); }); // 只影响之后的识别
+    if (k == 'inl') { const how = v => !(A.ear == 'local' || A.earBack == 'local') ? '' : packOn(v) ? v == 'zh-CN' ? ' · 本地' : ' · 本地包' : ' · 云端识别';
+      return menu(IN.map(([v, n]) => [v, n + how(v)]), '我说什么语言').then(v => { if (!v || CALL != A) return; A.inL = S.callLang = v; save(); fitLang(true); draw(); }); } // 只影响之后的识别
     if (k == 'outl') return menu(OUT, 'TA 用什么语言回答').then(v => { if (v == null) return; A.outL = v == 'auto' ? undefined : v; draw(); toast('下一句开始生效'); }); // 本轮不变，下一轮才换
     if (k == 'kb') { A.typing = !A.typing; return draw(); }
     if (k == 'auto') { A.auto = S.callAuto = !A.auto; save(); toast(A.auto ? '自动接话：你停下来 TA 就接着说' : '点着说：点「点这里说」开始，点「说完了」才轮到 TA'); if (A.auto && A.ph == 'idle') return listen(); return draw(); }
     if (k == 'ear') return menu([['local', '本地识别（推荐：手机上直接认，不联网、不花钱、边说边出字）'], ['model', '模型听（录音交给聊天模型听，要 Gemini 这类能听音频的）'], ['sf', '硅基识别（免费识别模型，边说边出字）'], ['web', '浏览器识别（要能连上谷歌）'], ['gap', `说完等多久：${+S.callGap || 1} 秒`]], '怎么听你说话').then(v => { if (!v || CALL != A) return;
       if (v == 'gap') return menu([['0.6', '0.6 秒（说话利索）'], ['1', '1 秒（默认）'], ['1.6', '1.6 秒（爱停顿）'], ['2.5', '2.5 秒（慢慢想）']], '你停多久算说完').then(g => { if (!g) return; S.callGap = +g; save(); toast(`停 ${g} 秒算说完（说得长会再多等 0.5 秒）`); });
-      if (v == A.ear) return; earOff(); stopRec(); A.ear = S.callEar2 = v; save(); A.earBad = ''; A.ph == 'rec' && (A.ph = 'idle');
-      if (isEar()) { earOn(); v == 'local' ? loadLocal() : v == 'sf' && !asrCfg().key ? askKey() : toast(v == 'sf' ? '硅基识别：边说边出字' : '模型听：录音直接交给聊天模型听'); } else { toast('浏览器识别：要能连上谷歌的识别服务'); if (A.ph == 'idle') next(); } draw(); });
+      if (v == A.ear) return; earOff(); stopRec(); A.ear = S.callEar2 = v; save(); A.earBad = ''; A.earBack = null; A.ph == 'rec' && (A.ph = 'idle');
+      if (isEar()) { earOn(); fitLang(true); A.ear != v ? 0 : v == 'local' ? loadLocal() : v == 'sf' && !asrCfg().key ? askKey() : toast(v == 'sf' ? '硅基识别：边说边出字' : '模型听：录音直接交给聊天模型听'); } else { toast('浏览器识别：要能连上谷歌的识别服务'); if (A.ph == 'idle') next(); } draw(); });
     if (k == 'fix') return fixLine(A.lines[+e.target.closest('[data-k]').dataset.i]);
     if (k == 'send') return sendTyped();
     if (k == 'tov') { A.cam?.getTracks().forEach(t => t.stop()); A.cam = null; A.kind = 'voice'; el.className = 'xc xc-voice in'; return draw(); }
@@ -201,7 +208,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
   function earOn() { if (ear.ms || A.earP || CALL != A) return; ear.at = performance.now();
     A.earP = ear.start().then(() => { A.earP = null; if (CALL != A || !isEar()) return ear.stop(); draw(); }).catch(e => { A.earP = null; if (CALL != A) return; if (TAU()) return kbMode(); const n = e?.name || ''; A.earBad = /NotAllowed|Security/.test(n) ? '没有麦克风权限：浏览器设置里允许这个网页用麦克风（网址要是 https 或 localhost，局域网 IP 打开的 http 网页浏览器不给麦克风）' : /NotReadable|Abort/.test(n) ? '麦克风被别的应用占着（比如录屏在录麦克风），关掉它再试' : /NotFound/.test(n) ? '没找到麦克风' : '麦克风打不开：' + (e?.message || n); A.typing = true; draw(); }); }
   function earOff() { ear.stop(); }
-  // 本地识别：第一次要读约 73MB 的程序和模型（插件 asr/ 文件夹里，读过浏览器会缓存），读的时候显示进度；读不了就换成「模型听」
+  // 本地识别：第一次要读约 39MB 的程序和中文模型（插件 asr/ 文件夹里，读过浏览器会缓存），读的时候显示进度；读不了就换成「模型听」
   function loadLocal() { if (localAsr.loaded) return; A.lp = 0; draw();
     localAsr.load(p => { if (CALL != A) return; const n = p.pct; if (n != A.lp) { A.lp = n; const e = el.querySelector('.xc-ph'); e && A.ear == 'local' && (e.textContent = `正在准备本地识别… ${n}%`); } })
       .then(() => { if (CALL != A) return; A.lp = null; draw(); })
@@ -228,8 +235,8 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(IN.find(x => x[
     else if (t == 'asrerr') { A.recog = 0; if (/密钥/.test(v.message)) askKey(); else toast(v.message); }
   }
   // 硅基识别要密钥（硅基流动免费注册，识别模型免费）：通话界面里就地填
-  function askKey() { if (el.querySelector('.xc-fix')) return; const c = asrCfg(), w = Object.assign(document.createElement('div'), { className: 'xc-fix', innerHTML: `<small>「硅基识别」用硅基流动的免费识别模型（${esc(c.model)}），要一个硅基流动的 API 密钥（siliconflow.cn 免费注册）。画图那里填过就会自动用</small><input placeholder="sk-…" value="${esc(S.callAsr?.key || '')}" enterkeyhint="done"><div><b data-f="n">先不用</b><b data-f="y" class="ok">保存</b></div>` }); el.append(w);
-    const i = w.querySelector('input'), end = ok => { const v = i.value.trim(); if (ok && v) { (S.callAsr ||= {}).key = v; save(); toast('保存了，开口说话就行'); } else if (!asrCfg().key) { A.ear = 'model'; toast('先用「模型听」'); } w.remove(); draw(); };
+  function askKey() { if (el.querySelector('.xc-fix')) return; const c = asrCfg(), w = Object.assign(document.createElement('div'), { className: 'xc-fix', innerHTML: `<small>${A.earBack ? `说${esc(IN.find(x => x[0] == A.inL)?.[1] || A.inL)}要用云端识别（硅基流动免费的 ${esc(c.model.split('/').pop())}，听得懂中英日韩粤），填一个硅基流动的 API 密钥就行（cloud.siliconflow.cn 手机号免费注册）。想不联网：以后在 设置 → 语音识别语言包 装本地包` : `「硅基识别」用硅基流动的免费识别模型（${esc(c.model)}），要一个硅基流动的 API 密钥（siliconflow.cn 免费注册）。画图那里填过就会自动用`}</small><input placeholder="sk-…" value="${esc(S.callAsr?.key || '')}" enterkeyhint="done"><div><b data-f="n">先不用</b><b data-f="y" class="ok">保存</b></div>` }); el.append(w);
+    const i = w.querySelector('input'), end = ok => { const v = i.value.trim(); if (ok && v) { (S.callAsr ||= {}).key = v; save(); A.earBack && A.ear == 'model' && (A.ear = 'sf'); toast('保存了，开口说话就行'); } else if (!asrCfg().key) { A.ear = 'model'; toast('先用「模型听」（要 Gemini 这类能听录音的模型）'); } w.remove(); draw(); };
     w.onclick = e => { e.stopPropagation(); const f = e.target.dataset.f; f && end(f == 'y'); }; i.onkeydown = e => e.key == 'Enter' && end(true); setTimeout(() => i.focus(), 30); }
   // 先别急着发（省请求次数）：认出一句后等一小会儿，期间我又开口就并成一句；我还在说就一直等。中转站有「每分钟几次」的限制时等久一点
   const holdMs = () => +S.callRpm && +S.callRpm <= 6 ? 1500 : 700;

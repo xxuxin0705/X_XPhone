@@ -8,23 +8,24 @@ import { libList, voicePage, people } from '../chat/voice.js';
 import { ballPicker, ballUrl, ballName } from '../../ball.js';
 import { modsPage } from './mods-ui.js';
 import { freePage } from './free-models.js';
+import { langPage } from './lang-packs.js';
 import { localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
 const rf = () => setTimeout(() => top()?.re());
 const PV = { img: IMGP, tts: TTSP }, pn = (t, k) => PV[t]?.find(x => x[0] == (k || 'openai'))?.[1] || '';
-const sub = (a, x) => a == 'api' ? (x == 'chat' && S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? '' : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
+const sub = (a, x) => a == 'api' ? (x == 'chat' && S.api[x].src == 'tavern' ? (x == 'chat' && stProf(S.api.chat.stp) ? '酒馆 · ' + (stProf(S.api.chat.stp).name || '连接配置') : '酒馆') : x != 'chat' ? prof(x).name : prof(x) ? prof(x).name || '未命名' : '未选择') : a == 'link' ? (S.mode == 'linked' ? '正文联动' : '线上模式') : a == 'ctx' ? S.ctxN + ' 条' : a == 'disp' ? '' : a == 'logs' ? (LOG.some(l => l.run) ? '进行中 · ' : '') + LOG.length : a == 'stkp' ? S.stk.packs.length + ' 组' + (S.stk.auto ? '' : ' · 不自动配图') : a == 'langp' ? '中文内置' : a == 'lockp' ? (S.lock.on ? (S.lock.pw ? (S.lock.type == 'fp' ? '指纹' : '数字密码') : '无密码') : '未开启') : '';
 const ROWS = [['API 配置', [['api', 'chat', '#34c759', '✦'], ['api', 'img', '#ff9f0a', '✿'], ['api', 'tts', '#5e5ce6', '♪'], ['mods', '应用配置', '#bf5af2', '⚙']]],
   ['剧情', [['link', '联动模式与时间', '#ff375f', '⇄'], ['ctx', '上下文与世界书', '#0a84ff', '❖']]],
   ['安全', [['lockp', '锁屏与密码', '#ff9500', '⚿']]],
-  ['通用', [['disp', '显示方式', '#64d2ff', '▣'], ['logs', '调用日志', '#8e8e93', '≡'], ['data', '数据管理', '#30b0c7', '⇪']]]];
+  ['通用', [['langp', '语音识别语言包', '#ff6482', 'あ'], ['disp', '显示方式', '#64d2ff', '▣'], ['logs', '调用日志', '#8e8e93', '≡'], ['data', '数据管理', '#30b0c7', '⇪']]]];
 
 reg({
   id: 'settings', name: '设置', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>',
   open: () => page({
     title: '设置', cls: 'set',
     body: () => ROWS.map(([h, rs]) => `<h6>${h}</h6><div class="card">${rs.map(([a, x, c, i]) => `<div class="row go" data-a="${a}" data-x="${a == 'api' ? x : ''}"><i class="ri" style="background:${c}">${i}</i><span>${T[x] || x}</span><small>${esc(sub(a, x))}</small></div>`).join('')}</div>`).join(''),
-    acts: { api, link, ctx, disp, logs, data, lockp, stkp, mods: () => modsPage() },
+    acts: { api, link, ctx, disp, logs, data, lockp, stkp, mods: () => modsPage(), langp: () => langPage() },
   }),
 });
 

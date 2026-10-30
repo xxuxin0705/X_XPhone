@@ -2138,3 +2138,4 @@ html{min-height:100%;min-height:100dvh}
 /* 设置 · 免费模型 */
 .freem h6 .fm-on{margin-left:8px;padding:1px 7px;border-radius:9px;font-style:normal;font-size:calc(11px*var(--fz,1));background:var(--ac);color:#fff;vertical-align:1px}
 .freem .fm-l a.lnk{margin-left:auto;margin-right:14px}
+.freem .lp-st{flex:none;margin-right:14px;opacity:.55}

@@ -15,8 +15,9 @@ import { S, xf } from '../../core.js';
 
 export const EAR = { END: 1.0, LONG: 2.5, LONG_ADD: .5, MIN: .35, MAX: 30, PRE: .5, DUCK_F: 6, CUT_F: 14, CUT_F_THINK: 11, SLICE_MIN: 1, SLICE_GAP: .2, SLICE_MAX: 3 };
 
-// 硅基流动识别的配置：没单独填就用画图那里填过的硅基流动密钥
-export const asrCfg = () => { const a = S.callAsr ||= {}; return { url: (a.url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''), key: a.key || S.api?.img?.cfg?.sf?.key || '', model: a.model || 'FunAudioLLM/SenseVoiceSmall' }; };
+// 硅基流动识别的配置：没单独填就用画图那里填过的硅基流动密钥，再没有就用「免费模型」里加过的硅基流动聊天配置的密钥（同一个密钥）
+export const sfKey = () => S.api?.img?.cfg?.sf?.key || S.api?.chat?.list?.find(p => /api\.siliconflow\.(cn|com)/.test(p.url || '') && p.key)?.key || '';
+export const asrCfg = () => { const a = S.callAsr ||= {}; return { url: (a.url || 'https://api.siliconflow.cn/v1').replace(/\/+$/, ''), key: a.key || sfKey(), model: a.model || 'FunAudioLLM/SenseVoiceSmall' }; };
 export async function sfAsr(chunks, sr, prompt = '', sg) {
   const c = asrCfg(); if (!c.key) throw Error('还没填硅基流动的密钥');
   const fd = new FormData(); fd.append('file', new Blob([wavBuf(chunks, sr)], { type: 'audio/wav' }), 'say.wav'); fd.append('model', c.model); prompt && fd.append('prompt', prompt.slice(-200));

@@ -1,10 +1,17 @@
 // 小手机 · 本地语音识别（学开源项目 AIRI：在浏览器里本地认字，不联网、不花钱、不要密钥）
-// 程序和模型在插件的 asr/ 文件夹里（约 73MB，第一次读要等一会儿，之后浏览器缓存）；找不到就从 GitHub 上这个分支拿。
+// 程序和模型在插件的 asr/ 文件夹里（约 39MB：程序 13MB + 中文模型 26MB，第一次读要等一会儿，之后浏览器缓存）；找不到就从 GitHub 上这个分支拿。
+// 模型：sherpa-onnx 小号流式中文 CTC（int8，2025-04-01）。别的语言走「语言包」（设置 → 语音识别语言包）
 // 用法：await localAsr.load(进度回调) → const s = localAsr.session(onPartial) → s.feed(48k/44.1k 的声音) … → await s.end() 得到整句
 const BASE = new URL('../../asr/', import.meta.url).href;
 const REMOTE = ['https://raw.githubusercontent.com/xxuxin0705/X_XPhone/voice-v2/asr/']; // 插件文件夹里没有时的备用（比如用压缩包装的）
-const FILES = { js: 'sherpa-onnx-asr.js', main: 'asr-main.js', wasm: 'asr.wasm', data: 'asr.data' };
-const SIZE = { wasm: 13150239, data: 60142871 }; // 算进度用
+const FILES = { js: 'sherpa-onnx-asr.js', main: 'zh-main.js', wasm: 'asr.wasm', data: 'zh.data' };
+const SIZE = { wasm: 13150239, data: 26355706 }; // 算进度用
+// 识别器配置：流式 zipformer2 CTC（模型包里是 model.onnx + tokens.txt）；一句话最后靠补静音推出来，不用它自己判断断句
+const CFG = { featConfig: { sampleRate: 16000, featureDim: 80 },
+  modelConfig: { transducer: { encoder: '', decoder: '', joiner: '' }, paraformer: { encoder: '', decoder: '' }, zipformer2Ctc: { model: './model.onnx' }, nemoCtc: { model: '' }, toneCtc: { model: '' },
+    tokens: './tokens.txt', numThreads: 1, provider: 'cpu', debug: 0, modelType: '', modelingUnit: 'cjkchar', bpeVocab: '' },
+  decodingMethod: 'greedy_search', maxActivePaths: 4, enableEndpoint: 0, rule1MinTrailingSilence: 2.4, rule2MinTrailingSilence: 1.2, rule3MinUtteranceLength: 20,
+  hotwordsFile: '', hotwordsScore: 1.5, ctcFstDecoderConfig: { graph: '', maxActive: 3000 }, ruleFsts: '', ruleFars: '' };
 let W = null, ready = null, nid = 0;
 const subs = new Map(); // 会话 id → { partial, final }
 
@@ -39,7 +46,7 @@ export const localAsr = {
           else if (m.t == 'err') { clearTimeout(tm); no(Error('识别模型启动失败：' + m.m)); }
           else if (m.t == 'partial' || m.t == 'final') subs.get(m.id)?.[m.t](m.s); };
         W.onerror = e => { clearTimeout(tm); no(Error('识别线程出错：' + (e.message || e))); };
-        W.postMessage({ t: 'init', js: url(js), main: url(main), wasm, data }, [wasm, data]);
+        W.postMessage({ t: 'init', js: url(js), main: url(main), wasm, data, cfg: CFG }, [wasm, data]);
       });
       ready.done = true; onP?.({ pct: 100 });
     })().catch(e => { ready = null; W?.terminate(); W = null; throw e; });
