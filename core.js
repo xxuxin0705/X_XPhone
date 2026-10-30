@@ -1,6 +1,6 @@
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'voice-v2 · 10-31 · 17';
+export const VER = 'voice-v2 · 10-31 · 18';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -23,7 +23,7 @@ const api = x => ({ src: 'tavern', cur: '', list: [], ...x });
 const DEF = {
   api: { chat: api(), img: api({ auto: false }), tts: api() }, mode: 'linked', time: 'story', scan: false, inline: true, notify: true,
   kw: '(发|回)了?[一几]?[条个句]?(消息|微信|短信|信息|语音|私信)|拉.{0,3}群|建.{0,2}群|群聊|群里|加.{0,3}(好友|微信|QQ|联系方式)|朋友圈|空间|发.{0,2}动态|转账|红包|拍了拍|手机.{0,2}(震|响|亮)',
-  lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'snownight', video: '', img: '', text: '' }, media: {},
+  lock: { on: false, pw: false, type: 'pin', pin: '', wp: 'plain', video: '', img: '', text: '' }, media: {},
   stk: { see: true, v: 3, packs: ['qq', 'weibo', 'tieba'], mine: [], src: 'sogou', id: '', key: '', gk: '', cute: true, auto: true, recent: [] },
   ctxN: 15, tmo: 300, wi: { follow: true, books: [], ov: {} }, show: 'float', scale: 1, fz: .92, fzp: 100, pos: {}, style: 'wx',
   theme: 'matcha', wall: '', css: '', icons: {}, ui: { order: {}, fold: {} }, desk: null,

@@ -136,7 +136,7 @@ export const liveOn = () => !!(el && $('.lk-bg video.live.on', el));
 // 第一次看到锁屏时提示一下能怎么玩
 const tip = preview => { if (!fx?.interactive) return; const h = $('.lk-hint span', el); h.textContent = fx.hint || hintText(preview); clearTimeout(tip.t); tip.t = setTimeout(() => locked && h.isConnected && (h.textContent = hintText(preview)), 3800); };
 const hintText = preview => preview ? '预览 · 从底部上滑退出' : fpOn() ? '按住指纹解锁' : '从底部向上滑动解锁';
-// 动态锁屏可以互动（雪地写字、点圣诞树…）：从屏幕底部上滑才是解锁；其他地方的触摸交给场景
+// 动态锁屏可以互动：从屏幕底部上滑才是解锁；其他地方的触摸交给场景
 function swipe(preview) {
   const u = $('.lk-ui', el); let y0 = null, t0 = 0, dy = 0, lpT, hist = [];
   // 指纹模式只能按指纹，上滑只是提示一下，不会出现数字密码
@@ -155,7 +155,7 @@ function swipe(preview) {
     if (mode == 'fx' || mode == 'both') fx?.input('move', e.clientX, e.clientY); if (mode == 'fx' || y0 == null) return;
     const ry = e.clientY - y0, rx = e.clientX - x0; Math.abs(ry) + Math.abs(rx) > 10 && clearTimeout(lpT);
     if (mode == 'both') { const t = Date.now(); hist.push([t, ry]); while (hist.length > 2 && t - hist[0][0] > 90) hist.shift(); const v = (ry - hist[0][1]) / Math.max(16, t - hist[0][0]);
-      if (ry < -12 && -ry > Math.abs(rx) * 1.5 && v < -.5) { mode = 'swipe'; fx?.input('cancel', e.clientX, e.clientY); } else return; } // 锁屏特效能玩（雪地写字）：慢慢拖是在玩；一看出是快速往上甩就马上改成解锁
+      if (ry < -12 && -ry > Math.abs(rx) * 1.5 && v < -.5) { mode = 'swipe'; fx?.input('cancel', e.clientX, e.clientY); } else return; } // 锁屏特效能玩：慢慢拖是在玩；一看出是快速往上甩就马上改成解锁
     dy = Math.min(0, ry); const t = Date.now(); hist.push([t, dy]); while (hist.length > 2 && t - hist[0][0] > 90) hist.shift();
     el.style.transform = `translate3d(0,${dy}px,0)`; u.style.opacity = Math.max(0, 1 + dy / 320); // 整张锁屏（图 + 字）1:1 跟着手指走，下面的桌面跟着露出来
   });

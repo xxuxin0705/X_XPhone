@@ -9,10 +9,10 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.goto('http://localhost:8791/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.locator('#stp .stp-scr').screenshot({ path: path.join(OUT, n) });
   await E(`(async () => { window.FX = (await import('/lockfx.js')).FX; window.core = await import('/core.js'); window.lk = await import('/lock.js'); core.S.lock.on = true; core.S.lock.wp = 'hanabi'; core.S.lock.pw = false; lk.lock(); })()`); await W(800);
-  // 主题页：雪夜 + 自定义（伞下烟火、内置实况都去掉了）
+  // 主题页：素色 + 自定义（伞下烟火、内置实况都去掉了）
   await E(`lk.unlock()`); await W(500); await E(`core.home(); core.APPS.theme.open()`); await W(1200);
-  ok(await E(`[...document.querySelectorAll('[data-sec=lk] .lwg .lw span')].map(e => e.textContent).join()`) == '雪夜,自定义', '锁屏壁纸：雪夜、自定义 ' + await E(`[...document.querySelectorAll('[data-sec=lk] .lwg .lw span')].map(e => e.textContent).join()`));
-  ok(await E(`document.querySelector('[data-sec=lk] .lw.on span')?.textContent`) == '雪夜', '以前选的伞下烟火：自动换回雪夜');
+  ok(await E(`[...document.querySelectorAll('[data-sec=lk] .lwg .lw span')].map(e => e.textContent).join()`) == '素色,自定义', '锁屏壁纸：素色、自定义 ' + await E(`[...document.querySelectorAll('[data-sec=lk] .lwg .lw span')].map(e => e.textContent).join()`));
+  ok(await E(`document.querySelector('[data-sec=lk] .lw.on span')?.textContent`) == '素色', '以前选的伞下烟火：自动换回素色');
   ok(!fs.existsSync(path.join(root, 'lockfx-umb.js')) && !fs.existsSync(path.join(root, 'apps/theme/xhs.js')) && !fs.existsSync(path.join(root, 'assets/live')), '伞下烟火、小红书导入、内置实况的文件都删掉了');
   ok(await new Promise(async r => { p.once('filechooser', () => r(true)); await E(`document.querySelector('[data-sec=lk] .lw.vid').click()`); setTimeout(() => r(false), 1500); }), '＋自定义：直接选文件');
   await W(500);
@@ -52,21 +52,21 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/保存到手机[\s\S]*删除这张视频/.test(await E(`document.querySelector('.sheet.mnu')?.textContent || ''`)), '长按：保存到手机 / 删除');
   await E(`document.querySelector('.sheet.mnu [data-x=d]').click()`); await W(400); await E(`document.querySelector('.sheet.mnu .mi.danger')?.click()`); await W(500);
   ok(await E(`core.S.lock.lib.length`) == 3 && await E(`core.S.lock.wp`) == 'c:' + first, '删掉一张（正在用的那张没受影响）');
-  // 随机锁屏：打开开关，勾雪夜 + 第一张，关一次手机就随机换
+  // 随机锁屏：打开开关，勾素色 + 第一张，关一次手机就随机换
   await E(`document.querySelector('[data-k="lock.rand"]').click()`); await W(400);
   ok(await E(`core.S.lock.rand`) === true && await E(`core.S.lock.pool.length`) == 1, '打开随机锁屏：先勾上现在这张');
-  await E(`document.querySelector('[data-sec=lk] .lw[data-x=snownight]').click()`); await W(300);
+  await E(`document.querySelector('[data-sec=lk] .lw[data-x=plain]').click()`); await W(300);
   await E(`document.querySelectorAll('[data-sec=lk] .lw.cu')[1].click()`); await W(300);
-  ok(await E(`core.S.lock.pool.length == 3 && core.S.lock.pool.includes('snownight')`), '点格子：加入随机 ' + await E(`JSON.stringify(core.S.lock.pool)`));
+  ok(await E(`core.S.lock.pool.length == 3 && core.S.lock.pool.includes('plain')`), '点格子：加入随机 ' + await E(`JSON.stringify(core.S.lock.pool)`));
   const seen = new Set(); for (let i = 0; i < 12; i++) { await E(`lk.relock(true)`); seen.add(await E(`core.S.lock.wp`)); } await E(`lk.unlock()`); await W(400);
-  ok(seen.size >= 2 && [...seen].every(k => k == 'snownight' || k.startsWith('c:')), '每次重新锁屏：从勾选的里面随机换 ' + [...seen].join());
+  ok(seen.size >= 2 && [...seen].every(k => k == 'plain' || k.startsWith('c:')), '每次重新锁屏：从勾选的里面随机换 ' + [...seen].join());
   // 只勾第二张：预览一定是第二张（以前总是显示最后点的那张）
   const k2 = await E(`'c:' + core.S.lock.lib[1].id`);
   await E(`core.S.lock.pool = ['${k2}']; core.S.lock.wp = 'c:' + core.S.lock.lib.at(-1).id; core.save()`);
   for (let i = 0; i < 3; i++) { await E(`document.querySelector('[data-a=lprev]').click()`); await W(600); ok(await E(`core.S.lock.wp`) == k2, '随机锁屏只勾了第二张：预览显示的就是第二张'); await E(`lk.unlock()`); await W(400); }
-  await E(`core.S.lock.pool = ['snownight', '${k2}']; core.save(); core.top().re()`); await W(300);
+  await E(`core.S.lock.pool = ['plain', '${k2}']; core.save(); core.top().re()`); await W(300);
   await E(`document.querySelector('[data-sec=lk] .lw.cu[data-x="${k2.slice(2)}"]').click()`); await W(300);
-  ok(await E(`core.S.lock.wp`) == 'snownight', '把正在用的那张去掉勾：自动换成还勾着的');
+  ok(await E(`core.S.lock.wp`) == 'plain', '把正在用的那张去掉勾：自动换成还勾着的');
   // 实况视频先读进内存再放（blob 地址）
   await E(`core.S.lock.rand = false; core.S.lock.wp = '${k2}'; core.save(); lk.lock(true)`); await W(1200);
   ok(/^blob:/.test(await E(`document.querySelector('.lock .lk-bg video.live')?.src || ''`)), '实况视频用内存里的地址播放');

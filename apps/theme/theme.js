@@ -29,7 +29,7 @@ const AK = {
 };
 // 重画时保持滚动位置（不要跳回最上面）
 const rf = () => { const t = top(); if (!t) return; const b = t.el?.querySelector('.pg-b'), sc = b?.scrollTop; t.re(); const b2 = t.el?.querySelector('.pg-b'); b2 && sc != null && (b2.scrollTop = sc); };
-// 锁屏壁纸：动态场景（雪夜、伞下烟火）的实时小预览 + 自定义（图片 / 5 秒内的视频 / 实况照片）
+// 锁屏壁纸：动态场景（素色）的实时小预览 + 自定义（图片 / 5 秒内的视频 / 实况照片）
 let pv = [];
 const LIB = () => S.lock.lib ||= [];
 const tile = it => `<div class="lw cu ${lon('c:' + it.id) ? 'on' : ''}" data-a="lwc" data-x="${it.id}" data-lp="lwcm">${it.img ? `<img data-i="${it.id}" alt="">` : `<video data-v="${it.id}" muted loop playsinline autoplay></video>`}${it.img && it.video ? '<em class="live">LIVE</em>' : ''}<span>${custKind(it)}</span></div>`;

@@ -29,7 +29,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop = 260`); await W(200); const sc0 = await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop`);
   await E(`document.querySelector('.bgrid .bt[data-x=witch]').click()`); await W(400);
   ok(sc0 > 100 && await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop`) == sc0, '选图标：页面不跳，位置不变 ' + sc0);
-  await E(`document.querySelector('.lw[data-x=snownight]').click()`); await W(500);
+  await E(`document.querySelector('.lw[data-x=plain]').click()`); await W(500);
   ok(Math.abs(await E(`document.querySelector('.pg.in:last-child .pg-b').scrollTop`) - sc0) < 2, '选锁屏壁纸：页面也不跳');
   ok(await E(`core.S.ball`) == 'witch' && /ball\/witch\.webp/.test(await E(`document.querySelector('#stp-ball img').src`)) && await E(`document.querySelector('.bgrid .bt.on')?.dataset.x`) == 'witch', '点「魔法」：悬浮窗马上换了，选中的高亮');
   // 设置 → 显示方式

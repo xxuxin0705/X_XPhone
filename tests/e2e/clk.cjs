@@ -8,7 +8,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto('http://localhost:8801/'); await p.waitForFunction('window.booted'); await p.click('#stp-ball');
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.locator('#stp .stp-scr').screenshot({ path: path.join(OUT, n) });
-  await E(`(async () => { window.core = await import('/core.js'); window.lk = await import('/lock.js'); window.ck = await import('/apps/theme/clock.js'); window.dk = await import('/desk.js'); delete core.S.lock.clk; core.S.lock.on = true; core.S.lock.wp = 'snownight'; core.S.lock.pw = false; lk.lock(); })()`); await W(1200);
+  await E(`(async () => { window.core = await import('/core.js'); window.lk = await import('/lock.js'); window.ck = await import('/apps/theme/clock.js'); window.dk = await import('/desk.js'); delete core.S.lock.clk; core.S.lock.on = true; core.S.lock.wp = 'plain'; core.S.lock.pw = false; lk.lock(); })()`); await W(1200);
   // 日期 / 时间格式
   ok(await E(`ck.dateText(new Date(2026, 9, 26), 'zh')`) == '2026年10月26日', '日期：2026年10月26日（没有星期）');
   ok(await E(`ck.dateText(new Date(2026, 9, 26), 'en')`) == 'Oct 26 2026', '英文日期：Oct 26 2026（没有逗号和星期）');
