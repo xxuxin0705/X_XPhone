@@ -364,7 +364,7 @@ export function zhUnits(pub) { let buf = '';
 // - 韩语：带假名的去掉；有汉字却没有谚文的去掉
 // - 英语等拼音文字：带汉字 / 假名 / 谚文的去掉
 export function pureSay(t, L) { if (!t) return t; L = L || 'zh';
-  const kana = /[\u3040-\u30ff]/, hangul = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/, han = /[\u4e00-\u9fff]/, zhOnly = /[嘛呢吗么们这那哪啥咋俺]|什么|怎么|没有|一下|干嘛|是不是|的话/;
+  const kana = /[\u3040-\u30ff]/, hangul = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/, han = /[\u4e00-\u9fff]/, zhOnly = /[你嘛呢吗么们这那哪啥咋俺啦呀吧哦哈咱]|什么|怎么|没有|一下|干嘛|是不是|的话/;
   const bad = s => /^zh/.test(L) ? kana.test(s) || hangul.test(s) : L == 'ja' ? hangul.test(s) || han.test(s) && !kana.test(s) && zhOnly.test(s) : L == 'ko' ? kana.test(s) || han.test(s) && !hangul.test(s) : kana.test(s) || hangul.test(s) || han.test(s);
   return String(t).split(/(?<=[、，,。．.!！?？\s])/).filter(s => !bad(s)).join('').replace(/^[、，,\s]+|[、，,\s]+$/g, '').trim(); }
 export function pairUnits(pub) { let buf = '', say = null;

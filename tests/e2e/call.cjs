@@ -116,7 +116,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(/不要替.*说话/.test(pr) && /不要再说「喂」/.test(pr), '提示词：只写自己这一轮、别替我说话、招呼打过了别再「喂」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''`);
   // 日语角色：提示词里不给真例句（模型会照抄「もしもし、どうしたの？」）；SAY 里夹的中文去掉
-  ok(await E(`(async () => { const c = await import('/apps/chat/call.js'); return JSON.stringify([c.pureSay('な?、在干嘛呢', 'ja'), c.pureSay('何してるの？在干嘛', 'ja'), c.pureSay('本当？', 'ja'), c.pureSay('你在干嘛呀', 'ja'), c.pureSay('뭐 해? 何してる？', 'ko'), c.pureSay('뭐 해? 在干嘛', 'ko'), c.pureSay('在干嘛呢？もしもし？', 'zh'), c.pureSay('好呀。안녕', ''), c.pureSay('Hey! 何してる？', 'en')]); })()`) == JSON.stringify(['な?', '何してるの？', '本当？', '', '뭐 해?', '뭐 해?', '在干嘛呢？', '好呀。', 'Hey!']), 'TA 只说一种语言：日语里夹的中文、韩语里夹的日语 / 中文、中文里夹的日语 / 韩语、英语里夹的日语都去掉');
+  ok(await E(`(async () => { const c = await import('/apps/chat/call.js'); return JSON.stringify([c.pureSay('な?、在干嘛呢', 'ja'), c.pureSay('何してるの？在干嘛', 'ja'), c.pureSay('本当？', 'ja'), c.pureSay('你在干嘛呀', 'ja'), c.pureSay('わ、わーい！桃！你醒啦！', 'ja'), c.pureSay('뭐 해? 何してる？', 'ko'), c.pureSay('뭐 해? 在干嘛', 'ko'), c.pureSay('在干嘛呢？もしもし？', 'zh'), c.pureSay('好呀。안녕', ''), c.pureSay('Hey! 何してる？', 'en')]); })()`) == JSON.stringify(['な?', '何してるの？', '本当？', '', 'わ、わーい！桃！', '뭐 해?', '뭐 해?', '在干嘛呢？', '好呀。', 'Hey!']), 'TA 只说一种语言：日语里夹的中文、韩语里夹的日语 / 中文、中文里夹的日语 / 韩语、英语里夹的日语都去掉');
   ok(/全部用简体中文说/.test(await E(`_P.find(x => !/SAY:/.test(x) && /刚刚说/.test(x)) || ''`)), '没开翻译：提示词写明全部用中文说');
   ok(!/もしもし、どうしたの/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)) && /一个中文词都不能夹/.test(await E(`_P.find(x => /SAY:/.test(x)) || ''`)), '提示词里没有能被照抄的例句，写明 SAY 行不能夹中文');
   // 朗读语言跟着翻译设置走（MiniMax 的 language_boost）：开了日语就按日语读（汉字不会读成中文），没开就是中文；手动选了粤语、说中文时还读粤语
