@@ -106,6 +106,15 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   ok(await E(`(async () => { const c = await import('/core.js'); return JSON.stringify([c.noThink('deepseek-v3.2'), c.noThink('glm-4.7-flash'), c.noThink('Qwen/Qwen3-8B'), c.noThink('gemini-2.5-flash'), c.noThink('claude-x')]); })()`) == JSON.stringify([{ thinking: { type: 'disabled' } }, { thinking: { type: 'disabled' } }, { enable_thinking: false }, { reasoning_effort: 'none' }, { reasoning_effort: 'low' }]), '关思考按模型名挑开关：DeepSeek / GLM 用 thinking、Qwen 用 enable_thinking、Gemini 2 能整个关掉、其它 low');
   await E(`(() => { const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
+  // 录屏里的事故：我说「你在干嘛呀」，模型把两个人的对话一口气全编出来（もしもし / なあに / どうしたの…），最后自己写 [挂断]
+  await E(`(() => { _c.cfg.lang = 'ja'; window._P1 = _P.length; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return ['もしもし？', '喂？', 'なあに？', '怎么了？', 'ちょっとしたことだよ。', '是点小事。', 'あ、そうか。', '哦，这样啊。', 'で、何かあったの？', '那，发生什么事了？', 'ちょっと疲れたんだよね。', '有点累了。', 'じゃあね。', '那拜拜。', '[挂断]'].map((t, i) => (i % 2 ? 'ZH: ' : 'SAY: ') + t).join('\\n'); }; })()`);
+  await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(3500);
+  await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '你在干嘛呀'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(6000);
+  const said = await E(`cl.inCall()?.lines.filter(x => x.f != 'me').map(x => x.t) || []`), pr = await E(`_P.at(-1) || ''`);
+  ok(said.length <= 5 && !said.some(t => /疲れた|じゃあね/.test(t)), '模型一口气编了两个人的对话：一轮最多说 4 句，后面的掐掉 ' + JSON.stringify(said));
+  ok(await E(`!!cl.inCall()`), '我没说要走，模型自己写的 [挂断] 不当真，电话没挂');
+  ok(/不要替.*说话/.test(pr) && /不要再说「喂」/.test(pr), '提示词：只写自己这一轮、别替我说话、招呼打过了别再「喂」');
+  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''`);
   // 麦克风诊断：识别开起来了、麦克风也接上了，但一点声音都没进来（比如录屏占着麦克风）→ 屏幕上直接写出来
   await E(`(() => { window.webkitSpeechRecognition = class { start() { setTimeout(() => { this.onstart?.(); this.onaudiostart?.(); }, 100); } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async () => '喂？'; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
