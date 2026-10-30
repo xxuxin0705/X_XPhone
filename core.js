@@ -1,7 +1,7 @@
 import { streamSpeech, speechStyle } from './speech-stream.js';
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'GPT · 10-30 · 免费本地识别 4';
+export const VER = 'GPT · 10-30 · 撤回本地模型 5';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
