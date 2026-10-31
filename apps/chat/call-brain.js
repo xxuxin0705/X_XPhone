@@ -17,13 +17,13 @@ const ago = ms => { const m = Math.round(ms / 6e4); return m < 2 ? '刚刚' : m 
 
 /* ---------- 背景：拨号时算一次 ---------- */
 // 大头（人设、世界书、正文剧情）：跟私聊回复用的是同一套，只是正文少带几条，起手快一点
-export const base = ch => sysCtx({ ch, n: 2, skip: 2, rc: 2500, wi: 6000, desc: 3000 }); // 正文：最新两条放在【刚刚发生的】里，这里只放再往前两条（不重复）
+export const base = ch => sysCtx({ ch, n: 2, skip: 2 }); // 正文：最新两条放在【刚刚发生的】里，这里只放再往前两条（不重复）
 // 电话专属的一小段：此刻、最近私聊、记住的旧电话、怎么说话、语言。L 是这通电话 TA 说的语言（中途换了就重算，很便宜）
 export function tail(ch, A, L) {
   const me = meObj(), I = me.nick, who = rn(ch), d = now(), vid = A.kind == 'video';
   const chat = ch.msgs.filter(m => !/sys|pat|call/.test(m.t)).slice(-12).map(m => `${m.f == 'me' ? I : who}: ${say(m)}`).join('\n');
   const calls = ch.msgs.filter(m => m.t == 'call' && !forgot(m) && m.log?.length).slice(-2).map(m => `${ago(d - (m.ts || 0))}打过一通（${m.c}）：${m.log.slice(-10).map(x => `${x.f == 'me' ? I : who}：${x.tr || x.t}`).join(' / ').slice(0, 260)}`).join('\n');
-  const last = (() => { try { const R = ctxRules(ch); return (C().chat || []).filter(m => !m.is_system).slice(-2).map(m => `${m.name}: ${body(m.mes, R).slice(-900)}`).join('\n'); } catch { return ''; } })(); // 按这个聊天设的正文标签取（默认只要 content、不要 thinking）
+  const last = (() => { try { const R = ctxRules(ch); return (C().chat || []).filter(m => !m.is_system).slice(-2).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); } catch { return ''; } })(); // 按这个聊天设的正文标签取（默认只要 content、不要 thinking）
   const st = ch.st && d - (ch.st.ts || 0) < 864e5 ? `${who}的微信状态是「${stLabel(ch.st)}${ch.st.t ? '：' + ch.st.t : ''}」。` : '';
   return `\n\n【现在】${I}给${who}打${vid ? '视频' : '语音'}电话。你就是${who}，用${who}自己的口吻说话，只说${who}的话，不替${I}说。`
     + (last ? `\n【刚刚发生的】（正文最新的几段，电话就是在这之后打来的）\n${last}` : '')
