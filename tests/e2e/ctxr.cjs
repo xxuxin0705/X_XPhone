@@ -47,7 +47,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window._llm = 0;
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; delete core.S.ctxR; const X = SillyTavern.getContext(); X.generateRaw = async () => { _llm++; return '嗯'; };
     X.chat = [{ name: '桃', mes: '我缩在<b>被子</b>里。<br>看着他。' }, { name: '五条悟', mes: ${JSON.stringify(MES)} }];
-    X.loadWorldInfo = async n => ({ entries: n == '咒术设定' ? { 1: { uid: 1, comment: '五条悟人设', constant: true, content: '【五条悟人设条目】' }, 2: { uid: 2, comment: '夏油杰的秘密', constant: true, content: '【夏油的秘密条目】' } } : { 1: { uid: 1, comment: '小剧场', constant: true, content: '【小剧场条目】' } } });
+    X.loadWorldInfo = async n => ({ entries: n == '咒术设定' ? { 1: { uid: 1, comment: '五条悟人设', constant: true, content: '【五条悟人设条目】' }, 2: { uid: 2, comment: '夏油杰的秘密', constant: true, content: '【夏油的秘密条目】' }, 3: { uid: 3, comment: '酒馆里关着的', constant: true, disable: true, content: '【关着的条目】' } } : { 1: { uid: 1, comment: '小剧场', constant: true, content: '【小剧场条目】' } } });
     core.S.wi.follow = false; core.S.wi.books = ['咒术设定', '小剧场合集']; core.S.wi.ov = { '咒术设定/2': 0 };
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '五条悟', nick: '五条', fr: 1 })); core.saveD(); })()`); await W(400);
   const tx = s => E(`core.body(${JSON.stringify(MES)}, core.ctxRules(${s || ''}))`);
@@ -67,18 +67,18 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.cxr-s[data-k=wechat] [data-v=keep]').click()`); await E(`document.querySelector('.cxr-s[data-k=globaltime] [data-v=keep]').click()`); await W(100);
   t = await tx(); ok(/不是酒神: 滚/.test(t) && /T_story/.test(t) && !/1boy|options|草稿/.test(t) && t.indexOf('T_story') < t.indexOf('玻璃杯'), '把 wechat、globalTime 点成「要」：群聊（包在注释里的）和剧情时间也发，按原文顺序');
   await E(`document.querySelector('[data-c=wopen][data-k="咒术设定"]').click()`); await W(100);
-  ok(await E(`!document.querySelector('[data-c=we][data-k="咒术设定/2"]').classList.contains('on')`), '旧版设成「关」的条目：搬成不勾');
+  ok(await E(`!document.querySelector('[data-c=we][data-k="咒术设定/2"]').classList.contains('on') && !document.querySelector('[data-c=we][data-k="咒术设定/3"]').classList.contains('on') && document.querySelector('[data-c=we][data-k="咒术设定/1"]').classList.contains('on')`), '每条默认跟酒馆里的开关：酒馆里关着的条目不勾；旧版设成「关」的也不勾');
   await E(`document.querySelector('[data-c=wb][data-k="小剧场合集"]').click()`); await W(100);
   await E(`document.querySelector('[data-c=pv]').click()`); await W(200); await E(`document.querySelector('.cxr').scrollIntoView()`); await shot('global');
   ok(/不是酒神/.test(await E(`document.querySelector('.cxr-pv').textContent`)) && !/草稿/.test(await E(`document.querySelector('.cxr-pv').textContent`)), '预览：最新一条按现在的设置');
   let sys = await E(`core.sysCtx()`);
-  ok(/五条悟人设条目/.test(sys) && !/夏油的秘密条目|小剧场条目/.test(sys) && /不是酒神/.test(sys) && !/思维链|他现在应该很担心|1boy/.test(sys), '发给模型的提示词：没勾的条目、整本勾掉的书不发；正文按标签规则');
+  ok(/五条悟人设条目/.test(sys) && !/夏油的秘密条目|小剧场条目|关着的条目/.test(sys) && /不是酒神/.test(sys) && !/思维链|他现在应该很担心|1boy/.test(sys), '发给模型的提示词：没勾的条目、整本勾掉的书不发；正文按标签规则');
   await E(`core.back()`); await W(300);
   // 聊天设置：显示的就是全局的；直接改，只对这个聊天生效，旁边一个小点；点小点恢复
   await E(`talk.cset(_c)`); await W(900); await E(`document.querySelector('.cxr').scrollIntoView()`);
   ok(await E(`!!document.querySelector('.cxr-s[data-k=wechat] [data-v=keep].on') && !document.querySelector('[data-c=wb][data-k="小剧场合集"]').classList.contains('on') && !document.querySelector('.cxr-dot')`), '聊天设置：一打开就是全局的样子（wechat 要、小剧场合集不发），没有小点');
   await E(`document.querySelector('.cxr-s[data-k=wechat] [data-v=drop]').click()`); await E(`document.querySelector('[data-c=wb][data-k="小剧场合集"]').click()`); await W(100); await shot('chat');
-  ok(await E(`_c.cfg.ctx.tags.wechat == 'drop' && _c.cfg.ctx.wi['小剧场合集'] == 1 && core.S.ctxR.tags.wechat == 'keep' && core.S.ctxR.wiOff['小剧场合集'] == 1 && document.querySelectorAll('.cxr-dot').length == 2`), '在聊天设置里改：只记在这个聊天，全局不变；改过的两项旁边有小点');
+  ok(await E(`_c.cfg.ctx.tags.wechat == 'drop' && _c.cfg.ctx.wi['小剧场合集'] == 1 && core.S.ctxR.tags.wechat == 'keep' && core.S.ctxR.wi['小剧场合集'] == 0 && document.querySelectorAll('.cxr-dot').length == 2`), '在聊天设置里改：只记在这个聊天，全局不变；改过的两项旁边有小点');
   sys = await E(`core.sysCtx({ ch: _c })`); const sysG = await E(`core.sysCtx()`);
   ok(!/不是酒神/.test(sys) && /小剧场条目/.test(sys) && /不是酒神/.test(sysG) && !/小剧场条目/.test(sysG), '这个聊天的提示词按它自己的：不带群聊、带小剧场；别的聊天照全局');
   await E(`document.querySelector('.cxr-dot[data-c=rtag]').click()`); await W(100);

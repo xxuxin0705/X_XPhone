@@ -1,6 +1,6 @@
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'voice-v2 · 10-31 · 24';
+export const VER = 'voice-v2 · 10-31 · 25';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -761,9 +761,15 @@ export const TAGS0 = { content: 'keep', thinking: 'drop' };
 const FMT = new Set('br b i u s em strong span p div font small big center sub sup hr ruby rt rp a q blockquote ul ol li h1 h2 h3 h4 h5 h6 mark del ins code pre table tr td th tbody thead img details summary nl'.split(' '));
 const reX = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // 这个聊天（不传就是全局）的规则：{ tags: { 标签小写: 'keep' | 'drop' }, wi: (书, 条目 uid?) => 发不发 }
-export function ctxRules(ch) { const g = S.ctxR ||= { tags: { ...TAGS0 }, wiOff: {} }, o = ch?.cfg?.ctx || {}, tags = { ...g.tags, ...(o.tags || {}) };
-  const on = k => (o.wi || {})[k] ?? !g.wiOff[k];
-  return { tags, keep: Object.keys(tags).filter(k => tags[k] == 'keep'), wi: (b, u) => on(b) && (u == null || on(b + '/' + u)) }; }
+// 世界书：每条默认跟酒馆里那条自己的开关（ST 里关掉的条目默认就是不勾），整本默认勾着；全局 S.ctxR.wi / 聊天 ch.cfg.ctx.wi 里记的是跟默认不一样的（1 勾 / 0 不勾）
+export function ctxRules(ch) { const g = ctxG(), o = ch?.cfg?.ctx || {}, tags = { ...g.tags, ...(o.tags || {}) };
+  const on = (k, def) => (o.wi || {})[k] ?? g.wi[k] ?? def;
+  return { tags, keep: Object.keys(tags).filter(k => tags[k] == 'keep'), wi: (b, u, dis) => on(b, true) && (u == null || on(b + '/' + u, !dis)), wiG: (k, def) => g.wi[k] ?? def }; }
+// 全局设置（旧版的 wiOff「勾掉的」、S.wi.ov = 0「关」：搬成 wi[k] = 0）
+export function ctxG() { const g = S.ctxR ||= { tags: { ...TAGS0 }, wi: {} }; g.wi ||= {};
+  if (g.wiOff) { for (const k in g.wiOff) g.wi[k] = 0; delete g.wiOff; }
+  const ov = S.wi?.ov || {}; for (const k in ov) if (ov[k] === 0 || ov[k] === '0') { g.wi[k] = 0; delete ov[k]; }
+  return g; }
 // 一条正文 → 给模型看的样子
 export function body(mes, R = ctxRules()) {
   let s = String(mes || '').replace(/<br\s*\/?>/gi, '\n'); const keep = R.keep.filter(k => k != '!--'), kc = R.keep.includes('!--');
@@ -791,7 +797,7 @@ export async function wiBooks() { if (!S.wi.follow) return S.wi.books; const m =
 const BC = {};
 export const loadBook = async n => { const c = C(), h = BC[n]; if (h && Date.now() - h.t < 6e4) return h.d; try { return (BC[n] = { t: Date.now(), d: c.loadWorldInfo ? await c.loadWorldInfo(n) : await (await fetch('/api/worldinfo/get', { method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ name: n }) })).json() }).d; } catch { return null; } };
 export const entState = (b, e, ctx) => { const o = S.wi.ov[b + '/' + e.uid]; return o != null ? !!o : !e.disable && (e.constant || (e.key || []).some(k => k && ctx.includes(k))); };
-export async function wiText(ctx, ch) { const o = [], R = ctxRules(ch); for (const b of await wiBooks()) { if (!R.wi(b)) continue; for (const e of Object.values((await loadBook(b))?.entries || {})) R.wi(b, e.uid) && entState(b, e, ctx) && o.push(e.content); } return o.join('\n\n'); } // 整本 / 条目勾掉的不发（全局、这个聊天各自能勾）
+export async function wiText(ctx, ch) { const o = [], R = ctxRules(ch); for (const b of await wiBooks()) { if (!R.wi(b)) continue; for (const e of Object.values((await loadBook(b))?.entries || {})) { if (!R.wi(b, e.uid, e.disable)) continue; const v = S.wi.ov[b + '/' + e.uid]; (v != null ? !!v : e.constant || (e.key || []).some(k => k && ctx.includes(k))) && o.push(e.content); } } return o.join('\n\n'); } // 勾着的：常驻的一直发、关键词的提到才发；勾掉的不发（全局、这个聊天各自能勾） // 整本 / 条目勾掉的不发（全局、这个聊天各自能勾）
 // 上下文长度预算：sysCtx() 完整；sysCtx(true) 精简（不带世界书、只取最近6条）；也可传 { n 条数, rc 正文字数, wi 世界书字数, desc 角色卡字数, ch 哪个聊天（用它的正文标签 / 世界书设置）, skip 最新的几条不放（打电话另外放了） } 自定
 const cut = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
 export async function sysCtx(o) {

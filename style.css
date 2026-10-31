@@ -1743,7 +1743,7 @@ html{min-height:100%;min-height:100dvh}
 .hbs-in{text-align:left!important;flex:1 1 0!important;width:0!important}
 /* 聊天设置 · 基本信息：头像 + 备注 / 昵称一组，其余标签在上、内容在下，整段显示不截断 */
 .ci-top{display:flex;align-items:center;gap:14px;padding:4px 16px 8px}
-.ci-av{flex:none;cursor:pointer}.ci-av img{display:block;width:var(--cav,64px);height:var(--cav,64px);border-radius:14px;object-fit:cover}
+.ci-av{flex:none;cursor:pointer}.ci-av img{display:block;width:72px;height:72px;border-radius:14px;object-fit:cover}
 .ci-nm{flex:1;min-width:0;display:flex;flex-direction:column}
 .ci{display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:11px 16px;position:relative;cursor:text}
 .ci-l .ci+.ci::before,.ci-l::before{content:'';position:absolute;left:16px;right:16px;top:0;border-top:.5px solid rgba(127,127,127,.16)}.ci-l{position:relative}
@@ -2181,3 +2181,9 @@ html{min-height:100%;min-height:100dvh}
 .freem h6 .fm-on{margin-left:8px;padding:1px 7px;border-radius:9px;font-style:normal;font-size:calc(11px*var(--fz,1));background:var(--ac);color:#fff;vertical-align:1px}
 .freem .fm-l a.lnk{margin-left:auto;margin-right:14px}
 .freem .lp-st{flex:none;margin-right:14px;opacity:.55}
+/* 回复设置的双滑块：原生按钮透明（只当触摸区，酒馆主题给它加的黑框也就看不见了），白色圆钮由 .r2-n 画，数字在钮里 */
+#stp .r2-t input[type=range]::-webkit-slider-thumb{background:transparent!important;border:0!important;box-shadow:none!important;outline:0!important}
+#stp .r2-t input[type=range]::-moz-range-thumb{background:transparent!important;border:0!important;box-shadow:none!important}
+#stp .r2-t input[type=range]:active::-webkit-slider-thumb{transform:none}
+.r2-n{top:2px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.16),0 0 0 .5px rgba(0,0,0,.06);font-size:calc(11.5px*var(--fz,1));transition:transform .14s var(--ease-out,ease)}
+.r2-t:active .r2-n{transform:scale(1.08)}
