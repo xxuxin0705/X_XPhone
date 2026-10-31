@@ -5,7 +5,7 @@
 // - 外语：TA 的话写成 「原话」（中文意思），跟正文里的写法一样（模型最熟）；「」里念出来，（）里只做字幕
 // - 念之前检查语言：设成日语就必须是日语，混进中文的句子先翻成日语再念（酒馆自带的免费翻译，不花 API），绝不让日语音色硬念汉字
 // - （笑）（叹气）（小声）这类写在话里的声音 → Fish Audio S2 的 [laughing] 等标记；别的服务商就去掉
-import { S, now, rn, say, meObj, sysCtx, mt, forgot, prof, voiceOf, body, ctxRules, floors } from '../../core.js';
+import { S, C, now, rn, say, meObj, wiText, mt, forgot, prof, voiceOf, body, ctxRules, floors } from '../../core.js';
 import { mp } from '../../mods.js';
 import { lname } from './data.js';
 import { stLabel } from './status.js';
@@ -16,8 +16,12 @@ const hm = d => `${d.getMonth() + 1} 月 ${d.getDate()} 日 ${d.getHours()}:${St
 const ago = ms => { const m = Math.round(ms / 6e4); return m < 2 ? '刚刚' : m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.round(m / 60)} 小时前` : `${Math.round(m / 1440)} 天前`; };
 
 /* ---------- 背景：拨号时算一次 ---------- */
-// 大头（人设、世界书、正文剧情）：跟私聊回复用的是同一套，只是正文少带几条，起手快一点
-export const base = ch => sysCtx({ ch, n: 2, skip: 2 }); // 正文：最新两条放在【刚刚发生的】里，这里只放再往前两条（不重复）
+// 大头只带角色卡和世界书（10-31）：不带我的人设、不带更早的正文——东西越多，会思考的模型想得越久；最新两条正文、最近私聊在下面 tail 里
+// 世界书跟私聊回复同一套：勾上的条目里，常驻的 + 最新正文 / 最近私聊里提到了的
+export async function base(ch) { const c = C(), card = c.characters?.[c.characterId], sub = s => String(c.substituteParams?.(s || '') ?? s ?? '').trim();
+  let scan = ''; try { const R = ctxRules(ch); scan = [...floors(R, 2).map(m => body(m.mes, R)), ...ch.msgs.filter(m => !/sys|pat|call/.test(m.t)).slice(-12).map(say), rn(ch)].join('\n'); } catch { }
+  const wi = await wiText(scan, ch).catch(() => '');
+  return `【角色卡】${c.name2 || ''}\n${[sub(card?.description), sub(card?.personality)].filter(Boolean).join('\n')}${wi ? `\n【世界书】\n${sub(wi)}` : ''}`; }
 // 电话专属的一小段：此刻、最近私聊、记住的旧电话、怎么说话、语言。L 是这通电话 TA 说的语言（中途换了就重算，很便宜）
 export function tail(ch, A, L) {
   const me = meObj(), I = me.nick, who = rn(ch), d = now(), vid = A.kind == 'video';
@@ -31,6 +35,7 @@ export function tail(ch, A, L) {
     + (chat ? `\n【最近的私聊】\n${chat}` : '') + (calls ? `\n【之前的电话】（只当背景，一切以最新剧情为准；可以顺嘴提一句）\n${calls}` : '')
     + `\n【说话】${mp('chat.call', { 对方: who, 我: I })}电话里的话都是说出口的：没有动作描写、旁白、表情符号。想说多少说多少，一句也行，一大段也行。笑、叹气、压低声音可以写成（笑）（叹气）（小声）放在那句话里，会被念出来；别的动作不写。`
     + (L ? `\n【语言】${who}只说${lname(L)}，一个中文词都不夹。每句话写在「」里，后面紧跟（这句话的中文意思）：\n「${lname(L)}原话」（中文意思）` : '\n【语言】全部用简体中文说。')
+    + `\n${I}的话是语音识别转出来的字，可能有同音的错字，按意思理解就好，不用纠正。`
     + `\n${I}说要走了（再见、晚安、去睡了、去忙了）就道个别，最后单独一行写 [挂断]。`;
 }
 
@@ -39,7 +44,7 @@ export function tail(ch, A, L) {
 export function messages(ch, A, L, o = {}) {
   const I = meObj().nick, who = rn(ch), M = [], add = (role, t) => { if (!t) return; const l = M.at(-1); l?.role == role ? (l.content += '\n' + t) : M.push({ role, content: t }); };
   for (const x of A.log.slice(-30)) x.f == 'me' ? add('user', x.t) : add('assistant', L ? `「${x.t}」${x.tr ? `（${x.tr}）` : ''}` : x.t);
-  if (o.open) add('user', `（${I}打来的电话，你刚接起来。）`); // 只交代场景，不提「喂」——提了小模型反而照着说
+  if (o.open) add('user', `（${I}打来的电话，你刚接起来。像真人接电话那样，先说一两句，然后等${I}开口。）`); // 只交代场景，不提「喂」——提了小模型反而照着说；开场只说一两句（后面聊天不限长短）
   else if (o.nudge) add('user', `（${I}那边安静了 ${o.nudge} 秒，没出声。）`);
   else if (o.story) add('user', `${o.said}（${I}想听这个故事。现在是睡前，${I}躺着听：用你自己的口吻慢慢讲一个完整的故事，大约 1500 字，句子短、适合念出来，中间可以轻轻跟${I}说一两句，结尾慢慢收住、道晚安。）`);
   else if (o.au) add('user', `（这段录音是${I}刚说的话。第一行先写 HEARD: 后面照录音写下${I}的原话（笑、叹气写在括号里，听不清写 HEARD: ?），然后另起一行开始回。）`);

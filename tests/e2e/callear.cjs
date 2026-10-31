@@ -11,6 +11,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 假麦克风：一个持续的「嗡」声，音量由 window._loud 控制（0 = 安静，1 = 在说话）
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar2 = 'model'; core.S.callNudge = false; window._P = []; window._loud = 0; window._gum = 0;
+    // 认出来的话要我点「发送」才发（10-31）：这里测的是别的，像真人一样替我点——认完的字 1.2 秒没再变、我也没在说，就点
+    window._pt = null; window._pa = 0; setInterval(() => { const b = document.querySelector('[data-k=psend]'), t = cl.inCall()?.pend?.t; if (!b || cl.inCall()?.sending) { _pt = null; return; } if (t != _pt) { _pt = t; _pa = Date.now(); return; } if (Date.now() - _pa > 1200 && !cl.inCall().earObj?.on) b.click(); }, 100);
     navigator.mediaDevices.getUserMedia = async c => { _gum++; const X = new AudioContext(), o = X.createOscillator(), g = X.createGain(), d = X.createMediaStreamDestination(); o.frequency.value = 220; o.connect(g); g.connect(d); o.start(); g.gain.value = 0; setInterval(() => { g.gain.value = _loud * .5 + .0005; }, 20); window._mic = c; return d.stream; };
     window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); if (_mode == 'r429' && !window._thrown) { window._thrown = 1; throw Error('HTTP 429 {"error":{"message":"您已达到请求数限制：1分钟内最多请求3次 (request id: abc)"}}'); } return /想听这个故事/.test(s) ? '从前，森林里住着一只小狐狸。\\n它每天晚上都会抬头数星星。\\n数着数着，它就睡着了。\\n晚安，做个好梦。' : /刚接起来/.test(s) ? '喂？' : _mode == 'fix' && /行好累/.test(s) ? 'FIX: 心好累啊\\n怎么啦，今天很辛苦吗？' : _mode == 'bye' ? 'HEARD: 我要睡了，晚安\\n好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
     delete window.webkitSpeechRecognition;
@@ -72,6 +74,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(part == '我是' && await E(`cl.inCall().ph == 'rec'`), '边说边出字：说到一半（停顿 0.2 秒以上）先认出前一段「' + part + '」，还在听');
   await W(700); await E(`_loud = 0`); await W(2600);
   ok(ASR.length >= 2 && /name="prompt"[\s\S]*我是/.test(ASR[1]) && /TeleSpeech|SenseVoice/.test(ASR[0]), '每段单独送去认，后一段带着前面认出来的字（prompt 续接） n=' + ASR.length);
+  await p.waitForFunction(`_P.length > ${n0s}`, null, { timeout: 6000 }).catch(() => { }); await W(300);
   const lp = await E(`JSON.stringify(_P.at(-1))`);
   ok(await E(`_P.length`) == n0s + 1 && /我是螃蟹/.test(lp) && !/audio_url/.test(lp), '说完：整句「我是螃蟹」当文字发给 TA，不带录音');
   ok(/我是螃蟹/.test(await E(`document.querySelector('.xc-tx').innerText`)), '字幕里是认出来的整句');
@@ -89,11 +92,12 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pstory]').click()`); await W(6500);
   ok(await E(`_P.length == _s0`) && /想听什么故事/.test(await E(`document.querySelector('.xc-tx').innerText`)), '枕边故事：接通后 TA 先问「想听什么故事」（没调用模型）');
   await p.waitForFunction(`/想听什么故事？直接说/.test(document.querySelector('.xc-ph')?.textContent || '')`, null, { timeout: 8000 }).catch(() => { }); await W(500);
-  await E(`_loud = 1`); await W(1100); await E(`_loud = 0`); await W(3000);
+  await E(`_loud = 1`); await W(1100); await E(`_loud = 0`); await p.waitForFunction(`_P.length > _s0`, null, { timeout: 8000 }).catch(() => { }); await W(300);
   ok(/在讲故事|在想故事/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态：在讲故事');
   await W(9000);
   const sp = await E(`JSON.stringify(_P.at(-1))`);
   ok(await E(`_P.length == _s0 + 1`) && /讲个小狐狸的故事（.{0,12}想听这个故事/.test(sp) && /1500 字/.test(sp), '我说一句想听什么 → 只发了一次请求，让 TA 讲 1500 字左右 n=' + (await E(`_P.length - _s0`)) + ' ' + (sp.match(/讲个小狐狸的故事|安静了 \\d+ 秒/g) || []).join(','));
+  await p.waitForFunction(`/晚安/.test(document.querySelector('.xc-tx')?.innerText || '')`, null, { timeout: 15000 }).catch(() => { });
   ok(/小狐狸/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /晚安/.test(await E(`document.querySelector('.xc-tx').innerText`)), '故事一句一句念出来（字幕里有）');
   await p.waitForFunction(`/讲完啦/.test(document.querySelector('.xc-ph')?.textContent || '')`, null, { timeout: 20000 }).catch(() => { });
   await E(`cl.inCall().idleAt = performance.now() - 31e3`); await W(1500);
@@ -103,7 +107,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(() => { core.S.callEar2 = 'sf'; core.S.callNudge = true; _mode = ''; })()`); asrNext = '在干嘛呀';
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6000);
   await E(`cl.inCall().idleAt = performance.now() - 6e3`); const nz0 = await E(`_P.length`); asrDelay = 2600;
-  await E(`_loud = 1`); await W(1000); await E(`_loud = 0`); await W(6500);
+  await E(`_loud = 1`); await W(1000); await E(`_loud = 0`); await W(6500); await p.waitForFunction(`_P.length > ${nz0}`, null, { timeout: 6000 }).catch(() => { });
   const nzP = await E(`_P.slice(${nz0}).map(o => JSON.stringify(o))`);
   ok(nzP.length >= 1 && !/没出声/.test(nzP.join('')) && /在干嘛呀/.test(nzP[0]), '我开口后识别慢、认完正好满 8 秒：不会先冒出「还在吗」追问，发出去的就是我说的话 n=' + nzP.length);
   await E(`core.S.callNudge = false; cl.inCall()?.hang?.()`); await W(400); asrDelay = 150; asrNext = null;
@@ -118,7 +122,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   asrNext = 'こんにちは、元気？'; await E(`(() => { core.S.callEar2 = 'local'; core.S.callLang = 'ja-JP'; core.S.callAsr = { key: 'sk-test' }; _mode = ''; })()`);
   await dial(); await W(6000);
   ok(await E(`cl.inCall().ear == 'sf' && cl.inCall().earBack == 'local' && /硅基识别/.test(document.querySelector('.xc-lang').textContent) && /日语/.test(document.querySelector('.xc-lang').textContent)`), '我说日语（没装日语包）：自动用云端识别（硅基流动），中文以后还用本地');
-  const j0 = await E(`_P.length`), a0 = ASR.length; await E(`_loud = 1`); await W(1200); await E(`_loud = 0`); await W(2600);
+  const j0 = await E(`_P.length`), a0 = ASR.length; await E(`_loud = 1`); await W(1200); await E(`_loud = 0`); await W(2600); await p.waitForFunction(`_P.length > ${j0}`, null, { timeout: 6000 }).catch(() => { });
   ok(ASR.length > a0 && await E(`_P.length`) == j0 + 1 && /こんにちは/.test(await E(`JSON.stringify(_P.at(-1))`)), '说日语：云端认出来的日语整句发给 TA');
   await E(`document.querySelector('.xc [data-k=inl]').click()`); await W(300);
   ok(/云端识别/.test(await E(`document.querySelector('.sheet.in')?.textContent || ''`)) && /中文 · 本地/.test(await E(`document.querySelector('.sheet.in')?.textContent || ''`)), '「我说」菜单里写着每种语言用什么认（中文本地、日语云端）');

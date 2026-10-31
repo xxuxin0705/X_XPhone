@@ -25,7 +25,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 第一句慢：一直响，不让我先说
   await W(9000); await shot('ring');
   ok(await E(`cl.inCall().st == 'dial' && _P.length == 1 && !cl.inCall().lines.length`), '第一句想了 9 秒还没好：还在响铃，没有先接起来让我说，开场白那次请求也没被取消');
-  ok(/在想第一句/.test(await E(`document.querySelector('.xc-ph')?.textContent || ''`)), '响铃界面写着 TA 在想第一句（几秒），不像卡住了 ' + await E(`document.querySelector('.xc-ph')?.textContent || ''`));
+  ok(!/在想/.test(await E(`document.querySelector('.xc').innerText`)), '响铃界面只响铃，不写「在想第一句」');
   await p.waitForFunction(`cl.inCall()?.st == 'talk'`, null, { timeout: 8000 }).catch(() => { }); await W(300);
   ok(await E(`cl.inCall().st == 'talk' && cl.inCall().lines[0]?.f == 'c' && /どうした/.test(cl.inCall().lines[0].t) && cl.inCall().log[0]?.f == 'c'`), '第一句好了才接通：接起来第一句是 TA 说的');
   await W(2000);
@@ -43,6 +43,17 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(['もしもーし。', '何、桃？', 'ほんとに。', '桃だからピーチ？'].every(x => all.includes(x)) && all.indexOf('もしもーし') < all.indexOf('ほんとに') && all.indexOf('ほんとに') < all.indexOf('ピーチ'), '每一句都按顺序送去念了');
   ok(said[0] == 'もしもーし。' && said.length < 10, `第一句单独先念（越短越快出声）；后面还没轮到的短句并成一次合成：10 小句只合成了 ${said.length} 次 ` + JSON.stringify(said));
   ok(peak >= 2 && peak <= 4, '后面几句提前一起合成（最多同时 4 句，不排队干等）：同时最多 ' + peak);
+  // 发给模型的：开场白只说一两句；背景不带我的人设；告诉 TA 我的话是语音识别的
+  ok(await E(`(() => { const o = JSON.parse(_P[0]); return /先说一两句/.test(o.prompt) && /【角色卡】/.test(o.systemPrompt) && !/【用户】|再往前/.test(o.systemPrompt) && /同音的错字/.test(o.systemPrompt); })()`), '开场白：像真人接电话先说一两句；背景只带角色卡和世界书（不带我的人设）；告诉 TA 我的话是语音识别的、可能有同音错字');
+  // 认出来的话先给我看：说完先不发 → 点那行字改 → 点「发送」才发，发的是改好的
+  await E(`window.webkitSpeechRecognition = class { start() { const me = this; setTimeout(() => me.onresult?.({ results: [Object.assign([{ transcript: '我在吃火过' }], { isFinal: true })] }), 100); } abort() {} stop() {} }`);
+  await E(`document.querySelector('.xc [data-k=kb]').click()`); await W(200); const k0 = await E(`_P.length`);
+  await E(`document.querySelector('[data-k=talk]').click()`); await W(700); await E(`document.querySelector('[data-k=done]').click()`); await W(1500); await shot('pend');
+  ok(await E(`_P.length == ${k0} && /我在吃火过/.test(document.querySelector('.xc-tx p.pend')?.textContent || '') && /发送/.test(document.querySelector('[data-k=psend]')?.textContent || '') && /点「发送」/.test(document.querySelector('.xc-ph').textContent)`), '说完先不发：认出来的字停在字幕里，下面「发送」「重说」，状态行告诉我对就点发送、错了点字改');
+  await E(`document.querySelector('.xc-tx p.pend').click()`); await W(200); await E(`(() => { const i = document.querySelector('.xc-fix input'); i.value = '我在吃火锅'; document.querySelector('.xc-fix [data-f=y]').click(); })()`); await W(200);
+  ok(await E(`_P.length == ${k0} && /我在吃火锅/.test(document.querySelector('.xc-tx p.pend')?.textContent || '')`), '点那行字改成对的：改完还没发');
+  await E(`document.querySelector('[data-k=psend]').click()`); await p.waitForFunction(`_P.length > ${k0}`, null, { timeout: 5000 }).catch(() => { });
+  ok(await E(`(() => { const o = JSON.parse(_P.at(-1)); return /我在吃火锅/.test(o.prompt) && !/火过/.test(o.prompt); })()`), '点「发送」：发给 TA 的是改好的那句');
   ok(!errs.length, '没有报错 ' + errs.join(' | '));
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(300);
   console.log(`\n${pass} passed, ${fail} failed`); await b.close(); srv.close(); process.exit(fail ? 1 : 0);

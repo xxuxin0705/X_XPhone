@@ -22,7 +22,11 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 记下说话时字幕里冒出来的字（看是不是边说边出）
   await E(`setInterval(() => { const t = document.querySelector('.xc-tx .ing .xc-pt')?.textContent; t && _parts.at(-1) != t && _parts.push(t); }, 100)`);
   // 假麦克风的录音是循环放的，可能从半句开始听到：等一次从头听到的（字幕里出现过「这是第一种」）再看
-  await p.waitForFunction(`_parts.some(t => /这是第一种/.test(t)) && _P.some(x => /校对版/.test(x))`, null, { timeout: 60000 }).catch(() => { });
+  await p.waitForFunction(`_parts.some(t => /这是第一种/.test(t)) && /校对版/.test(document.querySelector('.xc-tx p.pend')?.textContent || '')`, null, { timeout: 60000 }).catch(() => { });
+  // 认出来的话先放在字幕里给我看（不自己发），下面「发送」
+  ok(await E(`!_P.some(x => /校对版/.test(x)) && !!document.querySelector('[data-k=psend]') && /发送/.test(document.querySelector('[data-k=psend]').textContent)`), '认完先不发：认出来的话停在字幕里给我看，下面一个「发送」');
+  await E(`document.querySelector('[data-k=psend]').click()`);
+  await p.waitForFunction(`_P.some(x => /校对版/.test(x))`, null, { timeout: 20000 }).catch(() => { });
   ok(/本地识别/.test(await E(`document.querySelector('.xc-lang')?.textContent || ''`)), '默认用「本地识别」');
   const parts = await E(`_parts.slice(_parts.findIndex(t => t.length < 6 && _parts.slice(_parts.indexOf(t)).some(u => /这是第一种/.test(u))))`), sent = await E(`_P.find(x => /校对版/.test(x)) || ''`); await shot('done');
   console.log('PARTS', JSON.stringify(parts)); ok(parts.length >= 3 && parts.some(t => t.length < 6) && parts.some(t => /第一种/.test(t)), '边说边出字：字幕里一点一点冒出来 ' + JSON.stringify(parts.slice(0, 6)));

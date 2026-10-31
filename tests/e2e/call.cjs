@@ -77,16 +77,18 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(900);
   ok(await E(`document.querySelector('.xc-tx .ing')?.textContent`) == '你在干嘛呀' && await E(`_srN`) >= 2 && /说完了/.test(await E(`document.querySelector('.xc-ctl').textContent`)), '说话时实时上屏；识别自己停了接着听、拼起来 ' + await E(`document.querySelector('.xc-tx .ing')?.textContent`));
   ok(!/你在干嘛呀/.test(await E(`_P.at(-1)`)), '没点「说完了」之前不会发给对方');
-  await E(`document.querySelector('.xc-pill[data-k=done]').click()`); await W(2500);
-  ok(/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在发呆呢/.test(await E(`document.querySelector('.xc-tx').innerText`)), '点「说完了」：发给对方，字幕里有我说的和 TA 回的');
+  await E(`document.querySelector('.xc-pill[data-k=done]').click()`); await W(400);
+  ok(!/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx p.pend')?.textContent || ''`)), '点「说完了」：认出来的话先停在字幕里给我看，还没发');
+  await E(`document.querySelector('[data-k=psend]').click()`); await W(2500);
+  ok(/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在发呆呢/.test(await E(`document.querySelector('.xc-tx').innerText`)), '再点「发送」：发给对方，字幕里有我说的和 TA 回的');
   ok(/在想|点这里说|正在说/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态行有字');
-  ok(/再往前2条/.test(await E(`_P.at(-1)`)) && /【世界书】/.test(await E(`_P.at(-1)`)), '背景：人设、世界书、正文（最新两条在【刚刚发生的】，这里只放再往前两条，不重复；拨号时算一次）');
+  ok(await E(`(() => { const s = JSON.parse(_P.at(-1)).systemPrompt; return /【角色卡】/.test(s) && !/【用户】|再往前|你是“小手机”模拟器/.test(s); })()`), '背景只带角色卡、世界书（勾上的、提到了的）（最新两条正文在后面【刚刚发生的】）：不带我的人设、不带更早的正文 ' + await E(`JSON.parse(_P.at(-1)).systemPrompt.slice(0, 300)`));
   // 常驻前缀整场不变：两轮的系统提示一字不差，只有这通电话的对话在变
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '没事'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(2500);
   ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt) && /【此刻】/.test(b.systemPrompt) && /想说多少说多少/.test(b.systemPrompt) && !/刚刚说|最要紧|别有 AI 味|1～3 句|SAY:/.test(b.systemPrompt + b.prompt); })()`), '两轮之间系统提示完全一样（缓存能命中），只有对话在变；规矩只剩几条，没有「刚刚说 / 最要紧 / 1～3 句」');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400);
   // 自动接话（照 StarHub 示例，默认）+ 酒馆当前连接也走流式 + 字幕跟着声音一个字一个字出 + 发的是真正的多轮对话
-  await E(`(() => { core.S.callAuto = true; window._P0 = _P.length; window._D = []; window._busy = []; window._say = '我是螃蟹'; window._srN = 0;
+  await E(`(() => { core.S.callAuto = true; window._P0 = _P.length; window._D = []; window._busy = []; window._say = '我是螃蟹'; window._srN = 0; window._as = setInterval(() => document.querySelector('[data-k=psend]')?.click(), 200); /* 认出来的话要点「发送」才发：这段测的是别的，替我点 */
     window.webkitSpeechRecognition = class { start() { const me = this; _srN++; const t = _say; _say = ''; t && setTimeout(() => { me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: false })] }); setTimeout(() => me.onresult?.({ results: [Object.assign([{ transcript: t }], { isFinal: true })] }), 150); }, 200); } abort() {} stop() {} };
     const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'makersuite', openai_max_tokens: 500, temp_openai: 1, reasoning_effort: 'high' }; X.getChatCompletionModel = () => 'gemini-test';
     X.ChatCompletionService = { processRequest: async d => { _D.push(d); _busy.push(!!cl.inCall()?.rec); return async function* () { yield { text: '好，' }; await new Promise(r => setTimeout(r, 400)); yield { text: '好，那现在开始吧。' }; }; } }; })()`);
@@ -97,10 +99,10 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`_D[0].stream === true && _D[0].reasoning_effort == 'min' && _D[0].chat_completion_source == 'makersuite' && _D[0].model == 'gemini-test' && _P.length == _P0`), '酒馆当前连接（聊天补全）也走流式：同一个来源和模型、低思考，不再走不能流式的 generateRaw');
   ok(/自动接话/.test(await E(`document.querySelector('.xc-lang').textContent`)), '下面有「自动接话」开关');
   await p.waitForFunction(`_D.length >= 2`, null, { timeout: 12000 }).catch(() => { });
-  ok(await E(`_D.length == 2 && _D[1].messages.map(m => m.role).join() == 'system,user,assistant,user' && _D[1].messages.at(-1).content == '我是螃蟹' && /好，那现在开始吧/.test(_D[1].messages[2].content)`), 'TA 第一句说完自动开麦，我说完停 1.2 秒就自动发给 TA；发的是真正的多轮对话（我 user / TA assistant，最后一条就是我刚说的） ' + await E(`JSON.stringify(_D[1]?.messages?.slice(1))`));
+  ok(await E(`_D.length == 2 && _D[1].messages.map(m => m.role).join() == 'system,user,assistant,user' && _D[1].messages.at(-1).content == '我是螃蟹' && /好，那现在开始吧/.test(_D[1].messages[2].content)`), 'TA 第一句说完自动开麦，我说完停 1.2 秒认完、点「发送」就发给 TA；发的是真正的多轮对话（我 user / TA assistant，最后一条就是我刚说的） ' + await E(`JSON.stringify(_D[1]?.messages?.slice(1))`));
   ok(await E(`_busy.every(x => !x)`), '半双工：TA 想的时候麦是关着的（不会把外放的声音录进去）');
   await W(2500); ok(/好，那现在开始/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), 'TA 回完又自动开始听：状态「在听…」');
-  await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
+  await E(`clearInterval(_as); document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`(() => { delete window.webkitSpeechRecognition; const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
   // 中转站（自定义接口）：酒馆不给别的模型名转 reasoning_effort → 低思考要塞进「附加请求体」，按模型名挑开关；接口不认就去掉重发
   await E(`(() => { window._D = []; window._rej = 1; const X = SillyTavern.getContext(); X.mainApi = 'openai'; X.chatCompletionSettings = { chat_completion_source: 'custom', custom_url: 'https://relay.test/v1', custom_include_body: 'top_p: 0.9', openai_max_tokens: 500, temp_openai: 1 }; X.getChatCompletionModel = () => 'gemini-3.8-flash';
     X.ChatCompletionService = { processRequest: async d => { _D.push(d); if (_rej && /reasoning_effort/.test(d.custom_include_body || '')) { _rej = 0; throw Error('HTTP 400: Unrecognized request argument: reasoning_effort'); } return async function* () { yield { text: '喂？' }; }; } }; })()`);
@@ -134,7 +136,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await p.waitForFunction(`/一点声音都没收到/.test(document.querySelector('.xc-dg')?.textContent || '')`, null, { timeout: 15000 }).catch(() => { }); await shot('diag');
   ok(/一点声音都没收到/.test(await E(`document.querySelector('.xc-dg')?.textContent || ''`)), '没出字时显示卡在哪一步：' + await E(`document.querySelector('.xc-dg')?.textContent || ''`));
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition`);
-  // TauriTavern：App 没有录音权限 → 不开浏览器识别，轮到我就弹出输入框，用输入法的话筒说；字停 1.8 秒自动发
+  // TauriTavern：App 没有录音权限 → 不开浏览器识别，轮到我就弹出输入框，用输入法的话筒说；看过按发送才发
   await E(`(() => { window.__TAURI__ = {}; window._srN = 0; window.webkitSpeechRecognition = class { start() { _srN++; } abort() {} stop() {} }; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return '喂？'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500); await shot('tauri');
   ok(await E(`/键盘上的🎤/.test(document.querySelector('.xc-kb input')?.placeholder || '') && /键盘上的🎤/.test(document.querySelector('.xc-ph').textContent) && /没有给网页麦克风权限/.test(document.querySelector('.xc-hint')?.textContent || '') && !document.querySelector('.xc-pill') && _srN == 0`), 'Tauri：拿不到麦克风 → 说实话：「点下面的框，按键盘上的🎤说话」，并说明为什么（不写「在听…」骗人）');
@@ -142,7 +144,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`document.querySelector('.xc-ph').textContent == '在听…'`), '框里有焦点（键盘开着）才显示「在听…」');
   await E(`(() => { const i = document.querySelector('.xc-kb input'); i.value = '我在吃火锅'; i.dispatchEvent(new Event('input')); })()`); await W(900);
   ok(!/我在吃火锅/.test(await E(`_P.at(-1)`)), '输入法还在写字时不发');
-  await W(1500); ok(/我在吃火锅/.test(await E(`_P.at(-1)`)), '字停 1.8 秒自动发给 TA（不用点「说」）');
+  await W(1500); ok(!/我在吃火锅/.test(await E(`_P.at(-1)`)), '字停下来也不自己发：先看一眼认得对不对');
+  await E(`_kb.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))`); await W(300); ok(/我在吃火锅/.test(await E(`_P.at(-1)`)), '按键盘上的「发送」才发给 TA');
   await W(2500); ok(await E(`document.querySelector('.xc-kb input') === _kb && document.activeElement === _kb && _kb.value == ''`), '发完、TA 回完：还是同一个输入框、焦点没丢（输入法的语音面板不会被关掉）');
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`delete window.webkitSpeechRecognition; delete window.__TAURI__`);
   // 收藏

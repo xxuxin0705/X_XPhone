@@ -2157,6 +2157,7 @@ html{min-height:100%;min-height:100dvh}
 .xc-tx em{display:block;margin-top:2px;font-style:normal;font-size:calc(13px*var(--fz,1));opacity:.75}
 /* 通话：点这里说 / 说完了；想了几秒；提示 */
 .xc-talk{display:flex;gap:10px;justify-content:center;margin-bottom:4px}
+.xc-mid.pl .xc-tx{max-height:calc(30vh - 76px)} /* 下面多一排按钮（发送 / 重说…）：字幕让出来，不压到按钮上 */
 .xc-pill{display:inline-flex;align-items:center;gap:8px;min-width:150px;justify-content:center;padding:12px 22px;border-radius:26px;background:rgba(255,255,255,.92);color:#111;font-weight:500;font-size:calc(16px*var(--fz,1));cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform 120ms var(--ease-out),background .2s}
 .xc-pill:active{transform:scale(.96)}.xc-pill.go{background:#07c160;color:#fff}.xc-pill.sub{min-width:0;background:rgba(0,0,0,.35);color:#fff;font-weight:400}.xc-pill.dis{opacity:.45}
 .xc-pill .xc-i.sm{width:20px;height:20px}
@@ -2179,6 +2180,7 @@ html{min-height:100%;min-height:100dvh}
 .xc-lv i:nth-child(2),.xc-lv i:nth-child(4){height:calc(4px + 10px * var(--lv))}.xc-lv i:nth-child(1),.xc-lv i:nth-child(5){height:calc(3px + 6px * var(--lv))}
 /* 通话 · 改听错的字 */
 .xc-tx p.me[data-k=fix]{cursor:pointer}
+.xc-tx p.me.pend{opacity:1}.xc-tx p.me.pend::after{content:"点字可以改";display:block;margin-top:2px;font-size:calc(11px*var(--fz,1));opacity:.6;font-style:normal}
 .xc-fix{position:absolute;left:20px;right:20px;top:38%;z-index:3;padding:14px;border-radius:14px;background:rgba(30,30,34,.92);display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
 .xc-fix small{opacity:.65;font-size:calc(12px*var(--fz,1))}
 #stp .xc-fix input{width:100%;max-width:none;box-sizing:border-box;padding:9px 12px;border:0;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;text-align:left;font-size:calc(15px*var(--fz,1))}
