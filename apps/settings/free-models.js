@@ -5,8 +5,8 @@ import { S, page, esc, uid, form, save, toast } from '../../core.js';
 
 export const FREE = [
   { k: 'zhipu', n: '智谱 BigModel', site: 'https://open.bigmodel.cn', key: 'https://bigmodel.cn/usercenter/proj-mgmt/apikeys', url: 'https://open.bigmodel.cn/api/paas/v4',
-    tip: '手机号注册就能用；Flash 系列免费，不扣钱。打电话推荐 GLM-4-Flash（不思考，回得快）',
-    models: [['glm-4-flash-250414', 'GLM-4-Flash', '最快，不思考，打电话推荐'], ['glm-4.5-flash', 'GLM-4.5-Flash', '更聪明一点'], ['glm-4.7-flash', 'GLM-4.7-Flash', '最新，最聪明（小手机会自动关掉它的思考）']] },
+    tip: '手机号注册就能用；Flash 系列免费，不扣钱。打电话推荐 GLM-4.7-Flash（小手机会关掉它的思考，回得快又不笨）',
+    models: [['glm-4.7-flash', 'GLM-4.7-Flash', '最新，最聪明，打电话推荐（小手机会自动关掉它的思考）'], ['glm-4.5-flash', 'GLM-4.5-Flash', '聪明一点'], ['glm-4-flash-250414', 'GLM-4-Flash', '最快但比较笨：打电话容易答非所问、把你的话翻译一遍']] },
   { k: 'sf', n: '硅基流动 SiliconFlow', site: 'https://cloud.siliconflow.cn', key: 'https://cloud.siliconflow.cn/account/ak', url: 'https://api.siliconflow.cn/v1',
     tip: '手机号注册；标着「免费」的模型不扣钱。同一个密钥还能用免费的语音识别（通话里的「硅基识别」）',
     models: [['Qwen/Qwen3-8B', 'Qwen3-8B', '聪明，中文好（自动关思考）'], ['THUDM/GLM-4-9B-0414', 'GLM-4-9B', '稳'], ['Qwen/Qwen2.5-7B-Instruct', 'Qwen2.5-7B', '最快']] },

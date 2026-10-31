@@ -56,10 +56,10 @@ export const flat = (ch, M) => { const I = meObj().nick, who = rn(ch); return M.
 //   unit() → u（新的一段开始；u.t 原话累计、u.tr 释义）  part(u, text)（可以拿去念的一小句）  tr(u, text)  end(u)  bye()  stop()（模型开始替我说话）
 const BYE = /[\[［]\s*挂断\s*[\]］]/, END = /[。！？!?…~～]/, CLOSE = /[。！？!?…~～」”’』）)]/;
 export function parser(pair, on, o = {}) {
-  let buf = '', st = 'out', u = null, lastU = null, cur = '', par = '', fin = false; const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let buf = '', st = 'out', u = null, lastU = null, cur = '', par = '', dp = 0, fin = false; const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const meRe = o.me ? new RegExp('^\\s*' + esc(o.me) + '\\s*[:：]') : null, whoRe = o.who ? new RegExp('^\\s*' + esc(o.who) + '\\s*[:：]') : null;
   const open = () => { u = on.unit(); u.t ||= ''; cur = ''; return u; };
-  const emit = () => { let t = cur; cur = ''; if (BYE.test(t)) { on.bye(); t = t.replace(BYE, ''); } t = t.replace(/【[^】]*】|\*[^*]*\*/g, '').replace(/^[「『“"]+|[」』”"]+$/g, '').trim(); if (!t) return; u || open();
+  const emit = () => { let t = cur; cur = ''; if (BYE.test(t)) { on.bye(); t = t.replace(BYE, ''); } t = t.replace(/【[^】]*】|\*[^*]*\*/g, '').replace(/^[「『“"]+|[」』”"]+$/g, '').trim(); if (!/[\p{L}\p{N}]/u.test(t)) return; /* 只剩标点（落单的「）」「……」）：没什么可念的 */ u || open();
     if (whoRe && !u.t && whoRe.test(t)) t = t.replace(whoRe, '').trim(); if (meRe && !u.t && meRe.test(t)) { st = 'dead'; return on.stop(); } // 写成「我的名字：」——开始替我说话了，停
     if (!t) return; u.t += t; on.part(u, t); };
   const close = () => { cur.trim() && emit(); if (u) { lastU = u; on.end(u); u = null; } cur = ''; };
@@ -75,8 +75,8 @@ export function parser(pair, on, o = {}) {
           while (i < buf.length && CLOSE.test(buf[i]) && !/[）)]/.test(buf[i]) && !(st == 'q' && /[」』]/.test(buf[i]))) cur += buf[i++];
           const po = Math.max(cur.lastIndexOf('（'), cur.lastIndexOf('(')); if (po >= 0 && !/[）)]/.test(cur.slice(po))) continue; /* 括号没闭合：等 */ emit(); }
         continue; }
-      if (st == 'aq') { if (c == ' ' || c == '\t') { i++; continue; } if (c == '（' || c == '(') { st = 'p'; par = ''; i++; continue; } st = 'out'; continue; } // 「」后面不是（：这一段没有释义
-      if (st == 'p') { if (c == '）' || c == ')') { trTo(par); st = 'out'; i++; continue; } par += c; i++; continue; }
+      if (st == 'aq') { if (c == ' ' || c == '\t') { i++; continue; } if (c == '（' || c == '(') { st = 'p'; par = ''; dp = 0; i++; continue; } st = 'out'; continue; } // 「」后面不是（：这一段没有释义
+      if (st == 'p') { if (c == '（' || c == '(') dp++; else if ((c == '）' || c == ')') && !dp--) { dp = 0; trTo(par); st = 'out'; i++; continue; } par += c; i++; continue; } // 释义里还套着（笑）：数着括号，最外面那个）才算完
     }
     buf = buf.slice(i); };
   // 一行结束（中文；或外语模型没按「」写）：行尾的（……）当释义
