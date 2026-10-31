@@ -5,7 +5,7 @@
 // - 外语：TA 的话写成 「原话」（中文意思），跟正文里的写法一样（模型最熟）；「」里念出来，（）里只做字幕
 // - 念之前检查语言：设成日语就必须是日语，混进中文的句子先翻成日语再念（酒馆自带的免费翻译，不花 API），绝不让日语音色硬念汉字
 // - （笑）（叹气）（小声）这类写在话里的声音 → Fish Audio S2 的 [laughing] 等标记；别的服务商就去掉
-import { S, C, now, rn, say, meObj, sysCtx, mt, forgot, prof, voiceOf, body, ctxRules } from '../../core.js';
+import { S, now, rn, say, meObj, sysCtx, mt, forgot, prof, voiceOf, body, ctxRules, floors } from '../../core.js';
 import { mp } from '../../mods.js';
 import { lname } from './data.js';
 import { stLabel } from './status.js';
@@ -23,7 +23,7 @@ export function tail(ch, A, L) {
   const me = meObj(), I = me.nick, who = rn(ch), d = now(), vid = A.kind == 'video';
   const chat = ch.msgs.filter(m => !/sys|pat|call/.test(m.t)).slice(-12).map(m => `${m.f == 'me' ? I : who}: ${say(m)}`).join('\n');
   const calls = ch.msgs.filter(m => m.t == 'call' && !forgot(m) && m.log?.length).slice(-2).map(m => `${ago(d - (m.ts || 0))}打过一通（${m.c}）：${m.log.slice(-10).map(x => `${x.f == 'me' ? I : who}：${x.tr || x.t}`).join(' / ').slice(0, 260)}`).join('\n');
-  const last = (() => { try { const R = ctxRules(ch); return (C().chat || []).filter(m => !m.is_system).slice(-2).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); } catch { return ''; } })(); // 按这个聊天设的正文标签取（默认只要 content、不要 thinking）
+  const last = (() => { try { const R = ctxRules(ch); return floors(R, 2).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); } catch { return ''; } })(); // 最新两楼（按这个聊天设的正文标签、带不带我说的话）
   const st = ch.st && d - (ch.st.ts || 0) < 864e5 ? `${who}的微信状态是「${stLabel(ch.st)}${ch.st.t ? '：' + ch.st.t : ''}」。` : '';
   return `\n\n【现在】${I}给${who}打${vid ? '视频' : '语音'}电话。你就是${who}，用${who}自己的口吻说话，只说${who}的话，不替${I}说。`
     + (last ? `\n【刚刚发生的】（正文最新的几段，电话就是在这之后打来的）\n${last}` : '')

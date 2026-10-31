@@ -1,6 +1,6 @@
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'voice-v2 · 10-31 · 28';
+export const VER = 'voice-v2 · 10-31 · 29';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -760,42 +760,54 @@ export const models = async (p, t = 'chat') => {
 
 /* ---------- 剧情上下文 / 世界书 ---------- */
 /* 正文给小手机看什么（设置 → 上下文与世界书；聊天设置里每个聊天还能单独改）
-   只有一个「要」：放进「要」的标签才发（按原文顺序拼起来，同一个标签出现几次都要）；一条正文里一个「要」的标签都没有：用整条（里面别的标签整块去掉）。
-   注释 <!-- --> 当成一个叫 !-- 的标签。排版用的 HTML 标签（b、br、span…）不算，只去掉尖括号、留字。全在本地算，不调模型 */
+   「要」：放进来的标签才发，里面的东西全部照发（注释、别的标签只去掉符号、字留着），按原文顺序拼起来、同一个标签出现几次都要；
+   「不要」：在「要」的标签里面、不想发的那些（比如 content 里的草稿注释、生图提示词），整块去掉。
+   一条正文一个「要」的标签都没有：用整条（里面的自定义标签整块去掉）。注释 <!-- --> 当成一个叫 !-- 的标签。排版用的 HTML 标签（b、br、span…）只去掉尖括号、留字。
+   user：要不要带上「我」说的话（不带的话，条数只算角色那边的楼）。全在本地算，不调模型 */
 export const TAGS0 = { content: 'keep' };
 const FMT = new Set('br b i u s em strong span p div font small big center sub sup hr ruby rt rp a q blockquote ul ol li h1 h2 h3 h4 h5 h6 mark del ins code pre table tr td th tbody thead img details summary nl'.split(' '));
 const reX = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-// 这个聊天（不传就是全局）的规则：{ tags: { 标签小写: 'keep' }, wi: (书, 条目 uid?) => 发不发 }
+// 这个聊天（不传就是全局）的规则：{ tags: { 标签小写: 'keep' | 'drop' }, keep, drop, user, wi: (书, 条目 uid?, 酒馆里关着?) => 发不发 }
 // 世界书：每条默认跟酒馆里那条自己的开关（ST 里关掉的条目默认就是不勾），整本默认勾着；全局 S.ctxR.wi / 聊天 ch.cfg.ctx.wi 里记的是跟默认不一样的（1 勾 / 0 不勾）
 export function ctxRules(ch) { const g = ctxG(), o = ch?.cfg?.ctx || {}, tags = { ...g.tags, ...(o.tags || {}) };
   const on = (k, def) => (o.wi || {})[k] ?? g.wi[k] ?? def;
-  return { tags, keep: Object.keys(tags).filter(k => tags[k] == 'keep'), wi: (b, u, dis) => on(b, true) && (u == null || on(b + '/' + u, !dis)), wiG: (k, def) => g.wi[k] ?? def }; }
+  return { tags, keep: Object.keys(tags).filter(k => tags[k] == 'keep'), drop: Object.keys(tags).filter(k => tags[k] == 'drop'), user: o.user ?? g.user ?? true,
+    wi: (b, u, dis) => on(b, true) && (u == null || on(b + '/' + u, !dis)), wiG: (k, def) => g.wi[k] ?? def }; }
 // 全局设置（旧版的 wiOff「勾掉的」、S.wi.ov = 0「关」：搬成 wi[k] = 0）
-export function ctxG() { const g = S.ctxR ||= { tags: { ...TAGS0 }, wi: {} }; g.wi ||= {}; for (const k in g.tags) g.tags[k] == 'keep' || delete g.tags[k]; // 以前的「不要」去掉了：只记「要」
+export function ctxG() { const g = S.ctxR ||= { tags: { ...TAGS0 }, wi: {} }; g.wi ||= {};
   if (g.wiOff) { for (const k in g.wiOff) g.wi[k] = 0; delete g.wiOff; }
   const ov = S.wi?.ov || {}; for (const k in ov) if (ov[k] === 0 || ov[k] === '0') { g.wi[k] = 0; delete ov[k]; }
   return g; }
-// 一条正文 → 给模型看的样子
-export function body(mes, R = ctxRules()) {
-  let s = String(mes || '').replace(/<br\s*\/?>/gi, '\n'); const keep = R.keep.filter(k => k != '!--'), kc = R.keep.includes('!--');
-  for (const t of keep) s = s.replace(new RegExp(`(<${reX(t)}(?:\\s[^<>]*)?>)\\s*<!--([\\s\\S]*?)-->\\s*(</${reX(t)}\\s*>)`, 'gi'), '$1$2$3'); // 「要」的标签里整个包着注释（比如 <wechat><!-- 聊天记录 --></wechat>）：留里面的字
-  if (keep.length) { const re = new RegExp(`<(${keep.map(reX).join('|')})(?:\\s[^<>]*)?>`, 'gi'), out = []; let m;
-    while ((m = re.exec(s))) { const c = new RegExp(`</${reX(m[1])}\\s*>`, 'i'), rest = s.slice(re.lastIndex), j = rest.search(c); out.push(j < 0 ? rest : rest.slice(0, j)); if (j < 0) break; re.lastIndex += j + rest.slice(j).match(c)[0].length; }
-    out.length && (s = out.join('\n\n')); }
-  s = kc ? s.replace(/<!--|-->/g, '') : s.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
-  // 剩下的自定义标签（没放进「要」的）：整块去掉；没写结尾的思维链（写到一半断了）删到最后，其余没结尾的只去掉标记
-  for (let k = 0; k < 200; k++) { const m = s.match(/<\s*([A-Za-z_\u4e00-\u9fff][\w\u4e00-\u9fff.:-]*)(?:\s[^<>]*)?(\/?)>/g)?.map(x => x.match(/<\s*([^\s>/]+)/)[1]).find(n => !FMT.has(n.toLowerCase()) && !R.keep.includes(n.toLowerCase())); if (!m) break;
+// 「要」的标签一块块取出来（原样，里面的东西还没处理）；一个都没有 → null
+function keepBlocks(s, keep) { const ks = keep.filter(k => k != '!--'), kc = keep.includes('!--'); if (!ks.length && !kc) return null;
+  const re = new RegExp([ks.length ? `<(${ks.map(reX).join('|')})(?:\\s[^<>]*)?>` : '', kc ? '<!--' : ''].filter(Boolean).join('|'), 'gi'), out = []; let m;
+  while ((m = re.exec(s))) { const c = m[0] == '<!--' ? /-->/ : new RegExp(`</${reX(m[1])}\\s*>`, 'i'), rest = s.slice(re.lastIndex), j = rest.search(c); out.push(j < 0 ? rest : rest.slice(0, j)); if (j < 0) break; re.lastIndex += j + rest.slice(j).match(c)[0].length; }
+  return out.length ? out : null; }
+// 把某些标签整块去掉（没写结尾的：思维链删到最后，其余只去掉标记）
+function dropTags(s, names) { for (let k = 0; k < 300; k++) { const m = s.match(/<\s*([A-Za-z_一-鿿][\w一-鿿.:-]*)(?:\s[^<>]*)?(\/?)>/g)?.map(x => x.match(/<\s*([^\s>/]+)/)[1]).find(names); if (!m) break;
     const o = new RegExp(`<\\s*${reX(m)}(?:\\s[^<>]*)?\\/?>`, 'i'), i = s.search(o), L = s.slice(i).match(o)[0], rest = s.slice(i + L.length), c = rest.search(new RegExp(`</${reX(m)}\\s*>`, 'i'));
     s = /\/>$/.test(L) ? s.slice(0, i) + rest : c >= 0 ? s.slice(0, i) + rest.slice(c).replace(new RegExp(`^</${reX(m)}\\s*>`, 'i'), '') : /^(think|thinking|reasoning)$/i.test(m) ? s.slice(0, i) : s.slice(0, i) + rest; }
-  return s.replace(/<[^<>]*>/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(); }
-// 正文里出现过哪些标签（设置里「找出正文里的其他标签」用）：{ 小写名: { n 出现次数, name 原样, eg 里面的一小段 } }
-export function tagsIn(n = 20) { const o = {};
-  for (const m of (C().chat || []).filter(m => !m.is_system).slice(-n)) { const s0 = String(m.mes || ''), s = s0.replace(/<!--[\s\S]*?(?:-->|$)/g, m => ' '.repeat(m.length)); // 注释里写的 <标签> 不算
-    for (const x of s.matchAll(/<\s*([A-Za-z_\u4e00-\u9fff][\w\u4e00-\u9fff.:-]*)(?:\s[^<>]*)?>/g)) { const k = x[1].toLowerCase(); if (FMT.has(k)) continue;
-      const r = o[k] ||= { n: 0, name: x[1], eg: '' }; r.n++; if (!r.eg) { const a = s0.slice(x.index + x[0].length), j = a.search(new RegExp(`</${reX(x[1])}\\s*>`, 'i')); r.eg = (j < 0 ? a : a.slice(0, j)).replace(/<!--|-->/g, '').replace(/<[^<>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); } }
-    for (const x of s0.matchAll(/<!--([\s\S]*?)(?:-->|$)/g)) { const r = o['!--'] ||= { n: 0, name: '<!-- -->', eg: '' }; r.n++; r.eg ||= x[1].replace(/\s+/g, ' ').trim().slice(0, 60); } }
+  return s; }
+// 一个标签里整个只包着一段注释（<wechat><!-- 群聊记录 --></wechat>，预设这么写是为了在酒馆里藏起来）：算这个标签的内容，不算「注释」
+const unwrap = s => s.replace(/(<\s*([A-Za-z_\u4e00-\u9fff][\w\u4e00-\u9fff.:-]*)(?:\s[^<>]*)?>)\s*<!--([\s\S]*?)-->\s*(<\/\2\s*>)/g, '$1$3$4');
+const tidy = s => s.replace(/<[^<>]*>/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+// 一条正文 → 给模型看的样子
+export function body(mes, R = ctxRules()) {
+  let s = unwrap(String(mes || '').replace(/<br\s*\/?>/gi, '\n')); const kb = keepBlocks(s, R.keep), dc = R.drop.includes('!--');
+  if (kb) { s = kb.join('\n\n'); s = dc ? s.replace(/<!--[\s\S]*?(?:-->|$)/g, '') : s.replace(/<!--|-->/g, ''); return tidy(dropTags(s, n => R.drop.includes(n.toLowerCase()))); } // 「要」里的全部照发，只去掉「不要」的
+  s = s.replace(/<!--[\s\S]*?(?:-->|$)/g, ''); // 没有「要」的标签：整条，注释和自定义标签整块去掉
+  return tidy(dropTags(s, n => !FMT.has(n.toLowerCase()))); }
+// 正文里出现过哪些标签：{ 小写名: { n 出现次数, name 原样, eg 里面的一小段, ink 在「要」的标签里面出现了几次（「不要」下面列这些） } }
+export function tagsIn(n = 20, R = ctxRules()) { const o = {}, rec = (k, name, eg, ink) => { const r = o[k] ||= { n: 0, ink: 0, name, eg: '' }; ink ? r.ink++ : r.n++; r.eg ||= eg; };
+  const egOf = (s0, x) => { const a = s0.slice(x.index + x[0].length), j = a.search(new RegExp(`</${reX(x[1])}\\s*>`, 'i')); return (j < 0 ? a : a.slice(0, j)).replace(/<!--|-->/g, '').replace(/<[^<>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); };
+  const scan = (s0, ink) => { const s = s0.replace(/<!--[\s\S]*?(?:-->|$)/g, m => ' '.repeat(m.length)); // 注释里写的 <标签> 不算
+    for (const x of s.matchAll(/<\s*([A-Za-z_一-鿿][\w一-鿿.:-]*)(?:\s[^<>]*)?>/g)) { const k = x[1].toLowerCase(); FMT.has(k) || rec(k, x[1], egOf(s0, x), ink); }
+    for (const x of s0.matchAll(/<!--([\s\S]*?)(?:-->|$)/g)) rec('!--', '<!-- -->', x[1].replace(/\s+/g, ' ').trim().slice(0, 60), ink); };
+  for (const m of (C().chat || []).filter(m => !m.is_system).slice(-n)) { const s0 = unwrap(String(m.mes || '')); scan(s0); keepBlocks(s0, R.keep)?.forEach(b => scan(b, 1)); }
   return o; }
-export const recent = (n = S.ctxN, ch) => { const R = ctxRules(ch); return (C().chat || []).filter(m => !m.is_system).slice(-n).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); };
+// 取哪几楼：带上我说的话就按总楼数；不带就只数角色那边的楼
+export const floors = (R, n, sk = 0) => { const all = (C().chat || []).filter(m => !m.is_system && (R.user || !m.is_user)); return all.slice(-(n + sk), sk ? -sk : undefined); };
+export const recent = (n = S.ctxN, ch) => { const R = ctxRules(ch); return floors(R, n).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); };
 const wim = () => import('../../../world-info.js').catch(() => ({}));
 export const allBooks = async () => (await wim()).world_names || [];
 export async function wiBooks() { if (!S.wi.follow) return S.wi.books; const m = await wim(), c = C(), ch = c.characters?.[c.characterId]; return [...new Set([...(m.selected_world_info || []), ch?.data?.extensions?.world].filter(Boolean))]; }
@@ -806,7 +818,7 @@ export async function wiText(ctx, ch) { const o = [], R = ctxRules(ch); for (con
 // 上下文长度预算：sysCtx() 完整；sysCtx(true) 精简（不带世界书、只取最近6条）；也可传 { n 条数, rc 正文字数, wi 世界书字数, desc 角色卡字数, ch 哪个聊天（用它的正文标签 / 世界书设置）, skip 最新的几条不放（打电话另外放了） } 自定
 const cut = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
 // 正文剧情那一段（按这个聊天的正文标签取，整条不截断）：设置里「预览发出去的正文」也用它
-export const storyText = (ch, n = S.ctxN, sk = 0) => { const R = ctxRules(ch), all = (C().chat || []).filter(m => !m.is_system); return all.slice(-(n + sk), sk ? -sk : undefined).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); };
+export const storyText = (ch, n = S.ctxN, sk = 0) => { const R = ctxRules(ch); return floors(R, n, sk).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); };
 export async function sysCtx(o) {
   o = o === true ? { n: 6, rc: 2500, wi: 0, desc: 1200 } : o || {};
   const c = C(), ch = c.characters?.[c.characterId], d = D(), sub = (s, n = 1e9) => cut((c.substituteParams?.(s || '') ?? s ?? '').trim(), n);

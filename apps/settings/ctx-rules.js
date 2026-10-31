@@ -1,4 +1,4 @@
-// 小手机 · 「发给 TA 的内容」：正文里哪些标签要、世界书哪本哪条发不发、预览发出去的正文 / 整份提示词（带字数）
+// 小手机 · 「发给 TA 的内容」：带不带我说的话、正文里哪些标签要（「要」的标签里又不要哪些）、世界书哪本哪条发不发、预览发出去的正文 / 整份提示词（带字数）
 // 两个地方用同一块：设置 → 上下文与世界书（全局，改的是所有聊天的默认）；聊天设置（这个聊天：直接改，改了的只对它生效，旁边一个小点，点它恢复成全局）
 // 只在打开时画一次；之后点哪儿只改哪儿（加一个标签就挪一个小块、勾一条就改那一个勾），不整块重画——重画会跳、会卡
 // 扫描标签、预览全在本地算，不调模型
@@ -15,36 +15,42 @@ export const ctxBox = ch => `<div class="cxr" data-cxr="${esc(ch?.id || '')}"></
 export function mountCtx(root, ch) {
   const box = root.querySelector('.cxr'); if (!box || box._on) return; box._on = 1; ctxG();
   const own = () => ch ? (ch.cfg.ctx ||= {}) : null, persist = () => { ch ? saveD() : save(); };
-  const scan = tagsIn(20), dis = {}; // 正文里有哪些标签（本地扫一遍）；世界书每条在酒馆里是不是关着的
-  const keepOf = k => ctxRules(ch).tags[k] == 'keep', tagMine = k => !!ch && k in (own().tags || {});
+  let scan = tagsIn(20, ctxRules(ch)); const dis = {}; // 正文里有哪些标签（本地扫一遍）；世界书每条在酒馆里是不是关着的
+  const tagOf = k => ctxRules(ch).tags[k] || '', tagMine = k => !!ch && k in (own().tags || {});
   const wiKey = (b, u) => u == null ? b : b + '/' + u, wiOf = (b, u) => ctxRules(ch).wi(b, u, dis[wiKey(b, u)]), wiMine = k => !!ch && k in (own().wi || {});
   const nameOf = k => k == '!--' ? '注释' : scan[k]?.name || g().names?.[k] || k;
 
   // 改设置（只改数据；界面由调用的地方自己改那一小块）
-  const setTag = (k, on) => { const v = on ? 'keep' : ''; if (ch) { const o = own().tags ||= {}; v == (g().tags[k] || '') ? delete o[k] : (o[k] = v); } else { on ? (g().tags[k] = 'keep') : delete g().tags[k]; } scan[k]?.name && scan[k].name != k && k != '!--' && ((g().names ||= {})[k] = scan[k].name); persist(); };
+  const setTag = (k, v) => { if (ch) { const o = own().tags ||= {}; v == (g().tags[k] || '') ? delete o[k] : (o[k] = v); } else { v ? (g().tags[k] = v) : delete g().tags[k]; } scan[k]?.name && scan[k].name != k && k != '!--' && ((g().names ||= {})[k] = scan[k].name); persist(); };
   const def = k => !dis[k]; // 世界书默认：酒馆里这条开着就勾、关着就不勾；整本默认勾
   const setWi = (k, on) => { if (ch) { const o = own().wi ||= {}; on == !!ctxRules().wiG(k, def(k)) ? delete o[k] : (o[k] = on ? 1 : 0); } else { const w = g().wi; on == def(k) ? delete w[k] : (w[k] = on ? 1 : 0); } persist(); };
 
   const dot = (t, k) => `<i class="cxr-dot" data-c="${t}" data-k="${esc(k)}" title="恢复成全局"></i>`;
   const chip = k => `<span class="cxr-chip ${tagMine(k) ? 'mine' : ''}" data-c="untag" data-k="${esc(k)}">${esc(nameOf(k))}<i>×</i></span>`;
-  const cand = k => `<span class="cxr-cd" data-c="addtag" data-k="${esc(k)}">${esc(nameOf(k))}${scan[k]?.n > 1 ? `<small>${scan[k].n}</small>` : ''}</span>`;
-  const R0 = ctxRules(ch), kept = Object.keys(R0.tags).filter(k => R0.tags[k] == 'keep'), free = Object.keys(scan).filter(k => !kept.includes(k));
+  const cand = (k, v) => { const n = v == 'drop' ? scan[k]?.ink : scan[k]?.n; return `<span class="cxr-cd" data-c="addtag" data-v="${v}" data-k="${esc(k)}">${esc(nameOf(k))}${n > 1 ? `<small>${n}</small>` : ''}</span>`; };
+  const R0 = ctxRules(ch), of = v => Object.keys(R0.tags).filter(k => R0.tags[k] == v);
+  const freeKeep = () => Object.keys(scan).filter(k => scan[k].n && !tagOf(k)), freeDrop = () => Object.keys(scan).filter(k => scan[k].ink && !tagOf(k)); // 「不要」下面只列「要」的标签里面出现的
+  const userMine = () => !!ch && 'user' in own();
+  const fld = (v, l) => `<div class="cxr-lb">${l}</div><div class="cxr-f cxr-${v}" data-c="focus" data-k="${v}">${of(v).map(chip).join('')}<input class="cxr-in" data-v="${v}" enterkeyhint="done" autocomplete="off" placeholder="输入标签名"></div><div class="cxr-cds" data-v="${v}">${(v == 'keep' ? freeKeep() : freeDrop()).map(k => cand(k, v)).join('')}</div>`;
   box.innerHTML = `<div class="cxr-sc">
-<div class="cxr-h">正文里要发的标签<span class="cxr-hd">${ch && Object.keys(own().tags || {}).length ? dot('rtag', '') : ''}</span></div>
-<div class="cxr-tg"><div class="cxr-f" data-c="focus">${kept.map(chip).join('')}<input class="cxr-in" enterkeyhint="done" autocomplete="off" placeholder="输入标签名"></div><div class="cxr-cds">${free.map(cand).join('')}</div></div>
+<label class="cxr-r cxr-u"><span>带上我说的话</span><span class="cxr-dw">${userMine() ? dot('ruser', '') : ''}</span><input type="checkbox" class="sw" data-c="user" ${ctxRules(ch).user ? 'checked' : ''}></label>
+<div class="cxr-h">正文标签<span class="cxr-hd">${ch && Object.keys(own().tags || {}).length ? dot('rtag', '') : ''}</span></div>
+<div class="cxr-tg">${fld('keep', '要')}${fld('drop', '「要」的标签里，不要')}</div>
 <div class="cxr-h">世界书</div><div class="cxr-wi"><div class="cxr-r cxr-sk"><i></i><i></i></div></div>
 </div>
 <div class="cxr-pvw"><div class="cxr-r cxr-pvh" data-c="pv"><span>预览发出去的内容</span><i class="cxr-ch">${I.chev}</i></div>
 <div class="cxr-pvb" hidden><div class="seg cxr-pseg"><button class="on" data-c="pvk" data-k="story">发出去的正文</button><button data-c="pvk" data-k="all">整份提示词</button></div><div class="cxr-cnt"></div><pre class="cxr-pv"></pre></div></div>`;
-  const $ = s => box.querySelector(s), field = $('.cxr-f'), inp = $('.cxr-in'), cds = $('.cxr-cds');
+  const $ = s => box.querySelector(s), F = v => $(`.cxr-f[data-k=${v}]`), IN = v => $(`.cxr-in[data-v=${v}]`), CD = v => $(`.cxr-cds[data-v=${v}]`);
   const hd = () => { $('.cxr-hd').innerHTML = ch && Object.keys(own().tags || {}).length ? dot('rtag', '') : ''; };
 
   // 标签：加一个 = 虚线小块变成框里的一块；拿掉一个 = 框里那块变回虚线小块（只动这一个）
-  const add = k => { setTag(k, true); cds.querySelector(`.cxr-cd[data-k="${q(k)}"]`)?.remove(); field.querySelector(`.cxr-chip[data-k="${q(k)}"]`)?.remove(); inp.before(h(chip(k))); hd(); pv(); };
-  const rm = k => { setTag(k, false); field.querySelector(`.cxr-chip[data-k="${q(k)}"]`)?.remove(); if (keepOf(k)) inp.before(h(chip(k))); else if (scan[k] && !cds.querySelector(`.cxr-cd[data-k="${q(k)}"]`)) cds.append(h(cand(k))); hd(); pv(); };
-  const typed = () => { String(inp.value).split(/[,，\s]+/).map(x => x.trim()).filter(Boolean).forEach(x => { const nm = x.replace(/^<\/?|\/?>$/g, ''), k = /^<!--/.test(x) ? '!--' : nm.toLowerCase(); if (!k) return; k != '!--' && nm != k && ((g().names ||= {})[k] = nm); add(k); }); inp.value = ''; };
-  inp.onkeydown = e => { if (e.key == 'Enter' || e.key == ',' || e.key == '，') { e.preventDefault(); typed(); } };
-  inp.onblur = () => inp.value.trim() && typed();
+  // 「要」变了，哪些标签在「要」的标签里面也跟着变：只重排「不要」下面那一排虚线小块
+  const redrop = () => { scan = tagsIn(20, ctxRules(ch)); CD('drop').innerHTML = freeDrop().map(k => cand(k, 'drop')).join(''); };
+  const place = k => { box.querySelectorAll(`.cxr-chip[data-k="${q(k)}"],.cxr-cd[data-k="${q(k)}"]`).forEach(x => x.remove()); const v = tagOf(k);
+    if (v) IN(v).before(h(chip(k))); else if (scan[k]?.n) CD('keep').append(h(cand(k, 'keep'))); }; // 放到它现在该在的地方
+  const set = (k, v) => { const was = tagOf(k); setTag(k, v); place(k); (was == 'keep' || v == 'keep') ? redrop() : !v && scan[k]?.ink && CD('drop').append(h(cand(k, 'drop'))); hd(); pv(); };
+  const typed = i => { const v = i.dataset.v; String(i.value).split(/[,，\s]+/).map(x => x.trim()).filter(Boolean).forEach(x => { const nm = x.replace(/^<\/?|\/?>$/g, ''), k = /^<!--/.test(x) ? '!--' : nm.toLowerCase(); if (!k) return; k != '!--' && nm != k && ((g().names ||= {})[k] = nm); set(k, v); }); i.value = ''; };
+  box.querySelectorAll('.cxr-in').forEach(i => { i.onkeydown = e => { if (e.key == 'Enter' || e.key == ',' || e.key == '，') { e.preventDefault(); typed(i); } }; i.onblur = () => i.value.trim() && typed(i); });
 
   // 世界书：画一次；展开 / 收起只加 / 删那一本的条目；勾一条只改那一个勾和这本书的计数
   const books = [];
@@ -67,10 +73,12 @@ export function mountCtx(root, ch) {
   const pv = () => { if (!pvOpen()) return; clearTimeout(pvT); pvT = setTimeout(pvRun, 500); };
 
   box.onclick = e => { const t = e.target.closest('[data-c]'); if (!t || !box.contains(t)) return; e.stopPropagation(); const c = t.dataset.c, k = t.dataset.k;
-    if (c == 'focus') { e.target == field && inp.focus(); return; } // 只有点到框里的空白处才弹键盘；点标签不弹
-    if (c == 'addtag') add(k);
-    else if (c == 'untag') rm(k);
-    else if (c == 'rtag') { const ks = Object.keys(own().tags || {}); delete own().tags; persist(); ks.forEach(x => { field.querySelector(`.cxr-chip[data-k="${q(x)}"]`)?.remove(); cds.querySelector(`.cxr-cd[data-k="${q(x)}"]`)?.remove(); keepOf(x) ? inp.before(h(chip(x))) : scan[x] && cds.append(h(cand(x))); }); hd(); pv(); }
+    if (c == 'focus') { e.target == t && IN(k).focus(); return; } // 只有点到框里的空白处才弹键盘；点标签不弹
+    if (c == 'user') { if (e.target.tagName != 'INPUT') return; const on = e.target.checked; if (ch) { on == (g().user ?? true) ? delete own().user : (own().user = on); } else { on ? delete g().user : (g().user = false); } persist(); t.closest('.cxr-u').querySelector('.cxr-dw').innerHTML = userMine() ? dot('ruser', '') : ''; pv(); return; }
+    if (c == 'ruser') { delete own().user; persist(); $('[data-c=user]').checked = ctxRules(ch).user; t.remove(); pv(); return; }
+    if (c == 'addtag') set(k, t.dataset.v);
+    else if (c == 'untag') set(k, '');
+    else if (c == 'rtag') { const ks = Object.keys(own().tags || {}); delete own().tags; persist(); ks.forEach(place); redrop(); box.querySelectorAll('.cxr-chip.mine').forEach(x => x.classList.remove('mine')); hd(); pv(); }
     else if (c == 'wb') { setWi(k, !wiOf(k)); fixBook(k); bookEl(k)?.querySelectorAll('.cxr-en').forEach(x => fixEnt(x.dataset.e)); pv(); }
     else if (c == 'we') { const i = k.indexOf('/'), b = k.slice(0, i); setWi(k, !wiOf(b, k.slice(i + 1))); fixEnt(k); fixBook(b); pv(); }
     else if (c == 'rwi') { delete own().wi[k]; persist(); const i = k.indexOf('/'); if (i < 0) { fixBook(k); bookEl(k)?.querySelectorAll('.cxr-en').forEach(x => fixEnt(x.dataset.e)); } else { fixEnt(k); fixBook(k.slice(0, i)); } pv(); }
