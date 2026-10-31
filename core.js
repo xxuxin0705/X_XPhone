@@ -1,6 +1,6 @@
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'voice-v2 · 10-31 · 26';
+export const VER = 'voice-v2 · 10-31 · 27';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -246,21 +246,26 @@ export async function migrateMedia(prog) {
 function set(pg, k, val) { const g = k[0] == '$', m = g || !pg?.model ? S : pg.model(), old = getP(m, g ? k.slice(1) : k); setP(m, g ? k.slice(1) : k, val); old !== val && drop(old); g || !pg?.model ? save() : (pg.save || saveD)(); pg?.onChange?.(k, val); emit('cfg', g ? k.slice(1) : k); }
 export function bind(R) {
   let lp, lpd, swp = 0;
+  // 切回来时检查一遍：有页面卡在滑到一半（transform 没清掉），直接复位
+  document.addEventListener('visibilitychange', () => { if (document.hidden) return; for (const o of stack) { o.el.style.transition = ''; o.el.style.transform = ''; } });
   // 右滑返回：任意页面横向右滑，跟手移动，松手超过30%宽度或快速滑动即返回上一级
   R.addEventListener('pointerdown', e => {
     const pg = top(); if (!pg || !pg.el.contains(e.target) || ui.sheets.querySelector('.sheet.in') || e.target.closest('.cpk,.cpr,.phone-gesture-control,[data-no-swipe-back]')) return;
     // 输入框：正在输入（有焦点）、下拉框、滑块才不让右滑；没点进去的输入框上照样能右滑返回（聊天设置下半页全是输入框）
     const fd = e.target.closest('input,textarea,select'); if (fd && (fd == document.activeElement || fd.tagName == 'SELECT' || fd.type == 'range')) return;
+    if (e.clientX < 22 || e.clientX > innerWidth - 22) return; // 屏幕最边上一窄条留给手机系统（侧滑返回 / 切后台）：从这里划不接，不然系统把手势接走了，页面会卡在滑到一半
     const ue = stack.at(-2)?.el.classList.contains('under') ? stack.at(-2).el : null, x0 = e.clientX, y0 = e.clientY, t0 = Date.now(), w = pg.el.offsetWidth, sc = pg.el.getBoundingClientRect().width / w || 1; let on = 0, dx = 0;
-    const end = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
+    const reset = () => { pg.el.style.transition = pg.el.style.transform = ''; ue && (ue.style.transition = ue.style.transform = ''); };
+    const end = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); removeEventListener('blur', lost); document.removeEventListener('visibilitychange', lost); };
+    const lost = () => { end(); on && reset(); }; // 网页被切到后台、手势被系统接走（等不到松手）：滑到一半的页面马上放回原位，不退回
     const mv = ev => {
       dx = (ev.clientX - x0) / sc; const dy = (ev.clientY - y0) / sc;
       if (!on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) return end(); if (dx < 12 || dx < Math.abs(dy) * 1.5) return; on = 1; pg.el.style.transition = 'none'; getSelection()?.removeAllRanges(); }
       pg.el.style.transform = `translateX(${Math.max(0, dx)}px)`;
       if (ue) { ue.style.transition = 'none'; ue.style.transform = `translateX(${-UNDER * (1 - Math.min(1, Math.max(0, dx) / w))}%)`; } // 下面那页跟着从左边回来
     };
-    const up = () => { end(); if (!on) return; swp = Date.now(); pg.el.style.transition = pg.el.style.transform = ''; ue && (ue.style.transition = ue.style.transform = ''); (dx > w * .3 || dx / (Date.now() - t0) > .45) && back(); };
-    addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+    const up = ev => { end(); if (!on) return; swp = Date.now(); reset(); ev?.type == 'pointerup' && (dx > w * .3 || dx / (Date.now() - t0) > .45) && back(); }; // 被打断（pointercancel）只复位，不当成返回
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up); addEventListener('blur', lost); document.addEventListener('visibilitychange', lost);
   });
   const hit = (e, a) => { const t = e.target.closest?.(`[data-${a}]`); if (!t || !R.contains(t)) return; const pg = pgOf(t), n = t.dataset[a], f = pg?.acts?.[n] || G[n]; f && (e.stopPropagation(), f(t.dataset.x, t, e, pg)); };
   R.addEventListener('click', e => Date.now() - swp < 400 ? e.stopPropagation() : lpd ? (lpd = 0) : hit(e, 'a'));
