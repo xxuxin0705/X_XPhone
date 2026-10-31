@@ -86,13 +86,18 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   // 预览：发出去的正文 / 整份提示词，标字数；关掉「带上我说的话」
   await E(`document.querySelector('[data-c=pv]').click()`); await W(300); await E(`document.querySelector('.cxr').scrollIntoView()`); await shot('global');
   const pv1 = await E(`document.querySelector('.cxr-pv').textContent`), c1 = await E(`document.querySelector('.cxr-cnt').textContent`);
-  ok(/T_story/.test(pv1) && /我缩在被子里/.test(pv1) && !/正文里面的草稿/.test(pv1) && c1 == pv1.length.toLocaleString() + ' 字', '预览「发出去的正文」：所有正文按现在的设置，标出字数 ' + c1);
+  ok(/T_story/.test(pv1) && /我缩在被子里/.test(pv1) && !/正文里面的草稿/.test(pv1) && c1.endsWith(' · ' + pv1.length.toLocaleString() + ' 字') && /^正文 \d+ 条/.test(c1), '预览「发出去的正文」：所有正文按现在的设置，标出几条、多少字 ' + c1);
+  // 上面「读取正文条数」改数字：预览边打边跟着变，页面不重画
+  const n0 = await E(`core.S.ctxN`); await E(`window._bx = document.querySelector('.cxr-keep'); const i = document.querySelector('[data-k=ctxN]'); i.value = '1'; i.dispatchEvent(new Event('input', { bubbles: true }))`); await W(700);
+  ok(await E(`/^正文 1 条/.test(document.querySelector('.cxr-cnt').textContent) && document.querySelector('.cxr-pv').textContent.length < ${JSON.stringify(pv1)}.length && document.querySelector('.cxr-keep') === _bx`), '「读取正文条数」改成 1：预览马上只剩 1 条，字数跟着变；页面没重画 ' + await E(`document.querySelector('.cxr-cnt').textContent`));
+  await E(`const i = document.querySelector('[data-k=ctxN]'); i.value = '${n0 || 15}'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }))`); await W(700);
+  const c3 = await E(`document.querySelector('.cxr-cnt')?.textContent + '/' + core.S.ctxN + '/' + document.querySelector('.cxr-pvb')?.hidden`); ok(c3.startsWith(c1 + '/'), '改回去，预览也回去 ' + c3);
   await E(`document.querySelector('[data-c=user]').click()`); await W(700);
   ok(await E(`core.S.ctxR.user === false && !/我缩在被子里/.test(document.querySelector('.cxr-pv').textContent)`), '关掉「带上我说的话」：预览里没有我说的了');
   await E(`document.querySelector('[data-c=user]').click()`); await W(100);
   await E(`document.querySelector('[data-c=pvk][data-k=all]').click()`); await W(400);
   const pv2 = await E(`document.querySelector('.cxr-pv').textContent`);
-  ok(/【世界书】/.test(pv2) && /五条悟人设条目/.test(pv2) && await E(`document.querySelector('.cxr-cnt').textContent`) == pv2.length.toLocaleString() + ' 字', '预览「整份提示词」：人设、世界书、正文全部，标出字数');
+  ok(/【世界书】/.test(pv2) && /五条悟人设条目/.test(pv2) && (await E(`document.querySelector('.cxr-cnt').textContent`)).endsWith(' · ' + pv2.length.toLocaleString() + ' 字'), '预览「整份提示词」：人设、世界书、正文全部，标出字数');
   let sys = await E(`core.sysCtx()`);
   ok(/五条悟人设条目/.test(sys) && !/夏油的秘密条目|小剧场条目|关着的条目/.test(sys) && !/他现在应该很担心|1boy/.test(sys), '发给模型的提示词：没勾的条目、整本勾掉的书不发；正文按标签规则');
   await E(`core.back()`); await W(300);

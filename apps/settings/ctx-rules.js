@@ -2,7 +2,7 @@
 // 两个地方用同一块：设置 → 上下文与世界书（全局，改的是所有聊天的默认）；聊天设置（这个聊天：直接改，改了的只对它生效，旁边一个小点，点它恢复成全局）
 // 只在打开时画一次；之后点哪儿只改哪儿（加一个标签就挪一个小块、勾一条就改那一个勾），不整块重画——重画会跳、会卡
 // 扫描标签、预览全在本地算，不调模型
-import { S, save, saveD, esc, I, ctxRules, ctxG, tagsIn, wiBooks, loadBook, sysCtx, storyText } from '../../core.js';
+import { S, save, saveD, esc, I, ctxRules, ctxG, tagsIn, wiBooks, loadBook, sysCtx, storyText, floors } from '../../core.js';
 
 const CHK = '<svg viewBox="0 0 16 16"><path d="M3.5 8.4l2.9 2.9 6.1-6.4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const g = ctxG;
@@ -18,7 +18,7 @@ export function mountCtx(root, ch) {
   let scan = tagsIn(20, ctxRules(ch)); const dis = {}; // 正文里有哪些标签（本地扫一遍）；世界书每条在酒馆里是不是关着的
   const tagOf = k => ctxRules(ch).tags[k] || '', tagMine = k => !!ch && k in (own().tags || {});
   const wiKey = (b, u) => u == null ? b : b + '/' + u, wiOf = (b, u) => ctxRules(ch).wi(b, u, dis[wiKey(b, u)]), wiMine = k => !!ch && k in (own().wi || {});
-  const nameOf = k => k == '!--' ? '注释' : scan[k]?.name || g().names?.[k] || k;
+  const nameOf = k => k == '!--' ? '<!-- -->' : scan[k]?.name || g().names?.[k] || k;
 
   // 改设置（只改数据；界面由调用的地方自己改那一小块）
   const setTag = (k, v) => { if (ch) { const o = own().tags ||= {}; v == (g().tags[k] || '') ? delete o[k] : (o[k] = v); } else { v ? (g().tags[k] = v) : delete g().tags[k]; } scan[k]?.name && scan[k].name != k && k != '!--' && ((g().names ||= {})[k] = scan[k].name); persist(); };
@@ -31,11 +31,10 @@ export function mountCtx(root, ch) {
   const R0 = ctxRules(ch), of = v => Object.keys(R0.tags).filter(k => R0.tags[k] == v);
   const freeKeep = () => Object.keys(scan).filter(k => scan[k].n && !tagOf(k)), freeDrop = () => Object.keys(scan).filter(k => scan[k].ink && !tagOf(k)); // 「不要」下面只列「要」的标签里面出现的
   const userMine = () => !!ch && 'user' in own();
-  const fld = (v, l) => `<div class="cxr-lb">${l}</div><div class="cxr-f cxr-${v}" data-c="focus" data-k="${v}">${of(v).map(chip).join('')}<input class="cxr-in" data-v="${v}" enterkeyhint="done" autocomplete="off" placeholder="输入标签名"></div><div class="cxr-cds" data-v="${v}">${(v == 'keep' ? freeKeep() : freeDrop()).map(k => cand(k, v)).join('')}</div>`;
+  const fld = (v, l) => `<div class="cxr-h">${l}${v == 'keep' ? `<span class="cxr-hd">${ch && Object.keys(own().tags || {}).length ? dot('rtag', '') : ''}</span>` : ''}</div><div class="cxr-f cxr-${v}" data-c="focus" data-k="${v}">${of(v).map(chip).join('')}<input class="cxr-in" data-v="${v}" enterkeyhint="done" autocomplete="off" placeholder="输入标签名"></div><div class="cxr-cds" data-v="${v}">${(v == 'keep' ? freeKeep() : freeDrop()).map(k => cand(k, v)).join('')}</div>`;
   box.innerHTML = `<div class="cxr-sc">
 <label class="cxr-r cxr-u"><span>带上我说的话</span><span class="cxr-dw">${userMine() ? dot('ruser', '') : ''}</span><input type="checkbox" class="sw" data-c="user" ${ctxRules(ch).user ? 'checked' : ''}></label>
-<div class="cxr-h">正文标签<span class="cxr-hd">${ch && Object.keys(own().tags || {}).length ? dot('rtag', '') : ''}</span></div>
-<div class="cxr-tg">${fld('keep', '要')}${fld('drop', '「要」的标签里，不要')}</div>
+<div class="cxr-tg">${fld('keep', '要发的正文标签')}${fld('drop', '「要」的标签里，不要')}</div>
 <div class="cxr-h">世界书</div><div class="cxr-wi"><div class="cxr-r cxr-sk"><i></i><i></i></div></div>
 </div>
 <div class="cxr-pvw"><div class="cxr-r cxr-pvh" data-c="pv"><span>预览发出去的内容</span><i class="cxr-ch">${I.chev}</i></div>
@@ -68,9 +67,14 @@ export function mountCtx(root, ch) {
   let pvK = 'story', pvT = 0, pvN = 0;
   const pvOpen = () => !$('.cxr-pvb').hidden;
   const pvRun = async () => { const id = ++pvN, pre = $('.cxr-pv'), cnt = $('.cxr-cnt'); let t;
+    const n = floors(ctxRules(ch), S.ctxN).length;
     try { t = pvK == 'story' ? storyText(ch, S.ctxN) : await sysCtx({ ch }); } catch (e) { t = '整理失败：' + e.message; }
-    if (id != pvN || !box.isConnected) return; const sc = pre.scrollTop; pre.textContent = t || '（还没有正文）'; pre.scrollTop = sc; cnt.textContent = `${(t || '').length.toLocaleString()} 字`; };
+    if (id != pvN || !box.isConnected) return; const sc = pre.scrollTop; pre.textContent = t || '（还没有正文）'; pre.scrollTop = sc; cnt.textContent = `正文 ${n} 条 · ${(t || '').length.toLocaleString()} 字`; };
   const pv = () => { if (!pvOpen()) return; clearTimeout(pvT); pvT = setTimeout(pvRun, 500); };
+
+  // 上面「读取正文条数」边打字预览边跟着变（只重算预览，页面不重画）；数字松手 / 收键盘时照常存
+  const onN = e => { if (!box.isConnected) return root.removeEventListener('input', onN); if (e.target.dataset?.k != 'ctxN') return; const n = Math.round(+e.target.value); if (n >= 1) { S.ctxN = n; pv(); } };
+  root.addEventListener('input', onN);
 
   box.onclick = e => { const t = e.target.closest('[data-c]'); if (!t || !box.contains(t)) return; e.stopPropagation(); const c = t.dataset.c, k = t.dataset.k;
     if (c == 'focus') { e.target == t && IN(k).focus(); return; } // 只有点到框里的空白处才弹键盘；点标签不弹
