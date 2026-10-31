@@ -27,6 +27,7 @@ const ALL = {
   msel: ['e2e/msel.cjs', '聊天长按菜单（编辑、拍一拍提示可删）、多选（颜色跟风格）、转发（逐条 / 合并，只写网名）、长按图片不弹大图、翻译补漏、拍一拍格式、Kakao 输入栏和未读 1、点聊天收起面板'],
   cssname: ['e2e/cssname.cjs', '样式撞名检查：style.css 里的规则不能选中酒馆自己的元素（不开浏览器，1 秒）'],
   callasr: ['e2e/callasr.cjs', '通话 · 本地识别：真的用识别模型认测试录音（边说边出字、整句发给 TA）'],
+  ctxr: ['e2e/ctxr.cjs', '发给 TA 的内容：正文标签 要 / 不要（默认只要 content、不要 thinking）、找出其他标签（本地）、世界书整本 / 每条勾选、聊天里单独改、预览'],
   callmsg: ['e2e/callmsg.cjs', '通话 · 多轮对话格式（我一句 user、TA 一句 assistant）、SAY 先说 ZH 后补、开场白去掉、记不记进记忆'],
   callja: ['e2e/callja.cjs', '通话 · 日语本地包：设置里真的下载（第一次 51MB，之后用缓存）→ 存进浏览器 → 说日语用本地日语模型 → 删除'],
   callear: ['e2e/callear.cjs', '通话 · 模型听（麦克风 + 音量判断开口 / 说完，录音交给模型听）'],

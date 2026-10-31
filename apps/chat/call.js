@@ -152,7 +152,7 @@ ${dial ? '' : `<div class="xc-lang"><b data-k="inl">我说 ${esc(inName(A.inL))}
 
   // ===== 接通（10-31 重写）：响铃的同时就让模型按剧情写第一句、把声音合成好，好了才接起来（最少响 1.5 秒，最多等 15 秒）。不再有固定的「喂？」
   // 背景（人设、世界书、剧情）也在这时算一次，整通电话都用它
-  A.ring = ringTone(); A.ringAt = performance.now(); A.ctxP = base().catch(() => ''); // 背景（A.base 这个名字被浏览器识别的拼接用了，别撞）。旧版存过的「每分钟几次」限额：不要了
+  A.ring = ringTone(); A.ringAt = performance.now(); A.ctxP = base(c).catch(() => ''); // 背景（A.base 这个名字被浏览器识别的拼接用了，别撞）。旧版存过的「每分钟几次」限额：不要了
   delete S.callRpmBy; delete S.callRpm;
   const pickUp = () => A.picked ||= (async () => { const w = 1500 - (performance.now() - A.ringAt); w > 0 && await new Promise(r => setTimeout(r, w)); if (CALL != A) return; stopRing(); A.st = 'talk'; A.t0 = +now(); draw(); noVoice() && toast(`${nm(c)} 还没配音色，只显示字幕（聊天设置 → 专属音色）`); })();
   A.pickUp = pickUp;

@@ -68,6 +68,7 @@ apps/chat/       聊天 App
   feed.js          动态：微信朋友圈（毛玻璃卡片）/ QQ空间 / Moments（Kakao、LINE）、个人相册、生成动态弹窗（条数 / 必定出现的人）
   recall.js        磁铁召回（学 StarHub 记忆教程，不调用模型）：回复时，最近 30 条以外的旧聊天里和现在话题有关的几句被关键词「吸」上来，有字数预算，没有就整块不出现
   call.js          语音 / 视频通话（照微信录屏）：界面、麦克风（ear.js）、播放、打断、记不记进记忆；接通第一句由模型照剧情写（响铃时就在写）；挂断存一条 t:'call' 消息（log 是通话内容，mem 才记进记忆）；做法记在 docs/call-streaming.md
+  （settings/ctx-rules.js 发给 TA 的内容：正文标签 要 / 不要、世界书勾选、预览；设置 → 上下文与世界书 和 聊天设置 共用一块。规则在 core 的 ctxRules / body / tagsIn，sysCtx({ ch }) 按聊天取）
   call-brain.js    通话的「脑子」：背景（base / tail，拨号时算一次）、多轮对话 messages、流式切句 parser（中文一行一段；外语「原话」（中文意思））、语言检查 langOk / fixLang（设成日语就必须是日语，混了中文先翻）、（笑）（叹气）→ Fish Audio 标记 cues
   fav.js           收藏（D().favs，长按消息收藏、我 → 收藏、＋ → 发送收藏）和个人名片（t:'card'，cid）；「发送给」确认框 sendTo
   status.js        微信「状态」（照录屏）：我页状态胶囊、状态列表、全屏看状态、设个状态 / 写状态；c.st / D().me.st = { k 图标, l 自定义名, t, tr, tp 话题, bg, loc, ts }，24 小时过期；图标抠在 assets/wx/st/
@@ -158,7 +159,7 @@ tests/           测试（见第五节）
 - `node tests/run.cjs music isle` 按改动范围选择测试组，不默认运行全量测试。修改部分及直接受影响流程测试通过后推送；只有用户要求时才运行 `node tests/run.cjs` 全量测试。
 - `tests/unit/*.mjs`：纯逻辑（Node 直接跑）。`tests/e2e/*.cjs`：Playwright + 模拟酒馆 `tests/e2e/st.html`，外网接口一律 `page.route` 模拟。
 - **修 bug 先红后绿**（学 StarHub 记忆教程）：先写一条能复现它的检查，确认改之前是红的，再修到绿；关键检查要做一次「把修复撤掉，它必须变红」的对照，防止空转的绿灯。环境不满足就写明原因跳过，不许悄悄算通过。
-- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8827，新文件用 8828 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
+- 每个 e2e 文件自己起一个本地服务，**端口不能重复**（已用到 8828，新文件用 8829 起往上）。新文件要在 `tests/run.cjs` 和 `tests/README.md` 里登记。
 - 模拟 AI：`core.S.api.chat.src = 'tavern'` 后替换 `SillyTavern.getContext().generateRaw`。
 - 模拟开机前已有的设置：`page.addInitScript(() => { window.__preset = { st_phone: {…} } })`。
 - 截图输出在 `tests/out/`（不提交）。

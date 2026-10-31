@@ -6,6 +6,7 @@ regMod({ k: 'chat.reply.p', app: '聊天', n: '私聊回复', def: '像真人发
 regMod({ k: 'chat.reply.g', app: '聊天', n: '群聊回复', def: '让群成员按各自人设自然互动、互相接话。像真人发消息：口语、短句，符合人设与当前剧情。', vars: [['对方', '群名'], ['我', '我的网名']] });
 import { vSec, vActs, vChange, meVoice } from './voice.js';
 import { callSheet, callBub, startCall, warmEar } from './call.js';
+import { ctxBox, mountCtx } from '../settings/ctx-rules.js';
 import { recall } from './recall.js';
 import { addFav, favPage, cardPick, cardH } from './fav.js';
 import { forgot, C, G, S, D, saveD, esc, uid, $, ui, page, top, back, home, menu, form, ok, toast, fx, btn, sec, nm, rn, avOf, defAv, meObj, brief, say, now, hm, llm, json, sysCtx, genImg, tts, notify, on, emit, pickImg, pickFile, I, sleep, mt, APPS, fail, drop } from '../../core.js';
@@ -190,7 +191,7 @@ export async function gen(ch) {
     // 识图：我上次被回复之后发的表情包（最多 3 个），图片跟这次回复请求一起发过去，让对方看图理解（不额外调用）
     const lastR = ch.msgs.findLastIndex(m => m.f != 'me' && !/sys|pat/.test(m.t)), see = S.stk.see !== false ? ch.msgs.slice(lastR + 1).filter(m => m.f == 'me' && m.t == 'sticker' && m.img).slice(-3) : [];
     const P = replyP(ch, ch.cfg.pat && Math.random() < .3) + (see.length ? `\n\n【表情包图片】附上了${meObj().nick}刚发的 ${see.length} 个表情包的图片，按顺序对应上面最后 ${see.length} 个「[表情包：…]」。先看图弄懂${meObj().nick}想表达的情绪和意思，再自然地回应。` : '');
-    const ms = parseReply(await llm(await sysCtx(), P, '聊天回复', ac.signal, { images: see.map(m => m.img), mod: ch.type == 'g' ? 'chat.reply.g' : 'chat.reply.p' }), ch);
+    const ms = parseReply(await llm(await sysCtx({ ch }), P, '聊天回复', ac.signal, { images: see.map(m => m.img), mod: ch.type == 'g' ? 'chat.reply.g' : 'chat.reply.p' }), ch);
     for (const m of ms.filter(m => m.type != 'bt')) { if (ac.signal.aborted) break;
       if (m.type == 'sticker') { const r = await stkFind(m.text, stkOf(ch)).catch(() => ''); if (!r) continue; Object.assign(m, { img: r.img, alt: r.alt, sz: r.sz }); } // 在能用的表情里搜不到：这条不发
       const x = addMsg(ch, m); x?.t == 'voice' && ch.cfg.vpre && vBlob(ch, x).catch(() => { }); /* 设成「收到就合成」：先合成好，点了直接播 */ saveD(); emit('chat'); x && !viewing(ch.id) && notify(ch, x); x && await sleep(450 + Math.min(1600, String(m.text || '').length * 60)); }
@@ -465,7 +466,7 @@ const sexP = ch => { const i = Math.max(0, SEX.findIndex(x => x[0] == (ch.sex ||
 export function cset(ch) {
   const f = fx(ch), g = ch.type == 'g', mem = () => ch.members.map(i => [i, nm(get(i))]);
   page({
-    title: g ? '群聊设置' : '聊天设置', model: () => ch, onClose: () => setTimeout(() => top()?.re()), after: el => (ciGrow(el), r2Bind(el, ch)),
+    title: g ? '群聊设置' : '聊天设置', model: () => ch, onClose: () => setTimeout(() => top()?.re()), after: el => (ciGrow(el), r2Bind(el, ch), mountCtx(el, ch)),
     onChange: k => (/^cfg\.(lang|trFollow|trAuto|trMine|trTo)$/.test(k) && D().chats.forEach(retrans), /^(cfg\.(trFollow|trAuto|lang|trMine)|tv\.pv|tv\.v\.|sex$)/.test(k) && setTimeout(() => { const t = top(); if (!t) return; const b = $('.pg-b', t.el), sc = b?.scrollTop; t.re(); $('.pg-b', t.el).scrollTop = sc; })),
     body: () => sec('cset', [
       ['info', '基本信息', g ? `<div class="ci-top"><div class="ci-av" data-a="img" data-x="av"><img src="${esc(avOf(ch))}"></div><div class="ci-nm">${ci(ch, 'name', '群名')}${ci(ch, 'no', '群号')}</div></div>` + f.area('notice', '群公告') + f.sel('owner', '群主', [['', '我'], ...mem()]) + f.multi('admins', '管理员', mem())
@@ -482,6 +483,7 @@ export function cset(ch) {
         + f.tog('cfg.showAv', '显示头像') + f.tog('cfg.cont', '连续消息合并气泡') + f.tog('cfg.dark', '夜间模式') + f.img('cfg.bg', '聊天背景')
         + `<div class="col"><span>头像框</span><div class="frs">${[{ id: '' }, ...S.assets.frame].map(a => `<div class="fr ${ch.cfg.frame == a.id ? 'on' : ''}" data-a="setfr" data-x="${a.id}">${a.img ? `<img src="${esc(a.img)}">` : '无'}</div>`).join('')}</div></div>` + btn('impcss', '导入气泡 CSS 文件')],
       ['link', '正文联动', f.tog('cfg.inj', '整个聊天注入正文') + ``],
+      ['cx', '发给 TA 的内容', ctxBox(ch)],
     ]) + `<div class="cs-dz">${btn('clr', '清空聊天记录', '', 'danger')}${btn('rm', g ? '删除并退出群聊' : '删除联系人', '', 'danger')}</div>`, // 清空 / 删除直接放最下面，不收进「更多」
     acts: {
       setfr: (x, t, e, pg) => { ch.cfg.frame = x; saveD(); pg.re(); },

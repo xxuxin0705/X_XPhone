@@ -1,6 +1,6 @@
 // 小手机 · 核心：状态 / UI原语 / AI调用 / 世界书 / 时间 / 正文注入
 // 版本：每次推送改一下，设置页最底下显示，用来确认手机上跑的是不是最新的（更新后要刷新酒馆页面才生效）
-export const VER = 'voice-v2 · 10-31 · 23';
+export const VER = 'voice-v2 · 10-31 · 24';
 export const C = () => SillyTavern.getContext();
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -754,28 +754,57 @@ export const models = async (p, t = 'chat') => {
 };
 
 /* ---------- 剧情上下文 / 世界书 ---------- */
-const strip = s => String(s || '').replace(/<[^>]*>/g, '').replace(/\n{3,}/g, '\n\n').trim();
-export const recent = (n = S.ctxN) => (C().chat || []).filter(m => !m.is_system).slice(-n).map(m => `${m.name}: ${strip(m.mes)}`).join('\n');
+/* 正文给小手机看什么（设置 → 上下文与世界书；聊天设置里每个聊天还能单独改）
+   每个标签：keep 要 / drop 不要；没分配过的也不发。有「要」的标签：只取这些标签里的（按原文顺序拼起来，同一个标签出现几次都要）；一个都没有：用整条。
+   注释 <!-- --> 当成一个叫 !-- 的标签。排版用的 HTML 标签（b、br、span…）不算，只去掉尖括号、留字。全在本地算，不调模型 */
+export const TAGS0 = { content: 'keep', thinking: 'drop' };
+const FMT = new Set('br b i u s em strong span p div font small big center sub sup hr ruby rt rp a q blockquote ul ol li h1 h2 h3 h4 h5 h6 mark del ins code pre table tr td th tbody thead img details summary nl'.split(' '));
+const reX = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// 这个聊天（不传就是全局）的规则：{ tags: { 标签小写: 'keep' | 'drop' }, wi: (书, 条目 uid?) => 发不发 }
+export function ctxRules(ch) { const g = S.ctxR ||= { tags: { ...TAGS0 }, wiOff: {} }, o = ch?.cfg?.ctx || {}, tags = { ...g.tags, ...(o.tags || {}) };
+  const on = k => (o.wi || {})[k] ?? !g.wiOff[k];
+  return { tags, keep: Object.keys(tags).filter(k => tags[k] == 'keep'), wi: (b, u) => on(b) && (u == null || on(b + '/' + u)) }; }
+// 一条正文 → 给模型看的样子
+export function body(mes, R = ctxRules()) {
+  let s = String(mes || '').replace(/<br\s*\/?>/gi, '\n'); const keep = R.keep.filter(k => k != '!--'), kc = R.keep.includes('!--');
+  for (const t of keep) s = s.replace(new RegExp(`(<${reX(t)}(?:\\s[^<>]*)?>)\\s*<!--([\\s\\S]*?)-->\\s*(</${reX(t)}\\s*>)`, 'gi'), '$1$2$3'); // 「要」的标签里整个包着注释（比如 <wechat><!-- 聊天记录 --></wechat>）：留里面的字
+  if (keep.length) { const re = new RegExp(`<(${keep.map(reX).join('|')})(?:\\s[^<>]*)?>`, 'gi'), out = []; let m;
+    while ((m = re.exec(s))) { const c = new RegExp(`</${reX(m[1])}\\s*>`, 'i'), rest = s.slice(re.lastIndex), j = rest.search(c); out.push(j < 0 ? rest : rest.slice(0, j)); if (j < 0) break; re.lastIndex += j + rest.slice(j).match(c)[0].length; }
+    out.length && (s = out.join('\n\n')); }
+  s = kc ? s.replace(/<!--|-->/g, '') : s.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  // 剩下的自定义标签（没选「要」的）：整块去掉；没写结尾的，选了「不要」的删到最后（比如写到一半断掉的思维链），其余只去掉标记
+  for (let k = 0; k < 200; k++) { const m = s.match(/<\s*([A-Za-z_\u4e00-\u9fff][\w\u4e00-\u9fff.:-]*)(?:\s[^<>]*)?(\/?)>/g)?.map(x => x.match(/<\s*([^\s>/]+)/)[1]).find(n => !FMT.has(n.toLowerCase()) && !R.keep.includes(n.toLowerCase())); if (!m) break;
+    const o = new RegExp(`<\\s*${reX(m)}(?:\\s[^<>]*)?\\/?>`, 'i'), i = s.search(o), L = s.slice(i).match(o)[0], rest = s.slice(i + L.length), c = rest.search(new RegExp(`</${reX(m)}\\s*>`, 'i'));
+    s = /\/>$/.test(L) ? s.slice(0, i) + rest : c >= 0 ? s.slice(0, i) + rest.slice(c).replace(new RegExp(`^</${reX(m)}\\s*>`, 'i'), '') : R.tags[m.toLowerCase()] == 'drop' ? s.slice(0, i) : s.slice(0, i) + rest; }
+  return s.replace(/<[^<>]*>/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(); }
+// 正文里出现过哪些标签（设置里「找出正文里的其他标签」用）：{ 小写名: { n 出现次数, name 原样, eg 里面的一小段 } }
+export function tagsIn(n = 20) { const o = {};
+  for (const m of (C().chat || []).filter(m => !m.is_system).slice(-n)) { const s0 = String(m.mes || ''), s = s0.replace(/<!--[\s\S]*?(?:-->|$)/g, m => ' '.repeat(m.length)); // 注释里写的 <标签> 不算
+    for (const x of s.matchAll(/<\s*([A-Za-z_\u4e00-\u9fff][\w\u4e00-\u9fff.:-]*)(?:\s[^<>]*)?>/g)) { const k = x[1].toLowerCase(); if (FMT.has(k)) continue;
+      const r = o[k] ||= { n: 0, name: x[1], eg: '' }; r.n++; if (!r.eg) { const a = s0.slice(x.index + x[0].length), j = a.search(new RegExp(`</${reX(x[1])}\\s*>`, 'i')); r.eg = (j < 0 ? a : a.slice(0, j)).replace(/<!--|-->/g, '').replace(/<[^<>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); } }
+    for (const x of s0.matchAll(/<!--([\s\S]*?)(?:-->|$)/g)) { const r = o['!--'] ||= { n: 0, name: '<!-- -->', eg: '' }; r.n++; r.eg ||= x[1].replace(/\s+/g, ' ').trim().slice(0, 60); } }
+  return o; }
+export const recent = (n = S.ctxN, ch) => { const R = ctxRules(ch); return (C().chat || []).filter(m => !m.is_system).slice(-n).map(m => `${m.name}: ${body(m.mes, R)}`).join('\n'); };
 const wim = () => import('../../../world-info.js').catch(() => ({}));
 export const allBooks = async () => (await wim()).world_names || [];
 export async function wiBooks() { if (!S.wi.follow) return S.wi.books; const m = await wim(), c = C(), ch = c.characters?.[c.characterId]; return [...new Set([...(m.selected_world_info || []), ch?.data?.extensions?.world].filter(Boolean))]; }
 const BC = {};
 export const loadBook = async n => { const c = C(), h = BC[n]; if (h && Date.now() - h.t < 6e4) return h.d; try { return (BC[n] = { t: Date.now(), d: c.loadWorldInfo ? await c.loadWorldInfo(n) : await (await fetch('/api/worldinfo/get', { method: 'POST', headers: c.getRequestHeaders(), body: JSON.stringify({ name: n }) })).json() }).d; } catch { return null; } };
 export const entState = (b, e, ctx) => { const o = S.wi.ov[b + '/' + e.uid]; return o != null ? !!o : !e.disable && (e.constant || (e.key || []).some(k => k && ctx.includes(k))); };
-export async function wiText(ctx) { const o = []; for (const b of await wiBooks()) for (const e of Object.values((await loadBook(b))?.entries || {})) entState(b, e, ctx) && o.push(e.content); return o.join('\n\n'); }
-// 上下文长度预算：sysCtx() 完整；sysCtx(true) 精简（不带世界书、只取最近6条）；也可传 { n 条数, rc 正文字数, wi 世界书字数, desc 角色卡字数 } 自定
+export async function wiText(ctx, ch) { const o = [], R = ctxRules(ch); for (const b of await wiBooks()) { if (!R.wi(b)) continue; for (const e of Object.values((await loadBook(b))?.entries || {})) R.wi(b, e.uid) && entState(b, e, ctx) && o.push(e.content); } return o.join('\n\n'); } // 整本 / 条目勾掉的不发（全局、这个聊天各自能勾）
+// 上下文长度预算：sysCtx() 完整；sysCtx(true) 精简（不带世界书、只取最近6条）；也可传 { n 条数, rc 正文字数, wi 世界书字数, desc 角色卡字数, ch 哪个聊天（用它的正文标签 / 世界书设置）, skip 最新的几条不放（打电话另外放了） } 自定
 const cut = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
 export async function sysCtx(o) {
   o = o === true ? { n: 6, rc: 2500, wi: 0, desc: 1200 } : o || {};
   const c = C(), ch = c.characters?.[c.characterId], d = D(), sub = (s, n = 1500) => cut((c.substituteParams?.(s || '') ?? s ?? '').trim(), n);
   const n = Math.max(1, Math.min(+S.ctxN || 15, o.n || 99)), wi = o.wi ?? 8000;
-  const r = cut((C().chat || []).filter(m => !m.is_system).slice(-n).map(m => `${m.name}: ${cut(strip(m.mes), 800)}`).join('\n'), o.rc || 10000);
+  const R = ctxRules(o.ch), sk = o.skip || 0, all = (C().chat || []).filter(m => !m.is_system), r = cut(all.slice(-(n + sk), sk ? -sk : undefined).map(m => `${m.name}: ${cut(body(m.mes, R), 800)}`).join('\n'), o.rc || 10000);
   return `你是“小手机”模拟器，扮演手机里的所有联系人与内容，言行贴合人设、世界观与当前剧情。严格按要求的格式输出，不要任何多余文字。
 当前手机时间：${now().toLocaleString('zh-CN')}
 【用户】${c.name1}（手机昵称：${d.me.nick || c.name1}）${sub(c.powerUserSettings?.persona_description)}
 【主角色】${c.name2}\n${sub(ch?.description, o.desc || 4000)}\n${sub(ch?.personality, 800)}
-${wi ? `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' ')), wi)}` : ''}
-【正文剧情·最近${n}条】\n${r}
+${wi ? `【世界书】\n${sub(await wiText(r + d.chats.map(rn).join(' '), o.ch), wi)}` : ''}
+【正文剧情·${sk ? `再往前${n}条` : `最近${n}条`}】\n${r}
 【手机联系人】${d.chats.map(x => x.type == 'g' ? `群「${x.name}」` : `${rn(x)}(网名${x.nick || '-'})`).join('、') || '无'}`;
 }
 

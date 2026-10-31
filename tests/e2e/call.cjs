@@ -80,7 +80,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.xc-pill[data-k=done]').click()`); await W(2500);
   ok(/你在干嘛呀/.test(await E(`_P.at(-1)`)) && /你在干嘛呀/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /在发呆呢/.test(await E(`document.querySelector('.xc-tx').innerText`)), '点「说完了」：发给对方，字幕里有我说的和 TA 回的');
   ok(/在想|点这里说|正在说/.test(await E(`document.querySelector('.xc-ph').textContent`)), '状态行有字');
-  ok(/最近10条/.test(await E(`_P.at(-1)`)) && /【世界书】/.test(await E(`_P.at(-1)`)), '背景：人设、世界书、正文最近 10 条（拨号时算一次）');
+  ok(/再往前2条/.test(await E(`_P.at(-1)`)) && /【世界书】/.test(await E(`_P.at(-1)`)), '背景：人设、世界书、正文（最新两条在【刚刚发生的】，这里只放再往前两条，不重复；拨号时算一次）');
   // 常驻前缀整场不变：两轮的系统提示一字不差，只有这通电话的对话在变
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '没事'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(2500);
   ok(await E(`(() => { const a = JSON.parse(_P.at(-2)), b = JSON.parse(_P.at(-1)); return a.systemPrompt === b.systemPrompt && /你在干嘛呀/.test(b.prompt) && /没事/.test(b.prompt) && /【此刻】/.test(b.systemPrompt) && /想说多少说多少/.test(b.systemPrompt) && !/刚刚说|最要紧|别有 AI 味|1～3 句|SAY:/.test(b.systemPrompt + b.prompt); })()`), '两轮之间系统提示完全一样（缓存能命中），只有对话在变；规矩只剩几条，没有「刚刚说 / 最要紧 / 1～3 句」');

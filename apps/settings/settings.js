@@ -9,6 +9,7 @@ import { ballPicker, ballUrl, ballName } from '../../ball.js';
 import { modsPage } from './mods-ui.js';
 import { freePage } from './free-models.js';
 import { langPage } from './lang-packs.js';
+import { ctxBox, mountCtx } from './ctx-rules.js';
 import { localSearch, storePage, packMeta, rmPack } from '../chat/sticker.js';
 
 const T = { chat: '聊天模型', img: '生图', tts: '语音 TTS' };
@@ -189,23 +190,17 @@ function link() {
   });
 }
 
-const entI = (o, st) => `<i class="st ${o == null ? 'auto' : ''} ${st ? 'on' : ''}">${o == null ? (st ? '跟随·开' : '跟随·关') : st ? '开' : '关'}</i>`;
+// 上下文与世界书：读几条正文、跟不跟酒馆开着的世界书；下面「发给模型的内容」是所有聊天的默认（正文标签要 / 不要、世界书哪本哪条发、预览）
 function ctx() {
-  let bk = [], all = [], ents = {};
+  let all = [];
   const pg = page({
-    title: '上下文与世界书', onClose: rf, onChange: k => k.startsWith('wi') && load(),
-    body: () => { const f = fx(S), r = recent(); return sec('ctx', [
+    title: '上下文与世界书', onClose: rf, onChange: k => k.startsWith('wi') && pg.re(), after: el => mountCtx(el),
+    body: () => { const f = fx(S); return sec('ctx', [
       ['c', '上下文', f.inp('ctxN', '读取正文条数', 'number')],
-      ['w', '世界书', f.tog('wi.follow', '跟随酒馆已开启的世界书') + (S.wi.follow ? `<p class="tip">当前：${esc(bk.join('、') || '无')}</p>` : f.multi('wi.books', '手动选择世界书', all.map(n => [n, n])))],
-      ...bk.map(b => ['b:' + b, '📖 ' + esc(b), Object.values(ents[b] || {}).map(e => { const o = S.wi.ov[b + '/' + e.uid], st = entState(b, e, r); return `<div class="ent" data-a="ent" data-lp="entr" data-x="${esc(b + '/' + e.uid)}">${entI(o, st)}<span>${esc(e.comment || (e.key || []).join(',') || '#' + e.uid)}</span>${e.constant ? '<em>常驻</em>' : ''}</div>`; }).join('') || '<p class="tip">空</p>'])])
-      + '<p class="tip">点一下开 / 关 · 长按恢复跟随酒馆</p>'; },
-    // 点一下：现在开着就关、关着就开（只改这一条，页面不跳）；长按：恢复跟随酒馆
-    acts: {
-      ent: (x, el) => { const [b, ...u] = x.split('/'), e = Object.values(ents[b] || {}).find(e => String(e.uid) == u.join('/')); if (!e) return; const on = entState(b, e, recent()); S.wi.ov[x] = on ? 0 : 1; save(); el.querySelector('.st').outerHTML = entI(S.wi.ov[x], !on); },
-      entr: (x, el) => { const [b, ...u] = x.split('/'), e = Object.values(ents[b] || {}).find(e => String(e.uid) == u.join('/')); if (!e || S.wi.ov[x] == null) return; delete S.wi.ov[x]; save(); el.querySelector('.st').outerHTML = entI(null, entState(b, e, recent())); toast('已恢复跟随酒馆'); },
-    },
+      ['w', '世界书', f.tog('wi.follow', '跟随酒馆已开启的世界书') + (S.wi.follow ? '' : f.multi('wi.books', '手动选择世界书', all.map(n => [n, n])))],
+      ['cx', '发给模型的内容', ctxBox()]]); },
   });
-  const load = async () => { all = await allBooks(); bk = await wiBooks(); for (const b of bk) ents[b] = (await loadBook(b))?.entries; pg.re(); }; load();
+  allBooks().then(a => { all = a; S.wi.follow || pg.re(); });
 }
 
 function disp() {
