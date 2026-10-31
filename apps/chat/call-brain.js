@@ -5,7 +5,7 @@
 // - 外语：TA 的话写成 「原话」（中文意思），跟正文里的写法一样（模型最熟）；「」里念出来，（）里只做字幕
 // - 念之前检查语言：设成日语就必须是日语，混进中文的句子先翻成日语再念（酒馆自带的免费翻译，不花 API），绝不让日语音色硬念汉字
 // - （笑）（叹气）（小声）这类写在话里的声音 → Fish Audio S2 的 [laughing] 等标记；别的服务商就去掉
-import { S, now, rn, say, meObj, sysCtx, mt, forgot, prof, voiceOf } from '../../core.js';
+import { S, C, now, rn, say, meObj, sysCtx, mt, forgot, prof, voiceOf } from '../../core.js';
 import { mp } from '../../mods.js';
 import { lname } from './data.js';
 import { stLabel } from './status.js';
@@ -23,8 +23,10 @@ export function tail(ch, A, L) {
   const me = meObj(), I = me.nick, who = rn(ch), d = now(), vid = A.kind == 'video';
   const chat = ch.msgs.filter(m => !/sys|pat|call/.test(m.t)).slice(-12).map(m => `${m.f == 'me' ? I : who}: ${say(m)}`).join('\n');
   const calls = ch.msgs.filter(m => m.t == 'call' && !forgot(m) && m.log?.length).slice(-2).map(m => `${ago(d - (m.ts || 0))}打过一通（${m.c}）：${m.log.slice(-10).map(x => `${x.f == 'me' ? I : who}：${x.tr || x.t}`).join(' / ').slice(0, 260)}`).join('\n');
+  const last = (() => { try { return (C().chat || []).filter(m => !m.is_system).slice(-2).map(m => `${m.name}: ${String(m.mes || '').replace(/<[^>]*>/g, '').trim().slice(-500)}`).join('\n'); } catch { return ''; } })();
   const st = ch.st && d - (ch.st.ts || 0) < 864e5 ? `${who}的微信状态是「${stLabel(ch.st)}${ch.st.t ? '：' + ch.st.t : ''}」。` : '';
   return `\n\n【现在】${I}给${who}打${vid ? '视频' : '语音'}电话。你就是${who}，用${who}自己的口吻说话，只说${who}的话，不替${I}说。`
+    + (last ? `\n【刚刚发生的】（正文最新的几段，电话就是在这之后打来的）\n${last}` : '')
     + `\n【此刻】${hm(d)}。${who}这会儿在哪、在干嘛、什么心情，按上面最新的剧情定，整通电话保持一致，被问到就具体说。${st}`
     + (chat ? `\n【最近的私聊】\n${chat}` : '') + (calls ? `\n【之前的电话】（只当背景，一切以最新剧情为准；可以顺嘴提一句）\n${calls}` : '')
     + `\n【说话】${mp('chat.call', { 对方: who, 我: I })}电话里的话都是说出口的：没有动作描写、旁白、表情符号。想说多少说多少，一句也行，一大段也行。笑、叹气、压低声音可以写成（笑）（叹气）（小声）放在那句话里，会被念出来；别的动作不写。`
@@ -37,12 +39,12 @@ export function tail(ch, A, L) {
 export function messages(ch, A, L, o = {}) {
   const I = meObj().nick, who = rn(ch), M = [], add = (role, t) => { if (!t) return; const l = M.at(-1); l?.role == role ? (l.content += '\n' + t) : M.push({ role, content: t }); };
   for (const x of A.log.slice(-30)) x.f == 'me' ? add('user', x.t) : add('assistant', L ? `「${x.t}」${x.tr ? `（${x.tr}）` : ''}` : x.t);
-  if (o.open) add('user', `（电话接通了，${I}还没说话，你先开口。照剧情里刚发生的事、${who}这会儿的处境来说第一句，不要只说一句「喂」。）`);
+  if (o.open) add('user', `（${I}打来的电话，你刚接起来。）`); // 只交代场景，不提「喂」——提了小模型反而照着说
   else if (o.nudge) add('user', `（${I}那边安静了 ${o.nudge} 秒，没出声。）`);
   else if (o.story) add('user', `${o.said}（${I}想听这个故事。现在是睡前，${I}躺着听：用你自己的口吻慢慢讲一个完整的故事，大约 1500 字，句子短、适合念出来，中间可以轻轻跟${I}说一两句，结尾慢慢收住、道晚安。）`);
   else if (o.au) add('user', `（这段录音是${I}刚说的话。第一行先写 HEARD: 后面照录音写下${I}的原话（笑、叹气写在括号里，听不清写 HEARD: ?），然后另起一行开始回。）`);
   else if (o.said) { const l = M.at(-1), tn = o.tone ? `（听起来${o.tone}）` : ''; l?.role == 'user' && l.content.endsWith(o.said) ? (l.content += tn) : add('user', o.said + tn); } // 我这句一般已经记在 log 里了，别发两遍
-  M[0]?.role != 'user' && M.unshift({ role: 'user', content: `（${I}打来电话，接通了。）` });
+  M[0]?.role != 'user' && M.unshift({ role: 'user', content: `（${I}打来的电话，你刚接起来。）` });
   M.at(-1).role != 'user' && add('user', `（${I}在听。）`);
   return M;
 }

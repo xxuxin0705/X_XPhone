@@ -23,7 +23,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'callja_' + n + '.png') });
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js'); window.la = await import('/apps/chat/local-asr.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar2 = 'local'; core.S.callLang = 'ja-JP'; core.S.callAsr = {}; core.S.callNudge = false; window._P = []; window._parts = [];
-    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? 'もしもし？' : 'うん、聞こえたよ。'; };
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /刚接起来/.test(JSON.stringify(o)) ? 'もしもし？' : 'うん、聞こえたよ。'; };
     delete window.webkitSpeechRecognition; })()`);
   // 下载
   await E(`(async () => (await import('/apps/settings/lang-packs.js')).langPage())()`); await W(500);
@@ -42,8 +42,8 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`cl.inCall()?.ear == 'local' && !cl.inCall().earBack && la.asrFor('ja-JP').loaded && !la.localAsr.loaded`), '我说日语：用本地日语包（模型启动了；中文模型没开，省内存）');
   ok(/日语/.test(await E(`document.querySelector('.xc-lang')?.textContent || ''`)) && /本地识别/.test(await E(`document.querySelector('.xc-lang')?.textContent || ''`)), '底部：我说 日语 · 本地识别');
   if (MIC) {
-    await p.waitForFunction(`_P.some(x => /[ぁ-んァ-ン一-龯]{4}/.test(x) && !/先开口/.test(x))`, null, { timeout: 60000 }).catch(() => { }); await shot('heard');
-    const parts = await E(`_parts`), sent = await E(`_P.filter(x => !/先开口/.test(x)).at(-1) || ''`); console.log('PARTS', JSON.stringify(parts).slice(0, 400));
+    await p.waitForFunction(`_P.some(x => /[ぁ-んァ-ン一-龯]{4}/.test(x) && !/刚接起来/.test(x))`, null, { timeout: 60000 }).catch(() => { }); await shot('heard');
+    const parts = await E(`_parts`), sent = await E(`_P.filter(x => !/刚接起来/.test(x)).at(-1) || ''`); console.log('PARTS', JSON.stringify(parts).slice(0, 400));
     ok(/[ぁ-んァ-ン]/.test(sent) && !/audio_url/.test(sent), '说完：本地认出来的日语整句当文字发给 TA');
     ok(parts.length >= 2, '说的时候字幕里先出来一部分（每隔一会儿重认一遍） n=' + parts.length);
   } else console.log('  · 没给 JA_WAV：跳过「认得对不对」');

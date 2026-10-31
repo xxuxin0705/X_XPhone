@@ -11,7 +11,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   const E = s => p.evaluate(s), W = ms => p.waitForTimeout(ms), shot = n => p.screenshot({ path: path.join(OUT, 'call_' + n + '.png') });
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.fav = await import('/apps/chat/fav.js'); window.br = await import('/apps/chat/call-brain.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; window._P = []; core.S.callAuto = false; core.S.callEar2 = 'web'; core.S.callNudge = false; window.cl = await import('/apps/chat/call.js');
-    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '喂？怎么突然打电话过来。' : '哈哈，真的吗。那你明天几点到？我去接你。'; };
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /刚接起来/.test(JSON.stringify(o)) ? '喂？怎么突然打电话过来。' : '哈哈，真的吗。那你明天几点到？我去接你。'; };
     delete window.SpeechRecognition; delete window.webkitSpeechRecognition;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '徐鑫', nick: '绷带盐', fr: 1 })); window._k = dt.add(dt.blank('p', { real: 'Kiki', fr: 1 })); _c.msgs.push({ f: _c.id, t: 'text', c: '在吗', ts: Date.now() - 6e4 }); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
   // 回归：通话界面的样式名不能和聊天列表的 .cl 撞（之前撞了：列表整个看不见、点哪都进第一个人的聊天）
@@ -25,7 +25,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`_P.length == 1 && cl.inCall().st == 'dial'`), '响铃的时候模型已经在写接通第一句了（还没接起来）');
   await W(3800); await shot('talk');
   ok(await E(`!!document.querySelector('.xc .xc-tm') && /挂断/.test(document.querySelector('.xc-ctl').textContent)`), '接通：显示通话时长，按钮变「挂断」');
-  ok(/怎么突然打电话过来/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /先开口/.test(await E(`_P[0]`)) && /不要只说一句「喂」/.test(await E(`_P[0]`)), '接通第一句是模型照剧情写的（提示里要求别只说「喂」），不再是固定的「喂？」');
+  ok(/怎么突然打电话过来/.test(await E(`document.querySelector('.xc-tx').innerText`)) && /刚接起来/.test(await E(`_P[0]`)) && !/喂/.test(JSON.parse(await E(`_P[0]`)).prompt), '接通第一句是模型照剧情写的，不再是固定的「喂？」；给模型的话里一个「喂」字都没有（提了反而照说）');
   await W(2500);
   ok(await E(`!!document.querySelector('.xc-pill[data-k=talk]')`) && /点这里说/.test(await E(`document.querySelector('.xc-ctl').textContent`)), 'TA 说完轮到我：下面是「点这里说」，不自动开麦');
   await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(300);
@@ -58,7 +58,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(() => { core.S.api.tts = { src: 'custom', pv: 'fish', cfg: { fish: { key: 'fk', model: 's2.1-pro' } } }; _c.tv = { v: { fish: 'vid' } }; _c.cfg.lang = 'ja'; window._play = 0; window._tts = [];
     const st = AudioBufferSourceNode.prototype.start; AudioBufferSourceNode.prototype.start = function (...a) { _play++; return st.apply(this, a); };
     const pl = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { /^blob:/.test(this.src) && _play++; return pl.call(this); };
-    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '「もしもし、どうしたの？」（喂，怎么了？）' : '「（笑）今ちょうど暇だよ。」（我现在正好有空。）\\n「稍微有点事情，刚从医院回来。」'; }; })()`);
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /刚接起来/.test(JSON.stringify(o)) ? '「もしもし、どうしたの？」（喂，怎么了？）' : '「（笑）今ちょうど暇だよ。」（我现在正好有空。）\\n「稍微有点事情，刚从医院回来。」'; }; })()`);
   await ctx.route(/api\.fish\.audio/, r => { ttsN++; _ttsBody(r.request().postDataJSON()); r.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'access-control-allow-origin': '*' }, body: wav() }); });
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(4000);
   ok(/もしもし、どうしたの？\n喂，怎么了？/.test(await E(`document.querySelector('.xc-tx')?.innerText || ''`)), '日语角色接通：模型写的「原话」（中文）→ 字幕上一行日语、下一行中文');
@@ -72,7 +72,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.xc [data-k=end]').click()`); await W(400); await E(`_c.cfg.lang = ''; core.S.api.tts = {}`);
   // 点一下说：话实时写在屏幕上；识别自己停了也接着听、拼起来；点「说完了」才发给对方
   await E(`(() => { window._srN = 0; window.webkitSpeechRecognition = class { start() { const me = this; _srN++; const n = _srN; setTimeout(() => { if (n == 1) { me.onresult?.({ results: [Object.assign([{ transcript: '你在' }], { isFinal: true }), Object.assign([{ transcript: '干嘛' }], { isFinal: false })] }); me.onend?.(); } else if (n == 2) me.onresult?.({ results: [Object.assign([{ transcript: '呀' }], { isFinal: false })] }); }, 200); } abort() {} stop() {} };
-    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '喂？' : '在发呆呢。'; }; })()`);
+    SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /刚接起来/.test(JSON.stringify(o)) ? '喂？' : '在发呆呢。'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(6500);
   await E(`document.querySelector('.xc-pill[data-k=talk]').click()`); await W(900);
   ok(await E(`document.querySelector('.xc-tx .ing')?.textContent`) == '你在干嘛呀' && await E(`_srN`) >= 2 && /说完了/.test(await E(`document.querySelector('.xc-ctl').textContent`)), '说话时实时上屏；识别自己停了接着听、拼起来 ' + await E(`document.querySelector('.xc-tx .ing')?.textContent`));
@@ -112,7 +112,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   ok(await E(`(async () => { const c = await import('/core.js'); return JSON.stringify([c.noThink('deepseek-v3.2'), c.noThink('glm-4.7-flash'), c.noThink('Qwen/Qwen3-8B'), c.noThink('gemini-2.5-flash'), c.noThink('claude-x')]); })()`) == JSON.stringify([{ thinking: { type: 'disabled' } }, { thinking: { type: 'disabled' } }, { enable_thinking: false }, { reasoning_effort: 'none' }, { reasoning_effort: 'low' }]), '关思考按模型名挑开关：DeepSeek / GLM 用 thinking、Qwen 用 enable_thinking、Gemini 2 能整个关掉、其它 low');
   await E(`(() => { const X = SillyTavern.getContext(); delete X.ChatCompletionService; delete X.mainApi; })()`);
   // TA 一口气说一大段：不限制句数（照人设想说多少说多少），都念出来；模型自己写的 [挂断] 我没说要走就不当真；模型开始替我说话就从那里掐掉
-  await E(`(() => { _c.cfg.lang = 'ja'; window._P1 = _P.length; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /先开口/.test(JSON.stringify(o)) ? '「もしもし？」（喂？）' : [['なあに？', '怎么了？'], ['ちょっとしたことだよ。', '是点小事。'], ['あ、そうか。', '哦，这样啊。'], ['で、何かあったの？', '那，发生什么事了？'], ['ちょっと疲れたんだよね。', '有点累了。'], ['じゃあね。', '那拜拜。']].map(([a, b]) => '「' + a + '」（' + b + '）').join('\\n') + '\\n[挂断]\\n' + core.meObj().nick + '：好的拜拜\\n「おやすみ」（晚安）'; }; })()`);
+  await E(`(() => { _c.cfg.lang = 'ja'; window._P1 = _P.length; SillyTavern.getContext().generateRaw = async o => { _P.push(JSON.stringify(o)); return /刚接起来/.test(JSON.stringify(o)) ? '「もしもし？」（喂？）' : [['なあに？', '怎么了？'], ['ちょっとしたことだよ。', '是点小事。'], ['あ、そうか。', '哦，这样啊。'], ['で、何かあったの？', '那，发生什么事了？'], ['ちょっと疲れたんだよね。', '有点累了。'], ['じゃあね。', '那拜拜。']].map(([a, b]) => '「' + a + '」（' + b + '）').join('\\n') + '\\n[挂断]\\n' + core.meObj().nick + '：好的拜拜\\n「おやすみ」（晚安）'; }; })()`);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`); await W(3500);
   await E(`document.querySelector('.xc-type input') || document.querySelector('.xc [data-k=kb]').click()`); await W(300); await E(`(() => { const i = document.querySelector('.xc-type input'); i.value = '你在干嘛呀'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); })()`); await W(14000);
   const said = await E(`cl.inCall()?.lines.filter(x => x.f != 'me').map(x => x.t) || []`), pr = await E(`_P.at(-1) || ''`);

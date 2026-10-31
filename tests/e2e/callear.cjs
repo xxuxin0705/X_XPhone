@@ -12,7 +12,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`(async () => { window.core = await import('/core.js'); window.dt = await import('/apps/chat/data.js'); window.talk = await import('/apps/chat/talk.js'); window.cl = await import('/apps/chat/call.js');
     core.S.lock.on = false; core.S.style = 'wx'; core.S.api.chat.src = 'tavern'; core.S.callEar2 = 'model'; core.S.callNudge = false; window._P = []; window._loud = 0; window._gum = 0;
     navigator.mediaDevices.getUserMedia = async c => { _gum++; const X = new AudioContext(), o = X.createOscillator(), g = X.createGain(), d = X.createMediaStreamDestination(); o.frequency.value = 220; o.connect(g); g.connect(d); o.start(); g.gain.value = 0; setInterval(() => { g.gain.value = _loud * .5 + .0005; }, 20); window._mic = c; return d.stream; };
-    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); if (_mode == 'r429' && !window._thrown) { window._thrown = 1; throw Error('HTTP 429 {"error":{"message":"您已达到请求数限制：1分钟内最多请求3次 (request id: abc)"}}'); } return /想听这个故事/.test(s) ? '从前，森林里住着一只小狐狸。\\n它每天晚上都会抬头数星星。\\n数着数着，它就睡着了。\\n晚安，做个好梦。' : /先开口/.test(s) ? '喂？' : _mode == 'fix' && /行好累/.test(s) ? 'FIX: 心好累啊\\n怎么啦，今天很辛苦吗？' : _mode == 'bye' ? 'HEARD: 我要睡了，晚安\\n好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
+    window._mode = ''; SillyTavern.getContext().generateRaw = async o => { _P.push(o); const s = JSON.stringify(o); if (_mode == 'slow') await new Promise(r => setTimeout(r, 2500)); if (_mode == 'r429' && !window._thrown) { window._thrown = 1; throw Error('HTTP 429 {"error":{"message":"您已达到请求数限制：1分钟内最多请求3次 (request id: abc)"}}'); } return /想听这个故事/.test(s) ? '从前，森林里住着一只小狐狸。\\n它每天晚上都会抬头数星星。\\n数着数着，它就睡着了。\\n晚安，做个好梦。' : /刚接起来/.test(s) ? '喂？' : _mode == 'fix' && /行好累/.test(s) ? 'FIX: 心好累啊\\n怎么啦，今天很辛苦吗？' : _mode == 'bye' ? 'HEARD: 我要睡了，晚安\\n好呀，那晚安啦。\\n[挂断]' : _mode == 'long' ? 'HEARD: （笑）你猜\\n好啊，那我们先来说说今天到底发生了什么有意思的事情吧。' : /audio_url/.test(s) ? 'HEARD: 我是螃蟹\\n好，那现在开始。' : '嗯。'; };
     delete window.webkitSpeechRecognition;
     core.APPS.chat.open(); window._c = dt.add(dt.blank('p', { real: '五条悟', nick: '五条', fr: 1 })); core.saveD(); talk.openChat(_c.id); })()`); await W(600);
   await E(`document.querySelector('[data-a=pan][data-x=more]').click()`); await W(200); await E(`document.querySelector('.tl[data-a=pcall]').click()`); await W(300); await E(`document.querySelector('.sheet.in [data-x=voice]').click()`);
@@ -37,20 +37,18 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`document.querySelector('.xc-tx p.me[data-k=fix]').click()`); await W(200);
   await E(`(() => { const i = document.querySelector('.xc-fix input'); i.value = '我是小螃蟹'; document.querySelector('.xc-fix [data-f=y]').click(); })()`); await W(200);
   ok(await E(`cl.inCall().log.some(x => x.f == 'me' && x.t == '我是小螃蟹') && /我是小螃蟹/.test(document.querySelector('.xc-tx').innerText) && !document.querySelector('.xc-fix')`), '听错了能改：点我那句、改字，通话内容跟着改');
-  // TA 说话时「嗯」一声：不打断；真的开口说 1 秒以上：TA 停下听我说
+  // 轮流说（照 StarHub 教程）：TA 说话的时候麦克风关着——我出声不打断、也不会被录进去；TA 在想的时候我又出声也不会多发一份
   await E(`_mode = 'long'`); await E(`_loud = 1`); await W(1300); await E(`_loud = 0`);
   await p.waitForFunction(`cl.inCall().ph == 'speak'`, null, { timeout: 6000 }).catch(() => { }); await W(300);
-  await E(`_loud = 1`); await W(340); const dk = await E(`cl.inCall().ducked`); await E(`_loud = 0`); await W(700);
-  ok(dk === true && await E(`cl.inCall().ducked`) === false && await E(`cl.inCall().ph == 'speak'`), 'TA 说话时我「嗯」一声（0.34 秒）：先把 TA 的声音压低，没接着说就恢复，不打断');
   ok(/（笑）你猜/.test(await E(`document.querySelector('.xc-tx').innerText`)), '听到的话里留着（笑）');
-  const nB = await E(`_P.length`); await E(`_mode = ''; _loud = 1`); await W(1100); await shot('barge');
-  ok(await E(`cl.inCall().ph == 'rec' && /—$/.test(cl.inCall().lines.findLast(x => x.f != 'me').t)`), 'TA 说话时我真的开口（1 秒）：TA 停下，字幕后面加「—」，开始听我说');
-  await E(`_loud = 0`); await W(2200); ok(await E(`_P.length`) == nB + 1, '插话说完：发给 TA');
-  // TA 还在想时我接着说：两段录音合起来重新发（不会把我的话截成两半）
-  await W(2500); await E(`_mode = 'slow'; _loud = 1`); await W(900); await E(`_loud = 0`); await W(1500);
-  const a1 = await E(`JSON.stringify(_P.at(-1)).length`); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(1600);
-  ok(await E(`JSON.stringify(_P.at(-1)).length`) > a1 + 2000 && await E(`cl.inCall().lines.filter(x => x.t == '…').length`) <= 1, 'TA 在想时我又接着说：前后两段录音合成一段重新发');
-  await E(`_mode = ''`); await W(3500);
+  const nB = await E(`_P.length`); await E(`_mode = ''; _loud = 1`); await W(1100); await E(`_loud = 0`); await shot('turns');
+  ok(await E(`cl.inCall().ph == 'speak' && !/—$/.test(cl.inCall().lines.findLast(x => x.f != 'me').t)`), 'TA 说话时我开口说了 1 秒：TA 接着说，不被打断（轮流说）');
+  await W(2200); ok(await E(`_P.length`) == nB, 'TA 说话时我说的那段没被录进去、没发给 TA（外放的声音也不会被当成我说的）');
+  await p.waitForFunction(`cl.inCall().ph == 'idle'`, null, { timeout: 15000 }).catch(() => { }); await W(600);
+  await E(`_mode = 'slow'; _loud = 1`); await W(900); await E(`_loud = 0`); await W(1500);
+  const a1 = await E(`_P.length`); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(1600);
+  ok(await E(`_P.length`) == a1, 'TA 在想的时候我又出声：不打断、不多发一份');
+  await E(`_mode = ''`); await p.waitForFunction(`cl.inCall().ph == 'idle'`, null, { timeout: 15000 }).catch(() => { }); await W(600);
   // 安静的麦克风（被录屏占着）→ 提示
   await E(`(() => { const a = cl.inCall().earObj; a.vmax = 0; a.at = performance.now() - 7e3; })()`); await W(1300);
   ok(/一点声音都没进来/.test(await E(`document.querySelector('.xc-hint')?.textContent || ''`)) || await E(`cl.inCall().earObj.vmax`) > .002, '麦克风一点声音都没有：提示可能被录屏占着');
@@ -82,11 +80,9 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
   await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(1300); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3200);
   ok(await E(`_P.length`) == m0 + 1 && /好累，好累/.test(await E(`JSON.stringify(_P.at(-1))`)), '停顿一下又接着说：两段并成一句，只发了一次请求');
   // 中转站限流（429 / 1 分钟内最多请求 3 次）：记住限额、排队自动重发，不算失败，不把一长串报错甩到屏幕上
-  asrNext = '在吗'; await E(`_mode = 'r429'; window._thrown = 0`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(3500);
-  ok(await E(`Object.values(core.S.callRpmBy || {}).includes(3) && cl.inCall().ph != 'fail' && !/request id|\\{/.test(document.querySelector('.xc').innerText)`) && /排队中|在想|正在说|在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), '429：记住每分钟 3 次，排队自动重发（不算失败）：' + await E(`document.querySelector('.xc-ph').textContent`));
-  // 限额按线路记：中转站报了每分钟 3 次，打电话换成别的模型（免费模型）就不跟着排队
-  ok(await E(`(() => { const k = Object.keys(core.S.callRpmBy)[0]; (core.S.mods ||= {})['chat.call'] = { use: 'free-x' }; const other = !core.S.callRpmBy['free-x']; delete core.S.mods['chat.call']; return !!k && other; })()`), '每分钟限额只记在报 429 的那条线上，换成别的模型打电话不排队');
-  await E(`_mode = ''; core.S.callRpmBy = {}`); asrNext = null;
+  asrNext = '在吗'; await E(`_mode = 'r429'; window._thrown = 0`); await W(2500); await E(`_loud = 1`); await W(900); await E(`_loud = 0`); await W(5500);
+  ok(await E(`!core.S.callRpmBy && cl.inCall().ph != 'fail' && !/request id|\\{|排队|中转站/.test(document.querySelector('.xc').innerText) && window._thrown == 1`) && /在想|正在说|在听/.test(await E(`document.querySelector('.xc-ph').textContent`)), '429（模型那边忙 / 撞车）：悄悄等 2 秒重发一次，不当成限额、不排队、不提中转站');
+  await E(`_mode = ''`); asrNext = null;
   await E(`cl.inCall()?.hang?.()`); await W(400);
   // 枕边故事：「＋」里点开 → TA 问想听什么（不调用模型）→ 我说一句 → 一次请求讲完，一句一句慢慢念；讲的时候不追问
   asrNext = '讲个小狐狸的故事'; await E(`(() => { core.S.callEar2 = 'sf'; core.S.callNudge = true; _mode = ''; window._s0 = _P.length; })()`);
